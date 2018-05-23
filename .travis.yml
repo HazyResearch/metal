@@ -26,9 +26,6 @@ before_install:
   # Set conda settings
   - conda config --set always_yes yes  # For all conda commands, choose 'yes'
   - conda config --set changeps1 no  # Do not show the name of the active env
-  
-  # Add MeTaL environment variables
-  - source set_env.sh
 
 install:
   # Check if <testing> environment exists; if not, create it
