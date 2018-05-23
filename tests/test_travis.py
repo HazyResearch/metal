@@ -3,14 +3,6 @@ import unittest
 
 class TravisTest(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
     def test_sanity(self):
         self.assertTrue(1 + 1 == 2)
         # Confirm import of third-party package also works
