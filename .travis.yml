@@ -1,0 +1,51 @@
+# Use a docker image for access to Ubuntu 16.04 (more details below)
+sudo: required 
+dist: trusty
+services:
+  - docker
+
+language: python
+python: 
+  - "3.6"  # This value may be referred to as $TRAVIS_PYTHON_VERSION 
+
+before_install:
+  # Use Ubuntu 16.04 instead of 14.04 to avoid the error:
+  # "ImportError: dlopen: cannot load any more object with static TLS"
+  # https://github.com/pytorch/pytorch/issues/2083
+  # https://github.com/RobotLocomotion/director/issues/467
+  # In short, Ubuntu 16.04 has a larger default allotment of TLS slots.
+  - docker pull ubuntu:16.04
+
+  # Check if miniconda is already accessible; if not, download and install it
+  - chmod +x ./.travis/maybe_install_miniconda.sh
+  - ./.travis/maybe_install_miniconda.sh
+
+  # Add miniconda to PATH
+  - export PATH="$HOME/miniconda/bin:$PATH"
+
+  # Set conda settings
+  - conda config --set always_yes yes  # For all conda commands, choose 'yes'
+  - conda config --set changeps1 no  # Do not show the name of the active env
+  
+  # Add MeTaL environment variables
+  - source set_env.sh
+
+install:
+  # Check if <testing> environment exists; if not, create it
+  - chmod +x ./.travis/maybe_create_testing_env.sh
+  - ./.travis/maybe_create_testing_env.sh
+  - source activate testing
+
+  # Install requirements
+  - travis_wait conda install -q matplotlib numpy pandas unittest
+
+script:
+  - cd tests
+  - python test_travis.py -v
+
+notifications:
+  email:
+    recipients:
+      - bradenjh@cs.stanford.edu
+    on_success: change # default: change [change, always, never]
+    on_failure: change # default: always
