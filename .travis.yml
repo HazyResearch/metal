@@ -34,7 +34,9 @@ install:
   - source activate testing
 
   # Install requirements
-  - travis_wait conda install -q matplotlib numpy pandas unittest
+  # Prefer conda, then use pip for those unavailable through conda
+  - travis_wait conda install -q matplotlib numpy pandas 
+  - pip install -q unittest
 
 script:
   - cd tests
