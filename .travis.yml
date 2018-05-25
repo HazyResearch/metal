@@ -35,7 +35,7 @@ install:
 
   # Install requirements
   # Prefer conda, then use pip for those unavailable through conda
-  - travis_wait conda install -q matplotlib numpy pandas 
+  - travis_wait conda install -q matplotlib numpy pandas pytorch scipy torchvision -c pytorch
 
 script:
   - cd tests

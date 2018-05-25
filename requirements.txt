@@ -1,0 +1,7 @@
+jupyter
+matplotlib
+numpy
+pandas
+python=3.6
+pytorch=0.4
+scipy
