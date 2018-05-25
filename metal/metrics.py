@@ -51,9 +51,16 @@ def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
     return gold, pred
 
 
+def _preprocess(gold, pred, ignore_in_gold, ignore_in_pred):
+    gold = _to_array(gold)
+    pred = _to_array(pred)
+    if ignore_in_gold or ignore_in_pred:
+        gold, pred = _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred)
+    return gold, pred
+
 def accuracy_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
     """
-    Calculate accuracy.
+    Calculate (micro) accuracy.
     Args:
         gold: A 1d array-like of gold labels
         pred: A 1d array-like of predicted labels (assuming abstain = 0)
@@ -63,12 +70,9 @@ def accuracy_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
             label will be ignored.
 
     Returns:
-        A float, the accuracy score
+        A float, the (micro) accuracy score
     """
-    gold = _to_array(gold)
-    pred = _to_array(pred)
-    if ignore_in_gold or ignore_in_pred:
-        gold, pred = _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred)
+    gold, pred = _preprocess(gold, pred, ignore_in_gold, ignore_in_pred)
 
     if len(gold) and len(pred):
         acc = np.sum(gold == pred) / len(gold)
@@ -77,6 +81,23 @@ def accuracy_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
 
     return acc
 
+def coverage_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
+    """
+    Calculate (global) coverage.
+    Args:
+        gold: A 1d array-like of gold labels
+        pred: A 1d array-like of predicted labels (assuming abstain = 0)
+        ignore_in_gold: A list of labels for which elements having that gold
+            label will be ignored.
+        ignore_in_pred: A list of labels for which elements having that pred
+            label will be ignored.
+
+    Returns:
+        A float, the (global) coverage score
+    """
+    gold, pred = _preprocess(gold, pred, ignore_in_gold, ignore_in_pred)
+
+    return np.sum(pred != 0) / len(pred)
 
 def metric_score(gold, pred, metric, **kwargs):
     if metric == 'accuracy':
