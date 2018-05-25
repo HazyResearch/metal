@@ -38,9 +38,8 @@ install:
   - travis_wait conda install -q matplotlib numpy pandas pytorch scipy torchvision -c pytorch
 
 script:
-  - cd tests
-  - python test_travis.py -v
-  - python test_metrics.py -v
+  - python tests/test_travis.py -v
+  - python tests/test_metrics.py -v
 
 notifications:
   email:
