@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 import torch
 
-from metal.learning.label_model import LabelModelBase
+from metal.label_model.model import LabelModelBase
 from metal.utils import rargmax
 
 class RandomVoter(LabelModelBase):
@@ -20,7 +20,7 @@ class RandomVoter(LabelModelBase):
         return torch.tensor(Y_ts, dtype=torch.float)
 
 
-class MajorityVoter(LabelModelBase):
+class MajorityLabelVoter(LabelModelBase):
     """
     A class that treats every task independently, placing all probability on 
     the majority label from all non-abstaining LFs for that task.

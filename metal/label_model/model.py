@@ -2,7 +2,7 @@ import numpy as np
 from scipy.sparse import issparse
 import torch
 
-from metal.learning.classifier import Classifier
+from metal.classifier import Classifier
 
 class LabelModelBase(Classifier):
     """
