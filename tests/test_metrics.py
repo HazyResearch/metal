@@ -1,3 +1,6 @@
+import sys
+sys.path.append("../metal")
+
 import unittest
 
 import numpy as np
@@ -58,8 +61,6 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(score, 0.6)
         score = coverage_score(gold, pred, ignore_in_gold=[2])
         self.assertAlmostEqual(score, 0.5)
-
-
 
 
 if __name__ == '__main__':
