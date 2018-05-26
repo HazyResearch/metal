@@ -7,6 +7,9 @@ class Classifier(object):
         self.name = name or self.__class__.__name__
         self.cardinality = cardinality
 
+    def train(self, X, **kwargs):
+        raise NotImplementedError
+
     def predict(self, X, **kwargs):
         raise NotImplementedError
 

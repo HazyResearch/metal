@@ -49,8 +49,7 @@ def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
     gold = gold[keepers]
     pred = pred[keepers]
     return gold, pred
-
-
+    
 def _preprocess(gold, pred, ignore_in_gold, ignore_in_pred):
     gold = _to_array(gold)
     pred = _to_array(pred)

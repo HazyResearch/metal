@@ -3,16 +3,13 @@ from collections import Counter
 import numpy as np
 import torch
 
-from metal.label_model.model import LabelModelBase
+from metal.label_model.label_model import LabelModelBase
 from metal.utils import rargmax
 
 class RandomVoter(LabelModelBase):
     """
     A class that votes randomly among the available labels for each task
     """
-    def train(self):
-        "RandomVoter does not need to train. Skipping..."
-
     def predict_proba(self, L, t):
         N = L.shape[0]
         Y_ts = np.random.rand(N, self.K_t[t])
@@ -27,10 +24,6 @@ class MajorityLabelVoter(LabelModelBase):
 
     Note that in the case of ties, non-integer probabilities are possible.
     """
-
-    def train(self):
-        "MajorityVoter does not need to train. Skipping..."
-
     def predict_proba(self, L, t):
         L = np.array(L.todense()).astype(int)
         N, M = L.shape
@@ -53,22 +46,19 @@ class MajorityClassVoter(LabelModelBase):
 
     Note that in the case of ties, non-integer probabilities are possible.
     """
-    def __init__(self, L_train, balances, **kwargs):
+    def train(self, L_train, balances):
         """
         Args:
             balances: A list of T lists or np.arrays that each sum to 1, 
                 corresponding to the (possibly estimated) class balances for 
                 each task.
         """
-        super().__init__(L_train, **kwargs)
+        super().train(L_train)
         assert(isinstance(balances, list))
         assert(len(balances) == self.T)
         assert(all(isinstance(x, np.ndarray) for x in balances))
         self.balances = balances
-
-
-    def train(self):
-        "MajorityVoter does not need to train. Skipping..."
+        
 
     def predict_proba(self, L, t):
         N = L.shape[0]
