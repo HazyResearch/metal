@@ -21,7 +21,7 @@ class LabelModelTest(unittest.TestCase):
         model = LabelModel()
 
         # Train label model
-        model.train(L)
+        model.train(L, accs=accs)
 
 
 if __name__ == '__main__':

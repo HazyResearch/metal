@@ -166,7 +166,8 @@ class LabelModel(LabelModelBase):
         for i in range(self.M):
             for j in range(self.M):
                 if i != j:
-                    O[i,j] = O[i,j] - (1 if p[i] == p[j] else -1)
+                    c = 1 if p[i] == p[j] else -1
+                    O[i,j] = c * (O[i,j] - 1)
 
         # Turn O in PyTorch Variable
         return torch.clamp(torch.from_numpy(O), min=-0.95, max=0.95).float()
@@ -212,7 +213,11 @@ class LabelModel(LabelModelBase):
         L_t = torch.from_numpy(L[t]).float()
         return F.sigmoid(2 * L_t @ self.log_odds_accs[t])
     
-    def train(self, L_train, gamma_init=0.5, n_epochs=100, lr=0.1, momentum=0.9,
+    def get_accs_score(self, accs):
+        """Returns the *averaged squared estimation error."""
+        return np.linalg.norm(self.accs.numpy() - accs)**2 / self.M
+    
+    def train(self, L_train, gamma_init=0.5, n_epochs=100, lr=0.01, momentum=0.9,
         l2=0.0, print_at=10, accs=None):
         """Learns the accuracies of the labeling functions from L_train
 
@@ -246,6 +251,10 @@ class LabelModel(LabelModelBase):
             
             # Print loss every k steps
             if epoch % print_at == 0 or epoch == n_epochs - 1:
-                print(f"[Epoch {epoch}] Loss: {loss.item():0.6f}")
+                msg = f"[Epoch {epoch}] Loss: {loss.item():0.6f}"
+                if accs is not None:
+                    accs_score = self.get_accs_score(accs)
+                    msg += f"\tAccs mean sq. error = {accs_score}"
+                print(msg)
 
         print('Finished Training')
