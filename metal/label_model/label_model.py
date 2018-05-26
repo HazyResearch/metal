@@ -48,6 +48,9 @@ class LabelModelBase(Classifier):
                     "scipy.sparse matrix.")
             if L_t.dtype != np.dtype(int):
                 raise Exception(f"L[{t}] has type {L_t.dtype}, should be int.")
+            
+            # Ensure is in CSC sparse format for efficient col (LF) slicing
+            L_t = L_t.tocsc()
 
         # If no label_map was provided, assume labels are continuous integers
         # starting from 1
@@ -107,7 +110,7 @@ class LabelModelBase(Classifier):
 
 
 class LabelModel(LabelModelBase):
-    def __init__(self, config, label_map=None, task_graph=None, dependencies=[]):
+    def __init__(self, config, label_map=None, task_graph=None, deps=[]):
         """
         Args:
             config: dict: A dictionary of config settings
@@ -121,7 +124,91 @@ class LabelModel(LabelModelBase):
         self.task_graph = task_graph
         self.dependencies = dependencies
     
-    def train(self, L_train):
+    def _infer_polarity(self, L_t, j):
+        """Infer the polarity (labeled class) of LF j on task t"""
+        # Note: We assume that L_t is in CSC format here!
+        vals = set(L_t.data[L_t.indptr[j]:L_t.indptr[j+1]])
+        if len(vals) > 1:
+            raise Exception(f"LF {j} on task {t} is non-unipolar: {vals}.")
+        elif len(vals) == 0:
+            # If an LF doesn't label this task, set its polarity to 0 = abstain
+            return 0
+        else:
+            return list(vals)[0]
+    
+    def _get_overlaps_matrix(self, L):
+        """Initializes the data structures for training task t"""
+        # Check to make sure that L is unipolar, and infer polarities
+        p = [self._infer_polarity(L, j) for j in range(self.M)]
+
+        # Next, we form the empirical overlaps matrix O
+        # In the unipolar categorical setting, this is just the empirical count
+        # of non-zero overlaps; whether these were agreements or disagreements
+        # is just a function of the polarities p
+        N = L.shape[0]
+        L_nz = L.copy()
+        L_nz.data[:] = 1
+        O = L_nz.T @ L_nz / N
+        O = O.todense()
+
+        # Divide out the empirical labeling propensities
+        beta = np.diag(O)
+        B = np.diag(1 / np.diag(O))
+        O = B @ O @ B
+
+        # Correct the O matrix given the known polarities
+        for i in range(self.m):
+            for j in range(self.m):
+                if i != j:
+                    O[i,j] = O[i,j] - (1 if p[i] == p[j] else -1)
+
+        # Turn O in PyTorch Variable
+        return Variable(
+            torch.clamp(torch.from_numpy(O), min=-0.95, max=0.95)).float()
+    
+    def _init_params(self, gamma_init):
+        """Initialize the parameters for each LF on each task separately"""
+        # Note: Need to break symmetries by initializing > 0
+        self.gamma = nn.Parameter(gamma_init * torch.ones(self.T, self.m))
+    
+    def _task_loss(self, O_t, t, l2=0.0):
+        """Returns the *scaled* loss (i.e. ~ loss / m^2).
+
+        Note: A *centered* L2 loss term is incorporated here.
+        The L2 term is centered around the self.gamma_init property, which thus
+        also serves as the value of a prior on the gammas.
+        """
+        loss = 0.0
+        for i in range(self.m):
+            for j in range(self.m):
+                if i != j:
+                    loss += (self.gamma[t,i] * self.gamma[t,j] - O_t[i,j])**2
+
+        # Normalize loss
+        loss /= (self.m**2 - self.m)
+
+        # L2 regularization, centered around gamma_init
+        if l2 > 0.0:
+            loss += l2 * torch.sum((self.gamma[t] - self.gamma_init)**2)
+        return loss
+    
+    @property
+    def accs(self):
+        """The float *Tensor* (not Variable) of LF accuracies."""
+        return torch.clamp(0.5 * (self.gamma.data + 1), min=0.01, max=0.99)
+    
+    @property
+    def log_odds_accs(self):
+        """The float *Tensor* (not Variable) of log-odds LF accuracies."""
+        return torch.log(self.accs / (1 - self.accs)).float()
+
+    def predict_proba(self, L, t=0):
+        """Get array of P(Y=1 | L) given the learned LF accs."""
+        L_t = torch.from_numpy(L[t]).float()
+        return F.sigmoid(2 * L_t @ self.log_odds_accs[t])
+    
+    def train(self, L_train, gamma_init=0.5, n_epochs=100, lr=0.1, momentum=0.9,
+        l2=0.0, print_at=10, accs=None):
         """Learns the accuracies of the labeling functions from L_train
 
         Note that in this class, we learn this for each task separately by
@@ -129,19 +216,31 @@ class LabelModel(LabelModelBase):
         """
         self._check_L(L_train, init=True)
 
-        # Train model for each task separately as default for now
-        # TODO: Extend this given task graph!
-        for t, L_t in enumerate(L_train):
-            self._train_task(L_t, t)
-    
-    def _train_task(self, L_t, t):
+        # Get overlaps matrices for each task
+        O = [self._get_overlaps_matrix(L_t) for L_t in L_train]
 
-        # TODO: Have separate trainer class, and implement PyTorch methods like
-        # forward and get_loss
+        # Init params
+        self.init_params(gamma_init=gamma_init)
 
-        # TODO: Additionally check to make sure label matrix is unipolar
+        # Set optimizer as SGD w/ momentum
+        optimizer = optim.SGD(self.parameters(), lr=lr, momentum=momentum)
+        
+        # Train model
+        for epoch in range(n_epochs):
+            optimizer.zero_grad()
 
-        # TODO: Form overlaps matrix
+            # Sum over the task losses uniformly
+            loss = torch.sum([self._task_loss(O_t, t, l2=l2) 
+                for t, O_t in enumerate(O)])
+            
+            # Compute gradient and take a step
+            # Note that since this uses all N training points this is an epoch!
+            loss.backward()
+            optimizer.step()
+            
+            # Print loss every k steps
+            if epoch % print_at == 0 or epoch == n_epochs - 1:
+                msg = f"[Epoch {epoch}] Loss: {loss.data[0]:0.6f}"
+                print(msg)
 
-    def predict_proba(self, L, t=0):
-        raise NotImplementedError
+        print('Finished Training')
