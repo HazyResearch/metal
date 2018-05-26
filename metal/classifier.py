@@ -5,6 +5,7 @@ class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier."""
 
     def __init__(self, cardinality=2, name=None):
+        super().__init__()
         self.name = name or self.__class__.__name__
         self.cardinality = cardinality
 

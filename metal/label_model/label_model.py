@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.sparse import issparse
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
 from metal.classifier import Classifier
 from metal.label_model.lm_config import DEFAULT_CONFIG
@@ -17,6 +20,7 @@ class LabelModelBase(Classifier):
             config:
             label_map: 
         """
+        super().__init__()
         self.config = config
         self.label_map = label_map
     
@@ -31,7 +35,7 @@ class LabelModelBase(Classifier):
         # Accept single sparse matrix and make it a singleton list
         if not isinstance(L, list):
             L = [L]
-        
+
         # Check or set number of tasks and labeling functions
         self._check_or_set_attr('T', len(L), set_val=init)
         n, m = L[0].shape
@@ -69,6 +73,8 @@ class LabelModelBase(Classifier):
             if np.amax(L_t) > self.K_t[t]:
                 raise Exception(f"Task {t} has cardinality {self.K_t[t]}, but"
                     "L[{t}] has max value = {np.amax(L_t)}.")
+        
+        return L
     
     def train(self, X, **kwargs):
         raise NotImplementedError
@@ -110,7 +116,7 @@ class LabelModelBase(Classifier):
 
 
 class LabelModel(LabelModelBase):
-    def __init__(self, config, label_map=None, task_graph=None, deps=[]):
+    def __init__(self, config={}, label_map=None, task_graph=None, deps=[]):
         """
         Args:
             config: dict: A dictionary of config settings
@@ -122,7 +128,7 @@ class LabelModel(LabelModelBase):
         super().__init__(config)
         self.label_map = label_map
         self.task_graph = task_graph
-        self.dependencies = dependencies
+        self.deps = deps
     
     def _infer_polarity(self, L_t, j):
         """Infer the polarity (labeled class) of LF j on task t"""
@@ -157,19 +163,18 @@ class LabelModel(LabelModelBase):
         O = B @ O @ B
 
         # Correct the O matrix given the known polarities
-        for i in range(self.m):
-            for j in range(self.m):
+        for i in range(self.M):
+            for j in range(self.M):
                 if i != j:
                     O[i,j] = O[i,j] - (1 if p[i] == p[j] else -1)
 
         # Turn O in PyTorch Variable
-        return Variable(
-            torch.clamp(torch.from_numpy(O), min=-0.95, max=0.95)).float()
+        return torch.clamp(torch.from_numpy(O), min=-0.95, max=0.95).float()
     
     def _init_params(self, gamma_init):
         """Initialize the parameters for each LF on each task separately"""
         # Note: Need to break symmetries by initializing > 0
-        self.gamma = nn.Parameter(gamma_init * torch.ones(self.T, self.m))
+        self.gamma = nn.Parameter(gamma_init * torch.ones(self.T, self.M))
     
     def _task_loss(self, O_t, t, l2=0.0):
         """Returns the *scaled* loss (i.e. ~ loss / m^2).
@@ -179,13 +184,13 @@ class LabelModel(LabelModelBase):
         also serves as the value of a prior on the gammas.
         """
         loss = 0.0
-        for i in range(self.m):
-            for j in range(self.m):
+        for i in range(self.M):
+            for j in range(self.M):
                 if i != j:
                     loss += (self.gamma[t,i] * self.gamma[t,j] - O_t[i,j])**2
 
         # Normalize loss
-        loss /= (self.m**2 - self.m)
+        loss /= (self.M**2 - self.M)
 
         # L2 regularization, centered around gamma_init
         if l2 > 0.0:
@@ -214,13 +219,13 @@ class LabelModel(LabelModelBase):
         Note that in this class, we learn this for each task separately by
         default, and store a separate accuracy for each LF in each task.
         """
-        self._check_L(L_train, init=True)
+        L_train = self._check_L(L_train, init=True)
 
         # Get overlaps matrices for each task
         O = [self._get_overlaps_matrix(L_t) for L_t in L_train]
 
         # Init params
-        self.init_params(gamma_init=gamma_init)
+        self._init_params(gamma_init)
 
         # Set optimizer as SGD w/ momentum
         optimizer = optim.SGD(self.parameters(), lr=lr, momentum=momentum)
@@ -230,8 +235,9 @@ class LabelModel(LabelModelBase):
             optimizer.zero_grad()
 
             # Sum over the task losses uniformly
-            loss = torch.sum([self._task_loss(O_t, t, l2=l2) 
-                for t, O_t in enumerate(O)])
+            loss = 0.0
+            for t, O_t in enumerate(O):
+                loss += self._task_loss(O_t, t, l2=l2)
             
             # Compute gradient and take a step
             # Note that since this uses all N training points this is an epoch!
@@ -240,7 +246,6 @@ class LabelModel(LabelModelBase):
             
             # Print loss every k steps
             if epoch % print_at == 0 or epoch == n_epochs - 1:
-                msg = f"[Epoch {epoch}] Loss: {loss.data[0]:0.6f}"
-                print(msg)
+                print(f"[Epoch {epoch}] Loss: {loss.item():0.6f}")
 
         print('Finished Training')
