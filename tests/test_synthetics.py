@@ -66,6 +66,14 @@ class SyntheticsTest(unittest.TestCase):
             class_balance=None, lf_balance=None, seed=1)
         self.check_all(L, Y, **metadata)
 
+    def test_single_unipolar_imbalanced(self):
+        n = 10000
+        m = 10
+        L, Y, metadata = generate_single_task_unipolar(
+            n, m, k=2, acc=[0.6, 0.9], rec=[0.1, 0.2], 
+            class_balance=[0.7, 0.3], lf_balance=None, seed=1)
+        self.check_all(L, Y, **metadata)
+
 
 if __name__ == '__main__':
     unittest.main()
