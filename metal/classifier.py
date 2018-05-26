@@ -1,6 +1,7 @@
 from metal.metrics import metric_score, confusion_matrix
+import torch.nn as nn
 
-class Classifier(object):
+class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier."""
 
     def __init__(self, cardinality=2, name=None):
@@ -33,3 +34,11 @@ class Classifier(object):
 
     def load(self):
         raise NotImplementedError
+    
+    def _check_or_set_attr(self, name, val, set_val=False):
+        if set_val:
+            setattr(self, name, val)
+        else:
+            true_val = getattr(self, name)
+            if val != true_val:
+                raise Exception(f"{name} = {val}, but should be {true_val}.")

@@ -6,8 +6,7 @@ from metal.classifier import Classifier
 from metal.label_model.lm_config import DEFAULT_CONFIG
 
 class LabelModelBase(Classifier):
-    """
-    An abstract class for a label model.
+    """An abstract class for a label model
 
     TODO: Add docstring
     """
@@ -20,36 +19,56 @@ class LabelModelBase(Classifier):
         """
         self.config = config
         self.label_map = label_map
-
-    def train(self, L_train):
-        """
-        Args:
-            L_train: T-dim list of scipy.sparse: A list of scipy.sparse [N, M]
-                matrices containing votes from M LFs on N examples for task t.  
-        """              
-        # TODO: Accept single sparse matrix and make it a singleton list
-        if not isinstance(L_train, list):
-            L_train = [L_train]
+    
+    def _check_L(self, L, init=False):
+        """Check the format and content of the label tensor
         
-        for i, L_t in enumerate(L_train):
+        Args:
+            L: A T-legnth list of N x M scipy.sparse matrices.
+            init: If True, initialize self.T, self.M, and self.label_map if 
+                empty; else check against these.
+        """
+        # Accept single sparse matrix and make it a singleton list
+        if not isinstance(L, list):
+            L = [L]
+        
+        # Check or set number of tasks and labeling functions
+        self._check_or_set_attr('T', len(L), set_val=init)
+        n, m = L[0].shape
+        self._check_or_set_attr('M', m, set_val=init)
+        
+        # Check the format and dimensions of the task label matrices
+        for t, L_t in enumerate(L):
+            n_t, m_t = L_t.shape
+            self._check_or_set_attr('M', m_t)
+            if n_t != n:
+                raise Exception(f"L[{t}] has {n_t} rows, but should have {n}.")
             if not issparse(L_t):
-                msg = (f"Element {i} of list L_train has type {type(L_t)}, but "
-                    "should be a scipy.sparse matrix.")
-                raise Exception(msg)
-
-        self.T = len(L_train)
-        self.N, self.M = L_train[0].shape
+                raise Exception(f"L[{t}] has type {type(L_t)}, but should be a"
+                    "scipy.sparse matrix.")
+            if L_t.dtype != np.dtype(int):
+                raise Exception(f"L[{t}] has type {L_t.dtype}, should be int.")
 
         # If no label_map was provided, assume labels are continuous integers
         # starting from 1
-        if self.label_map is None:
+        if self.label_map is None and init:
             if self.T > 1:
                 raise Exception('Initialization parameter "label_map" cannot '
                     'be inferred when T > 1')
-            K = np.amax(L_train[0])
+            K = np.amax(L[0])
             self.label_map = [list(range(K))]
 
+        # Set cardinalities of each task
         self.K_t = [len(labels) for labels in self.label_map]
+
+        # Check for consistency with cardinalities list
+        for t, L_t in enumerate(L):
+            if np.amax(L_t) > self.K_t[t]:
+                raise Exception(f"Task {t} has cardinality {self.K_t[t]}, but"
+                    "L[{t}] has max value = {np.amax(L_t)}.")
+    
+    def train(self, X, **kwargs):
+        raise NotImplementedError
 
     def predict_tasks_proba(self, L):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
@@ -103,8 +122,26 @@ class LabelModel(LabelModelBase):
         self.dependencies = dependencies
     
     def train(self, L_train):
-        super().train(L_train)
-        raise NotImplementedError
+        """Learns the accuracies of the labeling functions from L_train
+
+        Note that in this class, we learn this for each task separately by
+        default, and store a separate accuracy for each LF in each task.
+        """
+        self._check_L(L_train, init=True)
+
+        # Train model for each task separately as default for now
+        # TODO: Extend this given task graph!
+        for t, L_t in enumerate(L_train):
+            self._train_task(L_t, t)
+    
+    def _train_task(self, L_t, t):
+
+        # TODO: Have separate trainer class, and implement PyTorch methods like
+        # forward and get_loss
+
+        # TODO: Additionally check to make sure label matrix is unipolar
+
+        # TODO: Form overlaps matrix
 
     def predict_proba(self, L, t=0):
         raise NotImplementedError
