@@ -105,13 +105,16 @@ class EndModel(Classifier):
         # if self.config['use_cuda']:
         #     raise NotImplementedError
 
-        # Set optimizer
+        # Set the optimizer
         parameters = self.parameters()
         optimizer = torch.optim.SGD(
             parameters, 
             lr=self.tp['lr'],
             momentum=self.tp['momentum'], 
             weight_decay=self.tp['l2'])        
+
+        # Initialize the model
+        self.reset()
 
         # Train the model
         for epoch in range(self.tp['n_epochs']):

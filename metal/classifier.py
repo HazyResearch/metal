@@ -36,7 +36,22 @@ class Classifier(nn.Module):
         super().__init__()
         self.multitask = multitask
 
+    @staticmethod
+    def _reset_module(m):
+        """An initialization method to be applied recursively to all modules"""
+        raise NotImplementedError
+
+    def reset(self):
+        """Initializes all modules in a network"""
+        # The apply(f) method recursively calls f on itself and all children
+        self.apply(self._reset_module)
+
     def train(self, X, Y, **kwargs):
+        """Trains a classifier
+
+        Take care to initialize weights outside the training loop and zero out 
+        gradients at teh beginning of each iteration inside the loop.
+        """
         raise NotImplementedError
 
     def score(self, X, Y, metric='accuracy', reduce='mean', verbose=True, 
