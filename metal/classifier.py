@@ -5,57 +5,209 @@ import torch.nn as nn
 from metal.metrics import metric_score, confusion_matrix
 
 class Classifier(nn.Module):
-    """Simple abstract base class for a probabilistic classifier."""
+    """Simple abstract base class for a probabilistic classifier.
+    
+    The main contribution of children classes will be an implementation of the
+    predict_proba() method. The relationships between the six predict/score
+    functions are as follows:
 
-    def __init__(self):
+    score 		    	score_task
+	    |			         |
+	predict 	     	predict_task
+	    |	    (default)    |
+	*predict_proba  <- 	predict_task_proba
+    
+    Methods on the left return a list of results for all tasks (or a single 
+    result not in a list in the case of a single-task problem). 
+    Methods on the right return what would be a single element in the list 
+    returned by their counterpart on the left.
+    The score method handles reducing the scores from multiple tasks, and the
+    predict methods handles tie-breaking.
+    
+    Children classes must implement predict_proba so that interactions between 
+    tasks are handled correctly in applicable multi-task settings. 
+    If it is possible to calculate task probabilities independently, they may 
+    also override predict_task_proba for efficiency. 
+    Otherwise, predict_task_proba() will default to calling predict_proba and 
+    accessing element t.
+    """
+
+    def __init__(self, multitask=False):
         super().__init__()
+        self.multitask = multitask
 
     def train(self, X, Y, **kwargs):
         raise NotImplementedError
 
-    def predict_proba(self, X, t=0, **kwargs):
-        """Returns an [N, K_t] tensor of soft (float) predictions for task t."""
-        raise NotImplementedError
-
-    def score(self, X, Y, metric='accuracy', reduce_tasks='mean', verbose=True, 
+    def score(self, X, Y, metric='accuracy', reduce='mean', verbose=True, 
         **kwargs):
-        """Scores the predictive performance of the Classifier
+        """Scores the predictive performance of the Classifier on all tasks
 
         Args:
-            X: A T-length list of N x ? data matrices for each task
-            Y: A T x N matrix of gold labels in {1,...,K_t}
-            metric: The metric to with which to score performance on each task
-            reduce_tasks: How to reduce the scores of multiple tasks; the
-                default is to take the mean score across tasks
-        """
-        task_scores = [
-            self.score_task(X[t], Y[t], t=t, metric=metric,
-                verbose=(verbose and self.T > 1), **kwargs)
-            for t in range(self.T)
-        ]
+            X: The input for the predict method
+            Y: An [N] or [N, 1] tensor of gold labels in {1,...,K_t} or a
+                T-length list of such tensors if multitask=True.
+            metric: The metric with which to score performance on each task
+            reduce: How to reduce the scores of multiple tasks if multitask=True
+                None: return a T-length list of scores
+                'mean': return the mean score across tasks
 
-        # TODO: Other options for reduce_tasks, including scoring only certain
-        # primary tasks, and converting to end labels using TaskGraph...
-        if reduce_tasks == 'mean':
-            score = np.mean(task_scores)
+        Returns:
+            A (float) score or a T-length list of such scores if multitask=True
+            and reduce=None
+        """
+
+        Y_p = self.predict(X, **kwargs)
+        if self.multitask:
+            # TODO: convert these assert statements into more helpful error
+            # messages of the form "Expected type __ but got type ___"
+            assert(isinstance(Y, list))
+            assert(isinstance(Y[0], torch.Tensor))
+            assert(isinstance(Y_p, list))
+            assert(isinstance(Y_p[0], torch.Tensor))
         else:
-            raise Exception(f"Reduce_tasks='{reduce_tasks}' not recognized.")
+            assert(isinstance(Y, torch.Tensor))
+            Y = [Y]
+            assert(isinstance(Y_p, torch.Tensor))
+            Y_p = [Y_p]
+
+        task_scores = []
+        for t, Y_tp in enumerate(Y_p):
+            score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0], 
+                **kwargs)
+            task_scores.append(score)
+
+        # TODO: Other options for reduce, including scoring only certain
+        # primary tasks, and converting to end labels using TaskGraph...
+        if not self.multitask or reduce is None:
+            score = task_scores
+        else:
+            if reduce == 'mean':
+                score = [np.mean(task_scores)]
+            else:
+                raise Exception(f"Keyword reduce='{reduce}' not recognized.")
 
         if verbose:
             print(f"{metric.capitalize()}: {score:.3f}")
+
+        if not self.multitask:
+            score = score[0]
+
         return score
     
+    def predict(self, X, break_ties='random', as_list=False, **kwargs):
+        """Predicts hard (int) labels for an input X on all tasks
+        
+        Args:
+            X: The input for the predict_proba method
+            Y: A T-length list of [N] or [N, 1] tensors of gold labels in
+                {1,...,K_t}
+            break_ties: A tie-breaking policy
+            as_list: If True, return results as a list regardless of T
+
+        Returns:
+            An N-dim tensor of predictions or a T-length list of such
+            tensors if multitask=True
+        """
+        Y_p = self.predict_proba(X, **kwargs)
+        if self.multitask:
+            assert(isinstance(Y_p, list))
+            assert(isinstance(Y_p[0], torch.Tensor))
+        else:
+            assert(isinstance(Y_p, torch.Tensor))
+            Y_p = [Y_p]
+
+        Y_ph = []
+        for Y_tp in Y_p:
+            Y_tph = self._break_ties(Y_tp.numpy(), break_ties)
+            Y_ph.append(torch.tensor(Y_tph, dtype=torch.short))
+
+        if not self.multitask:
+            Y_ph = Y_ph[0]
+
+        return Y_ph
+
+    def predict_proba(self, X, **kwargs):
+        """Predicts soft probabilistic labels for an input X on all tasks
+        Args:
+            X: An appropriate input for the child class of Classifier
+        Returns:
+            An [N, K_t] tensor of soft predictions or a T-length list of such
+            tensors if multitask=True
+        """
+        raise NotImplementedError
+
     def score_task(self, X, Y, t=0, metric='accuracy', verbose=True, **kwargs):
-        Y_p = self.predict(X, **kwargs)
-        score = metric_score(Y, Y_p, metric, ignore_in_gold=[0], **kwargs)
+        """Score the predictive performance of the Classifier on task t
+        
+        Args:
+            X: The input for the predict_task method
+            Y: A [N] or [N, 1] tensor of gold labels in {1,...,K_t}
+            t: The task index to score
+            metric: The metric with which to score performance on this task
+        Returns:
+            The (float) score of the Classifier for the specified task and 
+            metric
+        """
+        assert(isinstance(Y, torch.Tensor))
+
+        Y_tp = self.predict_task(X, t=t, **kwargs)
+        score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0], **kwargs)
         if verbose:
             print(f"[t={t}] {metric.capitalize()}: {score:.3f}")
         return score
 
-    def predict(self, X, t=0, break_ties='random'):
-        """Returns an N-dim tensor of hard (int) predictions for task t."""
-        Y_ts = self.predict_proba(X, t=t).numpy()
+    def predict_task(self, X, t=0, break_ties='random', **kwargs):
+        """Predicts hard (int) labels for an input X on task t
+        
+        Args:
+            X: The input for the predict_task_proba method
+            t: The task index to predict
+        Returns:
+            An N-dim tensor of hard (int) predictions for the specified task
+        """
+        Y_tp = self.predict_task_proba(X, **kwargs)
+        Y_tph = self._break_ties(Y_tp.numpy(), break_ties)
+        return Y_tph
 
+    def predict_task_proba(self, X, t=0, **kwargs):
+        """Predicts soft probabilistic labels for an input X on task t
+        
+        Args:
+            X: The input for the predict_proba method
+            t: The task index to predict for which to predict probabilities
+        Returns:
+            An
+
+        NOTE: By default, this method calls predict_proba and extracts element
+        t. If it is possible to predict individual tasks in isolation, however,
+        this method may be overriden for efficiency's sake.
+        """
+        return self.predict_proba(X, **kwargs)[t]
+
+    def confusion(self, X, Y, **kwargs):
+        # TODO: implement this here
+        raise NotImplementedError
+    
+    def error_analysis(self, session, X, Y):
+        # TODO: implement this here
+        raise NotImplementedError
+
+    def save(self):
+        raise NotImplementedError
+
+    def load(self):
+        raise NotImplementedError
+    
+    def _break_ties(self, Y_ts, break_ties='random'):
+        """Break ties in each row of a tensor according to the specified policy
+
+        Args:
+            Y_ts: An [N, K_t] numpy array of probabilities
+            break_ties: A tie-breaking policy:
+                'random': randomly choose among the tied options
+                'abstain': return an abstain vote (0)
+        """
         N, k = Y_ts.shape
         Y_th = np.zeros(N)
         diffs = np.abs(Y_ts - Y_ts.max(axis=1).reshape(-1, 1))
@@ -71,32 +223,9 @@ class Classifier(nn.Module):
             elif break_ties == 'abstain':
                 Y_th[i] = 0
             else:
-                ValueError(f'break_ties={break_ties} policy not recognized.')
-        
-        return torch.tensor(Y_th, dtype=torch.short)
+                ValueError(f'break_ties={break_ties} policy not recognized.')     
+        return Y_th 
 
-    def predict_tasks_proba(self, X):
-        """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
-        return [self.predict_proba(X, t=t) for t in range(self.T)]
-
-    def predict_tasks(self, X, break_ties='random'):
-        """Returns a list of T [N, K_t] tensors of hard (int) predictions."""
-        return [self.predict(X, t=t, break_ties=break_ties) for t in range(self.T)]
- 
-    def confusion(self, X, Y, **kwargs):
-        # TODO: implement this here
-        raise NotImplementedError
-    
-    def error_analysis(self, session, X, Y):
-        # TODO: implement this here
-        raise NotImplementedError
-
-    def save(self):
-        raise NotImplementedError
-
-    def load(self):
-        raise NotImplementedError
-    
     def _check_or_set_attr(self, name, val, set_val=False):
         if set_val:
             setattr(self, name, val)

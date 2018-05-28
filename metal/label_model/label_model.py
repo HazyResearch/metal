@@ -14,13 +14,13 @@ class LabelModelBase(Classifier):
     TODO: Add docstring
     """
     
-    def __init__(self, config=DEFAULT_CONFIG, label_map=None):
+    def __init__(self, config=DEFAULT_CONFIG, multitask=False, label_map=None):
         """
         Args:
             config:
             label_map: 
         """
-        super().__init__()
+        super().__init__(multitask)
         self.config = config
         self.label_map = label_map
     
@@ -85,7 +85,8 @@ class LabelModelBase(Classifier):
 
 
 class LabelModel(LabelModelBase):
-    def __init__(self, config={}, label_map=None, task_graph=None, deps=[]):
+    def __init__(self, config={}, multitask=False, label_map=None, 
+        task_graph=None, deps=[]):
         """
         Args:
             config: dict: A dictionary of config settings
@@ -177,15 +178,27 @@ class LabelModel(LabelModelBase):
         """The float *Tensor* (not Variable) of log-odds LF accuracies."""
         return torch.log(self.accs / (1 - self.accs)).float()
 
-    def predict_proba(self, L, t=0):
+    def predict_proba(self, L):
         """Get conditional probabilities P(y_t | L) given the learned LF accs
-        
+
+        Args:
+            L: A T-length list of [N, M] scipy.sparse matrices
+        Returns:
+            output: A T-length list of [N, K_t] soft predictions
+
         Note: This implementation is for conditionally independent labeling 
         functions (given y_t); handling deps is next...
         """
         # Check L and convert L_t to torch
         # Note we cast to dense here
         L = self._check_L(L)
+        Y_p = [self.predict_task_proba(L_t, t) for t, L_t in enumerate(L)]
+        if self.multitask:
+            return Y_p
+        else:
+            return Y_p[0]
+    
+    def predict_task_proba(self, L, t=0):
         L_t = torch.from_numpy(L[t].todense()).float()
         N = L_t.shape[0]
 
@@ -198,16 +211,17 @@ class LabelModel(LabelModelBase):
         # compute
         #   \theta^T \ind \{ \lambda_j != 0 \} \ind^{\pm} \{ \lambda_j = k \}
         K = max(self.K_t)
-        Yp = torch.zeros((N, K))
+        Y_pt = torch.zeros((N, K))
         for y_t in range(1, self.K_t[t] + 1):
             L_t_y = torch.where(
                 (L_t != y_t) & (L_t != 0), torch.full((N, self.M), -1) , L_t)
             L_t_y = torch.where(L_t_y == y_t, torch.full((N, self.M), 1), L_t_y)
-            Yp[:,y_t-1] = L_t_y @ self.log_odds_accs[t]
+            Y_pt[:,y_t-1] = L_t_y @ self.log_odds_accs[t]
 
-        # Now we  take the softmax returning an N x max(K_t) torch Tensor
-        return F.softmax(Yp, dim=1)
-    
+        # Now we take the softmax returning an N x max(K_t) torch Tensor
+        Y_pth = F.softmax(Y_pt, dim=1)     
+        return    
+
     def get_accs_score(self, accs):
         """Returns the *averaged squared estimation error."""
         return np.linalg.norm(self.accs.numpy() - accs)**2 / self.M
