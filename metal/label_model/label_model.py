@@ -209,9 +209,35 @@ class LabelModel(LabelModelBase):
         return torch.log(self.accs / (1 - self.accs)).float()
 
     def predict_proba(self, L, t=0):
-        """Get array of P(Y=1 | L) given the learned LF accs."""
-        L_t = torch.from_numpy(L[t]).float()
-        return F.sigmoid(2 * L_t @ self.log_odds_accs[t])
+        """Get conditional probabilities P(y_t | L) given the learned LF accs
+        
+        Note: This implementation is for conditionally independent labeling 
+        functions (given y_t); handling deps is next...
+        """
+        # Check L and convert L_t to torch
+        # Note we cast to dense here
+        L = self._check_L(L)
+        L_t = torch.from_numpy(L[t].todense()).float()
+        N = L_t.shape[0]
+
+        # Here we iterate over the values of Y in {1,...,K_t}, forming
+        # a N x max(K_t) matrix of unnormalized predictions
+        # Note in the unipolar setting:
+        #   P(\lambda_j=k|y_t=k, \lambda_j != 0) = \alpha_i
+        #   P(\lambda_j=k|y_t=l != k, \lambda_j != 0) = 1 - \alpha_i
+        # So the computation is the same as in the binary case, except we
+        # compute
+        #   \theta^T \ind \{ \lambda_j != 0 \} \ind^{\pm} \{ \lambda_j = k \}
+        K = max(self.K_t)
+        Yp = torch.zeros((N, K))
+        for y_t in range(1, self.K_t[t] + 1):
+            L_t_y = torch.where(
+                (L_t != y_t) & (L_t != 0), torch.full((N, self.M), -1) , L_t)
+            L_t_y = torch.where(L_t_y == y_t, torch.full((N, self.M), 1), L_t_y)
+            Yp[:,y_t-1] = L_t_y @ self.log_odds_accs[t]
+
+        # Now we  take the softmax returning an N x max(K_t) torch Tensor
+        return F.softmax(Yp, dim=1)
     
     def get_accs_score(self, accs):
         """Returns the *averaged squared estimation error."""
