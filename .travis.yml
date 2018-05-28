@@ -40,6 +40,7 @@ install:
 script:
   - python tests/test_travis.py -v
   - python tests/test_metrics.py -v
+  - python tests/test_synthetics.py -v
 
 notifications:
   email:
