@@ -24,16 +24,20 @@ class MajorityLabelVoter(LabelModelBase):
 
     Note that in the case of ties, non-integer probabilities are possible.
     """
-    def predict_proba(self, L, t):
-        L = np.array(L.todense()).astype(int)
-        N, M = L.shape
+    def train(self, L):
+        L = self._check_L(L, init=True)
+
+    def predict_proba(self, L, t=0):
+        L = self._check_L(L)
+        L_t = np.array(L[t].todense()).astype(int)
+        N, M = L_t.shape
         K_t = self.K_t[t]
         Y_ts = np.zeros((N, K_t))
         for i in range(N):
             counts = np.zeros(K_t)
             for j in range(M):
-                if L[i,j]:
-                    counts[L[i,j] - 1] += 1
+                if L_t[i,j]:
+                    counts[L_t[i,j] - 1] += 1
             Y_ts[i, :] = np.where(counts == max(counts), 1, 0)
         Y_ts /= Y_ts.sum(axis=1).reshape(-1, 1)
         return torch.tensor(Y_ts, dtype=torch.float)

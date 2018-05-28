@@ -243,8 +243,8 @@ class LabelModel(LabelModelBase):
         """Returns the *averaged squared estimation error."""
         return np.linalg.norm(self.accs.numpy() - accs)**2 / self.M
     
-    def train(self, L_train, gamma_init=0.5, n_epochs=100, lr=0.01, momentum=0.9,
-        l2=0.0, print_at=10, accs=None):
+    def train(self, L_train, gamma_init=0.5, n_epochs=100, lr=0.1,
+        momentum=0.9, l2=0.0, print_at=10, accs=None):
         """Learns the accuracies of the labeling functions from L_train
 
         Note that in this class, we learn this for each task separately by
