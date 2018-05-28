@@ -25,7 +25,7 @@ class LabelModelTest(unittest.TestCase):
         model.train(L, accs=accs)
 
         # Test label model
-        model.score(L, [Y])
+        model.score([L], [Y])
 
 
 if __name__ == '__main__':

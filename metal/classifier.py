@@ -1,5 +1,7 @@
-from metal.metrics import metric_score, confusion_matrix
+import numpy as np
 import torch.nn as nn
+
+from metal.metrics import metric_score, confusion_matrix
 
 class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier."""
@@ -15,11 +17,39 @@ class Classifier(nn.Module):
     def predict(self, X, **kwargs):
         raise NotImplementedError
 
-    def score(self, X, Y, metric='accuracy', verbose=True, **kwargs):
+    def score(self, X, Y, metric='accuracy', reduce_tasks='mean', verbose=True, 
+        **kwargs):
+        """Scores the predictive performance of the Classifier
+
+        Args:
+            X: A T-length list of N x ? data matrices for each task
+            Y: A T x N matrix of gold labels in {1,...,K_t}
+            metric: The metric to with which to score performance on each task
+            reduce_tasks: How to reduce the scores of multiple tasks; the
+                default is to take the mean score across tasks
+        """
+        task_scores = [
+            self.score_task(X[t], Y[t], t=t, metric=metric,
+                verbose=(verbose and self.T > 1), **kwargs)
+            for t in range(self.T)
+        ]
+
+        # TODO: Other options for reduce_tasks, including scoring only certain
+        # primary tasks, and converting to end labels using TaskGraph...
+        if reduce_tasks == 'mean':
+            score = np.mean(task_scores)
+        else:
+            raise Exception(f"Reduce_tasks='{reduce_tasks}' not recognized.")
+
+        if verbose:
+            print(f"{metric.capitalize()}: {score:.3f}")
+        return score
+
+    def score_task(self, X, Y, t=0, metric='accuracy', verbose=True, **kwargs):
         Y_p = self.predict(X, **kwargs)
         score = metric_score(Y, Y_p, metric, ignore_in_gold=[0], **kwargs)
         if verbose:
-            print(f"{metric.capitalize()}: {score:.3f}")
+            print(f"[t={t}] {metric.capitalize()}: {score:.3f}")
         return score
  
     def confusion(self, X, Y, **kwargs):
