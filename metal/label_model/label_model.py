@@ -14,12 +14,13 @@ class LabelModelBase(Classifier):
     TODO: Add docstring
     """
     
-    def __init__(self, config=DEFAULT_CONFIG, multitask=False, label_map=None):
+    def __init__(self, config=DEFAULT_CONFIG, label_map=None):
         """
         Args:
             config:
             label_map: 
         """
+        multitask = isinstance(label_map, list) and len(label_map) > 1
         super().__init__(multitask)
         self.config = config
         self.label_map = label_map
@@ -85,8 +86,7 @@ class LabelModelBase(Classifier):
 
 
 class LabelModel(LabelModelBase):
-    def __init__(self, config={}, multitask=False, label_map=None, 
-        task_graph=None, deps=[]):
+    def __init__(self, config={}, label_map=None, task_graph=None, deps=[]):
         """
         Args:
             config: dict: A dictionary of config settings
@@ -95,9 +95,7 @@ class LabelModel(LabelModelBase):
             task_graph: TaskGraph: A task graph...TBD
             dependencies: list: A list of dependencies of the form...TBD
         """
-        multitask = label_map is not None
-        super().__init__(config, multitask)
-        self.label_map = label_map
+        super().__init__(config, label_map)
         self.task_graph = task_graph
         self.deps = deps
     
