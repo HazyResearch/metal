@@ -1,6 +1,7 @@
 from collections import Counter
 
 import numpy as np
+from scipy.sparse import csc_matrix
 import torch
 
 from metal.label_model.label_model import LabelModelBase
@@ -11,17 +12,24 @@ class RandomVoter(LabelModelBase):
     A class that votes randomly among the available labels for each task
     """
     def train(self, L):
-        self._check_L(L, init=True)
+        # Note that this also sets some class parameters which we need later
+        _ = self._check_L(L, init=True)
 
     def predict_proba(self, L):
+        """
+        Args:
+            L: An [N, M] scipy.sparse matrix of labels or a T-length list of 
+                such matrices if self.multitask=True
+        Returns:
+            output: A T-length list of [N, K_t] soft predictions
+        """
+        L = self._check_L(L)
         Y_p = [self.predict_task_proba(L, t) for t in range(self.T)]
-        if self.multitask:
-            return Y_p
-        else:
-            return Y_p[0]        
+        return Y_p if self.multitask else Y_p[0]    
 
     def predict_task_proba(self, L, t):
-        N = L.shape[0]
+        L = self._check_L(L)
+        N = L[t].shape[0]
         Y_t = np.random.rand(N, self.K_t[t])
         Y_t /= Y_t.sum(axis=1).reshape(-1, 1)
         return torch.tensor(Y_t, dtype=torch.float)
@@ -35,7 +43,8 @@ class MajorityLabelVoter(RandomVoter):
     Note that in the case of ties, non-integer probabilities are possible.
     """
     def train(self, L):
-        L = self._check_L(L, init=True)
+        # Note that this also sets some class parameters which we need later
+        _ = self._check_L(L, init=True)
 
     def predict_task_proba(self, L, t):
         L = self._check_L(L)
@@ -74,7 +83,8 @@ class MajorityClassVoter(RandomVoter):
         self.balances = balances
         
     def predict_task_proba(self, L, t):
-        N = L.shape[0]
+        self._check_L(L)
+        N = L[t].shape[0]
         Y_t = np.zeros((N, self.K_t[t]))
         max_classes = np.where(self.balances[t] == max(self.balances[t]))
         for c in max_classes:

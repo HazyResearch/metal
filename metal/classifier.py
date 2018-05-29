@@ -53,7 +53,7 @@ class Classifier(nn.Module):
                 'mean': return the mean score across tasks
 
         Returns:
-            A (float) score or a T-length list of such scores if multitask=True
+            scores: A (float) score or a T-length list of such scores if multitask=True
             and reduce=None
         """
 
@@ -79,19 +79,22 @@ class Classifier(nn.Module):
 
         # TODO: Other options for reduce, including scoring only certain
         # primary tasks, and converting to end labels using TaskGraph...
-        if not self.multitask or reduce is None:
-            score = task_scores
+        if not self.multitask:
+            score = task_scores[0]
         else:
+            if reduce is None:
+                score = task_scores
             if reduce == 'mean':
-                score = [np.mean(task_scores)]
+                score = np.mean(task_scores)
             else:
                 raise Exception(f"Keyword reduce='{reduce}' not recognized.")
 
         if verbose:
-            print(f"{metric.capitalize()}: {score:.3f}")
-
-        if not self.multitask:
-            score = score[0]
+            if self.multitask and reduce is None:
+                for t, score_t in enumerate(score):
+                    print(f"{metric.capitalize()} (t={t}): {score:.3f}")
+            else:
+                print(f"{metric.capitalize()}: {score:.3f}")
 
         return score
     
