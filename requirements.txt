@@ -1,5 +1,4 @@
 jupyter
-# python -m ipykernel install --user --name metal --display-name "Python 3 (MeTaL)"
 matplotlib
 numpy
 pandas
