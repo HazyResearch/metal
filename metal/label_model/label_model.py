@@ -95,7 +95,8 @@ class LabelModel(LabelModelBase):
             task_graph: TaskGraph: A task graph...TBD
             dependencies: list: A list of dependencies of the form...TBD
         """
-        super().__init__(config)
+        multitask = label_map is not None
+        super().__init__(config, multitask)
         self.label_map = label_map
         self.task_graph = task_graph
         self.deps = deps
@@ -192,11 +193,11 @@ class LabelModel(LabelModelBase):
         # Check L and convert L_t to torch
         # Note we cast to dense here
         L = self._check_L(L)
-        Y_p = [self.predict_task_proba(L_t, t) for t, L_t in enumerate(L)]
+        Y_ph = [self.predict_task_proba(L_t, t) for t, L_t in enumerate(L)]
         if self.multitask:
-            return Y_p
+            return Y_ph
         else:
-            return Y_p[0]
+            return Y_ph[0]
     
     def predict_task_proba(self, L, t=0):
         L_t = torch.from_numpy(L[t].todense()).float()
@@ -210,7 +211,7 @@ class LabelModel(LabelModelBase):
         # So the computation is the same as in the binary case, except we
         # compute
         #   \theta^T \ind \{ \lambda_j != 0 \} \ind^{\pm} \{ \lambda_j = k \}
-        K = max(self.K_t)
+        K = max(self.K_t) #TODO: Check this! Not sure max is necessary...
         Y_pt = torch.zeros((N, K))
         for y_t in range(1, self.K_t[t] + 1):
             L_t_y = torch.where(
@@ -219,8 +220,8 @@ class LabelModel(LabelModelBase):
             Y_pt[:,y_t-1] = L_t_y @ self.log_odds_accs[t]
 
         # Now we take the softmax returning an N x max(K_t) torch Tensor
-        Y_pth = F.softmax(Y_pt, dim=1)     
-        return    
+        Y_tph = F.softmax(Y_pt, dim=1)     
+        return Y_tph
 
     def get_accs_score(self, accs):
         """Returns the *averaged squared estimation error."""

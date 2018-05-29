@@ -19,14 +19,14 @@ class LabelModelTest(unittest.TestCase):
 
         # Generate unipolar L for single task
         N, M = 10000, 20
-        L, Y, accs = generate_single_task_unipolar(N, M, min_acc=0.4, 
-            max_acc=0.8, beta=0.5)
+        L, Y, metadata = generate_single_task_unipolar(N, M, acc=[0.4, 0.8], 
+            rec=[0.5])
 
         # Initialize label model
         model = LabelModel()
 
         # Train label model
-        model.train(L, accs=accs)
+        model.train(L, accs=metadata['accs'])
 
         # Test label model
         model.score([L], [Y])
