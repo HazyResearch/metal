@@ -192,6 +192,16 @@ def f1_score(gold, pred, **kwargs):
 def metric_score(gold, pred, metric, **kwargs):
     if metric == 'accuracy':
         return accuracy_score(gold, pred, **kwargs)
+    elif metric == 'coverage':
+        return coverage_score(gold, pred, **kwargs)
+    elif metric == 'precision':
+        return precision_score(gold, pred, **kwargs)
+    elif metric == 'recall':
+        return recall_score(gold, pred, **kwargs)
+    elif metric == 'f1':
+        return f1_score(gold, pred, **kwargs)
+    elif metric == 'fbeta':
+        return fbeta_score(gold, pred, **kwargs)
     else:
         msg = f"The metric you provided ({metric}) is not supported."
         raise ValueError(msg)
