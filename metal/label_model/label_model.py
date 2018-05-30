@@ -62,7 +62,7 @@ class LabelModelBase(Classifier):
                 raise Exception(f"L[{t}] has type {L_t.dtype}, should be int.")
             
             # Ensure is in CSC sparse format for efficient col (LF) slicing
-            L_t = L_t.tocsc()
+            L[t] = L_t.tocsc()
 
         # If no label_map was provided, assume labels are continuous integers
         # starting from 1
@@ -102,7 +102,6 @@ class LabelModel(LabelModelBase):
     
     def _infer_polarity(self, L_t, t, j):
         """Infer the polarity (labeled class) of LF j on task t"""
-        # Note: We assume that L_t is in CSC format here!
         assert(isinstance(L_t, csc_matrix))
         vals = set(L_t.data[L_t.indptr[j]:L_t.indptr[j+1]])
         if len(vals) > 1:
