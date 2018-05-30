@@ -235,45 +235,55 @@ class LabelModel(LabelModelBase):
         """Returns the *averaged squared estimation error."""
         return np.linalg.norm(self.accs.numpy() - accs)**2 / self.M
     
-    def train(self, L_train, gamma_init=0.5, n_epochs=100, lr=0.1,
-        momentum=0.9, l2=0.0, print_at=10, accs=None, verbose=True):
+    def train(self, L_train, accs=None, **kwargs):
         """Learns the accuracies of the labeling functions from L_train
+
+        Args:
+            L_train: TBD
+            accs: An M-length list of the true accuracies of the LFs if known
 
         Note that in this class, we learn this for each task separately by
         default, and store a separate accuracy for each LF in each task.
         """
+        self.tp = lm_train_defaults # TODO: merge kwargs w/ defaults here
         L_train = self._check_L(L_train, init=True)
 
         # Get overlaps matrices for each task
         O = [self._get_overlaps_matrix(L_t, t) for t, L_t in enumerate(L_train)]
 
         # Init params
-        self._init_params(gamma_init)
+        self._init_params(self.tp['gamma_init'])
 
         # Set optimizer as SGD w/ momentum
-        optimizer = optim.SGD(self.parameters(), lr=lr, momentum=momentum)
+
+        optimizer = optim.SGD(
+            self.parameters(), 
+            **self.tp['optimizer_params'],
+            **self.tp['sgd_params']
+        )
         
         # Train model
-        for epoch in range(n_epochs):
+        for epoch in range(self.tp['n_epochs']):
             optimizer.zero_grad()
 
             # Sum over the task losses uniformly
             loss = 0.0
             for t, O_t in enumerate(O):
-                loss += self._task_loss(O_t, t, l2=l2)
+                loss += self._task_loss(O_t, t, l2=self.tp['l2'])
             
             # Compute gradient and take a step
             # Note that since this uses all N training points this is an epoch!
             loss.backward()
             optimizer.step()
             
-            # Print loss every k steps
-            if verbose and (epoch % print_at == 0 or epoch == n_epochs - 1):
+            # Print loss every print_at steps
+            if self.tp['verbose'] and (epoch % self.tp['print_at'] == 0 or 
+                epoch == self.tp['n_epochs'] - 1):
                 msg = f"[Epoch {epoch}] Loss: {loss.item():0.6f}"
                 if accs is not None:
                     accs_score = self.get_accs_score(accs)
                     msg += f"\tAccs mean sq. error = {accs_score}"
                 print(msg)
 
-        if verbose:
+        if self.tp['verbose']:
             print('Finished Training')
