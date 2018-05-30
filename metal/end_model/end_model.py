@@ -5,19 +5,17 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
-from metal.end_model import (
-    SoftCrossEntropyLoss, 
-    em_model_defaults, em_train_defaults
-)
+from metal.end_model.em_defaults import em_model_defaults, em_train_defaults
+from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.modules import IdentityModule
 from metal.utils import MultilabelDataset, hard_to_soft
 
 class EndModel(Classifier):
-    def __init__(self, input_module=IdentityModule, 
-        model_params=em_model_defaults, **kwargs):
+    def __init__(self, input_module=IdentityModule, **kwargs):
         # TODO: merge kwargs into model_params
-        super().__init__()
-        self.mp = model_params
+        multitask = False # TODO: actually calculate multitask based on inputs
+        super().__init__(multitask)
+        self.mp = em_model_defaults # TODO: merge kwargs with defaults here
         self.net = nn.Sequential(
             nn.Linear(2, 4),
             nn.Linear(4, 2),

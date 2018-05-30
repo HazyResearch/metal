@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from metal.classifier import Classifier
-from metal.label_model.lm_config import DEFAULT_CONFIG
+from metal.label_model.lm_defaults import lm_model_defaults, lm_train_defaults
 
 class LabelModelBase(Classifier):
     """An abstract class for a label model
@@ -14,15 +14,14 @@ class LabelModelBase(Classifier):
     TODO: Add docstring
     """
     
-    def __init__(self, config=DEFAULT_CONFIG, label_map=None):
+    def __init__(self, label_map=None, **kwargs):
         """
         Args:
-            config:
             label_map: 
         """
         multitask = isinstance(label_map, list) and len(label_map) > 1
         super().__init__(multitask)
-        self.config = config
+        self.mp = lm_model_defaults #TODO: merge kwargs w/ defaults here
         self.label_map = label_map
         self.T = len(label_map) if label_map else 1
     
@@ -88,16 +87,16 @@ class LabelModelBase(Classifier):
 
 
 class LabelModel(LabelModelBase):
-    def __init__(self, config={}, label_map=None, task_graph=None, deps=[]):
+    def __init__(self, label_map=None, task_graph=None, deps=[], **kwargs):
         """
         Args:
-            config: dict: A dictionary of config settings
+            model_params: A dictionary of model parameters
             label_map: T-dim list of lists: The label map for each task 
                 t=0,...,T-1
             task_graph: TaskGraph: A task graph...TBD
             dependencies: list: A list of dependencies of the form...TBD
         """
-        super().__init__(config, label_map)
+        super().__init__(label_map, **kwargs)
         self.task_graph = task_graph
         self.deps = deps
     

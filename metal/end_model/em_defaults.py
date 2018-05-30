@@ -10,15 +10,21 @@ em_train_defaults = {
     # Optimizer
     'optimizer': 'sgd',
     'lr': 0.01,
-    'momentum': 0.9,
     'l2': 0.0,
     'converged': 20,  # if not 0, stop early if this many epochs pass without improvement in training metric
     'early_stopping': False, # if true, save any model with best score so far
     'checkpoint_runway': 0, # if early stopping, don't save checkpoints until after at least this many epochs
     'grad_clip': 0.0,
+    # Optimizer - SGD
+    'sgd_params': {
+        'momentum': 0.9,
+    },
     # Optimizer - Adam
-    'beta1': 0.9,
-    'beta2': 0.999,
+    'adam_params': {
+        'beta1': 0.9,
+        'beta2': 0.999,
+    },
+    # Dataloader
     'data_loader_params': {
         'batch_size': 128, 
         'num_workers': 1,
