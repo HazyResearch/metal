@@ -16,17 +16,40 @@ class EndModel(Classifier):
         multitask = False # TODO: actually calculate multitask based on inputs
         super().__init__(multitask)
         self.mp = em_model_defaults # TODO: merge kwargs with defaults here
+
+        # Build the network
         self.net = nn.Sequential(
             nn.Linear(2, 4),
             nn.Linear(4, 2),
         )
         self.criteria = SoftCrossEntropyLoss()
-    
+
+    @staticmethod
+    def _reset_module(m):
+        """A method for resetting the parameters of any module in the network
+
+        First, handle special cases (unique initialization or none required)
+        Next, use built in method if available
+        Last, report that no initialization occured to avoid silent failure.
+
+        This will be called on all children of m as well, so do not recurse
+        manually.
+        """
+        module_name = m.__class__.__name__
+        if module_name in ['EndModel', 'Sequential', 'SoftCrossEntropyLoss']:
+            pass
+        elif callable(getattr(m, 'reset_parameters', None)):
+            m.reset_parameters()
+        else:
+            raise Exception(f"Module {module_name} was not initialized.")
+
     def _preprocess_Y(self, Y):
-        # Convert Y to T-dim lists of soft labels if necessary
+        """Convert Y to T-dim lists of soft labels if necessary"""
+        # If not a list, convert to a singleton list
         if not isinstance(Y, list):
             Y = [Y]
 
+        # If hard labels, convert to soft labels
         for t, Y_t in enumerate(Y):
             if Y_t.dim() == 1 or Y_t.shape[1] == 1:
                 # FIXME: This could fail if last class was never predicted
@@ -55,6 +78,12 @@ class EndModel(Classifier):
 
         # Y_train = self._preprocess_Y(Y_train)
         # Y_dev = self._preprocess_Y(Y_dev)
+
+        if self.use_cuda:
+            raise NotImplementedError
+            # TODO: fix this
+            # X = X.cuda(self.gpu_id)
+            # Y = Y.cuda(self.gpu_id)
 
         # Make data loaders
         dataset = MultilabelDataset(X_train, self._preprocess_Y(Y_train))
@@ -89,9 +118,6 @@ class EndModel(Classifier):
             epoch_loss = 0.0
             for i, data in enumerate(train_loader):
                 X, Y = data
-                # if self.use_cuda:
-                #     X = X.cuda(self.gpu_id)
-                #     Y = Y.cuda(self.gpu_id)
 
                 # Zero the parameter gradients
                 optimizer.zero_grad()
