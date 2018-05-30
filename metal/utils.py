@@ -47,3 +47,52 @@ def hard_to_soft(Y_h, k):
     for i, j in enumerate(Y_h):
         Y_s[i, j-1] = 1.0
     return Y_s
+
+def recursive_merge_dicts(x, y, errors='report', verbose=True):
+    """
+    Merge dictionary y into x, overwriting elements of x when there is a
+    conflict, except if the element is a dictionary, in which case recurse.
+
+    errors: what to do if a key in y is not in x
+        'exception' -> raise an exception
+        'report'    -> report the name of the missing key
+        'ignore'    -> do nothing
+
+    TODO: give example here (pull from tests)
+    """
+    def recurse(x, y, errors='report', verbose=True):
+        found = True
+        for k, v in y.items():
+            found = False
+            if k in x:
+                found = True
+                if isinstance(x[k], dict):
+                    if not isinstance(v, dict):
+                        msg = (f"Attempted to overwrite dict {k} with "
+                            f"non-dict: {v}")
+                        raise ValueError(msg)
+                    recursive_merge_dicts(x[k], v, errors, verbose)
+                else:
+                    if verbose:
+                        if x[k] == v:
+                            print(f"Reaffirming {x}={x[k]}")
+                        else:
+                            print(f"Overwriting {k}={x[k]} to {k}={v}")
+                            x[k] = v
+            else:
+                for kx, vx in x.items():
+                    if isinstance(vx, dict):
+                        found = recursive_merge_dicts(vx, {k: v}, 
+                            errors='ignore', verbose=verbose)
+                    if found:
+                        break
+            if not found:
+                msg = f'Could not find kwarg "{k}" in default config.'
+                if errors == 'exception':
+                    raise ValueError(msg)
+                elif errors == 'report':
+                    print(msg)
+        return found
+    
+    recurse(x, y, errors, verbose)
+    return x

@@ -7,6 +7,7 @@ import torch.optim as optim
 
 from metal.classifier import Classifier
 from metal.label_model.lm_defaults import lm_model_defaults, lm_train_defaults
+from metal.utils import recursive_merge_dicts
 
 class LabelModelBase(Classifier):
     """An abstract class for a label model
@@ -21,7 +22,7 @@ class LabelModelBase(Classifier):
         """
         multitask = isinstance(label_map, list) and len(label_map) > 1
         super().__init__(multitask)
-        self.mp = lm_model_defaults #TODO: merge kwargs w/ defaults here
+        self.mp = recursive_merge_dicts(lm_model_defaults, kwargs)
         self.label_map = label_map
         self.T = len(label_map) if label_map else 1
     
@@ -244,7 +245,7 @@ class LabelModel(LabelModelBase):
         Note that in this class, we learn this for each task separately by
         default, and store a separate accuracy for each LF in each task.
         """
-        self.tp = lm_train_defaults # TODO: merge kwargs w/ defaults here
+        self.tp = recursive_merge_dicts(lm_train_defaults, kwargs)
         L_train = self._check_L(L_train, init=True)
 
         # Get overlaps matrices for each task
