@@ -98,6 +98,97 @@ def coverage_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
 
     return np.sum(pred != 0) / len(pred)
 
+def precision_score(gold, pred, pos_label=1, ignore_in_gold=[], 
+    ignore_in_pred=[]):
+    """
+    Calculate precision for a single class.
+    Args:
+        gold: A 1d array-like of gold labels
+        pred: A 1d array-like of predicted labels (assuming abstain = 0)
+        ignore_in_gold: A list of labels for which elements having that gold
+            label will be ignored.
+        ignore_in_pred: A list of labels for which elements having that pred
+            label will be ignored.
+        pos_label: The class label to treat as positive for precision
+
+    Returns:
+        pre: The (float) precision score
+    """
+    gold, pred = _preprocess(gold, pred, ignore_in_gold, ignore_in_pred)
+
+    positives = np.where(pred == pos_label, 1, 0).astype(bool)
+    trues = np.where(gold == pos_label, 1, 0).astype(bool)
+    TP = np.sum(positives * trues)
+    FP = np.sum(positives * np.logical_not(trues))
+
+    if TP or FP:
+        pre = TP / (TP + FP)
+    else:
+        pre = 0
+
+    return pre
+
+def recall_score(gold, pred, pos_label=1, ignore_in_gold=[], 
+    ignore_in_pred=[]):
+    """
+    Calculate recall for a single class.
+    Args:
+        gold: A 1d array-like of gold labels
+        pred: A 1d array-like of predicted labels (assuming abstain = 0)
+        ignore_in_gold: A list of labels for which elements having that gold
+            label will be ignored.
+        ignore_in_pred: A list of labels for which elements having that pred
+            label will be ignored.
+        pos_label: The class label to treat as positive for recall
+
+    Returns:
+        rec: The (float) recall score
+    """
+    gold, pred = _preprocess(gold, pred, ignore_in_gold, ignore_in_pred)
+
+    positives = np.where(pred == pos_label, 1, 0).astype(bool)
+    trues = np.where(gold == pos_label, 1, 0).astype(bool)
+    TP = np.sum(positives * trues)
+    FN = np.sum(np.logical_not(positives) * trues)
+
+    if TP or FN:
+        rec = TP / (TP + FN)
+    else:
+        rec = 0
+
+    return rec
+
+def fbeta_score(gold, pred, pos_label=1, beta=1.0, ignore_in_gold=[], 
+    ignore_in_pred=[]):
+    """
+    Calculate recall for a single class.
+    Args:
+        gold: A 1d array-like of gold labels
+        pred: A 1d array-like of predicted labels (assuming abstain = 0)
+        ignore_in_gold: A list of labels for which elements having that gold
+            label will be ignored.
+        ignore_in_pred: A list of labels for which elements having that pred
+            label will be ignored.
+        pos_label: The class label to treat as positive for f-beta
+        beta: The beta to use in the f-beta score calculation
+
+    Returns:
+        fbeta: The (float) f-beta score
+    """
+    gold, pred = _preprocess(gold, pred, ignore_in_gold, ignore_in_pred)
+    pre = precision_score(gold, pred, pos_label=pos_label)
+    rec = recall_score(gold, pred, pos_label=pos_label)
+
+    if pre or rec:
+        fbeta = (1 + beta**2) * (pre * rec)/((beta**2 * pre) + rec)
+    else:
+        fbeta = 0
+
+    return fbeta
+
+def f1_score(gold, pred, **kwargs):
+    return fbeta_score(gold, pred, beta=1.0, **kwargs)
+
 def metric_score(gold, pred, metric, **kwargs):
     if metric == 'accuracy':
         return accuracy_score(gold, pred, **kwargs)

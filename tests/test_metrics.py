@@ -9,6 +9,10 @@ from metal.metrics import (
     metric_score, 
     accuracy_score,
     coverage_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    fbeta_score,
 )
 
 class MetricsTest(unittest.TestCase):
@@ -60,6 +64,38 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(score, 0.6)
         score = coverage_score(gold, pred, ignore_in_gold=[2])
         self.assertAlmostEqual(score, 0.5)
+
+    def test_precision(self):
+        gold = [1,1,1,2,2]
+        pred = [0,0,1,1,2]
+        score = precision_score(gold, pred)
+        self.assertAlmostEqual(score, 0.5)
+        score = precision_score(gold, pred, pos_label=2)
+        self.assertAlmostEqual(score, 1.0)
+
+    def test_recall(self):
+        gold = [1,1,1,1,2]
+        pred = [0,2,1,1,2]
+        score = recall_score(gold, pred)
+        self.assertAlmostEqual(score, 0.5)
+        score = recall_score(gold, pred, pos_label=2)
+        self.assertAlmostEqual(score, 1.0)
+
+    def test_f1(self):
+        gold = [1,1,1,1,2]
+        pred = [0,2,1,1,2]
+        score = f1_score(gold, pred)
+        self.assertAlmostEqual(score, 0.666, places=2)
+        score = f1_score(gold, pred, pos_label=2)
+        self.assertAlmostEqual(score, 0.666, places=2)
+
+    def test_fbeta(self):
+        gold = [1,1,1,1,2]
+        pred = [0,2,1,1,2]
+        pre = precision_score(gold, pred)
+        rec = recall_score(gold, pred)
+        self.assertEqual(pre, fbeta_score(gold, pred, beta=0))
+        self.assertAlmostEqual(rec, fbeta_score(gold, pred, beta=1000), places=4)
 
 
 if __name__ == '__main__':
