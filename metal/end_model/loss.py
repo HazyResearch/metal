@@ -3,16 +3,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class SoftCrossEntropyLoss(nn.Module):
-    def __init__(self, class_weights=None):
+    """Computes the CrossEntropyLoss while accepting soft (float) targets"""
+    def __init__(self, class_weights=None, size_average=True, reduce=True):
         super().__init__()
         self.class_weights = class_weights
-    
-    def forward(self, Y_tp, Y_t):
-        N, K_t = Y_tp.shape
-        loss = torch.tensor(0.0)
-        for y in range(K_t):
-            Y_fixed = y * torch.ones(N).long()
-            _losses = Y_t[:,y] * F.cross_entropy(Y_tp, Y_fixed, 
-                weight=self.class_weights, reduce=False)
-            loss += torch.sum(_losses)
-        return loss
+        self.size_average = size_average * reduce
+
+    def forward(self, input, target):
+        N, K_t = input.shape
+        total_loss = torch.tensor(0.0)
+        for i in range(K_t):
+            cls_idx = torch.full((N,), i, dtype=torch.long)
+            loss = F.cross_entropy(input, cls_idx, weight=self.class_weights, 
+                reduce=False)
+            total_loss += target[:, i].dot(loss)
+        if self.size_average:
+            return total_loss / N
+        else:
+            return total_loss

@@ -42,6 +42,7 @@ def hard_to_soft(Y_h, k):
     """
     Y_h = Y_h.squeeze()
     assert(Y_h.dim() == 1)
+    assert((Y_h >= 1).all())
     N = Y_h.shape[0]
     Y_s = torch.zeros(N, k, dtype=torch.float)
     for i, j in enumerate(Y_h):

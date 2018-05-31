@@ -57,11 +57,15 @@ class EndModel(Classifier):
         return Y
 
     def get_loss(self, outputs, Y):
-        """Return the loss of Y and the output(s) of the net forward pass."""
+        """Return the loss of Y and the output(s) of the net forward pass.
+        
+        The returned loss is averaged over items (by the loss function) but
+        summed over tasks.
+        """
         loss = torch.tensor(0.0)
         for t, Y_tp in enumerate(outputs):
             loss += self.criteria(Y_tp, Y[t])
-        return loss / len(outputs[0])
+        return loss
 
     def forward(self, x):
         """Returns a list of outputs for tasks t=0,...T-1
