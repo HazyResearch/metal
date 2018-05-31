@@ -122,11 +122,12 @@ class LabelModel(LabelModelBase):
         # In the unipolar categorical setting, this is just the empirical count
         # of non-zero overlaps; whether these were agreements or disagreements
         # is just a function of the polarities p
-        N = L_t.shape[0]
+        N, M = L_t.shape
         L_nz = L_t.copy()
         L_nz.data[:] = 1
-        O = L_nz.T @ L_nz / N
-        O = O.todense()
+        # Add one to diagonal entries to avoid division by 0 later for LFs
+        # that always abstained
+        O = ((L_nz.T @ L_nz).todense() + np.eye(M)) / N 
 
         # Divide out the empirical labeling propensities
         beta = np.diag(O)
@@ -140,12 +141,15 @@ class LabelModel(LabelModelBase):
                     c = 1 if p[i] == p[j] else -1
                     O[i,j] = c * (O[i,j] - 1)
 
+        assert(not np.isnan(O).any())
+
         # Turn O in PyTorch Variable
         return torch.clamp(torch.from_numpy(O), min=-0.95, max=0.95).float()
     
     def _init_params(self, gamma_init):
         """Initialize the parameters for each LF on each task separately"""
         # Note: Need to break symmetries by initializing > 0
+        self.gamma_init = gamma_init
         self.gamma = nn.Parameter(gamma_init * torch.ones(self.T, self.M))
     
     def _task_loss(self, O_t, t, l2=0.0):
