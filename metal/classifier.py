@@ -74,16 +74,14 @@ class Classifier(nn.Module):
 
         Y_p = self.predict(X, **kwargs)
         if self.multitask:
-            # TODO: convert these assert statements into more helpful error
-            # messages of the form "Expected type __ but got type ___"
-            assert(isinstance(Y, list))
-            assert(isinstance(Y[0], torch.Tensor))
-            assert(isinstance(Y_p, list))
-            assert(isinstance(Y_p[0], torch.Tensor))
+            self._check(Y, typ=list)
+            self._check(Y_p, typ=list)
+            self._check(Y[0], typ=torch.Tensor)
+            self._check(Y_p[0], typ=torch.Tensor)
         else:
-            assert(isinstance(Y, torch.Tensor))
+            self._check(Y, typ=torch.Tensor)
+            self._check(Y_p, typ=torch.Tensor)
             Y = [Y]
-            assert(isinstance(Y_p, torch.Tensor))
             Y_p = [Y_p]
 
         task_scores = []
@@ -129,10 +127,10 @@ class Classifier(nn.Module):
         """
         Y_p = self.predict_proba(X, **kwargs)
         if self.multitask:
-            assert(isinstance(Y_p, list))
-            assert(isinstance(Y_p[0], torch.Tensor))
+            self._check(Y_p, typ=list)
+            self._check(Y_p[0], typ=torch.Tensor)
         else:
-            assert(isinstance(Y_p, torch.Tensor))
+            self._check(Y_p, typ=torch.Tensor)
             Y_p = [Y_p]
 
         Y_ph = []
@@ -167,7 +165,7 @@ class Classifier(nn.Module):
             The (float) score of the Classifier for the specified task and 
             metric
         """
-        assert(isinstance(Y, torch.Tensor))
+        self._check(Y, typ=torch.Tensor)
 
         Y_tp = self.predict_task(X, t=t, **kwargs)
         score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0], **kwargs)
@@ -244,6 +242,17 @@ class Classifier(nn.Module):
                 ValueError(f'break_ties={break_ties} policy not recognized.')     
         return Y_th 
 
+    def _check(self, var, val=None, typ=None, shape=None):
+        if val is not None and not var != val:
+            msg = f"Expected value {val} but got value {var}."
+            raise ValueError(msg)
+        if typ is not None and not isinstance(var, typ):
+            msg = f"Expected type {typ} but got type {type(var)}."
+            raise ValueError(msg)
+        if shape is not None and not var.shape != shape:
+            msg = f"Expected shape {shape} but got shape {var.shape}."
+            raise ValueError(msg)
+            
     def _check_or_set_attr(self, name, val, set_val=False):
         if set_val:
             setattr(self, name, val)

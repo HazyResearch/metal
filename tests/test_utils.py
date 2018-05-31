@@ -39,7 +39,7 @@ class UtilsTest(unittest.TestCase):
         z = {
             'foo': 6
         }
-        recursive_merge_dicts(x, y, verbose=True)
+        recursive_merge_dicts(x, y, verbose=False)
         self.assertEqual(x['bar'], 5)
         self.assertEqual(x['foo']['Foo']['FOO'], 4)
         with self.assertRaises(ValueError):

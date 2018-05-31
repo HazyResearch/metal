@@ -49,7 +49,7 @@ def hard_to_soft(Y_h, k):
         Y_s[i, j-1] = 1.0
     return Y_s
 
-def recursive_merge_dicts(x, y, errors='report', verbose=True):
+def recursive_merge_dicts(x, y, errors='report', verbose=None):
     """
     Merge dictionary y into x, overwriting elements of x when there is a
     conflict, except if the element is a dictionary, in which case recurse.
@@ -74,12 +74,13 @@ def recursive_merge_dicts(x, y, errors='report', verbose=True):
                         raise ValueError(msg)
                     recursive_merge_dicts(x[k], v, errors, verbose)
                 else:
+                    if x[k] == v:
+                        msg = "Reaffirming {}={}".format(k, x[k])
+                    else:
+                        msg = "Overwriting {}={} to {}={}".format(k, x[k], k, v)
+                        x[k] = v
                     if verbose:
-                        if x[k] == v:
-                            print(f"Reaffirming {k}={x[k]}")
-                        else:
-                            print(f"Overwriting {k}={x[k]} to {k}={v}")
-                            x[k] = v
+                        print(msg)
             else:
                 for kx, vx in x.items():
                     if isinstance(vx, dict):
@@ -95,5 +96,10 @@ def recursive_merge_dicts(x, y, errors='report', verbose=True):
                     print(msg)
         return found
     
+    # If verbose is not provided, look for an value in y first, then x
+    # (Do this because 'verbose' kwarg is often inside one or both of x and y)
+    if verbose is None:
+        verbose = y.get('verbose', x.get('verbose', True))
+
     recurse(x, y, errors, verbose)
     return x
