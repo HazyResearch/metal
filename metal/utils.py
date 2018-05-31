@@ -75,7 +75,7 @@ def recursive_merge_dicts(x, y, errors='report', verbose=True):
                 else:
                     if verbose:
                         if x[k] == v:
-                            print(f"Reaffirming {x}={x[k]}")
+                            print(f"Reaffirming {k}={x[k]}")
                         else:
                             print(f"Overwriting {k}={x[k]} to {k}={v}")
                             x[k] = v
