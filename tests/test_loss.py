@@ -16,8 +16,6 @@ class LossTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         torch.manual_seed(1)
-        cls.sce = SoftCrossEntropyLoss()
-        cls.ce = nn.CrossEntropyLoss()
 
     def test_sce_equals_ce(self):
         # All correct predictions
@@ -25,9 +23,21 @@ class LossTest(unittest.TestCase):
         target = Y_h - 1  # Account for CrossEntropyLoss expecting 0-index
         Y = hard_to_soft(Y_h, k=4)  # hard_to_soft converts to 0-index for us
         
+        sce = SoftCrossEntropyLoss(reduce=False)
+        ce = nn.CrossEntropyLoss(reduce=False)
         for _ in range(10):
             Y_p = torch.randn(Y.shape)
-            self.assertEqual(self.sce(Y_p, Y), self.ce(Y_p, target))
+            self.assertTrue((sce(Y_p, Y) == ce(Y_p, target)).all())
+
+        sce = SoftCrossEntropyLoss(size_average=False)
+        ce = nn.CrossEntropyLoss(size_average=False)
+        for _ in range(10):
+            self.assertAlmostEqual(sce(Y_p, Y), ce(Y_p, target), places=4)
+
+        sce = SoftCrossEntropyLoss(size_average=True)
+        ce = nn.CrossEntropyLoss(size_average=True)
+        for _ in range(10):
+            self.assertAlmostEqual(sce(Y_p, Y), ce(Y_p, target), places=4)
 
     def test_perfect_predictions(self):
         # All incorrect predictions
@@ -35,11 +45,13 @@ class LossTest(unittest.TestCase):
         target = Y_h - 1
         Y = hard_to_soft(Y_h, k=4)
 
+        sce = SoftCrossEntropyLoss()
+
         # Guess nearly perfectly
         Y_p = Y.clone()
         Y_p[Y_p == 1] = 100
         Y_p[Y_p == 0] = -100
-        self.assertEqual(self.sce(Y_p, Y), 0)
+        self.assertEqual(sce(Y_p, Y), 0)
 
 if __name__ == '__main__':
     unittest.main()
