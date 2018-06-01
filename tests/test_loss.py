@@ -32,26 +32,74 @@ class LossTest(unittest.TestCase):
         sce = SoftCrossEntropyLoss(size_average=False)
         ce = nn.CrossEntropyLoss(size_average=False)
         for _ in range(10):
-            self.assertAlmostEqual(sce(Y_p, Y), ce(Y_p, target), places=4)
+            self.assertAlmostEqual(sce(Y_p, Y).numpy(), ce(Y_p, target).numpy(),
+                places=5)
 
         sce = SoftCrossEntropyLoss(size_average=True)
         ce = nn.CrossEntropyLoss(size_average=True)
         for _ in range(10):
-            self.assertAlmostEqual(sce(Y_p, Y), ce(Y_p, target), places=4)
+            self.assertAlmostEqual(sce(Y_p, Y).numpy(), ce(Y_p, target).numpy(),
+            places=5)
 
     def test_perfect_predictions(self):
-        # All incorrect predictions
         Y_h = torch.tensor([1, 2, 3], dtype=torch.long)
         target = Y_h - 1
         Y = hard_to_soft(Y_h, k=4)
 
         sce = SoftCrossEntropyLoss()
-
         # Guess nearly perfectly
         Y_p = Y.clone()
         Y_p[Y_p == 1] = 100
         Y_p[Y_p == 0] = -100
-        self.assertEqual(sce(Y_p, Y), 0)
+        self.assertAlmostEqual(sce(Y_p, Y).numpy(), 0)
+
+    def test_soft_labels(self):
+        Y = torch.tensor([
+            [0.1, 0.9],
+            [0.5, 0.5],
+        ])
+        Y_p1 = torch.tensor([
+            [0.1, 0.2],
+            [1.0, 0.0],
+        ])
+        Y_p2 = torch.tensor([
+            [0.1, 0.3],
+            [1.0, 0.0],
+        ])
+        Y_p3 = torch.tensor([
+            [0.1, 0.3],
+            [0.0, 1.0],
+        ])
+        sce = SoftCrossEntropyLoss()
+        self.assertLess(sce(Y_p2, Y), sce(Y_p1, Y))
+        self.assertEqual(sce(Y_p2, Y), sce(Y_p3, Y))
+
+    def test_loss_weights(self):
+        # All incorrect predictions
+        Y_h = torch.tensor([1,1,2,2], dtype=torch.long)
+        target = Y_h - 1
+        Y = hard_to_soft(Y_h, k=3)
+        Y_p1 = hard_to_soft(torch.tensor([1,1,2,3]), k=3)
+        Y_p1[Y_p1 == 0] = -100
+        Y_p1[Y_p1 == 1] = 100
+        Y_p2 = hard_to_soft(torch.tensor([3,3,2,2]), k=3)
+        Y_p2[Y_p2 == 0] = -100
+        Y_p2[Y_p2 == 1] = 100
+        
+        weight1 = torch.tensor([1,1,1], dtype=torch.float)
+        weight2 = torch.tensor([1,2,1], dtype=torch.float)
+        ce1 = nn.CrossEntropyLoss(weight=weight1)
+        ce2 = nn.CrossEntropyLoss(weight=weight2)
+        sce1 = SoftCrossEntropyLoss(weight=weight1)
+        sce2 = SoftCrossEntropyLoss(weight=weight2)
+
+        print(ce1(Y_p1, target))
+        print(ce2(Y_p2, target))
+        print()
+        print(sce1(Y_p1, Y))
+        print(sce2(Y_p2, Y))
+
+        import pdb; pdb.set_trace()
 
 if __name__ == '__main__':
     unittest.main()
