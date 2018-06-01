@@ -55,8 +55,8 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError
 
-    def score(self, X, Y, metric='accuracy', reduce='mean', verbose=True, 
-        **kwargs):
+    def score(self, X, Y, metric='accuracy', reduce='mean', break_ties='random',
+        verbose=True, **kwargs):
         """Scores the predictive performance of the Classifier on all tasks
 
         Args:
@@ -67,12 +67,13 @@ class Classifier(nn.Module):
             reduce: How to reduce the scores of multiple tasks if multitask=True
                 None: return a T-length list of scores
                 'mean': return the mean score across tasks
+            break_ties: How to break ties when making predictions
 
         Returns:
             scores: A (float) score or a T-length list of such scores if 
             multitask=True and reduce=None
         """
-        Y_p = self.predict(X, **kwargs)
+        Y_p = self.predict(X, break_ties=break_ties, **kwargs)
         if self.multitask:
             self._check(Y, typ=list)
             self._check(Y_p, typ=list)
@@ -86,8 +87,7 @@ class Classifier(nn.Module):
 
         task_scores = []
         for t, Y_tp in enumerate(Y_p):
-            score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0], 
-                **kwargs)
+            score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0])
             task_scores.append(score)
 
         # TODO: Other options for reduce, including scoring only certain
