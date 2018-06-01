@@ -97,7 +97,7 @@ class Classifier(nn.Module):
         else:
             if reduce is None:
                 score = task_scores
-            if reduce == 'mean':
+            elif reduce == 'mean':
                 score = np.mean(task_scores)
             else:
                 raise Exception(f"Keyword reduce='{reduce}' not recognized.")
@@ -105,7 +105,7 @@ class Classifier(nn.Module):
         if verbose:
             if self.multitask and reduce is None:
                 for t, score_t in enumerate(score):
-                    print(f"{metric.capitalize()} (t={t}): {score:.3f}")
+                    print(f"{metric.capitalize()} (t={t}): {score_t:0.3f}")
             else:
                 print(f"{metric.capitalize()}: {score:.3f}")
 
