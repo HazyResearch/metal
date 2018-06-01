@@ -125,9 +125,8 @@ class LabelModel(LabelModelBase):
         N, M = L_t.shape
         L_nz = L_t.copy()
         L_nz.data[:] = 1
-        # Add one to diagonal entries to avoid division by 0 later for LFs
-        # that always abstained
-        O = ((L_nz.T @ L_nz).todense() + np.eye(M)) / N 
+        O = L_nz.T @ L_nz / N 
+        O = O.todense()
 
         # Divide out the empirical labeling propensities
         beta = np.diag(O)
@@ -141,7 +140,10 @@ class LabelModel(LabelModelBase):
                     c = 1 if p[i] == p[j] else -1
                     O[i,j] = c * (O[i,j] - 1)
 
-        assert(not np.isnan(O).any())
+        # Converts NaNs to 0s
+        # NaNs can occur when an LF abstains for all items, leaving a 0 on the
+        # diagonal of the overlaps matrix which we then divide by above.
+        O[np.isnan(O)] = 0
 
         # Turn O in PyTorch Variable
         return torch.clamp(torch.from_numpy(O), min=-0.95, max=0.95).float()
