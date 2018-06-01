@@ -7,7 +7,7 @@ import torch.optim as optim
 
 from metal.classifier import Classifier
 from metal.label_model.lm_defaults import lm_model_defaults, lm_train_defaults
-from metal.utils import recursive_merge_dicts
+from metal.utils import recursive_merge_dicts, multitask_decorator
 
 class LabelModelBase(Classifier):
     """An abstract class for a label model
@@ -179,6 +179,7 @@ class LabelModel(LabelModelBase):
         """The float *Tensor* (not Variable) of log-odds LF accuracies."""
         return torch.log(self.accs / (1 - self.accs)).float()
 
+    @multitask_decorator
     def predict_proba(self, L):
         """Get conditional probabilities P(y_t | L) given the learned LF accs
 
@@ -193,7 +194,7 @@ class LabelModel(LabelModelBase):
         """
         L = self._check_L(L)
         Y_ph = [self.predict_task_proba(L_t, t) for t, L_t in enumerate(L)]
-        return Y_ph if self.multitask else Y_ph[0]
+        return Y_ph
     
     def predict_task_proba(self, L, t=0):
         """Get conditional probabilities P(Y_t | L) for a single task
@@ -212,22 +213,21 @@ class LabelModel(LabelModelBase):
         N = L_t.shape[0]
 
         # Here we iterate over the values of Y in {1,...,K_t}, forming
-        # a N x max(K_t) matrix of unnormalized predictions
+        # an [N, K_t] matrix of unnormalized predictions
         # Note in the unipolar setting:
         #   P(\lambda_j=k|y_t=k, \lambda_j != 0) = \alpha_i
         #   P(\lambda_j=k|y_t=l != k, \lambda_j != 0) = 1 - \alpha_i
         # So the computation is the same as in the binary case, except we
         # compute
         #   \theta^T \ind \{ \lambda_j != 0 \} \ind^{\pm} \{ \lambda_j = k \}
-        K = max(self.K_t) #TODO: Check this! Not sure max is necessary...
-        Y_pt = torch.zeros((N, K))
+        Y_pt = torch.zeros((N, self.K_t[t]))
         for y_t in range(1, self.K_t[t] + 1):
             L_t_y = torch.where(
                 (L_t != y_t) & (L_t != 0), torch.full((N, self.M), -1) , L_t)
             L_t_y = torch.where(L_t_y == y_t, torch.full((N, self.M), 1), L_t_y)
             Y_pt[:,y_t-1] = L_t_y @ self.log_odds_accs[t]
 
-        # Now we take the softmax returning an N x max(K_t) torch Tensor
+        # Take the softmax to return an [N, K_t] torch Tensor
         Y_tph = F.softmax(Y_pt, dim=1)     
         return Y_tph
 
@@ -255,7 +255,6 @@ class LabelModel(LabelModelBase):
         self._init_params(self.tp['gamma_init'])
 
         # Set optimizer as SGD w/ momentum
-
         optimizer = optim.SGD(
             self.parameters(), 
             **self.tp['optimizer_params'],

@@ -1,3 +1,5 @@
+from functools import wraps
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -21,6 +23,25 @@ class MultilabelDataset(Dataset):
 
     def __len__(self):
         return len(self.X)
+
+def multitask_decorator(f):
+    """Wraps a Classifier method to return an element instead of singleton list
+
+    By default, multitask-aware methods of Classifier (and its children) return
+    T-length lists. With this decorator, if multitask=True, then instead of
+    returning singleton lists, those methods will return a single element.
+
+    """
+    @wraps(f)
+    def decorated(self, *args, **kwargs):
+        output = f(self, *args, **kwargs)
+        if self.multitask:
+            assert(isinstance(output, list))
+            return output
+        else:
+            assert(len(output) == 1)
+            return output[0]
+    return decorated
 
 def rargmax(x, eps=1e-8):
     """Argmax with random tie-breaking

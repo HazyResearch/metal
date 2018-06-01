@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 
 from metal.metrics import metric_score, confusion_matrix
+from metal.utils import multitask_decorator
 
 class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier.
@@ -54,8 +55,8 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError
 
-    def score(self, X, Y, metric='accuracy', reduce='mean', verbose=True, 
-        **kwargs):
+    def score(self, X, Y, metric='accuracy', reduce='mean', break_ties='random',
+        verbose=True, **kwargs):
         """Scores the predictive performance of the Classifier on all tasks
 
         Args:
@@ -66,13 +67,13 @@ class Classifier(nn.Module):
             reduce: How to reduce the scores of multiple tasks if multitask=True
                 None: return a T-length list of scores
                 'mean': return the mean score across tasks
+            break_ties: How to break ties when making predictions
 
         Returns:
-            scores: A (float) score or a T-length list of such scores if multitask=True
-            and reduce=None
+            scores: A (float) score or a T-length list of such scores if 
+            multitask=True and reduce=None
         """
-
-        Y_p = self.predict(X, **kwargs)
+        Y_p = self.predict(X, break_ties=break_ties, **kwargs)
         if self.multitask:
             self._check(Y, typ=list)
             self._check(Y_p, typ=list)
@@ -86,8 +87,7 @@ class Classifier(nn.Module):
 
         task_scores = []
         for t, Y_tp in enumerate(Y_p):
-            score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0], 
-                **kwargs)
+            score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0])
             task_scores.append(score)
 
         # TODO: Other options for reduce, including scoring only certain
@@ -97,7 +97,7 @@ class Classifier(nn.Module):
         else:
             if reduce is None:
                 score = task_scores
-            if reduce == 'mean':
+            elif reduce == 'mean':
                 score = np.mean(task_scores)
             else:
                 raise Exception(f"Keyword reduce='{reduce}' not recognized.")
@@ -105,13 +105,14 @@ class Classifier(nn.Module):
         if verbose:
             if self.multitask and reduce is None:
                 for t, score_t in enumerate(score):
-                    print(f"{metric.capitalize()} (t={t}): {score:.3f}")
+                    print(f"{metric.capitalize()} (t={t}): {score_t:0.3f}")
             else:
                 print(f"{metric.capitalize()}: {score:.3f}")
 
         return score
-    
-    def predict(self, X, break_ties='random', as_list=False, **kwargs):
+
+    @multitask_decorator    
+    def predict(self, X, break_ties='random', **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
         
         Args:
@@ -119,7 +120,8 @@ class Classifier(nn.Module):
             Y: A T-length list of [N] or [N, 1] tensors of gold labels in
                 {1,...,K_t}
             break_ties: A tie-breaking policy
-            as_list: If True, return results as a list regardless of T
+            as_list: If True, return the result as a list regardless of whether
+                multitask=True
 
         Returns:
             An N-dim tensor of predictions or a T-length list of such
@@ -138,11 +140,9 @@ class Classifier(nn.Module):
             Y_tph = self._break_ties(Y_tp.numpy(), break_ties)
             Y_ph.append(torch.tensor(Y_tph, dtype=torch.short))
 
-        if not self.multitask:
-            Y_ph = Y_ph[0]
-
         return Y_ph
 
+    @multitask_decorator
     def predict_proba(self, X, **kwargs):
         """Predicts soft probabilistic labels for an input X on all tasks
         Args:
@@ -193,7 +193,7 @@ class Classifier(nn.Module):
             X: The input for the predict_proba method
             t: The task index to predict for which to predict probabilities
         Returns:
-            An
+            An [N, K_t] tensor of predictions for task t
 
         NOTE: By default, this method calls predict_proba and extracts element
         t. If it is possible to predict individual tasks in isolation, however,
