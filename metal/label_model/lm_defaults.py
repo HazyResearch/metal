@@ -1,5 +1,5 @@
 lm_model_defaults = {
-
+    'seed': None,
 }
 
 lm_train_defaults = {

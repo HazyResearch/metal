@@ -20,9 +20,11 @@ class LabelModelBase(Classifier):
         Args:
             label_map: 
         """
-        multitask = isinstance(label_map, list) and len(label_map) > 1
-        super().__init__(multitask)
         self.mp = recursive_merge_dicts(lm_model_defaults, kwargs)
+        
+        multitask = isinstance(label_map, list) and len(label_map) > 1
+        super().__init__(multitask, self.mp['seed'])
+
         self.label_map = label_map
         self.T = len(label_map) if label_map else 1
     

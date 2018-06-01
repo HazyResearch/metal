@@ -22,14 +22,14 @@ from metal.utils import (
 class EndModel(Classifier):
     def __init__(self, label_map=None, task_graph=None, input_module=None, 
         **kwargs):
+        self.mp = recursive_merge_dicts(em_model_defaults, kwargs)
+
         multitask = isinstance(label_map, list) and len(label_map) > 1
-        super().__init__(multitask)
+        super().__init__(multitask, seed=self.mp['seed'])
 
         if label_map is None:
             label_map = [[1,2]]  # Default to a single binary task
         self.label_map = label_map
-
-        self.mp = recursive_merge_dicts(em_model_defaults, kwargs)
 
         self.K_t = [len(x) for x in label_map]
         self.T = len(label_map)
@@ -52,13 +52,37 @@ class EndModel(Classifier):
         # Layer 0 is the input module
 
         layer_dims = self.mp['layer_output_dims']
-        # TODO: allow them to specify num_layers
+        # The number of layers is inferred from the specific layer_output_dims
         num_layers = len(layer_dims)
-        # TODO: allow options for specifying task_layers; 
-        # Currently defaulting to flat configuration
-        # When we allow custom, confirm that topological & taskgraph agree
-        #   i.e., if a -> b, then a has a lower layer than b
-        task_layers = [num_layers - 1] * self.T
+
+        # Make task head layer assignments
+        if isinstance(self.mp['head_layers'], list):
+            task_layers = self.mp['head_layers']
+        elif self.mp['head_layers'] == 'top':
+            task_layers = [num_layers - 1] * self.T
+        elif self.mp['head_layers'] == 'auto':
+            raise NotImplementedError
+        else:
+            msg = (f"Invalid option to 'head_layers' parameter: "
+                f"{self.mp['head_layers']}")
+            raise ValueError(msg)
+
+        if max(task_layers) < num_layers - 1:
+            unused = num_layers - 1 - max(task_layers)
+            msg = (f"The last {unused} layer(s) of your network have no task "
+                "heads attached to them")
+            raise ValueError(msg)
+
+        # If we're passing predictions, confirm that parents come b/f children
+        if self.mp['pass_predictions']:
+            for t, l in enumerate(task_layers):
+                for p in self.task_graph.parents[t]:
+                    if task_layers[p] >= l:
+                        p_layer = task_layers[p]
+                        msg = (f"Task {t}'s layer ({l}) must be larger than its "
+                            f"parent task {p}'s layer ({p_layer})")
+                        raise ValueError(msg)
+
         # task_layers stores the layer whose output task head t takes as input
         # task_map stores the task heads that appear at each layer
         self.task_map = defaultdict(list)
@@ -90,6 +114,7 @@ class EndModel(Classifier):
 
         # Construct heads
         # TODO: Try to get heads to show up at proper depth when printing net
+        # TODO: Allow user to specify output dimensions of task heads
         head_dims = self.mp['head_output_dims']
         if head_dims is None:
             head_dims = [self.K_t[t] for t in range(self.T)]
@@ -97,6 +122,9 @@ class EndModel(Classifier):
         self.heads = nn.ModuleList()
         for t in range(self.T):
             input_dim = layer_dims[task_layers[t]]
+            if self.mp['pass_predictions']:
+                for p in self.task_graph.parents[t]:
+                    input_dim += head_dims[p]
             output_dim = head_dims[t]
             self.heads.append(nn.Linear(input_dim, output_dim))
 
@@ -113,13 +141,16 @@ class EndModel(Classifier):
         for i, layer in enumerate(self.layers):
             x = layer(x)
             for t in self.task_map[i]:
-                # Because we named our heads, we must use a slice instead of an
-                # integer if we want to access it by index instead of name
                 head = self.heads[t]
-                inputs = [x]
-                for p in self.task_graph.parents[t]:
-                    inputs.append(task_outputs[p])
-                task_outputs[t] = head(torch.cat(inputs, dim=1))
+                if (self.mp['pass_predictions'] and 
+                    bool(self.task_graph.parents[t])):
+                    task_input = [x]
+                    for p in self.task_graph.parents[t]:
+                        task_input.append(task_outputs[p])
+                    task_input = torch.cat(task_input, dim=1)
+                else:
+                    task_input = x
+                task_outputs[t] = head(task_input)
         return task_outputs
 
     @staticmethod
@@ -240,7 +271,6 @@ class EndModel(Classifier):
 
                 # Perform optimizer step
                 optimizer.step()
-
 
             train_loss = epoch_loss / len(train_loader.dataset)
             if dev_loader:

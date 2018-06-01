@@ -1,10 +1,19 @@
 em_model_defaults = {
+    'seed': None,
     'batchnorm': True,
     'dropout': 0.25,
     # The first value is the output dim of the input module
     'layer_output_dims': [2, 10, 10, 2],
-    # If None, defaults to K_t for each task t
+    # If head_output_dims is None, defaults to K_t for each task t
     'head_output_dims': None,  # Optionally a list
+    # Optionally specify the layers that each head should attach to
+    # 'top': connect all heads to the final (top) layer
+    # 'auto': connect heads at layers corresponding to placement in the task
+    #    graph; the deepest leaf attaches to the top layer, then work backward
+    # [list]: specify explicitly the layer for each head
+    'head_layers': 'top',
+    # If True, pass output of parent tasks as additional input to children tasks
+    'pass_predictions': False,
 }
 
 em_train_defaults = {
@@ -23,12 +32,11 @@ em_train_defaults = {
 
     # Train Loop
     'n_epochs': 10,
-    'grad_clip': 0.0,
-    'converged': 20,  # if not 0, stop early if this many epochs pass without improvement in training metric
-    'early_stopping': False, # if true, save any model with best score so far
-    'checkpoint_runway': 0, # if early stopping, don't save checkpoints until after at least this many epochs
+    # 'grad_clip': 0.0,
+    # 'converged': 20,  # if not 0, stop early if this many epochs pass without improvement in training metric
+    # 'early_stopping': False, # if true, save any model with best score so far
+    # 'checkpoint_runway': 0, # if early stopping, don't save checkpoints until after at least this many epochs
     'l2': 0.0,
-
 
     # Optimizer
     'optimizer': 'sgd',
