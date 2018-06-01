@@ -9,5 +9,11 @@ class IdentityModule(InputModule):
         super().__init__()
         self.output_dim = output_dim
    
+    def reset_parameters(self):
+        pass
+
     def get_output_dim(self):
         return self.output_dim
+
+    def forward(self, x):
+        return x
