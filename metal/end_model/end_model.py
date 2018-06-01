@@ -238,7 +238,7 @@ class EndModel(Classifier):
                 # if grad_clip:
                 #     torch.nn.utils.clip_grad_norm(self.net.parameters(), grad_clip)
 
-                # Perform optimizer tep
+                # Perform optimizer step
                 optimizer.step()
 
 
