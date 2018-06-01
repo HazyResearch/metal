@@ -2,13 +2,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_model_defaults, em_train_defaults
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.modules import IdentityModule
-from metal.utils import MultilabelDataset, hard_to_soft
+from metal.utils import MultilabelDataset, hard_to_soft, multitask_decorator
 
 class EndModel(Classifier):
     def __init__(self, input_module=IdentityModule, **kwargs):
@@ -83,7 +84,7 @@ class EndModel(Classifier):
         # Y_train = self._preprocess_Y(Y_train)
         # Y_dev = self._preprocess_Y(Y_dev)
 
-        if self.use_cuda:
+        if self.tp['use_cuda']:
             raise NotImplementedError
             # TODO: fix this
             # X = X.cuda(self.gpu_id)
@@ -110,12 +111,11 @@ class EndModel(Classifier):
         #     raise NotImplementedError
 
         # Set the optimizer
-        parameters = self.parameters()
-        optimizer = torch.optim.SGD(
-            parameters, 
-            lr=self.tp['lr'],
-            momentum=self.tp['momentum'], 
-            weight_decay=self.tp['l2'])        
+        optimizer = optim.SGD(
+            self.parameters(), 
+            **self.tp['optimizer_params'],
+            **self.tp['sgd_params']
+        )
 
         # Initialize the model
         self.reset()
@@ -154,10 +154,11 @@ class EndModel(Classifier):
                     msg += f'\tDev score: {dev_score:.3f}'
                 print(msg)
 
-    def predict_tasks_proba(self, X):
+    @multitask_decorator
+    def predict_proba(self, X):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
         return [F.softmax(Y_tp, dim=1).data.cpu() for Y_tp in self.forward(X)]
 
-    def predict_proba(self, X, t):
-        """Returns an N x k matrix of probabilities for each end label"""
+    def predict_task_proba(self, X, t):
+        """Returns an N x k matrix of probabilities for each label of task t"""
         return self.predict_tasks_proba(X)[t]

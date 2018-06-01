@@ -4,17 +4,23 @@ em_model_defaults = {
 }
 
 em_train_defaults = {
-    'print_every': 1, # Print after this many epochs
+    # Display
     'verbose': True,
+    'print_every': 1, # Print after this many epochs
+    # GPU
+    'use_cuda': False,
+    # Functionality
     'n_epochs': 10,
-    # Optimizer
-    'optimizer': 'sgd',
-    'lr': 0.01,
-    'l2': 0.0,
+    'grad_clip': 0.0,
     'converged': 20,  # if not 0, stop early if this many epochs pass without improvement in training metric
     'early_stopping': False, # if true, save any model with best score so far
     'checkpoint_runway': 0, # if early stopping, don't save checkpoints until after at least this many epochs
-    'grad_clip': 0.0,
+    'l2': 0.0,
+    # Optimizer
+    'optimizer': 'sgd',
+    'optimizer_params': {
+        'lr': 0.01,
+    },
     # Optimizer - SGD
     'sgd_params': {
         'momentum': 0.9,
