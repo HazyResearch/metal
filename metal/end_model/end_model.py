@@ -179,9 +179,6 @@ class EndModel(Classifier):
 
     def _preprocess_Y(self, Y):
         """Convert Y to T-dim lists of soft labels if necessary"""
-        # Make a copy so as to not modify the data the user passed in
-        Y = Y.copy()
-        
         # If not a list, convert to a singleton list
         if not isinstance(Y, list):
             if self.T != 1:
@@ -260,7 +257,6 @@ class EndModel(Classifier):
                 # Forward pass to calculate outputs
                 outputs = self.forward(X)
                 loss = self.get_loss(outputs, Y)
-                epoch_loss += loss.data
 
                 # Backward pass to calculate gradients
                 loss.backward()
@@ -272,7 +268,14 @@ class EndModel(Classifier):
                 # Perform optimizer step
                 optimizer.step()
 
+                # Keep running sum of losses
+                epoch_loss += loss.detach() * X.shape[0]
+
+            # Calculate average loss per training example
+            # Saving division until this stage protects against the potential
+            # mistake of averaging batch losses when the last batch is an orphan
             train_loss = epoch_loss / len(train_loader.dataset)
+
             if dev_loader:
                 dev_score = self.score(X_dev, Y_dev, verbose=False)
             
