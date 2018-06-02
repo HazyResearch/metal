@@ -97,8 +97,6 @@ class LossTest(unittest.TestCase):
         # sce1 = SoftCrossEntropyLoss(weight=weight1)
         # sce2 = SoftCrossEntropyLoss(weight=weight2)
 
-        loss1 = 
-        loss2 = 
         print(ce1(Y_p1, target))
         print(ce2(Y_p1, target))
         # print()
