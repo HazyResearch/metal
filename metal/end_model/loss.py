@@ -15,7 +15,7 @@ class SoftCrossEntropyLoss(nn.Module):
         reduce:
 
     Accepts:
-        input: An [N, K_t] float tensor of prediction logits (not probabilities)
+        input: An [n, K_t] float tensor of prediction logits (not probabilities)
         target: An [n, K_t] float tensor of target probabilities
     """
     def __init__(self, weight=None, size_average=True, reduce=True):

@@ -76,28 +76,34 @@ class LossTest(unittest.TestCase):
 
     def test_loss_weights(self):
         # All incorrect predictions
-        Y_h = torch.tensor([1,1,2,2], dtype=torch.long)
+        Y_h = torch.tensor([1,1,2], dtype=torch.long)
         target = Y_h - 1
-        Y = hard_to_soft(Y_h, k=3)
-        Y_p1 = hard_to_soft(torch.tensor([1,1,2,3]), k=3)
+        K_t = 2
+        Y = hard_to_soft(Y_h, k=K_t)
+        Y_p1 = hard_to_soft(torch.tensor([1,1,1]), k=K_t)
         Y_p1[Y_p1 == 0] = -100
         Y_p1[Y_p1 == 1] = 100
-        Y_p2 = hard_to_soft(torch.tensor([3,3,2,2]), k=3)
+        Y_p2 = hard_to_soft(torch.tensor([2,2,2]), k=K_t)
         Y_p2[Y_p2 == 0] = -100
         Y_p2[Y_p2 == 1] = 100
         
-        weight1 = torch.tensor([1,1,1], dtype=torch.float)
-        weight2 = torch.tensor([1,2,1], dtype=torch.float)
+        print(Y_p1)
+        print(Y_p2)
+
+        weight1 = torch.tensor([1,1], dtype=torch.float)
+        weight2 = torch.tensor([1,1], dtype=torch.float) * 10
         ce1 = nn.CrossEntropyLoss(weight=weight1)
         ce2 = nn.CrossEntropyLoss(weight=weight2)
-        sce1 = SoftCrossEntropyLoss(weight=weight1)
-        sce2 = SoftCrossEntropyLoss(weight=weight2)
+        # sce1 = SoftCrossEntropyLoss(weight=weight1)
+        # sce2 = SoftCrossEntropyLoss(weight=weight2)
 
+        loss1 = 
+        loss2 = 
         print(ce1(Y_p1, target))
-        print(ce2(Y_p2, target))
-        print()
-        print(sce1(Y_p1, Y))
-        print(sce2(Y_p2, Y))
+        print(ce2(Y_p1, target))
+        # print()
+        # print(sce1(Y_p1, Y))
+        # print(sce2(Y_p2, Y))
 
         import pdb; pdb.set_trace()
 
