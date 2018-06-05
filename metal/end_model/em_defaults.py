@@ -1,18 +1,21 @@
 em_model_defaults = {
+    # General
     'seed': None,
+    'verbose': False,
+    # Network
     'batchnorm': True,
     'dropout': 0.25,
-    # The first value is the output dim of the input module
+        # The first value is the output dim of the input module
     'layer_output_dims': [2, 10, 10, 2],
-    # If head_output_dims is None, defaults to K_t for each task t
+        # If head_output_dims is None, defaults to K_t for each task t
     'head_output_dims': None,  # Optionally a list
-    # Optionally specify the layers that each head should attach to
-    # 'top': connect all heads to the final (top) layer
-    # 'auto': connect heads at layers corresponding to placement in the task
-    #    graph; the deepest leaf attaches to the top layer, then work backward
-    # [list]: specify explicitly the layer for each head
+        # Optionally specify the layers that each head should attach to
+        # 'top': connect all heads to the final (top) layer
+        # 'auto': connect heads at layers corresponding to placement in the task
+        #    graph; the deepest leaf attaches to the top layer, then work backward
+        # [list]: specify explicitly the layer for each head
     'head_layers': 'top',
-    # If True, pass output of parent tasks as additional input to children tasks
+        # If True, pass output of parent tasks as additional input to children tasks
     'pass_predictions': False,
 }
 
@@ -42,6 +45,7 @@ em_train_defaults = {
     'optimizer': 'sgd',
     'optimizer_params': {
         'lr': 0.01,
+        'weight_decay': 0.0,
     },
     # Optimizer - SGD
     'sgd_params': {
@@ -54,15 +58,19 @@ em_train_defaults = {
     },
 
     # Scheduler
-    'scheduler':'reduce_on_plateau', # ['constant', 'exponential', 'reduce_on_plateu']
+    'scheduler': 'reduce_on_plateau', # ['constant', 'exponential', 'reduce_on_plateu']
     'scheduler_params': {
         'lr_freeze': 0, # Freeze learning rate initially this many epochs
         # Scheduler - exponential
-        'gamma': 0.9, # decay rate
+        'exponential_params': {
+            'gamma': 0.9, # decay rate
+        },
         # Scheduler - reduce_on_plateau
-        'factor': 0.1,
-        'patience': 10,
-        'threshold': 0.0001,
-        'min_lr': 1e-4
+        'plateau_params': {
+            'factor': 0.5,
+            'patience': 10,
+            'threshold': 0.0001,
+            'min_lr': 1e-4,
+        },
     },
 }

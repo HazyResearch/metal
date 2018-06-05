@@ -190,12 +190,40 @@ class EndModel(Classifier):
             msg = "Expected Y to be a list of length T ({self.T}), not {len(Y)}"
             raise ValueError(msg)
 
+        Y = [Yt.clone() for Yt in Y]
+
         # If hard labels, convert to soft labels
         for t, Y_t in enumerate(Y):
             if Y_t.dim() == 1 or Y_t.shape[1] == 1:
                 # FIXME: This could fail if last class was never predicted
                 Y[t] = hard_to_soft(Y_t, k=Y_t.max())
         return Y
+
+    def _set_optimizer(self):
+        opt = self.tp['optimizer']
+        if opt == 'sgd':
+            optimizer = optim.SGD(
+                self.parameters(), 
+                **self.tp['optimizer_params'],
+                **self.tp['sgd_params']
+            )
+        else:
+            raise ValueError(f"Did not recognize optimizer option '{opt}''") 
+        return optimizer
+
+    def _set_scheduler(self, optimizer):
+        scheduler = self.tp['scheduler']
+        if scheduler is None:
+            pass
+        elif scheduler == 'exponential':
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, **self.tp['scheduler_params']['exponential_params'])
+        elif scheduler == 'reduce_on_plateau':
+            lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, **self.tp['scheduler_params']['plateau_params'])
+        else:
+            raise ValueError(f"Did not recognize scheduler option '{scheduler}''")
+        return lr_scheduler
 
     def get_loss(self, outputs, Y):
         """Return the loss of Y and the output(s) of the net forward pass.
@@ -211,6 +239,7 @@ class EndModel(Classifier):
     def train(self, X_train, Y_train, X_dev=None, Y_dev=None, **kwargs):
         # TODO: merge kwargs into model_params
         self.tp = recursive_merge_dicts(em_train_defaults, kwargs)
+        scheduler_params = self.tp['scheduler_params']
 
         if self.tp['use_cuda']:
             raise NotImplementedError
@@ -236,11 +265,10 @@ class EndModel(Classifier):
             print(self)
 
         # Set the optimizer
-        optimizer = optim.SGD(
-            self.parameters(), 
-            **self.tp['optimizer_params'],
-            **self.tp['sgd_params']
-        )
+        optimizer = self._set_optimizer()
+
+        # Set the lr scheduler
+        lr_scheduler = self._set_scheduler(optimizer)
 
         # Initialize the model
         self.reset()
@@ -279,8 +307,16 @@ class EndModel(Classifier):
             if dev_loader:
                 dev_score = self.score(X_dev, Y_dev, verbose=False)
             
+            # Apply learning rate scheduler
+            if (lr_scheduler is not None 
+                and epoch + 1 >= scheduler_params['lr_freeze']):
+                if self.tp['scheduler'] == 'reduce_on_plateau':
+                    lr_scheduler.step(dev_score)
+                else:
+                    lr_scheduler.step()
+
             # Report progress
-            if epoch % self.tp['print_every'] == 0:
+            if self.tp['verbose'] and epoch % self.tp['print_every'] == 0:
                 msg = f'[E:{epoch+1}]\tTrain Loss: {train_loss:.3f}'
                 if dev_loader:
                     msg += f'\tDev score: {dev_score:.3f}'
