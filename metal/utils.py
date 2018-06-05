@@ -70,19 +70,20 @@ def hard_to_soft(Y_h, k):
         Y_s[i, j-1] = 1.0
     return Y_s
 
-def recursive_merge_dicts(x, y, errors='report', verbose=None):
+def recursive_merge_dicts(x, y, misses='report', verbose=None):
     """
     Merge dictionary y into x, overwriting elements of x when there is a
     conflict, except if the element is a dictionary, in which case recurse.
 
-    errors: what to do if a key in y is not in x
+    misses: what to do if a key in y is not in x
+        'insert'    -> set x[key] = value
         'exception' -> raise an exception
         'report'    -> report the name of the missing key
         'ignore'    -> do nothing
 
     TODO: give example here (pull from tests)
     """
-    def recurse(x, y, errors='report', verbose=True):
+    def recurse(x, y, misses='report', verbose=True):
         found = True
         for k, v in y.items():
             found = False
@@ -93,12 +94,12 @@ def recursive_merge_dicts(x, y, errors='report', verbose=None):
                         msg = (f"Attempted to overwrite dict {k} with "
                             f"non-dict: {v}")
                         raise ValueError(msg)
-                    recursive_merge_dicts(x[k], v, errors, verbose)
+                    recursive_merge_dicts(x[k], v, misses, verbose)
                 else:
                     if x[k] == v:
-                        msg = "Reaffirming {}={}".format(k, x[k])
+                        msg = f"Reaffirming {x}={x[k]}"
                     else:
-                        msg = "Overwriting {}={} to {}={}".format(k, x[k], k, v)
+                        msg = f"Overwriting {x}={x[k]} to {k}={v}"
                         x[k] = v
                     if verbose:
                         print(msg)
@@ -106,15 +107,21 @@ def recursive_merge_dicts(x, y, errors='report', verbose=None):
                 for kx, vx in x.items():
                     if isinstance(vx, dict):
                         found = recursive_merge_dicts(vx, {k: v}, 
-                            errors='ignore', verbose=verbose)
+                            misses='ignore', verbose=verbose)
                     if found:
                         break
             if not found:
                 msg = f'Could not find kwarg "{k}" in default config.'
-                if errors == 'exception':
+                if misses == 'insert':
+                    x[k] = v
+                    if verbose: 
+                        print(f"Added {k}={v} from second dict to first")
+                elif misses == 'exception':
                     raise ValueError(msg)
-                elif errors == 'report':
+                elif misses == 'report':
                     print(msg)
+                else:
+                    pass
         return found
     
     # If verbose is not provided, look for an value in y first, then x
@@ -122,5 +129,5 @@ def recursive_merge_dicts(x, y, errors='report', verbose=None):
     if verbose is None:
         verbose = y.get('verbose', x.get('verbose', True))
 
-    recurse(x, y, errors, verbose)
+    recurse(x, y, misses, verbose)
     return x
