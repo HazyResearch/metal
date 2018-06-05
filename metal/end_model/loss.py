@@ -7,10 +7,6 @@ class SoftCrossEntropyLoss(nn.Module):
 
     Args:
         weight: a tensor of relative weights to assign to each class.
-            This is scaled such that regardless of the magnitude of the 
-            provided weights, the average loss magnitude remains the same.
-            (.i.e., some classes will be downweighted and some upweighted,
-            but they won't all be downweighted)
         size_average:
         reduce:
 
@@ -20,10 +16,7 @@ class SoftCrossEntropyLoss(nn.Module):
     """
     def __init__(self, weight=None, size_average=True, reduce=True):
         super().__init__()
-        if weight is not None:
-            assert(isinstance(weight, torch.FloatTensor))
-            # Scale weight 
-            weight = weight / weight.sum() * weight.shape[0]
+        assert(weight is None or isinstance(weight, torch.FloatTensor))
         self.weight = weight
         self.reduce = reduce
         self.size_average = size_average and reduce
