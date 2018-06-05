@@ -23,7 +23,7 @@ class EndModelTest(unittest.TestCase):
         Y[:,1] = (X[:,0] > X[:,1] + 0.25).astype(int) + 1
 
         X = torch.tensor(X, dtype=torch.float)
-        Y = torch.tensor(Y, dtype=torch.short)
+        Y = torch.tensor(Y, dtype=torch.long)
         
         cls.X_train = X[:1000]
         cls.X_dev   = X[1000:1100]
@@ -47,7 +47,7 @@ class EndModelTest(unittest.TestCase):
             layer_output_dims=[2, 4, 2],
         )
         score = em.score(self.X_test, Y_test, verbose=False)
-        self.assertEqual(score, 0.8)
+        self.assertEqual(score, 0.95)
 
     def test_multitask_top(self):
         label_map=[[1,2],[1,2]]
@@ -64,7 +64,7 @@ class EndModelTest(unittest.TestCase):
             n_epochs=10,
         )
         score = em.score(self.X_test, self.Y_test, reduce='mean', verbose=False)
-        self.assertEqual(score, 0.74)
+        self.assertEqual(score, 0.975)
 
     # def test_multitask_auto(self):
         # label_map=[[1,2],[1,2]]
@@ -99,7 +99,7 @@ class EndModelTest(unittest.TestCase):
             n_epochs=10,
         )
         score = em.score(self.X_test, self.Y_test, reduce='mean', verbose=False)
-        self.assertEqual(score, 0.87)
+        self.assertEqual(score, 0.96)
         
 if __name__ == '__main__':
     unittest.main()        

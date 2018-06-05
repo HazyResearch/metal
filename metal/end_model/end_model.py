@@ -105,7 +105,8 @@ class EndModel(Classifier):
                 layer.append(input_module)
             else:
                 layer.append(nn.Linear(*layer_dims[i-1:i+1]))
-            layer.append(nn.ReLU())
+            if not isinstance(input_module, IdentityModule):
+                layer.append(nn.ReLU())
             if self.mp['batchnorm']:
                 layer.append(nn.BatchNorm1d(layer_dims[i]))
             if self.mp['dropout']:
@@ -166,7 +167,8 @@ class EndModel(Classifier):
         """
         module_name = m.__class__.__name__
         if module_name in ['EndModel', 'Sequential', 'ModuleList', 'ReLU', 
-            'Dropout', 'SoftCrossEntropyLoss']:
+            'Dropout', 'LogisticRegression', 'SoftmaxRegression', 
+            'SoftCrossEntropyLoss']:
             pass
         elif callable(getattr(m, 'reset_parameters', None)):
             m.reset_parameters()
@@ -195,8 +197,10 @@ class EndModel(Classifier):
         # If hard labels, convert to soft labels
         for t, Y_t in enumerate(Y):
             if Y_t.dim() == 1 or Y_t.shape[1] == 1:
+                if not isinstance(Y_t, torch.LongTensor):
+                    self._check(Y_t, typ=torch.LongTensor)
                 # FIXME: This could fail if last class was never predicted
-                Y[t] = hard_to_soft(Y_t, k=Y_t.max())
+                Y[t] = hard_to_soft(Y_t, k=Y_t.max().long())
         return Y
 
     def _set_optimizer(self):
@@ -311,7 +315,8 @@ class EndModel(Classifier):
             if (lr_scheduler is not None 
                 and epoch + 1 >= scheduler_params['lr_freeze']):
                 if self.tp['scheduler'] == 'reduce_on_plateau':
-                    lr_scheduler.step(dev_score)
+                    if dev_loader:
+                        lr_scheduler.step(dev_score)
                 else:
                     lr_scheduler.step()
 

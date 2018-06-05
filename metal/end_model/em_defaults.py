@@ -4,9 +4,9 @@ em_model_defaults = {
     'verbose': False,
     # Network
     'batchnorm': True,
-    'dropout': 0.25,
+    'dropout': 0.0,
         # The first value is the output dim of the input module
-    'layer_output_dims': [2, 10, 10, 2],
+    'layer_output_dims': [100, 50],
         # If head_output_dims is None, defaults to K_t for each task t
     'head_output_dims': None,  # Optionally a list
         # Optionally specify the layers that each head should attach to

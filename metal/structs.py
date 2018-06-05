@@ -50,6 +50,7 @@ class TaskGraph(object):
         # Get depth (max-length path) of DAG
         # Note that a single node has depth 0)
         # TODO: implement _compute_depth()
+        self.depth = None
         # self.depth = self._compute_depth()
 
 
