@@ -1,5 +1,3 @@
-import random
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -35,21 +33,9 @@ class Classifier(nn.Module):
     accessing element t.
     """
 
-    def __init__(self, multitask=False, seed=None):
+    def __init__(self, multitask=False):
         super().__init__()
         self.multitask = multitask
-        if seed is not None:
-            self._set_seed(seed)
-
-    def _set_seed(self, seed):
-        if torch.cuda.is_available():
-            # TODO: confirm this works for gpus without knowing gpu_id
-            # torch.cuda.set_device(self.config['gpu_id'])
-            torch.backends.cudnn.enabled = True
-            torch.cuda.manual_seed(seed)
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
 
     @staticmethod
     def _reset_module(m):
@@ -125,7 +111,7 @@ class Classifier(nn.Module):
 
         return score
 
-    @multitask_decorator    
+    @multitask_decorator   
     def predict(self, X, break_ties='random', **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
         
