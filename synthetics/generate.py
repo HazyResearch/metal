@@ -26,11 +26,11 @@ def generate_single_task_unipolar(n, m, k=2, acc=[0.6, 0.9], rec=[0.1, 0.2],
     """Generate a single task label matrix
     
     Args:
-        n: number of examples
-        m: number of LFs
-        k: cardinality of the task
-        acc: accuracy range
-        beta: labeling propensity (same for all classes)
+        n: (int) number of examples
+        m: (int) number of LFs
+        k: (int) cardinality of the task
+        acc: (list) accuracy range
+        rec: (list) recall range
         class_balance: normalized list of k floats representing the portion
             of the dataset with each label
         lf_balance: normalized list of k floats representing the portion of
@@ -119,3 +119,44 @@ def generate_single_task_unipolar(n, m, k=2, acc=[0.6, 0.9], rec=[0.1, 0.2],
 
     Y = torch.tensor(Y, dtype=torch.short)
     return L, Y, metadata
+
+
+def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):
+    """
+    Generate Gaussian bags of words based on label assignments
+
+    Args:
+        Y: (Tensor) true labels
+        sigma: (float) the standard deviation of the Gaussian distributions
+        bag_size: (list) the min and max length of bags of words
+
+    Returns:
+        X: (Tensor) a tensor of indices representing tokens
+        items: (list) a list of entences (strings)
+
+    The sentences are conditionally independent, given a label.
+    Note that technically we use a half-normal distribution here because we 
+        take the absolute value of the normal distribution.
+
+    Example:
+        TBD
+
+    """
+    def make_distribution(sigma, num_words):
+        p = abs(np.random.normal(0, sigma, num_words))
+        return p / sum(p)
+    
+    Y = Y.numpy()
+    num_words = len(vocab)
+    word_dists = {y: make_distribution(sigma, num_words) for y in set(Y)}
+    bag_sizes = np.random.choice(range(min(bag_size), max(bag_size)), len(Y))
+
+    X = []
+    items = []
+    for i, (y, length) in enumerate(zip(Y, bag_sizes)):
+        x = torch.from_numpy(
+            np.random.choice(num_words, length, p=word_dists[y]))
+        X.append(x)
+        items.append(' '.join(vocab[j] for j in x))
+
+    return X, items
