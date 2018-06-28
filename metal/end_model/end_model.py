@@ -15,7 +15,7 @@ from metal.structs import TaskGraph
 from metal.utils import (
     MultilabelDataset, 
     hard_to_soft, 
-    multitask_decorator,
+    multitask,
     recursive_merge_dicts,
 )
 
@@ -327,7 +327,7 @@ class EndModel(Classifier):
                     msg += f'\tDev score: {dev_score:.3f}'
                 print(msg)
 
-    @multitask_decorator
+    @multitask
     def predict_proba(self, X):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
         return [F.softmax(Y_tp, dim=1).data.cpu() for Y_tp in self.forward(X)]

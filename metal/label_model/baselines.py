@@ -4,7 +4,7 @@ import numpy as np
 from scipy.sparse import csc_matrix
 import torch
 
-from metal.utils import rargmax, multitask_decorator
+from metal.utils import rargmax, multitask
 from metal.label_model.label_model import LabelModelBase
 
 class RandomVoter(LabelModelBase):
@@ -15,7 +15,7 @@ class RandomVoter(LabelModelBase):
         # Note that this also sets some class parameters which we need later
         _ = self._check_L(L, init=True)
 
-    @multitask_decorator
+    @multitask
     def predict_proba(self, L):
         """
         Args:

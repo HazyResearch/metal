@@ -7,7 +7,7 @@ import torch.optim as optim
 
 from metal.classifier import Classifier
 from metal.label_model.lm_defaults import lm_model_defaults, lm_train_defaults
-from metal.utils import recursive_merge_dicts, multitask_decorator
+from metal.utils import recursive_merge_dicts, multitask
 
 class LabelModelBase(Classifier):
     """An abstract class for a label model
@@ -187,7 +187,7 @@ class LabelModel(LabelModelBase):
         """The float *Tensor* (not Variable) of log-odds LF accuracies."""
         return torch.log(self.accs / (1 - self.accs)).float()
 
-    @multitask_decorator
+    @multitask
     def predict_proba(self, L):
         """Get conditional probabilities P(y_t | L) given the learned LF accs
 

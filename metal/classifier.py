@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from metal.metrics import metric_score, confusion_matrix
-from metal.utils import multitask_decorator
+from metal.utils import multitask
 
 class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier.
@@ -125,7 +125,7 @@ class Classifier(nn.Module):
 
         return score
 
-    @multitask_decorator   
+    @multitask   
     def predict(self, X, break_ties='random', **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
         
@@ -156,7 +156,7 @@ class Classifier(nn.Module):
 
         return Y_ph
 
-    @multitask_decorator
+    @multitask
     def predict_proba(self, X, **kwargs):
         """Predicts soft probabilistic labels for an input X on all tasks
         Args:

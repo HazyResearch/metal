@@ -24,7 +24,7 @@ class MultilabelDataset(Dataset):
     def __len__(self):
         return len(self.X)
 
-def multitask_decorator(f):
+def multitask(f):
     """Wraps a Classifier method to return an element instead of singleton list
 
     By default, multitask-aware methods of Classifier (and its children) return
