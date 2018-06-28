@@ -97,9 +97,9 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
                     recursive_merge_dicts(x[k], v, misses, verbose)
                 else:
                     if x[k] == v:
-                        msg = f"Reaffirming {x}={x[k]}"
+                        msg = f"Reaffirming {k}={x[k]}"
                     else:
-                        msg = f"Overwriting {x}={x[k]} to {k}={v}"
+                        msg = f"Overwriting {k}={x[k]} to {k}={v}"
                         x[k] = v
                     if verbose:
                         print(msg)
