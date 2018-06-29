@@ -1,4 +1,3 @@
-from functools import wraps
 import random
 
 import numpy as np
@@ -9,24 +8,48 @@ from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
 
 
-def multitask(f):
-    """Wraps a Classifier method to return an element instead of singleton list
+def multitask(idxs=[], keys=[]):
+    """Wraps a Classifier method to convert between elements and singleton lists
 
-    By default, multitask-aware methods of Classifier (and its children) return
-    T-length lists. With this decorator, if multitask=True, then instead of
-    returning singleton lists, those methods will return a single element.
+    Args:
+        f: a method of a Classifier object
+        idxs: the indices of the args that need to be wrapped 
+        keys: the names of the kwargs that need to be wrapped
+    
+    It is assumed that there is a single output to be unwrapped.
 
+    By default, multitask-aware methods of Classifier (and its children) expect
+    and return T-length lists. However, in the single-task case, we want these
+    methods to work without having to wrap and unwrap objects as singleton 
+    lists. With this decorator, if multitask=True, non-list inputs will be
+    wrapped into singleton lists upon input and unwrapped upon output.
     """
-    @wraps(f)
-    def decorated(self, *args, **kwargs):
-        output = f(self, *args, **kwargs)
-        if self.multitask:
-            assert(isinstance(output, list))
+    def decorator(f):
+        def decorated(self, *args, **kwargs):
+            if self.multitask:
+                assert(isinstance(args[i], list) for i in idxs)
+            else:
+                arglist = list(args)
+                for i in idxs:
+                    if not isinstance(arglist[i], list):
+                        arglist[i] = [arglist[i]]
+                args = tuple(arglist)
+
+                for key in keys:
+                    if not isinstance(kwargs.get(key,[]), list):
+                        kwargs[key] = [kwargs[key]]
+                    
+            output = f(self, *args, **kwargs)
+
+            if output is not None:
+                if self.multitask:
+                    assert(isinstance(output, list))
+                else:
+                    assert(len(output) == 1)
+                    output = output[0]
             return output
-        else:
-            assert(len(output) == 1)
-            return output[0]
-    return decorated
+        return decorated
+    return decorator
 
 
 class Classifier(nn.Module):
@@ -70,7 +93,8 @@ class Classifier(nn.Module):
     def load(self):
         raise NotImplementedError
 
-    def train(self, X, Y, **kwargs):
+    @multitask()
+    def train(self, X, Y, X_dev=None, Y_dev=None, **kwargs):
         """Trains a classifier
 
         Take care to initialize weights outside the training loop and zero out 
@@ -155,17 +179,13 @@ class Classifier(nn.Module):
 
         return score
 
-    @multitask   
+    @multitask()
     def predict(self, X, break_ties='random', **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
         
         Args:
             X: The input for the predict_proba method
-            Y: A T-length list of [N] or [N, 1] tensors of gold labels in
-                {1,...,K_t}
             break_ties: A tie-breaking policy
-            as_list: If True, return the result as a list regardless of whether
-                multitask=True
 
         Returns:
             An N-dim tensor of predictions or a T-length list of such
@@ -186,7 +206,7 @@ class Classifier(nn.Module):
 
         return Y_ph
 
-    @multitask
+    @multitask()
     def predict_proba(self, X, **kwargs):
         """Predicts soft probabilistic labels for an input X on all tasks
         Args:

@@ -186,7 +186,7 @@ class LabelModel(LabelModelBase):
         """The float *Tensor* (not Variable) of log-odds LF accuracies."""
         return torch.log(self.accs / (1 - self.accs)).float()
 
-    @multitask
+    @multitask([0])
     def predict_proba(self, L):
         """Get conditional probabilities P(y_t | L) given the learned LF accs
 
@@ -194,7 +194,8 @@ class LabelModel(LabelModelBase):
             L: An [N, M] scipy.sparse matrix of labels or a T-length list of 
                 such matrices if self.multitask=True
         Returns:
-            output: A T-length list of [N, K_t] soft predictions
+            output: An [N, K_t] tensor of soft predictions or a T-length list
+                of such tensors if self.multitask=True
 
         Note: This implementation is for conditionally independent labeling 
         functions (given y_t); handling deps is next...
@@ -253,6 +254,7 @@ class LabelModel(LabelModelBase):
             loss += self._task_loss(O_t, t, l2=l2)
         return loss
 
+    @multitask([0], ['L_dev', 'Y_dev'])
     def train(self, L_train, L_dev=None, Y_dev=None, accs=None, **kwargs):
         """Learns the accuracies of the labeling functions from L_train
 

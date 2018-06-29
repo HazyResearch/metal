@@ -239,6 +239,7 @@ class EndModel(Classifier):
             loss += self.criteria(Y_tp, Y[t])
         return loss
 
+    @multitask([1], ['Y_dev'])
     def train(self, X_train, Y_train, X_dev=None, Y_dev=None, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
         train_config = self.config['train_config']
@@ -330,10 +331,13 @@ class EndModel(Classifier):
                     msg += f'\tDev score: {dev_score:.3f}'
                 print(msg)
 
-    @multitask
+    @multitask()
     def predict_proba(self, X):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
-        return [F.softmax(Y_tp, dim=1).data.cpu() for Y_tp in self.forward(X)]
+        try:
+            return [F.softmax(Y_tp, dim=1).data.cpu() for Y_tp in self.forward(X)]
+        except:
+            import pdb; pdb.set_trace()
 
     def predict_task_proba(self, X, t):
         """Returns an N x k matrix of probabilities for each label of task t"""

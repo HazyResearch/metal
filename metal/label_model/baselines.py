@@ -16,7 +16,7 @@ class RandomVoter(LabelModelBase):
         # Note that this also sets some class parameters which we need later
         _ = self._check_L(L, init=True)
 
-    @multitask
+    @multitask([0])
     def predict_proba(self, L):
         """
         Args:
