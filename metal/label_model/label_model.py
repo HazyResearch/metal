@@ -242,6 +242,17 @@ class LabelModel(LabelModelBase):
         """Returns the *averaged squared estimation error."""
         return np.linalg.norm(self.accs.numpy() - accs)**2 / self.M
     
+    def get_loss(self, O, l2):
+        """Return the loss of Y and the output(s) of the net forward pass.
+        
+        The returned loss is averaged over items (by the loss function) but
+        summed over tasks.
+        """
+        loss = torch.tensor(0.0)
+        for t, O_t in enumerate(O):
+            loss += self._task_loss(O_t, t, l2=l2)
+        return loss
+
     def train(self, L_train, accs=None, **kwargs):
         """Learns the accuracies of the labeling functions from L_train
 
@@ -276,9 +287,7 @@ class LabelModel(LabelModelBase):
             optimizer.zero_grad()
 
             # Sum over the task losses uniformly
-            loss = 0.0
-            for t, O_t in enumerate(O):
-                loss += self._task_loss(O_t, t, l2=train_config['l2'])
+            loss = self.get_loss(O, train_config['l2'])
             
             # Compute gradient and take a step
             # Note that since this uses all N training points this is an epoch!
