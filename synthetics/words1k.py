@@ -1,4 +1,4 @@
-vocabulary = [
+vocab1k = [
     "a",
     "ability",
     "able",
