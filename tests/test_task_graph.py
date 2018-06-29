@@ -1,16 +1,10 @@
+import sys
 import unittest
 
+sys.path.append("../metal")
 from metal.structs import TaskGraph, SingleTaskGraph
 
 class TaskGraphTest(unittest.TestCase):
-
-    # @classmethod
-    # def setUpClass(cls):
-    #     pass
-
-    # @classmethod
-    # def tearDownClass(cls):
-    #     pass
 
     def test_single_task(self):
         tg = SingleTaskGraph(k=3)
