@@ -35,7 +35,7 @@ class LabelModelTest(unittest.TestCase):
         model = RandomVoter()
         model.train(L)
         score = model.score(L, Y, verbose=False)
-        self.assertAlmostEqual(score, 0.499, places=2)
+        self.assertAlmostEqual(score, 0.504, places=2)
 
     def test_single_mc(self):
         L, Y, metadata = self.single
@@ -43,7 +43,7 @@ class LabelModelTest(unittest.TestCase):
         model = MajorityClassVoter()
         model.train(L, balances)
         score = model.score(L, Y, verbose=False)
-        self.assertAlmostEqual(score, 0.496, places=2)
+        self.assertAlmostEqual(score, 0.508, places=2)
 
     def test_single_mv(self):
         L, Y, _ = self.single

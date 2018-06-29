@@ -39,8 +39,13 @@ install:
 
 script:
   - python tests/test_travis.py -v
+  - python tests/test_utils.py -v
   - python tests/test_metrics.py -v
+  - python tests/test_loss.py -v
+  - python tests/test_task_graph.py -v
   - python tests/test_synthetics.py -v
+  - python tests/test_label_model.py -v
+  - python tests/test_end_model.py -v
 
 notifications:
   email:

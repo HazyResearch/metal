@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from metal.modules.base_module import InputModule
+from metal.input_modules.base_module import InputModule
 
 class IdentityModule(InputModule):
     """A default identity input module that simply passes the input through."""
