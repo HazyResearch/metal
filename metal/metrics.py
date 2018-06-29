@@ -1,61 +1,23 @@
-from collections import Counter
-
 import numpy as np
 from scipy.sparse import issparse
 import torch
 
-def _to_array(array_like):
-    """Convert a 1d array-like (e.g,. list, tensor, etc.) to an np.ndarray"""
-
-    orig_type = type(array_like)
-    
-    # Convert to np.ndarray
-    if isinstance(array_like, np.ndarray):
-        pass
-    elif isinstance(array_like, list):
-        array_like = np.array(array_like)
-    elif issparse(array_like):
-        array_like = array_like.toarray()
-    elif isinstance(array_like, torch.Tensor):
-        array_like = array_like.numpy()
-    elif not isinstance(array_like, np.ndarray):
-        array_like = np.array(array_like)
+def metric_score(gold, pred, metric, **kwargs):
+    if metric == 'accuracy':
+        return accuracy_score(gold, pred, **kwargs)
+    elif metric == 'coverage':
+        return coverage_score(gold, pred, **kwargs)
+    elif metric == 'precision':
+        return precision_score(gold, pred, **kwargs)
+    elif metric == 'recall':
+        return recall_score(gold, pred, **kwargs)
+    elif metric == 'f1':
+        return f1_score(gold, pred, **kwargs)
+    elif metric == 'fbeta':
+        return fbeta_score(gold, pred, **kwargs)
     else:
-        raise ValueError(f"Input of type {orig_type} could not be converted "
-            "to 1d np.ndarray")
-        
-    # Correct shape
-    if (array_like.ndim > 1) and (1 in array_like.shape):
-        array_like = array_like.flatten()
-    if array_like.ndim != 1:
-        raise ValueError("Input could not be converted to 1d np.array")
-
-    # Convert to ints
-    if any(array_like % 1):
-        raise ValueError("Input contains at least one non-integer value.")
-    array_like = array_like.astype(np.dtype(int))
-
-    return array_like
-
-
-def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
-    """Remove from gold and pred all items with labels designated to ignore."""
-    keepers = np.ones_like(gold).astype(bool)
-    for x in ignore_in_gold:
-        keepers *= np.where(gold != x, 1, 0).astype(bool)
-    for x in ignore_in_pred:
-        keepers *= np.where(pred != x, 1, 0).astype(bool)
-
-    gold = gold[keepers]
-    pred = pred[keepers]
-    return gold, pred
-    
-def _preprocess(gold, pred, ignore_in_gold, ignore_in_pred):
-    gold = _to_array(gold)
-    pred = _to_array(pred)
-    if ignore_in_gold or ignore_in_pred:
-        gold, pred = _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred)
-    return gold, pred
+        msg = f"The metric you provided ({metric}) is not supported."
+        raise ValueError(msg)
 
 def accuracy_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
     """
@@ -189,112 +151,54 @@ def fbeta_score(gold, pred, pos_label=1, beta=1.0, ignore_in_gold=[],
 def f1_score(gold, pred, **kwargs):
     return fbeta_score(gold, pred, beta=1.0, **kwargs)
 
-def metric_score(gold, pred, metric, **kwargs):
-    if metric == 'accuracy':
-        return accuracy_score(gold, pred, **kwargs)
-    elif metric == 'coverage':
-        return coverage_score(gold, pred, **kwargs)
-    elif metric == 'precision':
-        return precision_score(gold, pred, **kwargs)
-    elif metric == 'recall':
-        return recall_score(gold, pred, **kwargs)
-    elif metric == 'f1':
-        return f1_score(gold, pred, **kwargs)
-    elif metric == 'fbeta':
-        return fbeta_score(gold, pred, **kwargs)
+def _to_array(array_like):
+    """Convert a 1d array-like (e.g,. list, tensor, etc.) to an np.ndarray"""
+
+    orig_type = type(array_like)
+    
+    # Convert to np.ndarray
+    if isinstance(array_like, np.ndarray):
+        pass
+    elif isinstance(array_like, list):
+        array_like = np.array(array_like)
+    elif issparse(array_like):
+        array_like = array_like.toarray()
+    elif isinstance(array_like, torch.Tensor):
+        array_like = array_like.numpy()
+    elif not isinstance(array_like, np.ndarray):
+        array_like = np.array(array_like)
     else:
-        msg = f"The metric you provided ({metric}) is not supported."
-        raise ValueError(msg)
-
-
-def confusion_matrix(gold, pred, null_pred=False, null_gold=False):
-    """A shortcut class for building a confusion matrix all at once.
-    
-    Args:
-        gold: a torch.Tensor of gold labels (ints)
-        pred: a torch.Tensor of predictions (ints)
-    """    
-    conf = ConfusionMatrix(null_pred=null_pred, null_gold=null_gold)
-    conf.add(gold, pred)
-    mat = conf.compile()
-    return mat
-
-
-class ConfusionMatrix(object):
-    """
-    An iteratively built confusion matrix
-    Assumed axes are true label on top, predictions on the side
-    """
-    def __init__(self, null_pred=False, null_gold=False):
-        """
-        Args:
-            null_pred: If True, show the row corresponding to null predictions
-            null_gold: If True, show the col corresponding to null gold labels
-
-        """
-        self.counter = Counter()
-        self.mat = None
-        self.null_pred = null_pred
-        self.null_gold = null_gold
-
-    def __repr__(self):
-        if self.mat is None:
-            self.compile()
-        return str(self.mat)
-
-    def add(self, gold, pred):
-        """
-        Args:
-            gold: a torch.Tensor of gold labels (ints)
-            pred: a torch.Tensor of predictions (ints)
-        """
-        self.counter.update(zip(pred, gold))
-    
-    def compile(self, trim=True):
-        k = max([max(tup) for tup in self.counter.keys()]) + 1  # include 0
-
-        mat = np.zeros((k, k), dtype=int)
-        for (p, y), v in self.counter.items():
-            mat[p, y] = v
+        raise ValueError(f"Input of type {orig_type} could not be converted "
+            "to 1d np.ndarray")
         
-        if trim and not self.null_pred:
-            mat = mat[1:, :]
-        if trim and not self.null_gold:
-            mat = mat[:, 1:]
+    # Correct shape
+    if (array_like.ndim > 1) and (1 in array_like.shape):
+        array_like = array_like.flatten()
+    if array_like.ndim != 1:
+        raise ValueError("Input could not be converted to 1d np.array")
 
-        self.mat = mat
-        return mat
+    # Convert to ints
+    if any(array_like % 1):
+        raise ValueError("Input contains at least one non-integer value.")
+    array_like = array_like.astype(np.dtype(int))
 
-    def display(self, counts=True, indent=0, spacing=2, decimals=3, 
-        mark_diag=True):
-        mat = self.compile(trim=False)
-        m, n = mat.shape
-        tab = ' ' * spacing
-        margin = ' ' * indent
+    return array_like
 
-        # Print headers
-        s = margin + ' ' * (5 + spacing)
-        for j in range(n):
-            if j == 0 and not self.null_gold:
-                continue
-            s += f" y={j} " + tab
-        print(s)
+def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
+    """Remove from gold and pred all items with labels designated to ignore."""
+    keepers = np.ones_like(gold).astype(bool)
+    for x in ignore_in_gold:
+        keepers *= np.where(gold != x, 1, 0).astype(bool)
+    for x in ignore_in_pred:
+        keepers *= np.where(pred != x, 1, 0).astype(bool)
 
-        # Print data
-        for i in range(m):
-            # Skip null predictions row if necessary
-            if i == 0 and not self.null_pred:
-                continue
-            s = margin + f" l={i} " + tab
-            for j in range(n):
-                # Skip null gold if necessary
-                if j == 0 and not self.null_gold:
-                    continue
-                else:
-                    if i == j and mark_diag and not counts:
-                        s = s[:-1] + '*'
-                    if counts:
-                        s += f"{mat[i,j]:^5d}" + tab
-                    else:
-                        s += f"{mat[i,j]/sum(mat[i,1:]):>5.3f}" + tab
-            print(s)        
+    gold = gold[keepers]
+    pred = pred[keepers]
+    return gold, pred
+    
+def _preprocess(gold, pred, ignore_in_gold, ignore_in_pred):
+    gold = _to_array(gold)
+    pred = _to_array(pred)
+    if ignore_in_gold or ignore_in_pred:
+        gold, pred = _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred)
+    return gold, pred
