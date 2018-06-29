@@ -334,10 +334,7 @@ class EndModel(Classifier):
     @multitask()
     def predict_proba(self, X):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
-        try:
-            return [F.softmax(Y_tp, dim=1).data.cpu() for Y_tp in self.forward(X)]
-        except:
-            import pdb; pdb.set_trace()
+        return [F.softmax(Y_tp, dim=1).data.cpu() for Y_tp in self.forward(X)]
 
     def predict_task_proba(self, X, t):
         """Returns an N x k matrix of probabilities for each label of task t"""

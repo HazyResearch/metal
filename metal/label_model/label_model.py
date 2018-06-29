@@ -9,87 +9,8 @@ from metal.classifier import Classifier, multitask
 from metal.label_model.lm_defaults import lm_model_defaults
 from metal.utils import recursive_merge_dicts
 
-class LabelModelBase(Classifier):
-    """An abstract class for a label model
 
-    TODO: Add docstring
-    """
-    
-    def __init__(self, label_map=None, **kwargs):
-        """
-        Args:
-            label_map: 
-        """
-        self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
-        
-        multitask = isinstance(label_map, list) and len(label_map) > 1
-        super().__init__(multitask, self.config['seed'])
-
-        self.label_map = label_map
-        self.T = len(label_map) if label_map else 1
-    
-    def _check_L(self, L, init=False):
-        """Check the format and content of the label tensor
-        
-        Args:
-            L: An [N, M] scipy.sparse matrix of labels or a T-length list of 
-                such matrices if self.multitask=True
-            init: If True, initialize self.T, self.M, and self.label_map if 
-                empty; else check against these.
-        """
-        # Accept single sparse matrix and make it a singleton list
-        if self.multitask:
-            assert(isinstance(L, list))
-            assert(issparse(L[0]))
-        else:
-            if not isinstance(L, list):
-                assert(issparse(L))
-                L = [L]
-
-        # Check or set number of tasks and labeling functions
-        self._check_or_set_attr('T', len(L))
-        n, m = L[0].shape
-        # M should be the same for all tasks, since all LFs label all inputs
-        self._check_or_set_attr('M', m, set_val=init)
-        
-        # Check the format and dimensions of the task label matrices
-        for t, L_t in enumerate(L):
-            n_t, m_t = L_t.shape
-            self._check_or_set_attr('M', m_t)
-            if n_t != n:
-                raise Exception(f"L[{t}] has {n_t} rows, but should have {n}.")
-            if not issparse(L_t):
-                raise Exception(f"L[{t}] has type {type(L_t)}, but should be a"
-                    "scipy.sparse matrix.")
-            if L_t.dtype != np.dtype(int):
-                raise Exception(f"L[{t}] has type {L_t.dtype}, should be int.")
-            
-            # Ensure is in CSC sparse format for efficient col (LF) slicing
-            L[t] = L_t.tocsc()
-
-        # If no label_map was provided, assume labels are continuous integers
-        # starting from 1
-        if self.label_map is None and init:
-            if self.T > 1:
-                raise Exception('Initialization parameter "label_map" cannot '
-                    'be inferred when T > 1')
-            K = np.amax(L[0])
-            self.label_map = [list(range(K))]
-
-        # Set cardinalities of each task
-        self._check_or_set_attr('K_t', 
-            [len(labels) for labels in self.label_map], set_val=init)
-
-        # Check for consistency with cardinalities list
-        for t, L_t in enumerate(L):
-            if np.amax(L_t) > self.K_t[t]:
-                raise Exception(f"Task {t} has cardinality {self.K_t[t]}, but"
-                    "L[{t}] has max value = {np.amax(L_t)}.")
-        
-        return L
-
-
-class LabelModel(LabelModelBase):
+class LabelModel(Classifier):
     def __init__(self, label_map=None, task_graph=None, deps=[], **kwargs):
         """
         Args:
@@ -98,7 +19,14 @@ class LabelModel(LabelModelBase):
             task_graph: TaskGraph: A task graph...TBD
             deps: list: A list of dependencies of the form...TBD
         """
-        super().__init__(label_map, **kwargs)
+        self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
+        
+        multitask = isinstance(label_map, list) and len(label_map) > 1
+        super().__init__(multitask, self.config['seed'])
+
+        self.label_map = label_map
+        self.T = len(label_map) if label_map else 1
+        
         self.task_graph = task_graph
         self.deps = deps
     
@@ -310,3 +238,63 @@ class LabelModel(LabelModelBase):
 
         if self.config['verbose']:
             print('Finished Training')
+
+    def _check_L(self, L, init=False):
+        """Check the format and content of the label tensor
+        
+        Args:
+            L: An [N, M] scipy.sparse matrix of labels or a T-length list of 
+                such matrices if self.multitask=True
+            init: If True, initialize self.T, self.M, and self.label_map if 
+                empty; else check against these.
+        """
+        # Accept single sparse matrix and make it a singleton list
+        if self.multitask:
+            assert(isinstance(L, list))
+            assert(issparse(L[0]))
+        else:
+            if not isinstance(L, list):
+                assert(issparse(L))
+                L = [L]
+
+        # Check or set number of tasks and labeling functions
+        self._check_or_set_attr('T', len(L))
+        n, m = L[0].shape
+        # M should be the same for all tasks, since all LFs label all inputs
+        self._check_or_set_attr('M', m, set_val=init)
+        
+        # Check the format and dimensions of the task label matrices
+        for t, L_t in enumerate(L):
+            n_t, m_t = L_t.shape
+            self._check_or_set_attr('M', m_t)
+            if n_t != n:
+                raise Exception(f"L[{t}] has {n_t} rows, but should have {n}.")
+            if not issparse(L_t):
+                raise Exception(f"L[{t}] has type {type(L_t)}, but should be a"
+                    "scipy.sparse matrix.")
+            if L_t.dtype != np.dtype(int):
+                raise Exception(f"L[{t}] has type {L_t.dtype}, should be int.")
+            
+            # Ensure is in CSC sparse format for efficient col (LF) slicing
+            L[t] = L_t.tocsc()
+
+        # If no label_map was provided, assume labels are continuous integers
+        # starting from 1
+        if self.label_map is None and init:
+            if self.T > 1:
+                raise Exception('Initialization parameter "label_map" cannot '
+                    'be inferred when T > 1')
+            K = np.amax(L[0])
+            self.label_map = [list(range(K))]
+
+        # Set cardinalities of each task
+        self._check_or_set_attr('K_t', 
+            [len(labels) for labels in self.label_map], set_val=init)
+
+        # Check for consistency with cardinalities list
+        for t, L_t in enumerate(L):
+            if np.amax(L_t) > self.K_t[t]:
+                raise Exception(f"Task {t} has cardinality {self.K_t[t]}, but"
+                    "L[{t}] has max value = {np.amax(L_t)}.")
+        
+        return L

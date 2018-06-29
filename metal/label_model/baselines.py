@@ -6,9 +6,9 @@ import torch
 
 from metal.classifier import multitask
 from metal.utils import rargmax
-from metal.label_model.label_model import LabelModelBase
+from metal.label_model.label_model import LabelModel
 
-class RandomVoter(LabelModelBase):
+class RandomVoter(LabelModel):
     """
     A class that votes randomly among the available labels for each task
     """
