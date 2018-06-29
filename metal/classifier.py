@@ -4,7 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from metal.metrics import metric_score, confusion_matrix
+from metal.analysis import confusion_matrix
+from metal.metrics import metric_score
 from metal.utils import multitask
 
 class Classifier(nn.Module):
@@ -38,10 +39,26 @@ class Classifier(nn.Module):
     def __init__(self, multitask=False, seed=None):
         super().__init__()
         self.multitask = multitask
-        if seed is not None:
-            self._set_seed(seed)
+        if seed is None:
+            seed = np.random.randint(1e6)
+        self._set_seed(seed)
+
+    def save(self):
+        raise NotImplementedError
+
+    def load(self):
+        raise NotImplementedError
+
+    def train(self, X, Y, **kwargs):
+        """Trains a classifier
+
+        Take care to initialize weights outside the training loop and zero out 
+        gradients at teh beginning of each iteration inside the loop.
+        """
+        raise NotImplementedError
 
     def _set_seed(self, seed):
+        self.seed = seed
         if torch.cuda.is_available():
             # TODO: confirm this works for gpus without knowing gpu_id
             # torch.cuda.set_device(self.config['gpu_id'])
@@ -60,14 +77,6 @@ class Classifier(nn.Module):
         """Initializes all modules in a network"""
         # The apply(f) method recursively calls f on itself and all children
         self.apply(self._reset_module)
-
-    def train(self, X, Y, **kwargs):
-        """Trains a classifier
-
-        Take care to initialize weights outside the training loop and zero out 
-        gradients at teh beginning of each iteration inside the loop.
-        """
-        raise NotImplementedError
 
     def score(self, X, Y, metric='accuracy', reduce='mean', break_ties='random',
         verbose=True, **kwargs):
@@ -214,20 +223,6 @@ class Classifier(nn.Module):
         this method may be overriden for efficiency's sake.
         """
         return self.predict_proba(X, **kwargs)[t]
-
-    def confusion(self, X, Y, **kwargs):
-        # TODO: implement this here
-        raise NotImplementedError
-    
-    def error_analysis(self, session, X, Y):
-        # TODO: implement this here
-        raise NotImplementedError
-
-    def save(self):
-        raise NotImplementedError
-
-    def load(self):
-        raise NotImplementedError
     
     def _break_ties(self, Y_ts, break_ties='random'):
         """Break ties in each row of a tensor according to the specified policy
@@ -241,6 +236,10 @@ class Classifier(nn.Module):
         N, k = Y_ts.shape
         Y_th = np.zeros(N)
         diffs = np.abs(Y_ts - Y_ts.max(axis=1).reshape(-1, 1))
+
+        # A given model should break ties deterministically
+        if break_ties == 'random':
+            np.random.seed(self.seed)
 
         TOL = 1e-5
         for i in range(N):
