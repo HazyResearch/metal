@@ -80,7 +80,7 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
                     else:
                         msg = f"Overwriting {k}={x[k]} to {k}={v}"
                         x[k] = v
-                    if verbose:
+                    if verbose and k != 'verbose':
                         print(msg)
             else:
                 for kx, vx in x.items():

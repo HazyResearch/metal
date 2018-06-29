@@ -178,6 +178,10 @@ class EndModel(Classifier):
             # is not being initialized.
             raise Exception(f"Module {module_name} was not initialized.")
 
+    def config_set(self, update_dict):
+        """Updates self.config with the values in a given update dictionary"""
+        recursive_merge_dicts(self.config, update_dict)
+
     def _preprocess_Y(self, Y):
         """Convert Y to T-dim lists of soft labels if necessary"""
         # If not a list, convert to a singleton list

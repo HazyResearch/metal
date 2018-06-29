@@ -264,7 +264,7 @@ class Classifier(nn.Module):
         this method may be overriden for efficiency's sake.
         """
         return self.predict_proba(X, **kwargs)[t]
-    
+
     def _break_ties(self, Y_ts, break_ties='random'):
         """Break ties in each row of a tensor according to the specified policy
 
