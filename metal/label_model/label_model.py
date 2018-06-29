@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from metal.classifier import Classifier
-from metal.label_model.lm_defaults import lm_model_defaults, lm_train_defaults
+from metal.label_model.lm_defaults import lm_model_defaults
 from metal.utils import recursive_merge_dicts, multitask
 
 class LabelModelBase(Classifier):
@@ -20,10 +20,10 @@ class LabelModelBase(Classifier):
         Args:
             label_map: 
         """
-        self.mp = recursive_merge_dicts(lm_model_defaults, kwargs)
+        self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
         
         multitask = isinstance(label_map, list) and len(label_map) > 1
-        super().__init__(multitask, self.mp['seed'])
+        super().__init__(multitask, self.config['seed'])
 
         self.label_map = label_map
         self.T = len(label_map) if label_map else 1
@@ -93,11 +93,10 @@ class LabelModel(LabelModelBase):
     def __init__(self, label_map=None, task_graph=None, deps=[], **kwargs):
         """
         Args:
-            model_params: A dictionary of model parameters
             label_map: T-dim list of lists: The label map for each task 
                 t=0,...,T-1
             task_graph: TaskGraph: A task graph...TBD
-            dependencies: list: A list of dependencies of the form...TBD
+            deps: list: A list of dependencies of the form...TBD
         """
         super().__init__(label_map, **kwargs)
         self.task_graph = task_graph
@@ -253,30 +252,33 @@ class LabelModel(LabelModelBase):
         Note that in this class, we learn this for each task separately by
         default, and store a separate accuracy for each LF in each task.
         """
-        self.tp = recursive_merge_dicts(lm_train_defaults, kwargs)
+        self.config = recursive_merge_dicts(self.config, kwargs)
+        train_config = self.config['train_config']
+        optimizer_config = train_config['optimizer_config']
+
         L_train = self._check_L(L_train, init=True)
 
         # Get overlaps matrices for each task
         O = [self._get_overlaps_matrix(L_t, t) for t, L_t in enumerate(L_train)]
 
         # Init params
-        self._init_params(self.tp['gamma_init'])
+        self._init_params(train_config['gamma_init'])
 
         # Set optimizer as SGD w/ momentum
         optimizer = optim.SGD(
             self.parameters(), 
-            **self.tp['optimizer_params'],
-            **self.tp['sgd_params']
+            **optimizer_config['optimizer_common'],
+            **optimizer_config['sgd_config']
         )
         
         # Train model
-        for epoch in range(self.tp['n_epochs']):
+        for epoch in range(train_config['n_epochs']):
             optimizer.zero_grad()
 
             # Sum over the task losses uniformly
             loss = 0.0
             for t, O_t in enumerate(O):
-                loss += self._task_loss(O_t, t, l2=self.tp['l2'])
+                loss += self._task_loss(O_t, t, l2=train_config['l2'])
             
             # Compute gradient and take a step
             # Note that since this uses all N training points this is an epoch!
@@ -284,13 +286,14 @@ class LabelModel(LabelModelBase):
             optimizer.step()
             
             # Print loss every print_at steps
-            if self.tp['verbose'] and (epoch % self.tp['print_at'] == 0 or 
-                epoch == self.tp['n_epochs'] - 1):
+            if (self.config['verbose'] and 
+                (epoch % train_config['print_at'] == 0 
+                or epoch == train_config['n_epochs'] - 1)):
                 msg = f"[Epoch {epoch}] Loss: {loss.item():0.6f}"
                 if accs is not None:
                     accs_score = self.get_accs_score(accs)
                     msg += f"\tAccs mean sq. error = {accs_score}"
                 print(msg)
 
-        if self.tp['verbose']:
+        if self.config['verbose']:
             print('Finished Training')

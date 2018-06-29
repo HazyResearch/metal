@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
-from metal.end_model.em_defaults import em_model_defaults, em_train_defaults
+from metal.end_model.em_defaults import em_model_defaults
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.input_modules import IdentityModule
 from metal.structs import TaskGraph
@@ -22,10 +22,10 @@ from metal.utils import (
 class EndModel(Classifier):
     def __init__(self, label_map=None, task_graph=None, input_module=None, 
         **kwargs):
-        self.mp = recursive_merge_dicts(em_model_defaults, kwargs)
+        self.config = recursive_merge_dicts(em_model_defaults, kwargs)
 
         multitask = isinstance(label_map, list) and len(label_map) > 1
-        super().__init__(multitask, seed=self.mp['seed'])
+        super().__init__(multitask, seed=self.config['seed'])
 
         if label_map is None:
             label_map = [[1,2]]  # Default to a single binary task
@@ -39,7 +39,7 @@ class EndModel(Classifier):
         self.task_graph = task_graph
 
         if input_module is None:
-            input_module = IdentityModule(self.mp['layer_output_dims'][0])
+            input_module = IdentityModule(self.config['layer_output_dims'][0])
 
         self._build(input_module)
 
@@ -51,20 +51,20 @@ class EndModel(Classifier):
         # We get integer mapping of task heads to layers
         # Layer 0 is the input module
 
-        layer_dims = self.mp['layer_output_dims']
+        layer_dims = self.config['layer_output_dims']
         # The number of layers is inferred from the specific layer_output_dims
         num_layers = len(layer_dims)
 
         # Make task head layer assignments
-        if isinstance(self.mp['head_layers'], list):
-            task_layers = self.mp['head_layers']
-        elif self.mp['head_layers'] == 'top':
+        if isinstance(self.config['head_layers'], list):
+            task_layers = self.config['head_layers']
+        elif self.config['head_layers'] == 'top':
             task_layers = [num_layers - 1] * self.T
-        elif self.mp['head_layers'] == 'auto':
+        elif self.config['head_layers'] == 'auto':
             raise NotImplementedError
         else:
             msg = (f"Invalid option to 'head_layers' parameter: "
-                f"{self.mp['head_layers']}")
+                f"{self.config['head_layers']}")
             raise ValueError(msg)
 
         if max(task_layers) < num_layers - 1:
@@ -74,7 +74,7 @@ class EndModel(Classifier):
             raise ValueError(msg)
 
         # If we're passing predictions, confirm that parents come b/f children
-        if self.mp['pass_predictions']:
+        if self.config['pass_predictions']:
             for t, l in enumerate(task_layers):
                 for p in self.task_graph.parents[t]:
                     if task_layers[p] >= l:
@@ -90,7 +90,7 @@ class EndModel(Classifier):
             self.task_map[l].append(t)
 
         # Set dropout probabilities for all layers
-        dropout = self.mp['dropout']
+        dropout = self.config['dropout']
         if isinstance(dropout, float):
             dropouts = [dropout] * num_layers
         elif isinstance(dropout, list):
@@ -107,23 +107,23 @@ class EndModel(Classifier):
                 layer.append(nn.Linear(*layer_dims[i-1:i+1]))
             if not isinstance(input_module, IdentityModule):
                 layer.append(nn.ReLU())
-            if self.mp['batchnorm']:
+            if self.config['batchnorm']:
                 layer.append(nn.BatchNorm1d(layer_dims[i]))
-            if self.mp['dropout']:
+            if self.config['dropout']:
                 layer.append(nn.Dropout(dropouts[i]))
             self.layers.add_module(f'layer{i}', nn.Sequential(*layer))
 
         # Construct heads
         # TODO: Try to get heads to show up at proper depth when printing net
         # TODO: Allow user to specify output dimensions of task heads
-        head_dims = self.mp['head_output_dims']
+        head_dims = self.config['head_output_dims']
         if head_dims is None:
             head_dims = [self.K_t[t] for t in range(self.T)]
 
         self.heads = nn.ModuleList()
         for t in range(self.T):
             input_dim = layer_dims[task_layers[t]]
-            if self.mp['pass_predictions']:
+            if self.config['pass_predictions']:
                 for p in self.task_graph.parents[t]:
                     input_dim += head_dims[p]
             output_dim = head_dims[t]
@@ -143,7 +143,7 @@ class EndModel(Classifier):
             x = layer(x)
             for t in self.task_map[i]:
                 head = self.heads[t]
-                if (self.mp['pass_predictions'] and 
+                if (self.config['pass_predictions'] and 
                     bool(self.task_graph.parents[t])):
                     task_input = [x]
                     for p in self.task_graph.parents[t]:
@@ -203,28 +203,28 @@ class EndModel(Classifier):
                 Y[t] = hard_to_soft(Y_t, k=Y_t.max().long())
         return Y
 
-    def _set_optimizer(self):
-        opt = self.tp['optimizer']
+    def _set_optimizer(self, optimizer_config):
+        opt = optimizer_config['optimizer']
         if opt == 'sgd':
             optimizer = optim.SGD(
                 self.parameters(), 
-                **self.tp['optimizer_params'],
-                **self.tp['sgd_params']
+                **optimizer_config['optimizer_common'],
+                **optimizer_config['sgd_config']
             )
         else:
             raise ValueError(f"Did not recognize optimizer option '{opt}''") 
         return optimizer
 
-    def _set_scheduler(self, optimizer):
-        scheduler = self.tp['scheduler']
+    def _set_scheduler(self, scheduler_config, optimizer):
+        scheduler = scheduler_config['scheduler']
         if scheduler is None:
             pass
         elif scheduler == 'exponential':
             lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, **self.tp['scheduler_params']['exponential_params'])
+                optimizer, **scheduler_config['exponential_config'])
         elif scheduler == 'reduce_on_plateau':
             lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, **self.tp['scheduler_params']['plateau_params'])
+                optimizer, **scheduler_config['plateau_config'])
         else:
             raise ValueError(f"Did not recognize scheduler option '{scheduler}''")
         return lr_scheduler
@@ -241,11 +241,10 @@ class EndModel(Classifier):
         return loss
 
     def train(self, X_train, Y_train, X_dev=None, Y_dev=None, **kwargs):
-        # TODO: merge kwargs into model_params
-        self.tp = recursive_merge_dicts(em_train_defaults, kwargs)
-        scheduler_params = self.tp['scheduler_params']
+        self.config = recursive_merge_dicts(self.config, kwargs)
+        train_config = self.config['train_config']
 
-        if self.tp['use_cuda']:
+        if train_config['use_cuda']:
             raise NotImplementedError
             # TODO: fix this
             # X = X.cuda(self.gpu_id)
@@ -255,30 +254,32 @@ class EndModel(Classifier):
         # Make data loaders
         dataset = MultilabelDataset(X_train, self._preprocess_Y(Y_train))
         train_loader = DataLoader(dataset, shuffle=True, 
-            **self.tp['data_loader_params'])
+            **train_config['data_loader_config'])
 
         if X_dev is not None and Y_dev is not None:
             dataset = MultilabelDataset(X_dev, self._preprocess_Y(Y_dev))
             dev_loader = DataLoader(dataset, shuffle=True, 
-                **self.tp['data_loader_params'])
+                **train_config['data_loader_config'])
         else:
             dev_loader = None
 
         # Show network
-        if self.tp['verbose']:
+        if self.config['verbose']:
             print(self)
 
         # Set the optimizer
-        optimizer = self._set_optimizer()
+        optimizer_config = train_config['optimizer_config']
+        optimizer = self._set_optimizer(optimizer_config)
 
         # Set the lr scheduler
-        lr_scheduler = self._set_scheduler(optimizer)
+        scheduler_config = train_config['scheduler_config']
+        lr_scheduler = self._set_scheduler(scheduler_config, optimizer)
 
         # Initialize the model
         self.reset()
 
         # Train the model
-        for epoch in range(self.tp['n_epochs']):
+        for epoch in range(train_config['n_epochs']):
             epoch_loss = 0.0
             for i, data in enumerate(train_loader):
                 X, Y = data
@@ -295,7 +296,8 @@ class EndModel(Classifier):
 
                 # Clip gradients
                 # if grad_clip:
-                #     torch.nn.utils.clip_grad_norm(self.net.parameters(), grad_clip)
+                #     torch.nn.utils.clip_grad_norm(
+                #        self.net.parameters(), grad_clip)
 
                 # Perform optimizer step
                 optimizer.step()
@@ -313,15 +315,17 @@ class EndModel(Classifier):
             
             # Apply learning rate scheduler
             if (lr_scheduler is not None 
-                and epoch + 1 >= scheduler_params['lr_freeze']):
-                if self.tp['scheduler'] == 'reduce_on_plateau':
+                and epoch + 1 >= scheduler_config['lr_freeze']):
+                if scheduler_config['scheduler'] == 'reduce_on_plateau':
                     if dev_loader:
                         lr_scheduler.step(dev_score)
                 else:
                     lr_scheduler.step()
 
             # Report progress
-            if self.tp['verbose'] and epoch % self.tp['print_every'] == 0:
+            if (self.config['verbose'] and 
+                (epoch % train_config['print_at'] == 0 
+                or epoch == train_config['n_epochs'] - 1)):
                 msg = f'[E:{epoch+1}]\tTrain Loss: {train_loss:.3f}'
                 if dev_loader:
                     msg += f'\tDev score: {dev_score:.3f}'

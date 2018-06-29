@@ -1,8 +1,8 @@
 import torch.nn as nn
 
 from metal.end_model import EndModel
+from metal.end_model.em_defaults import em_model_defaults
 from metal.utils import recursive_merge_dicts
-from metal.end_model.em_defaults import em_model_defaults, em_train_defaults
 
 class SoftmaxRegression(EndModel):
     """A softmax regression classifier for a multi-class single-task problem"""
