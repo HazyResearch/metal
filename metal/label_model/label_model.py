@@ -5,9 +5,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from metal.classifier import Classifier
+from metal.classifier import Classifier, multitask
 from metal.label_model.lm_defaults import lm_model_defaults
-from metal.utils import recursive_merge_dicts, multitask
+from metal.utils import recursive_merge_dicts
 
 class LabelModelBase(Classifier):
     """An abstract class for a label model
@@ -253,11 +253,13 @@ class LabelModel(LabelModelBase):
             loss += self._task_loss(O_t, t, l2=l2)
         return loss
 
-    def train(self, L_train, accs=None, **kwargs):
+    def train(self, L_train, L_dev=None, Y_dev=None, accs=None, **kwargs):
         """Learns the accuracies of the labeling functions from L_train
 
         Args:
-            L_train: TBD
+            L_train:
+            L_dev:
+            Y_dev:
             accs: An M-length list of the true accuracies of the LFs if known
 
         Note that in this class, we learn this for each task separately by

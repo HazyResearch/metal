@@ -4,7 +4,8 @@ import numpy as np
 from scipy.sparse import csc_matrix
 import torch
 
-from metal.utils import rargmax, multitask
+from metal.classifier import multitask
+from metal.utils import rargmax
 from metal.label_model.label_model import LabelModelBase
 
 class RandomVoter(LabelModelBase):

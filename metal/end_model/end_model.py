@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from metal.classifier import Classifier
+from metal.classifier import Classifier, multitask
 from metal.end_model.em_defaults import em_model_defaults
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.input_modules import IdentityModule
@@ -15,7 +15,6 @@ from metal.structs import TaskGraph
 from metal.utils import (
     MultilabelDataset, 
     hard_to_soft, 
-    multitask,
     recursive_merge_dicts,
 )
 

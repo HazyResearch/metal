@@ -1,3 +1,4 @@
+from functools import wraps
 import random
 
 import numpy as np
@@ -6,7 +7,27 @@ import torch.nn as nn
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
-from metal.utils import multitask
+
+
+def multitask(f):
+    """Wraps a Classifier method to return an element instead of singleton list
+
+    By default, multitask-aware methods of Classifier (and its children) return
+    T-length lists. With this decorator, if multitask=True, then instead of
+    returning singleton lists, those methods will return a single element.
+
+    """
+    @wraps(f)
+    def decorated(self, *args, **kwargs):
+        output = f(self, *args, **kwargs)
+        if self.multitask:
+            assert(isinstance(output, list))
+            return output
+        else:
+            assert(len(output) == 1)
+            return output[0]
+    return decorated
+
 
 class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier.
