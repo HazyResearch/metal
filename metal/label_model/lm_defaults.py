@@ -6,7 +6,10 @@ lm_model_defaults = {
     ### TRAIN
     'train_config': {
         # Modeling
-        'gamma_init': 0.5, 
+        'gamma_init': 0.5,
+        'acc_init': 0.75,
+        'lp_init': 0.5,
+        'mu_init': 0.25, 
         'l2': 0.0, 
         # Optimizer
         'optimizer_config': {

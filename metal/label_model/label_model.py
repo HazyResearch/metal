@@ -26,6 +26,10 @@ class LabelModel(Classifier):
 
         self.label_map = label_map
         self.T = len(label_map) if label_map else 1
+
+        # Only handling single task for now
+        if self.T > 1:
+            raise NotImplementedError("Multi-task not implemented.")
         
         self.task_graph = task_graph
         self.deps = deps
@@ -105,7 +109,7 @@ class LabelModel(Classifier):
     def _get_overlaps_matrix(self, L_t, t):
         """Initializes the data structures for training task t"""
         # Check to make sure that L_t is unipolar, and infer polarities
-        p = [self._infer_polarity(L_t, t, j) for j in range(self.M)]
+        self.polarity = [self._infer_polarity(L_t, t, j) for j in range(self.M)]
 
         # Next, we form the empirical overlaps matrix O
         # In the unipolar categorical setting, this is just the empirical count
@@ -116,67 +120,61 @@ class LabelModel(Classifier):
         L_nz.data[:] = 1
         O = L_nz.T @ L_nz / N 
         O = O.todense()
+        return torch.from_numpy(O).double()
+    
+    def _init_params(self, acc_init, lp_init, y_pos_init=0.5):
+        """Initialize the parameters for each LF on each task separately"""
+        self.mu_init = acc_init * lp_init
+        self.mu = nn.Parameter(torch.randn(self.M, 2).double())
 
-        # Divide out the empirical labeling propensities
-        beta = np.diag(O)
-        B = np.diag(1 / np.diag(O))
-        O = B @ O @ B
-
-        # Correct the O matrix given the known polarities
+        # Init mask
+        self.mask = torch.ones(self.M, self.M).byte()
         for i in range(self.M):
             for j in range(self.M):
-                if i != j:
-                    c = 1 if p[i] == p[j] else -1
-                    O[i,j] = c * (O[i,j] - 1)
-
-        # Converts NaNs to 0s
-        # NaNs can occur when an LF abstains for all items, leaving a 0 on the
-        # diagonal of the overlaps matrix which we then divide by above.
-        O[np.isnan(O)] = 0
-
-        # Turn O in PyTorch Variable
-        return torch.clamp(torch.from_numpy(O), min=-0.95, max=0.95).float()
-    
-    def _init_params(self, gamma_init):
-        """Initialize the parameters for each LF on each task separately"""
-        # Note: Need to break symmetries by initializing > 0
-        self.gamma_init = gamma_init
-        self.gamma = nn.Parameter(gamma_init * torch.ones(self.T, self.M))
+                if i == j or (i,j) in self.deps or (j,i) in self.deps:
+                    self.mask[i,j] = 0
     
     def _task_loss(self, O_t, t, l2=0.0):
         """Returns the *scaled* loss (i.e. ~ loss / m^2).
 
         Note: A *centered* L2 loss term is incorporated here.
-        The L2 term is centered around the self.gamma_init property, which thus
-        also serves as the value of a prior on the gammas.
+        The L2 term is centered around the self.mu_init property, which thus
+        also serves as the value of a prior on the mus.
         """
-        loss = 0.0
-        for i in range(self.M):
-            for j in range(self.M):
-                if i != j:
-                    loss += (self.gamma[t,i] * self.gamma[t,j] - O_t[i,j])**2
+        loss_1 = torch.norm( (2*O_t - self.mu @ self.mu.t())[self.mask] )**2
+        loss_2 = torch.norm( torch.sum(self.mu, 1) - 2*torch.diag(O_t) )**2
 
-        # Normalize loss
-        loss /= (self.M**2 - self.M)
-
-        # L2 regularization, centered around gamma_init
-        if l2 > 0.0:
-            loss += l2 * torch.sum((self.gamma[t] - self.gamma_init)**2)
-        return loss
+        # L2 regularization, centered around mu_init
+        loss_3 = torch.sum((self.mu - self.mu_init)**2)
+        return loss_1 + loss_2 + l2 * loss_3
     
     def config_set(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
         recursive_merge_dicts(self.config, update_dict)
-
-    @property
+    
     def accs(self):
         """The float *Tensor* (not Variable) of LF accuracies."""
-        return torch.clamp(0.5 * (self.gamma.data + 1), min=0.01, max=0.99)
+        # Swap elements in each row so that column 1 corresponds to the polarity
+        # of the LF---i.e. represents P(\lf_i = p_i | Y = p_i)---and column 2
+        # is then P(\lf_i = p_i | Y != p_i)
+        accs = self.mu.detach().data.numpy().copy()
+        for j in range(self.M):
+            # TODO: Update this to support categorical!
+            if self.polarity[j] != 1:
+                row = accs[j]
+                accs[j] = row[::-1]
+        
+        # Swap columns to break columnwise symmetry, using assumption that LFs 
+        # are on average greater than random
+        sums = accs.sum(axis=0)
+        if sums[1] > sums[0]:
+            return accs[:,1]
+        else:
+            return accs[:,0]
     
-    @property
     def log_odds_accs(self):
         """The float *Tensor* (not Variable) of log-odds LF accuracies."""
-        return torch.log(self.accs / (1 - self.accs)).float()
+        return torch.log(self.accs() / (1 - self.accs())).float()
 
     @multitask([0])
     def predict_proba(self, L):
@@ -233,7 +231,7 @@ class LabelModel(Classifier):
 
     def get_accs_score(self, accs):
         """Returns the *averaged squared estimation error."""
-        return np.linalg.norm(self.accs.numpy() - accs)**2 / self.M
+        return np.linalg.norm(self.accs() - accs)**2 / self.M
     
     def get_loss(self, O, l2):
         """Return the loss of Y and the output(s) of the net forward pass.
@@ -241,7 +239,7 @@ class LabelModel(Classifier):
         The returned loss is averaged over items (by the loss function) but
         summed over tasks.
         """
-        loss = torch.tensor(0.0)
+        loss = torch.tensor(0.0).double()
         for t, O_t in enumerate(O):
             loss += self._task_loss(O_t, t, l2=l2)
         return loss
@@ -269,7 +267,7 @@ class LabelModel(Classifier):
         O = [self._get_overlaps_matrix(L_t, t) for t, L_t in enumerate(L_train)]
 
         # Init params
-        self._init_params(train_config['gamma_init'])
+        self._init_params(train_config['acc_init'], train_config['lp_init'])
 
         # Set optimizer as SGD w/ momentum
         optimizer = optim.SGD(
