@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import numpy.random as random
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_matrix, lil_matrix
 import torch
 
 from metal.metrics import accuracy_score, coverage_score
@@ -20,6 +20,73 @@ def exact_choice(xs, n, p, shuffle=True):
 ################################################################################
 # Single-Task 
 ################################################################################
+
+def logistic_fn(x):
+    return 1 / (1 + np.exp(-x))
+
+def choose_other_label(k, y):
+    """Given a cardinality k and true label y, return random value in 
+    {1,...,k} \ {y}."""
+    return random.choice(list(set(range(1, k+1)) - set([y])))
+
+def generate_single_task_unipolar_beta(n, m, k=2, acc_range=[0.6, 0.9],
+    lp_range=[0.25, 0.5], class_balance=None, polarity_balance=None):
+    """Generate a single task unipolar label matrix
+    Args:
+        n: Number of data points
+        m: Number of LFs
+        k: Cardinality
+        acc_range: Range of accuracies to sample from in choosing LF accs
+        lp_range: Range of labeling propensity ranges to sample from in choosing
+            LF labeling propensities
+        class_balance: Class balance of Y
+        polarity_balance: Balance of LF polarities
+    
+    Generative process:
+        - LF accuracies a, labeling propensities b, polarities p chosen unif.
+        - For each data point:
+            - A label is chosen randomly according to the class balance
+            - For each LF j:
+                - If Y = p_j, label wp b_j * a_j
+                - If Y != p_j, label wp b_j * (1-a_j)
+                - Else, abstain
+    
+    Returns:
+        L: Label matrix
+        Y: True labels, in {1,...,k}
+        metadata: Dictionary of metadata:
+            - k: Cardinality
+            - accs: The LF accuracies
+            - lps: LF labeling propensities
+            - dep_edges: List of dependency edges
+            - dep_weights: List of dependency edge weights
+    """
+    # Choose LF accuracies and labeling propensities
+    accs = random.rand(m) * (max(acc_range) - min(acc_range)) + min(acc_range)
+    lps = random.rand(m) * (max(lp_range) - min(lp_range)) + min(lp_range)
+    polarities = random.choice(range(1, k+1), size=m, p=polarity_balance)
+    
+    # Generate the true data point labels
+    Y = random.choice(range(1, k+1), size=n, p=class_balance)
+
+    # Generate the label matrix
+    # Construct efficiently as LIL matrix, then convert to CSC
+    L = lil_matrix((n, m), dtype=np.int)
+    for i in range(n):
+        for j in range(m):
+            if polarities[j] == Y[i] and random.random() < lps[j]*accs[j]:
+                L[i,j] = Y[i]
+            elif polarities[j] != Y[i] and random.random() < lps[j]*(1-accs[j]):
+                L[i,j] = choose_other_label(k, Y[i])
+    
+    # Return L, Y, and metadata dictionary
+    metadata = {
+        'k': k,
+        'accs': accs,
+        'lps': lps,
+        'polarities': polarities
+    }
+    return L.tocsc(), torch.tensor(Y, dtype=torch.short), metadata
 
 def generate_single_task_unipolar(n, m, k=2, acc=[0.6, 0.9], rec=[0.1, 0.2], 
     class_balance=None, lf_balance=None, seed=None):
