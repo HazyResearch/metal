@@ -7,8 +7,8 @@ def error_buckets(gold, pred, X=None):
     """Group items by error buckets
     
     Args:
-        gold: a torch.Tensor of gold labels (ints)
-        pred: a torch.Tensor of predictions (ints)
+        gold: an np.ndarray of gold labels (ints)
+        pred: an np.ndarray of predictions (ints)
         X: an iterable of items
     Returns:
         buckets: A dict of items where buckets[i,j] is a list of items with
@@ -22,7 +22,7 @@ def error_buckets(gold, pred, X=None):
         buckets[2,2] = true negatives
     """
     buckets = defaultdict(list)
-    for i, (y, l) in enumerate(zip(gold.numpy(), pred.numpy())):
+    for i, (y, l) in enumerate(zip(gold, pred)):
         buckets[y,l].append(X[i] if X is not None else i)
     return buckets
 
@@ -32,8 +32,8 @@ def confusion_matrix(gold, pred, null_pred=False, null_gold=False,
     """A shortcut method for building a confusion matrix all at once.
     
     Args:
-        gold: a torch.Tensor of gold labels (ints)
-        pred: a torch.Tensor of predictions (ints)
+        gold: an np.ndarray of gold labels (ints)
+        pred: an np.ndarray of predictions (ints)
         normalize: if True, divide counts by the total number of items
         pretty: if True, pretty-print the matrix
     """    
@@ -75,10 +75,10 @@ class ConfusionMatrix(object):
     def add(self, gold, pred):
         """
         Args:
-            gold: a torch.Tensor of gold labels (ints)
-            pred: a torch.Tensor of predictions (ints)
+            gold: a np.ndarray of gold labels (ints)
+            pred: a np.ndarray of predictions (ints)
         """
-        self.counter.update(zip(gold.numpy(), pred.numpy()))
+        self.counter.update(zip(gold, pred))
     
     def compile(self, trim=True):
         k = max([max(tup) for tup in self.counter.keys()]) + 1  # include 0
@@ -133,7 +133,11 @@ class ConfusionMatrix(object):
 # Plotting
 ############################################################
 def plot_probabilities_histogram(Y_p, title=None):
-    """Plot a histogram from a numpy array of probabilities"""
+    """Plot a histogram from a numpy array of probabilities
+    
+    Args:
+        Y_p: An [N] or [N, 1] np.ndarray of probabilities (floats in [0,1])
+    """
     plt.hist(Y_p, bins=20)
     plt.xlim((0, 1.025))
     plt.xlabel("Probability")
@@ -146,8 +150,8 @@ def plot_predictions_histogram(Y_ph, Y, title=None):
     """Plot a histogram comparing hard predictions vs true labels by class
     
     Args:
-        Y_ph: An [N] or [N, 1] np.array of predicted hard labels
-        Y: An [N] or [N, 1] np.array of gold labels 
+        Y_ph: An [N] or [N, 1] np.ndarray of predicted hard labels
+        Y: An [N] or [N, 1] np.ndarray of gold labels 
     """
     labels = list(set(Y).union(set(Y_ph)))
     edges = [x - 0.5 for x in range(min(labels), max(labels) + 2)]
