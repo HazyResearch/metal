@@ -4,37 +4,27 @@ import numpy as np
 from scipy.sparse import csc_matrix
 import torch
 
-from metal.classifier import multitask
 from metal.utils import rargmax
 from metal.label_model.label_model import LabelModel
 
 class RandomVoter(LabelModel):
     """
-    A class that votes randomly among the available labels for each task
+    A class that votes randomly among the available labels
     """
     def train(self, L, **kwargs):
-        # Note that this also sets some class parameters which we need later
-        _ = self._check_L(L, init=True)
+        pass
 
-    @multitask([0])
     def predict_proba(self, L):
         """
         Args:
-            L: An [N, M] scipy.sparse matrix of labels or a T-length list of 
-                such matrices if self.multitask=True
+            L: An [N, M] scipy.sparse matrix of labels
         Returns:
-            output: A T-length list of [N, K_t] soft predictions
+            output: A [N, K_t] np.ndarray of soft predictions
         """
-        L = self._check_L(L)
-        Y_p = [self.predict_task_proba(L, t) for t in range(self.T)]
+        N = L.shape[0]
+        Y_p = np.random.rand(N, self.k)
+        Y_p /= Y_p.sum(axis=1).reshape(-1, 1)
         return Y_p
-
-    def predict_task_proba(self, L, t):
-        L = self._check_L(L)
-        N = L[t].shape[0]
-        Y_t = np.random.rand(N, self.K_t[t])
-        Y_t /= Y_t.sum(axis=1).reshape(-1, 1)
-        return torch.tensor(Y_t, dtype=torch.float)
 
 
 class MajorityClassVoter(RandomVoter):
@@ -44,28 +34,23 @@ class MajorityClassVoter(RandomVoter):
 
     Note that in the case of ties, non-integer probabilities are possible.
     """
-    def train(self, L, balances, **kwargs):
+    def train(self, L, balance, **kwargs):
         """
         Args:
-            balances: A list of T lists or np.arrays that each sum to 1, 
-                corresponding to the (possibly estimated) class balances for 
-                each task.
+            balance: An np.arrays that sums to 1, corresponding to the
+                (possibly estimated) class balance.
         """
-        _ = self._check_L(L, init=True)
-        assert(isinstance(balances, list))
-        assert(len(balances) == self.T)
-        assert(all(isinstance(x, np.ndarray) for x in balances))
-        self.balances = balances
+        assert(isinstance(balance, np.ndarray))
+        self.balance = balance
         
-    def predict_task_proba(self, L, t):
-        self._check_L(L)
-        N = L[t].shape[0]
-        Y_t = np.zeros((N, self.K_t[t]))
-        max_classes = np.where(self.balances[t] == max(self.balances[t]))
+    def predict_proba(self, L):
+        N = L.shape[0]
+        Y_p = np.zeros((N, self.k))
+        max_classes = np.where(self.balance == max(self.balance))
         for c in max_classes:
-            Y_t[:, c] = 1.0
-        Y_t /= Y_t.sum(axis=1).reshape(-1, 1)
-        return torch.tensor(Y_t, dtype=torch.float)
+            Y_p[:, c] = 1.0
+        Y_p /= Y_p.sum(axis=1).reshape(-1, 1)
+        return Y_p
 
 
 class MajorityLabelVoter(RandomVoter):
@@ -76,20 +61,17 @@ class MajorityLabelVoter(RandomVoter):
     Note that in the case of ties, non-integer probabilities are possible.
     """
     def train(self, L, **kwargs):
-        # Note that this also sets some class parameters which we need later
-        _ = self._check_L(L, init=True)
+        pass
 
-    def predict_task_proba(self, L, t):
-        L = self._check_L(L)
-        L_t = np.array(L[t].todense()).astype(int)
-        N, M = L_t.shape
-        K_t = self.K_t[t]
-        Y_t = np.zeros((N, K_t))
+    def predict_proba(self, L):
+        L = np.array(L.todense()).astype(int)
+        N, M = L.shape
+        Y_p = np.zeros((N, self.k))
         for i in range(N):
-            counts = np.zeros(K_t)
+            counts = np.zeros(self.k)
             for j in range(M):
-                if L_t[i,j]:
-                    counts[L_t[i,j] - 1] += 1
-            Y_t[i, :] = np.where(counts == max(counts), 1, 0)
-        Y_t /= Y_t.sum(axis=1).reshape(-1, 1)
-        return torch.tensor(Y_t, dtype=torch.float)
+                if L[i,j]:
+                    counts[L[i,j] - 1] += 1
+            Y_p[i, :] = np.where(counts == max(counts), 1, 0)
+        Y_p /= Y_p.sum(axis=1).reshape(-1, 1)
+        return Y_p

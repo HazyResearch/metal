@@ -10,13 +10,13 @@ from metal.analysis import (
     plot_predictions_histogram,
     confusion_matrix,
 )
-from metal.classifier import Classifier, multitask
+from metal.classifier import Classifier
 from metal.label_model.lm_defaults import lm_model_defaults
 from metal.utils import recursive_merge_dicts
 
 
 class LabelModel(Classifier):
-    def __init__(self, label_map=None, task_graph=None, deps=[], **kwargs):
+    def __init__(self, cardinality=2, deps=[], **kwargs):
         """
         Args:
             label_map: T-dim list of lists: The label map for each task 
@@ -26,13 +26,9 @@ class LabelModel(Classifier):
         """
         self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
         
-        multitask = isinstance(label_map, list) and len(label_map) > 1
-        super().__init__(multitask, self.config['seed'])
+        super().__init__(cardinality, self.config['seed'])
 
-        self.label_map = label_map
-        self.T = len(label_map) if label_map else 1
-        
-        self.task_graph = task_graph
+        self.T = 1
         self.deps = deps
 
         if not self.config['verbose'] and self.config['show_plots']:
@@ -187,7 +183,6 @@ class LabelModel(Classifier):
         """The float *Tensor* (not Variable) of log-odds LF accuracies."""
         return torch.log(self.accs / (1 - self.accs)).float()
 
-    @multitask([0])
     def predict_proba(self, L):
         """Get conditional probabilities P(y_t | L) given the learned LF accs
 
@@ -255,7 +250,6 @@ class LabelModel(Classifier):
             loss += self._task_loss(O_t, t, l2=l2)
         return loss
 
-    @multitask([0], ['L_dev', 'Y_dev'])
     def train(self, L_train, L_dev=None, Y_dev=None, accs=None, **kwargs):
         """Learns the accuracies of the labeling functions from L_train
 

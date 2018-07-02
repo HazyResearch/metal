@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from metal.classifier import Classifier, multitask
+from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_model_defaults
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.input_modules import IdentityModule
@@ -243,7 +243,6 @@ class EndModel(Classifier):
             loss += self.criteria(Y_tp, Y[t])
         return loss
 
-    @multitask([1], ['Y_dev'])
     def train(self, X_train, Y_train, X_dev=None, Y_dev=None, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
         train_config = self.config['train_config']
@@ -335,7 +334,6 @@ class EndModel(Classifier):
                     msg += f'\tDev score: {dev_score:.3f}'
                 print(msg)
 
-    @multitask()
     def predict_proba(self, X):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
         return [F.softmax(Y_tp, dim=1).data.cpu() for Y_tp in self.forward(X)]
