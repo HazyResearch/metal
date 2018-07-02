@@ -271,16 +271,14 @@ class Classifier(nn.Module):
         Args:
             Y_ts: An [N, K_t] numpy array of probabilities
             break_ties: A tie-breaking policy:
-                'random': randomly choose among the tied options
                 'abstain': return an abstain vote (0)
+                'random': randomly choose among the tied options
+                    NOTE: if break_ties='random', repeated runs may have 
+                    slightly different results due to difference in broken ties
         """
         N, k = Y_ts.shape
         Y_th = np.zeros(N)
         diffs = np.abs(Y_ts - Y_ts.max(axis=1).reshape(-1, 1))
-
-        # A given model should break ties deterministically
-        if break_ties == 'random':
-            np.random.seed(self.seed)
 
         TOL = 1e-5
         for i in range(N):
