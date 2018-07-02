@@ -5,12 +5,16 @@ lm_model_defaults = {
     
     ### TRAIN
     'train_config': {
-        # Modeling
-        'gamma_init': 0.5,
-        'acc_init': 0.75,
-        'lp_init': 0.5,
-        'mu_init': 0.25, 
-        'l2': 0.0, 
+        # Classifier
+        'cardinality': 2,
+        # Class balance- fixed value
+        'y_pos': 0.5,
+        # Class balance initialization / prior (only if y_pos=None)
+        'y_pos_init': 0.5,
+        # Model params initialization / priors
+        'mu_init': 0.4, 
+        # L@ regularization (around prior values)
+        'l2': 0.0,
         # Optimizer
         'optimizer_config': {
             'optimizer_common': {
