@@ -5,6 +5,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from metal.analysis import (
+    plot_probabilities_histogram,
+    plot_predictions_histogram,
+    confusion_matrix,
+)
 from metal.classifier import Classifier, multitask
 from metal.label_model.lm_defaults import lm_model_defaults
 from metal.utils import recursive_merge_dicts
@@ -29,6 +34,10 @@ class LabelModel(Classifier):
         
         self.task_graph = task_graph
         self.deps = deps
+
+        if not self.config['verbose'] and self.config['show_plots']:
+            print("Warning: verbose=False; overriding to show_plots=False too")
+            self.config['show_plots'] = False
     
     def _check_L(self, L, init=False):
         """Check the format and content of the label tensor
@@ -302,3 +311,18 @@ class LabelModel(Classifier):
 
         if self.config['verbose']:
             print('Finished Training')
+            Y_p_train = self.predict_proba(L_train)
+            Y_ph_dev = self.predict(L_dev)
+
+            if self.config['show_plots']:
+                if self.T == 1:
+                    plot_probabilities_histogram(Y_p_train[:, 0].numpy(), 
+                        title="Training Set Predictions")
+
+                    plot_predictions_histogram(Y_ph_dev.numpy(), Y_dev[0].numpy(),
+                        title="Dev Set Hard Predictions:")
+                else:
+                    raise NotImplementedError
+
+            print("Confusion Matrix (Dev)")
+            mat = confusion_matrix(Y_ph_dev, Y_dev[0], pretty=True)

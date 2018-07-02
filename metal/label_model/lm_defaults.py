@@ -2,6 +2,7 @@ lm_model_defaults = {
     ### GENERAL
     'seed': None,
     'verbose': True,
+    'show_plots': True,
     
     ### TRAIN
     'train_config': {
