@@ -6,9 +6,16 @@ lm_model_defaults = {
     
     ### TRAIN
     'train_config': {
-        # Modeling
-        'gamma_init': 0.5, 
-        'l2': 0.0, 
+        # Classifier
+        'cardinality': 2,
+        # Class balance (if learn_class_balance=False, fix to class_balance)
+        'learn_class_balance': False,
+        # Class balance initialization / prior
+        'class_balance': None, # TODO: (array) If None, assume uniform
+        # Model params initialization / priors
+        'mu_init': 0.4, 
+        # L@ regularization (around prior values)
+        'l2': 0.0,
         # Optimizer
         'optimizer_config': {
             'optimizer_common': {

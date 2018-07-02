@@ -317,7 +317,7 @@ class MTClassifier(Classifier):
             An N-dim tensor of hard (int) predictions for the specified task
         """
         Y_tp = self.predict_task_proba(X, **kwargs)
-        Y_tph = self._break_ties(Y_tp.numpy(), break_ties)
+        Y_tph = self._break_ties(Y_tp, break_ties)
         return Y_tph
 
     def predict_task_proba(self, X, t=0, **kwargs):
