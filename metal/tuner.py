@@ -39,6 +39,11 @@ class ModelTuner(object):
         Returns:
             best_model: the highest performing trained model
             best_config: (dict) the config corresponding to the best model
+
+        Note: Initialization is performed by ModelTuner instead of passing a
+        pre-initialized model so that tuning may be performed over all model
+        parameters, including the network architecture (which is defined before
+        the train loop).
         """
         configs = self.config_generator(search_space, max_search)
         print_worthy = [k for k, v in search_space.items() 
@@ -73,7 +78,7 @@ class ModelTuner(object):
         return best_model, best_config
         
     @staticmethod
-    def config_generator(search_space, max_search):
+    def config_generator(search_space, max_search, shuffle=True):
         """Generates config dicts from the given search space
 
         Args:
@@ -111,7 +116,8 @@ class ModelTuner(object):
                 'lr': {'range': [0.001, 1], 'scale': 'log'},  # log range
             }
             If max_search is None, this will return 3 configurations (enough to
-                just cover the full cross-product of discrete values)
+                just cover the full cross-product of discrete values, filled
+                in with sampled range values)
             Otherewise, this will return max_search configurations
                 (cycling through the discrete value combinations multiple times
                 if necessary)
@@ -132,11 +138,11 @@ class ModelTuner(object):
                 mini = min(v['range'])
                 maxi = max(v['range'])
                 if scale == 'linear':
-                    ranges[k] = linear_sample(mini, maxi)
+                    ranges[k] = float(linear_sample(mini, maxi))
                 elif scale == 'log':
                     mini = np.log(mini)
                     maxi = np.log(maxi)
-                    ranges[k] = lambda: np.exp(linear_sample(mini, maxi)())
+                    ranges[k] = lambda: float(np.exp(linear_sample(mini, maxi)()))
                 else:
                     raise ValueError(f"Unrecognized scale '{scale}' for "
                         "parameter {k}")
@@ -146,7 +152,10 @@ class ModelTuner(object):
                 discretes[k] = [v]
 
         discrete_configs = list(dict_product(discretes))
-        random.shuffle(discrete_configs)
+
+        if shuffle:
+            random.shuffle(discrete_configs)
+
         # If there are range parameters and a non-None max_search, cycle 
         # through the discrete_configs (with new range values) until max_search 
         # is met
