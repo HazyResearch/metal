@@ -138,11 +138,11 @@ class ModelTuner(object):
                 mini = min(v['range'])
                 maxi = max(v['range'])
                 if scale == 'linear':
-                    ranges[k] = float(linear_sample(mini, maxi))
+                    ranges[k] = linear_sample(mini, maxi)
                 elif scale == 'log':
                     mini = np.log(mini)
                     maxi = np.log(maxi)
-                    ranges[k] = lambda: float(np.exp(linear_sample(mini, maxi)()))
+                    ranges[k] = lambda: np.exp(linear_sample(mini, maxi)())
                 else:
                     raise ValueError(f"Unrecognized scale '{scale}' for "
                         "parameter {k}")
@@ -168,5 +168,5 @@ class ModelTuner(object):
             if max_search and i == max_search:
                 break
             for k, v in ranges.items():
-                config[k] = v()
+                config[k] = float(v())
             yield config
