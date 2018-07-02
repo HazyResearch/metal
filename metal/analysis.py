@@ -1,6 +1,7 @@
 from collections import Counter, defaultdict
-import numpy as np
 
+import matplotlib.pyplot as plt
+import numpy as np
 
 def error_buckets(gold, pred, X=None):
     """Group items by error buckets
@@ -127,3 +128,40 @@ class ConfusionMatrix(object):
                     else:
                         s += f"{mat[i,j]/sum(mat[i,1:]):>5.3f}" + tab
             print(s)
+
+############################################################
+# Plotting
+############################################################
+def plot_probabilities_histogram(Y_p, title=None):
+    """Plot a histogram from a numpy array of probabilities"""
+    plt.hist(Y_p, bins=20)
+    plt.xlim((0, 1.025))
+    plt.xlabel("Probability")
+    plt.ylabel("# Predictions")
+    if isinstance(title, str):
+        plt.title(title)
+    plt.show()
+
+def plot_predictions_histogram(Y_ph, Y, title=None):
+    """Plot a histogram comparing hard predictions vs true labels by class
+    
+    Args:
+        Y_ph: An [N] or [N, 1] np.array of predicted hard labels
+        Y: An [N] or [N, 1] np.array of gold labels 
+    """
+    labels = list(set(Y).union(set(Y_ph)))
+    edges = [x - 0.5 for x in range(min(labels), max(labels) + 2)]
+
+    plt.hist(
+        [Y_ph, Y], 
+        bins=edges,
+        label=['Predicted', 'Gold'],
+    )
+    ax = plt.gca()
+    ax.set_xticks(labels)
+    plt.xlabel("Label")
+    plt.ylabel("# Predictions")
+    plt.legend(loc='upper right')
+    if isinstance(title, str):
+        plt.title(title)
+    plt.show()
