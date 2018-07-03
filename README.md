@@ -17,6 +17,8 @@ conda install -q matplotlib numpy pandas pytorch scipy torchvision -c pytorch
 
 [4] Set environment:
 ```
+git clone https://github.com/bhancock8/metal.git
+cd metal
 source set_env.sh
 ```
 
