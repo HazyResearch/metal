@@ -105,17 +105,17 @@ class LabelModel(Classifier):
 
         # Default to uniform class_balance_init
         if class_balance_init is None:
-            class_balance_init = torch.ones(self.k) / self.k
+            self.class_balance_init = torch.ones(self.k) / self.k
         else:
-            class_balance_init = self._to_torch(class_balance_init)
+            self.class_balance_init = self._to_torch(class_balance_init)
+        self.class_balance_init = self.class_balance_init.double()
 
         # Class balance- can be fixed or learnable
         print(learn_class_balance)
         if learn_class_balance:
-            self.class_balance = nn.Parameter(class_balance_init.double())
+            self.class_balance = nn.Parameter(self.class_balance_init.double())
         else:
-            self.class_balance = class_balance_init.double()
-        self.P = torch.diag(self.class_balance)
+            self.class_balance = self.class_balance_init
 
         # Initialize mask
         self.mask = torch.ones(self.m, self.m).byte()
@@ -131,14 +131,14 @@ class LabelModel(Classifier):
         The L2 term is centered around the self.mu_init property, which thus
         also serves as the value of a prior on the mus.
         """
+        P = torch.diag(self.class_balance)
+
         # Main masked rank-two matrix factorization objective
-        loss_1 = torch.norm( 
-            (self.O - self.mu @ self.P @ self.mu.t())[self.mask] )**2
+        loss_1 = torch.norm((self.O - self.mu @ P @ self.mu.t())[self.mask] )**2
 
         # Constraint that the entries of mu for each LF sum to the total
         # probability of emitting a label (the diagonal entry of O)
-        loss_2 = torch.norm(
-            torch.sum(self.mu @ self.P, 1) - torch.diag(self.O) )**2
+        loss_2 = torch.norm(torch.sum(self.mu @ P, 1) - torch.diag(self.O))**2
         
         # Constraint that the class balance parameters sum to one
         loss_3 = torch.norm(torch.sum(self.class_balance) - 1)**2
