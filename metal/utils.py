@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.sparse import issparse
 import torch
 from torch.utils.data import Dataset
 
@@ -48,6 +49,39 @@ def hard_to_soft(Y_h, k):
     for i, j in enumerate(Y_h):
         Y_s[i, j-1] = 1.0
     return Y_s
+
+def arraylike_to_numpy(array_like):
+    """Convert a 1d array-like (e.g,. list, tensor, etc.) to an np.ndarray"""
+
+    orig_type = type(array_like)
+    
+    # Convert to np.ndarray
+    if isinstance(array_like, np.ndarray):
+        pass
+    elif isinstance(array_like, list):
+        array_like = np.array(array_like)
+    elif issparse(array_like):
+        array_like = array_like.toarray()
+    elif isinstance(array_like, torch.Tensor):
+        array_like = array_like.numpy()
+    elif not isinstance(array_like, np.ndarray):
+        array_like = np.array(array_like)
+    else:
+        raise ValueError(f"Input of type {orig_type} could not be converted "
+            "to 1d np.ndarray")
+        
+    # Correct shape
+    if (array_like.ndim > 1) and (1 in array_like.shape):
+        array_like = array_like.flatten()
+    if array_like.ndim != 1:
+        raise ValueError("Input could not be converted to 1d np.array")
+
+    # Convert to ints
+    if any(array_like % 1):
+        raise ValueError("Input contains at least one non-integer value.")
+    array_like = array_like.astype(np.dtype(int))
+
+    return array_like
 
 def recursive_merge_dicts(x, y, misses='report', verbose=None):
     """

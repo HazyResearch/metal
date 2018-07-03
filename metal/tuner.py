@@ -52,14 +52,19 @@ class ModelTuner(object):
         best_score = 0
         best_model = None
         for i, config in enumerate(configs):
+            # Set verbose=False to avoid reporting config overwrites
             config['verbose'] = False
+            # Unless seeds are given explicitly, give each config a unique one
+            if config.get('seed', None) is None:
+                config['seed'] = i
             model = self.model_class(*init_args, **config)
 
             print_config = {k: v for k, v in config.items() if k in print_worthy}
             print("=" * 60)
             print(f"[{i + 1}] Testing {print_config}")
             print("=" * 60)
-            model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, verbose=True)
+            model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, verbose=True, 
+                show_plots=False)
             score = model.score(X_dev, Y_dev, **score_kwargs)
 
             if score > best_score:
@@ -127,25 +132,26 @@ class ModelTuner(object):
             for element in product(*d.values()):
                 yield dict(zip(keys, element))
         
-        def linear_sample(mini, maxi):
-            return lambda: mini + (maxi - mini) * np.random.random()
+        def range_param_func(v):
+            scale = v.get('scale', 'linear')
+            mini = min(v['range'])
+            maxi = max(v['range'])
+            if scale == 'linear':
+                func = lambda rand: mini + (maxi - mini) * rand
+            elif scale == 'log':
+                mini = np.log(mini)
+                maxi = np.log(maxi)
+                func = lambda rand: np.exp(mini + (maxi - mini) * rand)
+            else:
+                raise ValueError(f"Unrecognized scale '{scale}' for "
+                    "parameter {k}")
+            return func
 
         discretes = {}
         ranges = {}
         for k, v in search_space.items():
             if isinstance(v, dict):
-                scale = v.get('scale', 'linear')
-                mini = min(v['range'])
-                maxi = max(v['range'])
-                if scale == 'linear':
-                    ranges[k] = linear_sample(mini, maxi)
-                elif scale == 'log':
-                    mini = np.log(mini)
-                    maxi = np.log(maxi)
-                    ranges[k] = lambda: np.exp(linear_sample(mini, maxi)())
-                else:
-                    raise ValueError(f"Unrecognized scale '{scale}' for "
-                        "parameter {k}")
+                ranges[k] = range_param_func(v)
             elif isinstance(v, list):
                 discretes[k] = v
             else:
@@ -168,5 +174,5 @@ class ModelTuner(object):
             if max_search and i == max_search:
                 break
             for k, v in ranges.items():
-                config[k] = float(v())
+                config[k] = float(v(random.random()))
             yield config

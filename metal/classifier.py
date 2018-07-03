@@ -147,26 +147,34 @@ class Classifier(nn.Module):
 
     @staticmethod
     def _to_numpy(Z):
-        """TODO"""
+        """Converts a None, list, np.ndarray, or torch.Tensor to np.ndarray"""
         if Z is None:
             return Z
-        try:
-            return Z if isinstance(Z, np.ndarray) else Z.numpy()
-        except AttributeError:
-            msg = (f"Expected numpy.ndarray or torch.tensor, got {type(Z)} "
-                "instead.")
+        elif isinstance(Z, np.ndarray):
+            return Z
+        elif isinstance(Z, list):
+            return np.array(Z)
+        elif isinstance(Z, torch.Tensor):
+            return Z.numpy()
+        else:
+            msg = (f"Expected None, list, numpy.ndarray or torch.Tensor, "
+                f"got {type(Z)} instead.")
             raise Exception(msg)
 
     @staticmethod
     def _to_torch(Z):
-        """TODO"""
+        """Converts a None, list, np.ndarray, or torch.Tensor to torch.Tensor"""
         if Z is None:
             return None
-        try:
-            return Z if isinstance(Z, torch.Tensor) else torch.from_numpy(Z)
-        except AttributeError:
-            msg = (f"Expected numpy.ndarray or torch.tensor, got {type(Z)} "
-                "instead.")
+        elif isinstance(Z, torch.Tensor):
+            return Z
+        elif isinstance(Z, list):
+            return torch.from_numpy(np.array(Z))
+        elif isinstance(Z, np.ndarray):
+            return torch.from_numpy(Z)
+        else:
+            msg = (f"Expected list, numpy.ndarray or torch.Tensor, "
+                f"got {type(Z)} instead.")
             raise Exception(msg)
 
     def _check(self, var, val=None, typ=None, shape=None):

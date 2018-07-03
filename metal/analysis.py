@@ -2,13 +2,16 @@ from collections import Counter, defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.sparse import issparse
+
+from metal.utils import arraylike_to_numpy
 
 def error_buckets(gold, pred, X=None):
     """Group items by error buckets
     
     Args:
-        gold: an np.ndarray of gold labels (ints)
-        pred: an np.ndarray of predictions (ints)
+        gold: an array-like of gold labels (ints)
+        pred: an array-like of predictions (ints)
         X: an iterable of items
     Returns:
         buckets: A dict of items where buckets[i,j] is a list of items with
@@ -22,29 +25,35 @@ def error_buckets(gold, pred, X=None):
         buckets[2,2] = true negatives
     """
     buckets = defaultdict(list)
+    gold = arraylike_to_numpy(gold)
+    pred = arraylike_to_numpy(pred)    
     for i, (y, l) in enumerate(zip(gold, pred)):
         buckets[y,l].append(X[i] if X is not None else i)
     return buckets
 
 
 def confusion_matrix(gold, pred, null_pred=False, null_gold=False, 
-    normalize=False, pretty=False):
+    normalize=False, pretty_print=False):
     """A shortcut method for building a confusion matrix all at once.
     
     Args:
-        gold: an np.ndarray of gold labels (ints)
-        pred: an np.ndarray of predictions (ints)
+        gold: an array-like of gold labels (ints)
+        pred: an array-like of predictions (ints)
+        null_pred: If True, show the row corresponding to null predictions
+        null_gold: If True, show the col corresponding to null gold labels
         normalize: if True, divide counts by the total number of items
-        pretty: if True, pretty-print the matrix
+        pretty_print: if True, pretty-print the matrix before returning
     """    
     conf = ConfusionMatrix(null_pred=null_pred, null_gold=null_gold)
+    gold = arraylike_to_numpy(gold)
+    pred = arraylike_to_numpy(pred)
     conf.add(gold, pred)
     mat = conf.compile()
     
     if normalize:
         mat = mat / len(gold)
 
-    if pretty:
+    if pretty_print:
         conf.display()
 
     return mat
@@ -169,3 +178,58 @@ def plot_predictions_histogram(Y_ph, Y, title=None):
     if isinstance(title, str):
         plt.title(title)
     plt.show()
+
+def view_label_matrix(L, colorbar=True):
+    """Display an [N, M] matrix of labels"""
+    L = L.todense() if issparse(L) else L
+    plt.imshow(L, aspect='auto')
+    plt.title("Label Matrix")
+    if colorbar:
+        labels = sorted(np.unique(np.asarray(L).reshape(-1,1).squeeze()))
+        boundaries = np.array(labels + [max(labels) + 1]) - 0.5
+        plt.colorbar(boundaries=boundaries, ticks=labels)
+
+def view_overlaps(L, self_overlaps=False, normalize=True, colorbar=True):
+    """Display an [M, M] matrix of overlaps"""
+    L = L.todense() if issparse(L) else L
+    G = _get_overlaps_matrix(L, normalize=normalize)
+    if not self_overlaps:
+        np.fill_diagonal(G, 0) # Zero out self-overlaps
+    plt.imshow(G, aspect='auto')
+    plt.title("Overlaps")
+    if colorbar:
+        plt.colorbar()
+
+def view_conflicts(L, normalize=True, colorbar=True):
+    """Display an [M, M] matrix of conflicts"""
+    L = L.todense() if issparse(L) else L
+    C = _get_conflicts_matrix(L, normalize=normalize)
+    plt.imshow(C, aspect='auto')
+    plt.title("Conflicts")
+    if colorbar:
+        plt.colorbar()
+
+def _get_overlaps_matrix(L, normalize=True):
+    n, m = L.shape
+    X = np.where(L != 0, 1, 0).T
+    G = X @ X.T 
+    
+    if normalize:
+        G = G / n
+    return G
+
+def _get_conflicts_matrix(L, normalize=True):
+    n, m = L.shape
+    C = np.zeros((m, m))
+
+    # Iterate over the pairs of LFs
+    for i in range(m):
+        for j in range(m):
+            # Get the overlapping non-zero indices
+            overlaps = list(set(np.where(L[:,i] != 0)[0]).intersection(np.where(L[:,j] != 0)[0]))
+            C[i,j] = np.where(L[overlaps,i] != L[overlaps,j], 1, 0).sum()
+            
+    if normalize:
+        C = C / n
+    return C
+
