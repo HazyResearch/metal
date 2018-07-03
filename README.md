@@ -13,10 +13,13 @@ source activate metal
 [3] Download dependencies:
 ```
 conda install -q matplotlib numpy pandas pytorch scipy torchvision -c pytorch
+conda install --channel=conda-forge nb_conda_kernels
 ```
 
 [4] Set environment:
 ```
+git clone https://github.com/bhancock8/metal.git
+cd metal
 source set_env.sh
 ```
 
@@ -28,7 +31,8 @@ python -m unittest discover tests
 [6] View analysis tools:
 [launch jupyter notebook] (see Tips below to get proper environment)
 
-launch ```notebooks/Tools.ipynb```
+```jupyter notebook```
+Navigate to ```notebooks/Tools.ipynb```
 
 restart and run all
 
