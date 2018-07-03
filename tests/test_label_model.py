@@ -86,7 +86,7 @@ class LabelModelTestClassImbalanced(unittest.TestCase):
         L, Y, metadata = self.single
         model = LabelModel()
         model.train(L, accs=metadata['cond_probs'], n_epochs=500, lr=0.01,
-            verbose=False, class_balance_init=self.y_pos)
+            verbose=False, class_balance_init=[self.y_pos, 1-self.y_pos])
         score = model.score(L, Y, verbose=False)
         accs_score = model.get_accs_score(metadata['cond_probs'])
         self.assertAlmostEqual(score, 0.873, places=2)
