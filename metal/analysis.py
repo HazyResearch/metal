@@ -163,7 +163,11 @@ def item_conflict(L):
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith item
     """
-    return np.where(L.sum(axis=1) != L.sum(axis=1), 1, 0).sum() / L.shape[0]
+    raise NotImplementedError
+    L_dense = L.toarray()
+    conflicts = np.where((L_dense != L_dense.max(axis=1).reshape(-1,1)) 
+        * (L_dense != 0) > 0, 1, 0)
+    return (conflicts.sum(axis=1) > 0).sum() / L_dense.shape[0]
 
 def LF_coverages(L):
     """Return the **fraction of items that each LF labels.**
@@ -188,8 +192,12 @@ def LF_conflicts(L):
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
     """    
-    return (np.ravel(np.where(L.sum(axis=1) 
-                           != L.sum(axis=1), 1, 0).T * L / L.shape[0]))
+    raise NotImplementedError
+    L_dense = L.toarray()
+    conflicts = np.where((L_dense != L_dense.max(axis=1).reshape(-1,1)) 
+        * (L_dense != 0) > 0, 1, 0)
+    conflicted_items = (conflicts.sum(axis=0) > 0)
+    labeled_items = (L_dense != 0)
 
 def LF_accuracies(L, Y):
     """Return the **accuracy of each LF.**

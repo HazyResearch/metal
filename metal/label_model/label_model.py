@@ -19,9 +19,9 @@ class LabelModel(Classifier):
     def __init__(self, deps=[], **kwargs):
         """
         Args:
-            cardinality: int: Classifier output dimension
             seed: int: Random state seed
             deps: list: A list of LF dependencies as tuples of LF indices
+            kwargs: TBD
         """
         self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
         super().__init__(self.config['cardinality'], self.config['seed'])
