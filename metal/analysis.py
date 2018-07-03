@@ -2,7 +2,7 @@ from collections import Counter, defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.sparse import issparse
+import scipy.sparse as sparse
 
 from metal.utils import arraylike_to_numpy
 
@@ -139,7 +139,85 @@ class ConfusionMatrix(object):
             print(s)
 
 ############################################################
-# Plotting
+# Label Matrix Diagnostics
+############################################################
+def item_coverage(L):
+    """Returns the **fraction of items with > 0 (non-zero) labels**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith item
+    """
+    return np.where(L.sum(axis=1) != 0, 1, 0).sum() / L.shape[0]
+
+def item_overlap(L):
+    """Returns the **fraction of items with > 1 (non-zero) labels**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith item
+    """
+    return np.where(L.sum(axis=1) > 1, 1, 0).sum() / L.shape[0]
+
+def item_conflict(L):
+    """Returns the **fraction of items with conflicts (disagreeing lablels)**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith item
+    """
+    return np.where(L.sum(axis=1) != L.sum(axis=1), 1, 0).sum() / L.shape[0]
+
+def LF_coverages(L):
+    """Return the **fraction of items that each LF labels.**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith candidate:
+    
+    """
+    return np.ravel(L.sum(axis=0) / L.shape[0])
+
+def LF_overlaps(L):
+    """Return the **fraction of items each LF labels that overlap with another.**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith candidate:
+    """    
+    return np.ravel(np.where(L.sum(axis=1) > 1, 1, 0).T * L / L.shape[0])
+
+def LF_conflicts(L):
+    """Return the **fraction of items each LF labels that conflict with another.**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith candidate:
+    """    
+    return (np.ravel(np.where(L.sum(axis=1) 
+                           != L.sum(axis=1), 1, 0).T * L / L.shape[0]))
+
+def LF_accuracies(L, Y):
+    """Return the **accuracy of each LF.**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith candidate:
+        Y: an [N] or [N, 1] np.ndarray of gold labels
+    """    
+    print("Double check me!")
+    Y = arraylike_to_numpy(Y)
+    raise NotImplementedError
+
+def _sparse_abs(X):
+    """Element-wise absolute value of sparse matrix- avoids casting to dense matrix!"""
+    X_abs = X.copy()
+    if not sparse.issparse(X):
+        return abs(X_abs)
+    if sparse.isspmatrix_csr(X) or sparse.isspmatrix_csc(X):
+        X_abs.data = np.abs(X_abs.data)
+    elif sparse.isspmatrix_lil(X):
+        X_abs.data = np.array([np.abs(L) for L in X_abs.data])
+    else:
+        raise ValueError("Only supports CSR/CSC and LIL matrices")
+    return X_abs
+
+
+############################################################
+# Label Matrix Plotting
 ############################################################
 def plot_probabilities_histogram(Y_p, title=None):
     """Plot a histogram from a numpy array of probabilities
@@ -181,7 +259,7 @@ def plot_predictions_histogram(Y_ph, Y, title=None):
 
 def view_label_matrix(L, colorbar=True):
     """Display an [N, M] matrix of labels"""
-    L = L.todense() if issparse(L) else L
+    L = L.todense() if sparse.issparse(L) else L
     plt.imshow(L, aspect='auto')
     plt.title("Label Matrix")
     if colorbar:
@@ -191,7 +269,7 @@ def view_label_matrix(L, colorbar=True):
 
 def view_overlaps(L, self_overlaps=False, normalize=True, colorbar=True):
     """Display an [M, M] matrix of overlaps"""
-    L = L.todense() if issparse(L) else L
+    L = L.todense() if sparse.issparse(L) else L
     G = _get_overlaps_matrix(L, normalize=normalize)
     if not self_overlaps:
         np.fill_diagonal(G, 0) # Zero out self-overlaps
@@ -202,7 +280,7 @@ def view_overlaps(L, self_overlaps=False, normalize=True, colorbar=True):
 
 def view_conflicts(L, normalize=True, colorbar=True):
     """Display an [M, M] matrix of conflicts"""
-    L = L.todense() if issparse(L) else L
+    L = L.todense() if sparse.issparse(L) else L
     C = _get_conflicts_matrix(L, normalize=normalize)
     plt.imshow(C, aspect='auto')
     plt.title("Conflicts")
