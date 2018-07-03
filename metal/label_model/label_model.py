@@ -169,9 +169,10 @@ class LabelModel(Classifier):
         # Need to break symmetry in the columns by assuming the more 
         # net-accurate one is correct
         if torch.sum(1-alphas[:,0]) > torch.sum(alphas[:,0]):
-            return alphas[:,1]
+            alphas_col = alphas[:,1]
         else:
-            return alphas[:,0]
+            alphas_col = alphas[:,0]
+        return torch.clamp(alphas_col, min=0.05, max=0.95)
     
     def accs(self):
         """The float numpy array of LF accuracies P(\lf_i=p_i|Y=p_i)."""
@@ -208,6 +209,13 @@ class LabelModel(Classifier):
                 (L != y_k) & (L != 0), torch.full((n, self.m), -1) , L)
             L_y = torch.where(L_y == y_k, torch.full((n, self.m), 1), L_y)
             Y_p[:, y_k-1] = L_y @ log_odds_alphas
+        
+        # Add the class balance factor if not balanced
+        # TODO: Update for categorical!
+        y_pos = torch.ones(n) * self.class_balance
+        log_y_pos = torch.log( y_pos / (1-y_pos))
+        Y_p[:,0] += log_y_pos
+        Y_p[:,1] -= log_y_pos
 
         # Take the softmax to return an [n, k] numpy array
         return F.softmax(Y_p, dim=1).numpy()
