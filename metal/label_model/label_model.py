@@ -103,12 +103,16 @@ class LabelModel(Classifier):
         self.mu_init = mu_init
         self.mu = nn.Parameter(torch.randn(self.m, 2).double())
 
+        # Default to uniform class_balance_init
+        if class_balance_init is None:
+            class_balance_init = 0.5
+
         # Class balance- can be fixed or learnable
         if learn_class_balance:
-            self.class_balance = class_balance_init
-        else:
             # TODO: Currently this is for binary- extend to categorical
             self.class_balance = nn.Parameter(torch.randn(1,).double())
+        else:
+            self.class_balance = class_balance_init
         self.P = torch.diag(torch.DoubleTensor(
             [self.class_balance, 1-self.class_balance]))
 
