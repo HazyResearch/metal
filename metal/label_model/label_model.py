@@ -142,25 +142,41 @@ class LabelModel(Classifier):
     def config_set(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
         recursive_merge_dicts(self.config, update_dict)
+
+    def _betas(self):
+        """Returns the estimated beta (labeling propensity) parameters.
+        Note: As an internal function, returns torch.Tensor.
+        """
+        return torch.sum(self.mu.detach(), 1)
     
-    def accs(self):
-        """The float numpy array of LF accuracies."""
+    def _alphas(self):
+        """Returns the estimated alpha (accuracy) parameters.
+        Note: As an internal function, returns torch.Tensor.
+        """
+        alphas = self.mu.detach() / self._betas().repeat(2,1).t()
+
         # Swap elements in each row so that column 1 corresponds to the polarity
         # of the LF---i.e. represents P(\lf_i = p_i | Y = p_i)---and column 2
         # is then P(\lf_i = p_i | Y != p_i)
-        accs = self.mu.detach().data.numpy().copy()
         for j in range(self.m):
             # TODO: Update this to support categorical!
             if self.polarity[j] != 1:
-                row = accs[j]
-                accs[j] = row[::-1]
-        return accs[:,0]
+                # TODO: Has to be better way to do this in PyTorch...
+                row = alphas[j].numpy().copy()
+                alphas[j,0] = row[1]
+                alphas[j,1] = row[0]
+        
+        # Need to break symmetry in the columns by assuming the more 
+        # net-accurate one is correct
+        if torch.sum(1-alphas[:,0]) > torch.sum(alphas[:,0]):
+            return alphas[:,1]
+        else:
+            return alphas[:,0]
     
-    def betas(self):
-        return torch.sum(self.mu.detach(), 1).numpy()
-    
-    def alphas(self):
-        return self.accs() / self.betas()
+    def accs(self):
+        """The float numpy array of LF accuracies P(\lf_i=p_i|Y=p_i)."""
+        accs = self._alphas() * self._betas()
+        return accs.numpy()    
     
     def predict_proba(self, L):
         """Get conditional probabilities P(Y | L) given the learned model
@@ -171,14 +187,12 @@ class LabelModel(Classifier):
             Y_p: An n x k numpy matrix of probabilistic labels (conditional
                 probabilities), i.e. $Y_p[i,j] = P(Y_i=j|L)$.
         """
-        # TODO: Check this whole method!
         L = self._check_L(L)
         # Note we cast to dense here
         L = torch.from_numpy(L.todense()).float()
         n = L.shape[0]
 
-        alphas = self._to_torch(self.alphas())
-        log_odds_alphas = torch.log(alphas / (1-alphas)).float()
+        log_odds_alphas = torch.log(self._alphas() / (1-self._alphas())).float()
 
         # Here we iterate over the values of Y in {1,...,k}, forming
         # an [n, k] matrix of unnormalized predictions
