@@ -19,7 +19,7 @@ lm_model_defaults = {
         # Optimizer
         'optimizer_config': {
             'optimizer_common': {
-                'lr': 0.1,
+                'lr': 0.01,
             },
             # Optimizer - SGD
             'sgd_config': {

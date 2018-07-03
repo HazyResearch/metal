@@ -154,7 +154,8 @@ class LabelModel(Classifier):
     
     def log_odds_accs(self):
         """The float numpy array of log-odds LF accuracies."""
-        return torch.log(self.accs() / (1 - self.accs())).float()
+        accs = self._to_torch(self.accs())
+        return torch.log(accs / (1 - accs)).float()
     
     def predict_proba(self, L):
         """Get conditional probabilities P(Y | L) given the learned model
@@ -209,6 +210,8 @@ class LabelModel(Classifier):
         train_config = self.config['train_config']
         optimizer_config = train_config['optimizer_config']
 
+        Y_dev = self._to_torch(Y_dev)
+
         # Initialize class parameters based on L_train
         L_train = self._check_L(L_train, init=True)
 
@@ -248,20 +251,20 @@ class LabelModel(Classifier):
                     msg += f"\tAccs mean sq. error = {accs_score}"
                 print(msg)
 
-        if self.config['verbose']:
-            print('Finished Training')
-            Y_p_train = self.predict_proba(L_train)
-            Y_ph_dev = self.predict(L_dev)
+        # if self.config['verbose']:
+        #     print('Finished Training')
+        #     Y_p_train = self.predict_proba(L_train)
+        #     if L_dev and Y_dev:
+        #         Y_ph_dev = self.predict(L_dev)
 
-            if self.config['show_plots']:
-                if self.T == 1:
-                    plot_probabilities_histogram(Y_p_train[:, 0].numpy(), 
-                        title="Training Set Predictions")
+        #     # if self.config['show_plots']:
+        #     #     plot_probabilities_histogram(Y_p_train[:, 0], 
+        #     #         title="Training Set Predictions")
 
-                    plot_predictions_histogram(Y_ph_dev.numpy(), Y_dev[0].numpy(),
-                        title="Dev Set Hard Predictions:")
-                else:
-                    raise NotImplementedError
+        #     #     if L_dev and Y_dev:
+        #     #         plot_predictions_histogram(Y_ph_dev, Y_dev[0],
+        #     #             title="Dev Set Hard Predictions:")
 
-            print("Confusion Matrix (Dev)")
-            mat = confusion_matrix(Y_ph_dev, Y_dev[0], pretty=True)
+
+        #     print("Confusion Matrix (Dev)")
+        #     mat = confusion_matrix(Y_ph_dev, Y_dev[0], pretty=True)

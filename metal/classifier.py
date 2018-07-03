@@ -147,8 +147,23 @@ class Classifier(nn.Module):
 
     @staticmethod
     def _to_numpy(Z):
+        """TODO"""
+        if Z is None:
+            return Z
         try:
             return Z if isinstance(Z, np.ndarray) else Z.numpy()
+        except AttributeError:
+            msg = (f"Expected numpy.ndarray or torch.tensor, got {type(Z)} "
+                "instead.")
+            raise Exception(msg)
+
+    @staticmethod
+    def _to_torch(Z):
+        """TODO"""
+        if Z is None:
+            return None
+        try:
+            return Z if isinstance(Z, torch.Tensor) else torch.from_numpy(Z)
         except AttributeError:
             msg = (f"Expected numpy.ndarray or torch.tensor, got {type(Z)} "
                 "instead.")

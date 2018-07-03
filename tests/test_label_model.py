@@ -59,7 +59,7 @@ class LabelModelTest(unittest.TestCase):
     #     np.random.seed(1)
     #     L, Y, metadata = self.single
     #     model = LabelModel()
-    #     model.train(L, accs=metadata['accs'], verbose=False)
+    #     model.train(L, accs=metadata['cond_probs'], verbose=False)
     #     score = model.score(L, Y, verbose=False)
     #     accs_score = model.get_accs_score(metadata['accs'])
     #     self.assertAlmostEqual(score, 0.826, places=2)
