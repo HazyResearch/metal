@@ -156,10 +156,11 @@ class LabelModel(Classifier):
                 accs[j] = row[::-1]
         return accs[:,0]
     
-    def log_odds_accs(self):
-        """The float numpy array of log-odds LF accuracies."""
-        accs = self._to_torch(self.accs())
-        return torch.log(accs / (1 - accs)).float()
+    def betas(self):
+        return torch.sum(self.mu.detach(), 1).numpy()
+    
+    def alphas(self):
+        return self.accs() / self.betas()
     
     def predict_proba(self, L):
         """Get conditional probabilities P(Y | L) given the learned model
@@ -176,6 +177,9 @@ class LabelModel(Classifier):
         L = torch.from_numpy(L.todense()).float()
         n = L.shape[0]
 
+        alphas = self._to_torch(self.alphas())
+        log_odds_alphas = torch.log(alphas / (1-alphas)).float()
+
         # Here we iterate over the values of Y in {1,...,k}, forming
         # an [n, k] matrix of unnormalized predictions
         # Note in the unipolar setting:
@@ -189,7 +193,7 @@ class LabelModel(Classifier):
             L_y = torch.where(
                 (L != y_k) & (L != 0), torch.full((n, self.m), -1) , L)
             L_y = torch.where(L_y == y_k, torch.full((n, self.m), 1), L_y)
-            Y_p[:, y_k-1] = L_y @ self.log_odds_accs()
+            Y_p[:, y_k-1] = L_y @ log_odds_alphas
 
         # Take the softmax to return an [n, k] numpy array
         return F.softmax(Y_p, dim=1).numpy()

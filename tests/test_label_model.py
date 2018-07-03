@@ -55,15 +55,16 @@ class LabelModelTest(unittest.TestCase):
         score = model.score(L, Y, verbose=False, break_ties='abstain')
         self.assertAlmostEqual(score, 0.7416, places=2)
 
-    # def test_single_lm(self):
-    #     np.random.seed(1)
-    #     L, Y, metadata = self.single
-    #     model = LabelModel()
-    #     model.train(L, accs=metadata['cond_probs'], verbose=False)
-    #     score = model.score(L, Y, verbose=False)
-    #     accs_score = model.get_accs_score(metadata['accs'])
-    #     self.assertAlmostEqual(score, 0.826, places=2)
-    #     self.assertLess(accs_score, 0.001)
+    def test_single_lm(self):
+        np.random.seed(1)
+        L, Y, metadata = self.single
+        model = LabelModel()
+        model.train(L, accs=metadata['cond_probs'], n_epochs=500, lr=0.01,
+            verbose=False)
+        score = model.score(L, Y, verbose=False)
+        accs_score = model.get_accs_score(metadata['cond_probs'])
+        self.assertAlmostEqual(score, 0.890, places=2)
+        self.assertLess(accs_score, 0.001)
 
 
 if __name__ == '__main__':
