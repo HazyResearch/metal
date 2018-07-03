@@ -83,7 +83,7 @@ class LabelModel(Classifier):
         O = L_nz.T @ L_nz / n 
         self.O = torch.from_numpy(O.todense()).double()
     
-    def _init_params(self, mu_init, y_pos, y_pos_init):
+    def _init_params(self, mu_init, learn_class_balance, class_balance_init):
         """Initialize the parameters for each LF on each task separately.
         
         Args:
@@ -92,20 +92,25 @@ class LabelModel(Classifier):
                 (e.g. for k=2): 
                     $[P(\lambda_i=p_i|Y=1), P(\lambda_i=p_i|Y=2)]$
                 where $p_i \in {1,2}$ is the polarity of $\lambda_i$.
-            y_pos: None or float: If float value, sets the positive class prob.
-                $P(Y=1)$; else if None, is a learnable parameter
-            y_pos_init: float: If `y_pos=None`, then this is the initial value
-                & prior value for the positive class balance.
+            learn_class_balance: bool: If true, learn the class balance
+                parameters $P(Y=y_k)$
+            class_balance_init: array(float) or None: If None, set to be the
+                uniform distribution across the classes. If 
+                `learn_class_balance=True`, then this is the initial value & 
+                prior value for the class balance; else, this is fixed as the
+                class balance.
         """
         self.mu_init = mu_init
         self.mu = nn.Parameter(torch.randn(self.m, 2).double())
 
-        # Class balance- can be fixed (default=0.5) or learnable
-        if y_pos is not None:
-            self.y_pos = y_pos
+        # Class balance- can be fixed or learnable
+        if learn_class_balance:
+            self.class_balance = class_balance_init
         else:
-            self.y_pos = nn.Parameter(torch.randn(1,).double())
-        self.P = torch.diag(torch.DoubleTensor([self.y_pos, 1-self.y_pos]))
+            # TODO: Currently this is for binary- extend to categorical
+            self.class_balance = nn.Parameter(torch.randn(1,).double())
+        self.P = torch.diag(torch.DoubleTensor(
+            [self.class_balance, 1-self.class_balance]))
 
         # Initialize mask
         self.mask = torch.ones(self.m, self.m).byte()
@@ -213,8 +218,8 @@ class LabelModel(Classifier):
         # Initialize params
         self._init_params(
             train_config['mu_init'],
-            train_config['y_pos'],
-            train_config['y_pos_init'])
+            train_config['learn_class_balance'],
+            train_config['class_balance_init'])
 
         # Set optimizer as SGD w/ momentum
         optimizer = optim.SGD(
