@@ -2,7 +2,7 @@
 Snorkel MeTaL: The best of Snorkel plus multi-task learning (MTL) &amp; hierarchical weak supervision
 
 ## Setup
-[1] [install anaconda3]
+[1] Install anaconda3 (https://www.anaconda.com/download/#macos)
 
 [2] Create conda environment:
 ```
