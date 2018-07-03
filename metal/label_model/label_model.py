@@ -28,7 +28,7 @@ class LabelModel(Classifier):
         self.deps = deps
 
         # TODO: This is temporary, need to update to handle categorical!
-        if self.cardinality > 2:
+        if self.k > 2:
             raise NotImplementedError("Cardinaltiy > 2 not implemented.")
         
         # TODO: Extend to handl LF deps (merge with other branch...)

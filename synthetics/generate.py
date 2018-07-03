@@ -23,7 +23,8 @@ def choose_other_label(k, y):
     return random.choice(list(set(range(1, k+1)) - set([y])))
 
 def generate_single_task_unipolar(n, m, k=2, alpha_range=[0.6, 0.9],
-    beta_range=[0.25, 0.5], class_balance=None, polarity_balance=None):
+    beta_range=[0.25, 0.5], class_balance=None, polarity_balance=None, 
+    seed=None):
     """Generate a single task unipolar label matrix
     Args:
         n: Number of data points
@@ -57,13 +58,16 @@ def generate_single_task_unipolar(n, m, k=2, alpha_range=[0.6, 0.9],
             - coverage: P(\lambda_i == p_i)
             - cond_probs: P(\lambda_i == p_i | Y == p_i)
     """
+    if seed is not None:
+        random.seed(seed)
+
     # Choose LF accuracies and labeling propensities
     alphas = random.rand(m) * (max(alpha_range) - min(alpha_range)) \
         + min(alpha_range)
     betas = random.rand(m) * (max(beta_range) - min(beta_range)) \
         + min(beta_range)
     polarities = random.choice(range(1, k+1), size=m, p=polarity_balance)
-    
+
     # Generate the true data point labels
     Y = random.choice(range(1, k+1), size=n, p=class_balance)
 
@@ -85,7 +89,8 @@ def generate_single_task_unipolar(n, m, k=2, alpha_range=[0.6, 0.9],
         'betas': betas,
         'polarities': polarities,
         'coverages': np.where(L.todense() != 0, 1, 0).sum(axis=0) / n,
-        'cond_probs': alphas * betas
+        'cond_probs': alphas * betas,
+        'class_balance': class_balance or np.ones(k)/k,
     }
     return L.tocsc(), torch.tensor(Y, dtype=torch.short), metadata
 

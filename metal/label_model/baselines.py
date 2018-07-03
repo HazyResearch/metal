@@ -40,8 +40,7 @@ class MajorityClassVoter(RandomVoter):
             balance: An np.arrays that sums to 1, corresponding to the
                 (possibly estimated) class balance.
         """
-        assert(isinstance(balance, np.ndarray))
-        self.balance = balance
+        self.balance = np.array(balance)
         
     def predict_proba(self, L):
         N = L.shape[0]

@@ -21,12 +21,12 @@ class LabelModelTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Set seed
-        np.random.seed(1)
+        np.random.seed(9)
 
         # Generate unipolar L for single task
-        N, M = 10000, 20
-        L, Y, metadata = generate_single_task_unipolar(N, M, acc=[0.4, 0.8], 
-            rec=[0.5])
+        N, M = 10000, 40
+        L, Y, metadata = generate_single_task_unipolar(N, M, 
+            class_balance=[0.5, 0.5], alpha_range=[0.4, 0.8], beta_range=[0.5])
 
         cls.single = (L, Y, metadata)
 
@@ -45,15 +45,15 @@ class LabelModelTest(unittest.TestCase):
         model = MajorityClassVoter()
         model.train(L, balance)
         score = model.score(L, Y, verbose=False)
-        self.assertAlmostEqual(score, 0.4932, places=2)
+        self.assertAlmostEqual(score, 0.5046, places=2)
 
     def test_single_mv(self):
         np.random.seed(1)
         L, Y, _ = self.single
         model = MajorityLabelVoter()
         model.train(L)
-        score = model.score(L, Y, verbose=False)
-        self.assertAlmostEqual(score, 0.787, places=2)
+        score = model.score(L, Y, verbose=False, break_ties='abstain')
+        self.assertAlmostEqual(score, 0.7416, places=2)
 
     # def test_single_lm(self):
     #     np.random.seed(1)

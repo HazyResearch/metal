@@ -3,11 +3,11 @@ lm_model_defaults = {
     'seed': None,
     'verbose': True,
     'show_plots': True,
+    'cardinality': 2,
     
     ### TRAIN
     'train_config': {
         # Classifier
-        'cardinality': 2,
         # Class balance (if learn_class_balance=False, fix to class_balance)
         'learn_class_balance': False,
         # Class balance initialization / prior
