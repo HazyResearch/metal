@@ -15,12 +15,17 @@ source activate metal
 conda install -q matplotlib numpy pandas pytorch scipy torchvision -c pytorch
 ```
 
-[4] Test functionality:
+[4] Set environment:
+```
+source set_env.sh
+```
+
+[5] Test functionality:
 ```
 python -m unittest discover tests
 ```
 
-[5] View analysis tools:
+[6] View analysis tools:
 [launch jupyter notebook] (see Tips below to get proper environment)
 
 launch ```notebooks/Tools.ipynb```
