@@ -281,20 +281,17 @@ class LabelModel(Classifier):
                     msg += f"\tAccs mean sq. error = {accs_score}"
                 print(msg)
 
-        # if self.config['verbose']:
-        #     print('Finished Training')
-        #     Y_p_train = self.predict_proba(L_train)
-        #     if L_dev and Y_dev:
-        #         Y_ph_dev = self.predict(L_dev)
+        if self.config['verbose']:
+            print('Finished Training')
+            
+            if self.config['show_plots']:
+                Y_p_train = self.predict_proba(L_train)
+    
+                plot_probabilities_histogram(Y_p_train[:, 0], 
+                    title="Training Set Predictions")
 
-        #     # if self.config['show_plots']:
-        #     #     plot_probabilities_histogram(Y_p_train[:, 0], 
-        #     #         title="Training Set Predictions")
+            if L_dev is not None and Y_dev is not None:
+                Y_ph_dev = self.predict(L_dev)
 
-        #     #     if L_dev and Y_dev:
-        #     #         plot_predictions_histogram(Y_ph_dev, Y_dev[0],
-        #     #             title="Dev Set Hard Predictions:")
-
-
-        #     print("Confusion Matrix (Dev)")
-        #     mat = confusion_matrix(Y_ph_dev, Y_dev[0], pretty=True)
+                print("Confusion Matrix (Dev)")
+                mat = confusion_matrix(Y_ph_dev, Y_dev, pretty_print=True)

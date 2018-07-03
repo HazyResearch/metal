@@ -55,7 +55,7 @@ class ModelTuner(object):
             # Set verbose=False to avoid reporting config overwrites
             config['verbose'] = False
             # Unless seeds are given explicitly, give each config a unique one
-            if config['seed'] is None:
+            if config.get('seed', None) is None:
                 config['seed'] = i
             model = self.model_class(*init_args, **config)
 
@@ -63,7 +63,8 @@ class ModelTuner(object):
             print("=" * 60)
             print(f"[{i + 1}] Testing {print_config}")
             print("=" * 60)
-            model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, verbose=True)
+            model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, verbose=True, 
+                show_plots=False)
             score = model.score(X_dev, Y_dev, **score_kwargs)
 
             if score > best_score:
