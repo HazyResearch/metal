@@ -3,12 +3,14 @@ from collections import Counter, defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 
+from metal.utils import arraylike_to_numpy
+
 def error_buckets(gold, pred, X=None):
     """Group items by error buckets
     
     Args:
-        gold: an np.ndarray of gold labels (ints)
-        pred: an np.ndarray of predictions (ints)
+        gold: an array-like of gold labels (ints)
+        pred: an array-like of predictions (ints)
         X: an iterable of items
     Returns:
         buckets: A dict of items where buckets[i,j] is a list of items with
@@ -22,29 +24,35 @@ def error_buckets(gold, pred, X=None):
         buckets[2,2] = true negatives
     """
     buckets = defaultdict(list)
+    gold = arraylike_to_numpy(gold)
+    pred = arraylike_to_numpy(pred)    
     for i, (y, l) in enumerate(zip(gold, pred)):
         buckets[y,l].append(X[i] if X is not None else i)
     return buckets
 
 
 def confusion_matrix(gold, pred, null_pred=False, null_gold=False, 
-    normalize=False, pretty=False):
+    normalize=False, pretty_print=False):
     """A shortcut method for building a confusion matrix all at once.
     
     Args:
-        gold: an np.ndarray of gold labels (ints)
-        pred: an np.ndarray of predictions (ints)
+        gold: an array-like of gold labels (ints)
+        pred: an array-like of predictions (ints)
+        null_pred: If True, show the row corresponding to null predictions
+        null_gold: If True, show the col corresponding to null gold labels
         normalize: if True, divide counts by the total number of items
-        pretty: if True, pretty-print the matrix
+        pretty_print: if True, pretty-print the matrix before returning
     """    
     conf = ConfusionMatrix(null_pred=null_pred, null_gold=null_gold)
+    gold = arraylike_to_numpy(gold)
+    pred = arraylike_to_numpy(pred)
     conf.add(gold, pred)
     mat = conf.compile()
     
     if normalize:
         mat = mat / len(gold)
 
-    if pretty:
+    if pretty_print:
         conf.display()
 
     return mat
