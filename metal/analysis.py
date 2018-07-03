@@ -155,7 +155,8 @@ def item_overlap(L):
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith item
     """
-    return np.where(L.sum(axis=1) > 1, 1, 0).sum() / L.shape[0]
+    overlaps = np.where(L.sum(axis=1) > L.max(axis=1).reshape(-1,1), 1, 0)
+    return overlaps.sum() / L.shape[0]
 
 def item_conflict(L):
     """Returns the **fraction of items with conflicts (disagreeing lablels)**
@@ -163,7 +164,6 @@ def item_conflict(L):
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith item
     """
-    raise NotImplementedError
     L_dense = L.toarray()
     conflicts = np.where((L_dense != L_dense.max(axis=1).reshape(-1,1)) 
         * (L_dense != 0) > 0, 1, 0)
