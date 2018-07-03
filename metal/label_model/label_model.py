@@ -165,16 +165,16 @@ class LabelModel(Classifier):
         # Swap elements in each row so that column 1 corresponds to the polarity
         # of the LF---i.e. represents P(\lf_i = p_i | Y = p_i)---and column 2
         # is then P(\lf_i = p_i | Y != p_i)
+        # TODO: Update this to support categorical
         for j in range(self.m):
-            # TODO: Update this to support categorical!
             if self.polarity[j] != 1:
-                # TODO: Has to be better way to do this in PyTorch...
                 row = alphas[j].numpy().copy()
                 alphas[j,0] = row[1]
                 alphas[j,1] = row[0]
         
         # Need to break symmetry in the columns by assuming the more 
         # net-accurate one is correct
+        # TODO: Update this to support categorical
         if torch.sum(1-alphas[:,0]) > torch.sum(alphas[:,0]):
             alphas_col = alphas[:,1]
         else:
