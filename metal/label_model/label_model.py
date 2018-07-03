@@ -111,7 +111,6 @@ class LabelModel(Classifier):
         self.class_balance_init = self.class_balance_init.double()
 
         # Class balance- can be fixed or learnable
-        print(learn_class_balance)
         if learn_class_balance:
             self.class_balance = nn.Parameter(self.class_balance_init.double())
         else:
