@@ -163,7 +163,13 @@ class Classifier(nn.Module):
         if Z is None:
             return None
         try:
-            return Z if isinstance(Z, torch.Tensor) else torch.from_numpy(Z)
+            if isinstance(Z, torch.Tensor):
+                return Z
+            else:
+                try:
+                    return torch.from_numpy(Z)
+                except TypeError:
+                    return torch.from_numpy(np.array(Z))
         except AttributeError:
             msg = (f"Expected numpy.ndarray or torch.tensor, got {type(Z)} "
                 "instead.")

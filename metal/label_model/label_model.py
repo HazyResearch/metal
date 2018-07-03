@@ -105,16 +105,17 @@ class LabelModel(Classifier):
 
         # Default to uniform class_balance_init
         if class_balance_init is None:
-            class_balance_init = 0.5
+            class_balance_init = torch.ones(self.k) / self.k
+        else:
+            class_balance_init = self._to_torch(class_balance_init)
 
         # Class balance- can be fixed or learnable
+        print(learn_class_balance)
         if learn_class_balance:
-            # TODO: Currently this is for binary- extend to categorical
-            self.class_balance = nn.Parameter(torch.randn(1,).double())
+            self.class_balance = nn.Parameter(class_balance_init.double())
         else:
-            self.class_balance = class_balance_init
-        self.P = torch.diag(torch.DoubleTensor(
-            [self.class_balance, 1-self.class_balance]))
+            self.class_balance = class_balance_init.double()
+        self.P = torch.diag(self.class_balance)
 
         # Initialize mask
         self.mask = torch.ones(self.m, self.m).byte()
@@ -130,14 +131,21 @@ class LabelModel(Classifier):
         The L2 term is centered around the self.mu_init property, which thus
         also serves as the value of a prior on the mus.
         """
+        # Main masked rank-two matrix factorization objective
         loss_1 = torch.norm( 
             (self.O - self.mu @ self.P @ self.mu.t())[self.mask] )**2
+
+        # Constraint that the entries of mu for each LF sum to the total
+        # probability of emitting a label (the diagonal entry of O)
         loss_2 = torch.norm(
             torch.sum(self.mu @ self.P, 1) - torch.diag(self.O) )**2
+        
+        # Constraint that the class balance parameters sum to one
+        loss_3 = torch.norm(torch.sum(self.class_balance) - 1)**2
 
         # L2 regularization, centered around mu_init
-        loss_3 = torch.sum((self.mu - self.mu_init)**2)
-        return loss_1 + loss_2 + l2 * loss_3
+        loss_L2 = torch.norm(self.mu - self.mu_init)**2
+        return loss_1 + loss_2 + loss_3 + l2 * loss_L2
     
     def config_set(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
@@ -193,8 +201,6 @@ class LabelModel(Classifier):
         L = torch.from_numpy(L.todense()).float()
         n = L.shape[0]
 
-        log_odds_alphas = torch.log(self._alphas() / (1-self._alphas())).float()
-
         # Here we iterate over the values of Y in {1,...,k}, forming
         # an [n, k] matrix of unnormalized predictions
         # Note in the unipolar setting:
@@ -203,6 +209,7 @@ class LabelModel(Classifier):
         # So the computation is the same as in the binary case, except we
         # compute
         #   \theta^T \ind \{ \lambda_j != 0 \} \ind^{\pm} \{ \lambda_j = k \}
+        log_odds_alphas = torch.log(self._alphas() / (1-self._alphas())).float()
         Y_p = torch.zeros((n, self.k))
         for y_k in range(1, self.k):
             L_y = torch.where(
@@ -211,11 +218,8 @@ class LabelModel(Classifier):
             Y_p[:, y_k-1] = L_y @ log_odds_alphas
         
         # Add the class balance factor if not balanced
-        # TODO: Update for categorical!
-        y_pos = torch.ones(n) * self.class_balance
-        log_y_pos = torch.log( y_pos / (1-y_pos))
-        Y_p[:,0] += log_y_pos
-        Y_p[:,1] -= log_y_pos
+        Y_cb = self.class_balance.detach().repeat(n,1).float()
+        Y_p += torch.log( Y_cb / (1-Y_cb) )
 
         # Take the softmax to return an [n, k] numpy array
         return F.softmax(Y_p, dim=1).numpy()
