@@ -174,20 +174,29 @@ def LF_coverages(L):
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
-    
     """
-    return np.ravel(L.sum(axis=0) / L.shape[0])
+    return np.ravel((L != 0).sum(axis=0) / L.shape[0])
 
 def LF_overlaps(L):
-    """Return the **fraction of items each LF labels that overlap with another.**
+    """Return the **fraction of items each LF labels that also overlap.**
+    
+    Note that the maximum possible overlap fraction for an LF is the LF's
+    coverage.
+
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
     """    
-    return np.ravel(np.where(L.sum(axis=1) > 1, 1, 0).T * L / L.shape[0])
+    overlap_items = np.where(L.sum(axis=1) > L.max(axis=1).reshape(-1,1), 1, 0)
+    labeled_items = (L != 0)
+    return (overlap_items.T @ labeled_items) / L.shape[0]
 
 def LF_conflicts(L):
-    """Return the **fraction of items each LF labels that conflict with another.**
+    """Return the **fraction of items each LF labels that also conflict.**
+
+    Note that the maximum possible conflict fraction for an LF is the LF's
+        overlaps fraction.
+    
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
@@ -196,8 +205,9 @@ def LF_conflicts(L):
     L_dense = L.toarray()
     conflicts = np.where((L_dense != L_dense.max(axis=1).reshape(-1,1)) 
         * (L_dense != 0) > 0, 1, 0)
-    conflicted_items = (conflicts.sum(axis=0) > 0)
-    labeled_items = (L_dense != 0)
+    conflict_items = (conflicts.sum(axis=1) > 0).astype(int)
+    labeled_items = (L_dense != 0).astype(int)
+    return (conflict_items.T @ labeled_items) / L.shape[0]
 
 def LF_accuracies(L, Y):
     """Return the **accuracy of each LF.**

@@ -34,13 +34,13 @@ class AnalysisTest(unittest.TestCase):
         pass
 
     def test_LF_coverages(self):
-        pass
+        self.assertTrue((LF_coverages(self.L) == np.array([0.4, 0.4, 0.8])).all())
 
     def test_LF_overlaps(self):
-        pass
+        self.assertTrue((LF_overlaps(self.L) == np.array([0.4, 0.4, 0.6])).all())
 
     def test_LF_conflicts(self):
-        pass
+        self.assertTrue((LF_conflicts(self.L) == np.array([0.2, 0.4, 0.4])).all())
 
 
 if __name__ == '__main__':
