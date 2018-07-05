@@ -18,7 +18,7 @@ conda install --channel=conda-forge nb_conda_kernels
 
 [4] Set environment:
 ```
-git clone https://github.com/bhancock8/metal.git
+git clone https://github.com/HazyResearch/metal.git
 cd metal
 source set_env.sh
 ```
