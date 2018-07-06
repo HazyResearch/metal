@@ -294,7 +294,7 @@ class LabelModel(Classifier):
             print('Finished Training')
             
             if self.config['show_plots']:
-                print(lf_summary(L=L_train, Y=Y_train, est_accs=self.accs()))
+                print(lf_summary(L=L_train, Y=Y_train, est_accs=self._alphas()))
     
                 Y_p_train = self.predict_proba(L_train)
                 plot_probabilities_histogram(Y_p_train[:, 0], 
