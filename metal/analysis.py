@@ -141,73 +141,91 @@ class ConfusionMatrix(object):
 ############################################################
 # Label Matrix Diagnostics
 ############################################################
-def item_coverage(L):
-    """Returns the **fraction of items with > 0 (non-zero) labels**
-    Args:
-        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
-            jth LF to the ith item
-    """
-    return np.where(L.sum(axis=1) != 0, 1, 0).sum() / L.shape[0]
+def _covered_data_points(L):
+    """Returns an indicator vector where ith element = 1 if x_i is labeled by at
+    least one LF."""
+    return np.ravel(np.where(L.sum(axis=1) != 0, 1, 0))
 
-def item_overlap(L):
-    """Returns the **fraction of items with > 1 (non-zero) labels**
-    Args:
-        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
-            jth LF to the ith item
-    """
-    overlaps = np.where(L.sum(axis=1) > L.max(axis=1).reshape(-1,1), 1, 0)
-    return overlaps.sum() / L.shape[0]
+def _overlapped_data_points(L):
+    """Returns an indicator vector where ith element = 1 if x_i is labeled by 
+    more than one LF."""
+    return np.where(np.ravel((L != 0).sum(axis=1)) > 1, 1, 0)
 
-def item_conflict(L):
-    """Returns the **fraction of items with conflicts (disagreeing lablels)**
+def _conflicted_data_points(L):
+    """Returns an indicator vector where ith element = 1 if x_i is labeled by 
+    at least two LFs that give it disagreeing labels."""
+    M = sparse.diags(np.ravel(L.max(axis=1).todense()))
+    return np.ravel(np.max(M @ (L != 0) != L, axis=1).astype(int).todense())
+
+def label_coverage(L):
+    """Returns the **fraction of data points with > 0 (non-zero) labels**
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith item
     """
-    L_dense = L.toarray()
-    conflicts = np.where((L_dense != L_dense.max(axis=1).reshape(-1,1)) 
-        * (L_dense != 0) > 0, 1, 0)
-    return (conflicts.sum(axis=1) > 0).sum() / L_dense.shape[0]
+    return _covered_data_points(L).sum() / L.shape[0]
+
+def label_overlap(L):
+    """Returns the **fraction of data points with > 1 (non-zero) labels**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith item
+    """
+    return _overlapped_data_points(L).sum() / L.shape[0]
+
+def label_conflict(L):
+    """Returns the **fraction of data points with conflicting (disagreeing)
+    lablels.**
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith item
+    """
+    return _conflicted_data_points(L).sum() / L.shape[0]
 
 def LF_coverages(L):
-    """Return the **fraction of items that each LF labels.**
+    """Return the **fraction of data points that each LF labels.**
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
     """
-    return np.ravel((L != 0).sum(axis=0) / L.shape[0])
+    return (L != 0).sum(axis=0) / L.shape[0]
 
-def LF_overlaps(L):
-    """Return the **fraction of items each LF labels that also overlap.**
+def LF_overlaps(L, normalize_by_coverage=False):
+    """Return the **fraction of items each LF labels that are also labeled by at
+     least one other LF.**
     
     Note that the maximum possible overlap fraction for an LF is the LF's
-    coverage.
+    coverage, unless `normalize_by_coverage=True`, in which case it is 1.
 
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
+        normalize_by_coverage: Normalize by coverage of the LF, so that returns
+            percent of LF labels that have overlaps.
     """    
-    overlap_items = np.where(L.sum(axis=1) > L.max(axis=1).reshape(-1,1), 1, 0)
-    labeled_items = (L != 0)
-    return (overlap_items.T @ labeled_items) / L.shape[0]
+    overlaps = (L != 0).T @ _overlapped_data_points(L) / L.shape[0]
+    if normalize_by_coverage:
+        overlaps /= LF_coverages(L)
+    return overlaps
 
-def LF_conflicts(L):
-    """Return the **fraction of items each LF labels that also conflict.**
+def LF_conflicts(L, normalize_by_overlaps=False):
+    """Return the **fraction of items each LF labels that are also given a 
+    different (non-abstain) label by at least one other LF.**
 
     Note that the maximum possible conflict fraction for an LF is the LF's
-        overlaps fraction.
+        overlaps fraction, unless `normalize_by_overlaps=True`, in which case it
+        is 1.
     
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
-    """    
-    raise NotImplementedError
-    L_dense = L.toarray()
-    conflicts = np.where((L_dense != L_dense.max(axis=1).reshape(-1,1)) 
-        * (L_dense != 0) > 0, 1, 0)
-    conflict_items = (conflicts.sum(axis=1) > 0).astype(int)
-    labeled_items = (L_dense != 0).astype(int)
-    return (conflict_items.T @ labeled_items) / L.shape[0]
+        normalize_by_overlaps: Normalize by overlaps of the LF, so that returns
+            percent of LF overlaps that have conflicts.
+    """
+    conflicts = (L != 0).T @ _conflicted_data_points(L) / L.shape[0]
+    if normalize_by_overlaps:
+        conflicts /= LF_overlaps(L)
+    return conflicts
 
 def LF_accuracies(L, Y):
     """Return the **accuracy of each LF.**
@@ -219,19 +237,6 @@ def LF_accuracies(L, Y):
     print("Double check me!")
     Y = arraylike_to_numpy(Y)
     raise NotImplementedError
-
-def _sparse_abs(X):
-    """Element-wise absolute value of sparse matrix- avoids casting to dense matrix!"""
-    X_abs = X.copy()
-    if not sparse.issparse(X):
-        return abs(X_abs)
-    if sparse.isspmatrix_csr(X) or sparse.isspmatrix_csc(X):
-        X_abs.data = np.abs(X_abs.data)
-    elif sparse.isspmatrix_lil(X):
-        X_abs.data = np.array([np.abs(L) for L in X_abs.data])
-    else:
-        raise ValueError("Only supports CSR/CSC and LIL matrices")
-    return X_abs
 
 
 ############################################################
