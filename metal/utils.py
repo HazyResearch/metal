@@ -96,7 +96,25 @@ def binary_to_categorical(X):
             1: positive
             2: negative
     """
+    X = X.copy()
     X[X == -1] = 2
+    return X
+
+def categorical_to_binary(X):
+    """Convert a matrix from [0,1,2] labels to [-1,0,1] labels
+
+    Args:
+        X: A np.ndarray or torch.Tensor with the following label interpretations:
+            0: abstain
+            1: positive
+            2: negative
+        After the conversion, the labels will be:
+            -1: negative
+            0: abstain
+            1: positive
+    """
+    X = X.copy()
+    X[X == 2] = -1
     return X
 
 
