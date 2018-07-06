@@ -14,6 +14,7 @@ from metal.utils import (
 class UtilsTest(unittest.TestCase):
     def test_rargmax(self):
         x = np.array([2, 1, 2])
+        np.random.seed(1)
         self.assertEqual(sorted(list(set(rargmax(x) for _ in range(10)))), [0, 2])
 
     def test_hard_to_soft(self):
