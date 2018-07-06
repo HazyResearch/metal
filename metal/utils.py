@@ -83,6 +83,23 @@ def arraylike_to_numpy(array_like):
 
     return array_like
 
+def binary_to_categorical(X):
+    """Convert a matrix from [-1,0,1] labels to [0,1,2] labels
+
+    Args:
+        X: A np.ndarray or torch.Tensor with the following label interpretations:
+            -1: negative
+            0: abstain
+            1: positive
+        After the conversion, the labels will be:
+            0: abstain
+            1: positive
+            2: negative
+    """
+    X[X == -1] = 2
+    return X
+
+
 def recursive_merge_dicts(x, y, misses='report', verbose=None):
     """
     Merge dictionary y into x, overwriting elements of x when there is a

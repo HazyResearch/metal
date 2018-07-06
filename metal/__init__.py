@@ -4,3 +4,4 @@ from .label_model import (
     MajorityLabelVoter,
     LabelModel,
 )
+from .tuner import ModelTuner
