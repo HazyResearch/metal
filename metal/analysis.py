@@ -206,7 +206,7 @@ def LF_overlaps(L, normalize_by_coverage=False):
     overlaps = (L != 0).T @ _overlapped_data_points(L) / L.shape[0]
     if normalize_by_coverage:
         overlaps /= LF_coverages(L)
-    return overlaps
+    return np.nan_to_num(overlaps)
 
 def LF_conflicts(L, normalize_by_overlaps=False):
     """Return the **fraction of items each LF labels that are also given a 
@@ -225,7 +225,7 @@ def LF_conflicts(L, normalize_by_overlaps=False):
     conflicts = (L != 0).T @ _conflicted_data_points(L) / L.shape[0]
     if normalize_by_overlaps:
         conflicts /= LF_overlaps(L)
-    return conflicts
+    return np.nan_to_num(conflicts)
 
 def LF_empirical_accuracies(L, Y):
     """Return the **empirical accuracy** against a set of labels Y (e.g. dev 
