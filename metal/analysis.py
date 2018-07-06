@@ -227,16 +227,20 @@ def LF_conflicts(L, normalize_by_overlaps=False):
         conflicts /= LF_overlaps(L)
     return conflicts
 
-def LF_accuracies(L, Y):
-    """Return the **accuracy of each LF.**
+def LF_empirical_accuracies(L, Y):
+    """Return the **empirical accuracy against a set of labels Y (eg dev set)**
+    for each LF.
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
         Y: an [N] or [N, 1] np.ndarray of gold labels
-    """    
-    print("Double check me!")
+    """
+    # Assume labeled set is small, work with dense matrices  
     Y = arraylike_to_numpy(Y)
-    raise NotImplementedError
+    L = L.toarray()
+    X = np.where(L == 0, 0,
+        np.where(L == np.vstack([Y] * L.shape[1]).T, 1, -1))
+    return 0.5 * (X.sum(axis=0) / (L != 0).sum(axis=0) + 1)
 
 
 ############################################################

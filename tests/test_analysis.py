@@ -12,7 +12,7 @@ from metal.analysis import (
     LF_coverages,
     LF_overlaps,
     LF_conflicts,
-    LF_accuracies,
+    LF_empirical_accuracies,
 )
 
 class AnalysisTest(unittest.TestCase):
@@ -20,6 +20,7 @@ class AnalysisTest(unittest.TestCase):
     def setUpClass(cls):
         L = np.array([[1, 0, 1], [1, 3, 2], [0, 0, 0], [0, 0, 2], [0, 1, 2]])
         cls.L = sparse.csr_matrix(L)
+        cls.Y = np.array([1, 2, 1, 2, 2])
     
     def test_label_coverage(self):
         self.assertEqual(label_coverage(self.L), 0.8)
@@ -30,8 +31,9 @@ class AnalysisTest(unittest.TestCase):
     def test_label_conflict(self):
         self.assertEqual(label_conflict(self.L), 0.4)
 
-    def test_LF_accuracies(self):
-        pass
+    def test_LF_empirical_accuracies(self):
+        self.assertTrue(np.all(
+            LF_empirical_accuracies(self.L, self.Y) == np.array([0.5, 0, 1])))
 
     def test_LF_coverages(self):
         self.assertTrue(
