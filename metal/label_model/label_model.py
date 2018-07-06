@@ -271,6 +271,9 @@ class LabelModel(Classifier):
             # Compute gradient and take a step
             # Note that since this uses all N training points this is an epoch!
             loss = self.loss(l2=train_config['l2'])
+            if torch.isnan(loss):
+                raise Exception("Loss is NaN. Consider reducing learning rate.")
+
             loss.backward()
             optimizer.step()
             
