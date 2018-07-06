@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
+from pandas import Series, DataFrame
 import scipy.sparse as sparse
 
 from metal.utils import arraylike_to_numpy
@@ -39,8 +40,8 @@ def confusion_matrix(gold, pred, null_pred=False, null_gold=False,
     Args:
         gold: an array-like of gold labels (ints)
         pred: an array-like of predictions (ints)
-        null_pred: If True, show the row corresponding to null predictions
-        null_gold: If True, show the col corresponding to null gold labels
+        null_pred: If True, include the row corresponding to null predictions
+        null_gold: If True, include the col corresponding to null gold labels
         normalize: if True, divide counts by the total number of items
         pretty_print: if True, pretty-print the matrix before returning
     """    
@@ -67,8 +68,8 @@ class ConfusionMatrix(object):
     def __init__(self, null_pred=False, null_gold=False):
         """
         Args:
-            null_pred: If True, show the row corresponding to null predictions
-            null_gold: If True, show the col corresponding to null gold labels
+            null_pred: If True, include the row corresponding to null predictions
+            null_gold: If True, include the col corresponding to null gold labels
 
         """
         self.counter = Counter()
@@ -252,6 +253,46 @@ def lf_empirical_accuracies(L, Y):
         np.where(L == np.vstack([Y] * L.shape[1]).T, 1, -1))
     return 0.5 * (X.sum(axis=0) / (L != 0).sum(axis=0) + 1)
 
+def lf_summary(L, Y=None, lf_names=None, est_accs=None):
+    """Returns a pandas DataFrame with the various per-LF statistics.
+    
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith candidate
+        Y: an [N] or [N, 1] np.ndarray of gold labels
+    """
+    n, m = L.shape
+    if lf_names is not None:
+        col_names = ['j']
+        d = {'j': list(range(m))}
+    else:
+        lf_names = list(range(m))
+        col_names = []
+        d = {}
+
+    # Default LF stats
+    col_names.extend(['Polarity', 'Coverage', 'Overlaps', 'Conflicts'])
+    d['Polarity']  = Series(data=lf_polarities(L), index=lf_names)
+    d['Coverage']  = Series(data=lf_coverages(L), index=lf_names)
+    d['Overlaps']  = Series(data=lf_overlaps(L), index=lf_names)
+    d['Conflicts'] = Series(data=lf_conflicts(L), index=lf_names)
+
+    if Y is not None:
+        col_names.extend(['Correct', 'Incorrect', 'Emp. Acc.'])
+        confusions = [confusion_matrix(Y, L[:,i]) for i in range(m)]
+        corrects = [np.diagonal(conf).sum() for conf in confusions]
+        incorrects = [conf.sum() - correct for conf, correct in 
+            zip(confusions, corrects)]
+        accs = lf_empirical_accuracies(L, Y)
+        d['Correct']   = Series(data=corrects, index=lf_names)
+        d['Incorrect'] = Series(data=incorrects, index=lf_names)
+        d['Emp. Acc.'] = Series(data=accs, index=lf_names)
+
+    if est_accs is not None:
+        col_names.append('Learned Acc.')
+        d['Learned Acc.'] = Series(est_accs, index=lf_names)
+
+    return DataFrame(data=d, index=lf_names)[col_names]    
 
 ############################################################
 # Label Matrix Plotting

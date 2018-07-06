@@ -7,7 +7,7 @@ import torch.optim as optim
 
 from metal.analysis import (
     plot_probabilities_histogram,
-    plot_predictions_histogram,
+    lf_summary,
     confusion_matrix,
 )
 from metal.classifier import Classifier
@@ -227,17 +227,20 @@ class LabelModel(Classifier):
         """Returns the *averaged squared estimation error."""
         return np.linalg.norm(self.accs() - accs)**2 / self.m
 
-    def train(self, L_train, L_dev=None, Y_dev=None, accs=None, **kwargs):
+    def train(self, L_train, Y_train=None, L_dev=None, Y_dev=None, accs=None, 
+        **kwargs):
         """Learns the accuracies of the labeling functions from L_train
 
         Args:
             L_train:
+            Y_train:
             L_dev:
             Y_dev:
             accs: An M-length list of the true accuracies of the LFs if known
 
-        Note that in this class, we learn this for each task separately by
-        default, and store a separate accuracy for each LF in each task.
+        Note that Y_train, L_dev, and Y_dev are not required for any 
+        calculations. They are simply used for printing additional diagnostic 
+        information if they are provided.
         """
         self.config = recursive_merge_dicts(self.config, kwargs)
         train_config = self.config['train_config']
@@ -291,8 +294,9 @@ class LabelModel(Classifier):
             print('Finished Training')
             
             if self.config['show_plots']:
-                Y_p_train = self.predict_proba(L_train)
+                print(lf_summary(L=L_train, Y=Y_train, est_accs=self.accs()))
     
+                Y_p_train = self.predict_proba(L_train)
                 plot_probabilities_histogram(Y_p_train[:, 0], 
                     title="Training Set Predictions")
 
