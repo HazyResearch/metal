@@ -29,8 +29,8 @@ class RandomVoter(LabelModel):
 
 class MajorityClassVoter(RandomVoter):
     """
-    A class that treats every task independently, placing all probability on
-    the majority class based on class balance (and ignoring the label matrix).
+    A class that places all probability on the majority class based on class 
+    balance (and ignoring the label matrix).
 
     Note that in the case of ties, non-integer probabilities are possible.
     """
@@ -54,8 +54,8 @@ class MajorityClassVoter(RandomVoter):
 
 class MajorityLabelVoter(RandomVoter):
     """
-    A class that treats every task independently, placing all probability on 
-    the majority label from all non-abstaining LFs for that task.
+    A class that places all probability on the majority label from all 
+    non-abstaining LFs for that task.
 
     Note that in the case of ties, non-integer probabilities are possible.
     """
