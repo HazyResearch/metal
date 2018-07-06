@@ -182,11 +182,21 @@ def label_conflict(L):
     """
     return _conflicted_data_points(L).sum() / L.shape[0]
 
+def LF_polarities(L):
+    """Return the polarities of each LF based on evidence in a label matrix.
+    
+    Args:
+        L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
+            jth LF to the ith candidate
+    """
+    polarities = [sorted(list(set(L[:,i].data))) for i in range(L.shape[1])]
+    return [p[0] if len(p) == 1 else p for p in polarities]
+
 def LF_coverages(L):
     """Return the **fraction of data points that each LF labels.**
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
-            jth LF to the ith candidate:
+            jth LF to the ith candidate
     """
     return np.ravel((L != 0).sum(axis=0)) / L.shape[0]
 
@@ -199,7 +209,7 @@ def LF_overlaps(L, normalize_by_coverage=False):
 
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
-            jth LF to the ith candidate:
+            jth LF to the ith candidate
         normalize_by_coverage: Normalize by coverage of the LF, so that it 
             returns the percent of LF labels that have overlaps.
     """    
@@ -218,7 +228,7 @@ def LF_conflicts(L, normalize_by_overlaps=False):
     
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
-            jth LF to the ith candidate:
+            jth LF to the ith candidate
         normalize_by_overlaps: Normalize by overlaps of the LF, so that it 
             returns the percent of LF overlaps that have conflicts.
     """
@@ -232,7 +242,7 @@ def LF_empirical_accuracies(L, Y):
     set) for each LF.
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
-            jth LF to the ith candidate:
+            jth LF to the ith candidate
         Y: an [N] or [N, 1] np.ndarray of gold labels
     """
     # Assume labeled set is small, work with dense matrices  
