@@ -200,8 +200,8 @@ def LF_overlaps(L, normalize_by_coverage=False):
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
-        normalize_by_coverage: Normalize by coverage of the LF, so that returns
-            percent of LF labels that have overlaps.
+        normalize_by_coverage: Normalize by coverage of the LF, so that it 
+            returns the percent of LF labels that have overlaps.
     """    
     overlaps = (L != 0).T @ _overlapped_data_points(L) / L.shape[0]
     if normalize_by_coverage:
@@ -219,8 +219,8 @@ def LF_conflicts(L, normalize_by_overlaps=False):
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
-        normalize_by_overlaps: Normalize by overlaps of the LF, so that returns
-            percent of LF overlaps that have conflicts.
+        normalize_by_overlaps: Normalize by overlaps of the LF, so that it 
+            returns the percent of LF overlaps that have conflicts.
     """
     conflicts = (L != 0).T @ _conflicted_data_points(L) / L.shape[0]
     if normalize_by_overlaps:
@@ -228,8 +228,8 @@ def LF_conflicts(L, normalize_by_overlaps=False):
     return conflicts
 
 def LF_empirical_accuracies(L, Y):
-    """Return the **empirical accuracy against a set of labels Y (eg dev set)**
-    for each LF.
+    """Return the **empirical accuracy** against a set of labels Y (e.g. dev 
+    set) for each LF.
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
