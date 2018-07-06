@@ -188,7 +188,7 @@ def LF_coverages(L):
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate:
     """
-    return (L != 0).sum(axis=0) / L.shape[0]
+    return np.ravel((L != 0).sum(axis=0)) / L.shape[0]
 
 def LF_overlaps(L, normalize_by_coverage=False):
     """Return the **fraction of items each LF labels that are also labeled by at
