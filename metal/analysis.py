@@ -182,7 +182,7 @@ def label_conflict(L):
     """
     return _conflicted_data_points(L).sum() / L.shape[0]
 
-def LF_polarities(L):
+def lf_polarities(L):
     """Return the polarities of each LF based on evidence in a label matrix.
     
     Args:
@@ -192,7 +192,7 @@ def LF_polarities(L):
     polarities = [sorted(list(set(L[:,i].data))) for i in range(L.shape[1])]
     return [p[0] if len(p) == 1 else p for p in polarities]
 
-def LF_coverages(L):
+def lf_coverages(L):
     """Return the **fraction of data points that each LF labels.**
     Args:
         L: an N x M scipy.sparse matrix where L_{i,j} is the label given by the 
@@ -200,7 +200,7 @@ def LF_coverages(L):
     """
     return np.ravel((L != 0).sum(axis=0)) / L.shape[0]
 
-def LF_overlaps(L, normalize_by_coverage=False):
+def lf_overlaps(L, normalize_by_coverage=False):
     """Return the **fraction of items each LF labels that are also labeled by at
      least one other LF.**
     
@@ -215,10 +215,10 @@ def LF_overlaps(L, normalize_by_coverage=False):
     """    
     overlaps = (L != 0).T @ _overlapped_data_points(L) / L.shape[0]
     if normalize_by_coverage:
-        overlaps /= LF_coverages(L)
+        overlaps /= lf_coverages(L)
     return np.nan_to_num(overlaps)
 
-def LF_conflicts(L, normalize_by_overlaps=False):
+def lf_conflicts(L, normalize_by_overlaps=False):
     """Return the **fraction of items each LF labels that are also given a 
     different (non-abstain) label by at least one other LF.**
 
@@ -234,10 +234,10 @@ def LF_conflicts(L, normalize_by_overlaps=False):
     """
     conflicts = (L != 0).T @ _conflicted_data_points(L) / L.shape[0]
     if normalize_by_overlaps:
-        conflicts /= LF_overlaps(L)
+        conflicts /= lf_overlaps(L)
     return np.nan_to_num(conflicts)
 
-def LF_empirical_accuracies(L, Y):
+def lf_empirical_accuracies(L, Y):
     """Return the **empirical accuracy** against a set of labels Y (e.g. dev 
     set) for each LF.
     Args:

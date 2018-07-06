@@ -9,10 +9,10 @@ from metal.analysis import (
     label_coverage,
     label_overlap,
     label_conflict,
-    LF_coverages,
-    LF_overlaps,
-    LF_conflicts,
-    LF_empirical_accuracies,
+    lf_coverages,
+    lf_overlaps,
+    lf_conflicts,
+    lf_empirical_accuracies,
 )
 
 class AnalysisTest(unittest.TestCase):
@@ -31,21 +31,21 @@ class AnalysisTest(unittest.TestCase):
     def test_label_conflict(self):
         self.assertEqual(label_conflict(self.L), 0.4)
 
-    def test_LF_empirical_accuracies(self):
+    def test_lf_empirical_accuracies(self):
         self.assertTrue(np.all(
-            LF_empirical_accuracies(self.L, self.Y) == np.array([0.5, 0, 1])))
+            lf_empirical_accuracies(self.L, self.Y) == np.array([0.5, 0, 1])))
 
-    def test_LF_coverages(self):
+    def test_lf_coverages(self):
         self.assertTrue(
-            (LF_coverages(self.L) == np.array([0.4, 0.4, 0.8])).all())
+            (lf_coverages(self.L) == np.array([0.4, 0.4, 0.8])).all())
 
-    def test_LF_overlaps(self):
+    def test_lf_overlaps(self):
         self.assertTrue(
-            (LF_overlaps(self.L) == np.array([0.4, 0.4, 0.6])).all())
+            (lf_overlaps(self.L) == np.array([0.4, 0.4, 0.6])).all())
 
-    def test_LF_conflicts(self):
+    def test_lf_conflicts(self):
         self.assertTrue(
-            (LF_conflicts(self.L) == np.array([0.2, 0.4, 0.4])).all())
+            (lf_conflicts(self.L) == np.array([0.2, 0.4, 0.4])).all())
 
 
 if __name__ == '__main__':
