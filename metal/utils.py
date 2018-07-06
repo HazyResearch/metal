@@ -120,8 +120,8 @@ def categorical_to_binary(X):
 
 def recursive_merge_dicts(x, y, misses='report', verbose=None):
     """
-    Merge dictionary y into x, overwriting elements of x when there is a
-    conflict, except if the element is a dictionary, in which case recurse.
+    Merge dictionary y into a copy of x, overwriting elements of x when there 
+    is a conflict, except if the element is a dictionary, in which case recurse.
 
     misses: what to do if a key in y is not in x
         'insert'    -> set x[key] = value
@@ -142,7 +142,7 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
                         msg = (f"Attempted to overwrite dict {k} with "
                             f"non-dict: {v}")
                         raise ValueError(msg)
-                    recursive_merge_dicts(x[k], v, misses, verbose)
+                    recurse(x[k], v, misses, verbose)
                 else:
                     if x[k] == v:
                         msg = f"Reaffirming {k}={x[k]}"
@@ -154,7 +154,7 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
             else:
                 for kx, vx in x.items():
                     if isinstance(vx, dict):
-                        found = recursive_merge_dicts(vx, {k: v}, 
+                        found = recurse(vx, {k: v}, 
                             misses='ignore', verbose=verbose)
                     if found:
                         break
@@ -177,5 +177,6 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
     if verbose is None:
         verbose = y.get('verbose', x.get('verbose', True))
 
-    recurse(x, y, misses, verbose)
-    return x
+    z = x.copy()
+    recurse(z, y, misses, verbose)
+    return z

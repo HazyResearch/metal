@@ -180,7 +180,7 @@ class EndModel(Classifier):
 
     def config_set(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
-        recursive_merge_dicts(self.config, update_dict)
+        self.config = recursive_merge_dicts(self.config, update_dict)
 
     def _preprocess_Y(self, Y):
         """Convert Y to T-dim lists of soft labels if necessary"""
