@@ -7,7 +7,7 @@ from metal.input_modules.base_module import InputModule
 class LSTMModule(InputModule):
     """An LSTM-based input module"""
     def __init__(self, input_size, hidden_size, vocab_size=None, 
-        embeddings=None, lstm_reduction='max', freeze=True, verbose=True,
+        embeddings=None, lstm_reduction='max', freeze=False, verbose=True,
         **lstm_kwargs):
         """
         Args:
@@ -22,11 +22,15 @@ class LSTMModule(InputModule):
             embeddings: An optional embedding Tensor
             lstm_reduction: One of ['mean', 'max', 'last', 'attention'] 
                 denoting what to return as the output of the LSTMLayer
+            freeze: If False, allow the embeddings to be updated
         """
         super().__init__()
         self.lstm_reduction = lstm_reduction
         self.output_dim = hidden_size
         self.verbose = verbose
+
+        # Do not delete this until it is fixed!
+        print("WARNING: LSTM currently assumes sequences end at the first 0.")
 
         # Load provided embeddings or randomly initialize new ones
         if embeddings is None:
@@ -37,22 +41,22 @@ class LSTMModule(InputModule):
             self.embeddings = self._load_pretrained(embeddings)
             if self.verbose:
                 print(f"Using pretrained embeddings.")
-        if self.verbose:
-            print(f"Embeddings shape = ({self.embeddings.num_embeddings}, "
-                f"{self.embeddings.embedding_dim})")
 
         # Freeze or not
         self.embeddings.weight.requires_grad = not freeze
+
         if self.verbose:
+            print(f"Embeddings shape = ({self.embeddings.num_embeddings}, "
+                f"{self.embeddings.embedding_dim})")
             print(f"The embeddings are {'' if freeze else 'NOT '}FROZEN")
+            print(f"Using lstm_reduction = '{lstm_reduction}'")
         
         # Create lstm core
         self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True, **lstm_kwargs)
         if lstm_reduction == 'attention':
             raise NotImplementedError
             # self.attention = Attention(hidden_size * (self.lstm.bidirectional + 1))
-        
-        print(f"Using lstm_reduction = '{lstm_reduction}''")
+
 
     def get_output_dim(self):
         return self.output_dim
@@ -67,35 +71,56 @@ class LSTMModule(InputModule):
         embedding.weight.data.copy_(pretrained)
         return embedding
 
-    def _reduce_output(self, outputs, batch_size, seq_lengths):
+    def reset_parameters(self):
+        # Note: Classifier.reset() calls reset_parameters() recursively on all
+        # children, so this method need not reset children modules such as 
+        # nn.lstm or nn.Embedding
+        pass
+
+    def _reduce_output(self, outputs, seq_lengths):
+        """Reduces the output of an LSTM step
+
+        Args:
+            outputs: (torch.FloatTensor) the hidden state outputs from the 
+                lstm, with shape [batch_size, max_seq_length, hidden_size]
+        """
+        batch_size = outputs.shape[0]
         reduced = []
         # Necessary to iterate over batch because of different sequence lengths
         for i in range(batch_size): 
-            if self.lstm_out == 'mean':
+            if self.lstm_reduction == 'mean':
                 # Average over all non-padding reduced
                 # Use dim=0 because first dimension disappears after indexing
                 reduced.append(outputs[i, :seq_lengths[i], :].mean(dim=0))
-            elif self.lstm_out == 'max':
+            elif self.lstm_reduction == 'max':
                 # Max-pool over all non-padding reduced
                 # Use dim=0 because first dimension disappears after indexing
                 reduced.append(outputs[i, :seq_lengths[i], :].max(dim=0)[0])
-            elif self.lstm_out == 'last':
+            elif self.lstm_reduction == 'last':
                 # Take the last output of the sequence (before padding starts)
                 # NOTE: maybe better to take first and last?
                 reduced.append(outputs[i, seq_lengths[i] - 1, :])
-            elif self.lstm_out == 'attention':
+            elif self.lstm_reduction == 'attention':
                 raise NotImplementedError
                 # reduced.append(self.attention(outputs))
             else:
-                msg = f"Did not recognize lstm kwarg 'lstm_out' == {self.lstm_out}"
+                msg = (f"Did not recognize lstm kwarg 'lstm_reduction' == "
+                    f"{self.lstm_reduction}")
                 raise ValueError(msg)
         return torch.stack(reduced, dim=0)
 
     def forward(self, X):
+        """Applies one step of an lstm (plus reduction) to the input X
+
+        Args:
+            X: (torch.LongTensor) of shape [batch_size, max_seq_length].
+                The indices of the embeddings to look up for each item in the
+                batch.
+        """
         # Identify the first non-zero integer from the right (i.e., the length
         # of the sequence before padding starts). Save these indices for 
         # restoring the original order after the lstm.
-        batch_size, max_seq, input_size = X.shape
+        batch_size, max_seq = X.shape
         seq_lengths = torch.zeros(batch_size, dtype=torch.long)
         for i in range(batch_size):
             for j in range(max_seq):
@@ -108,12 +133,15 @@ class LSTMModule(InputModule):
         inv_perm_idx = torch.tensor([i for i, _ in sorted(enumerate(perm_idx), 
             key=lambda idx: idx[1])], dtype=torch.long)
 
-        X_encoded = self.embedding(X)
-        X_encoded = rnn_utils.pack_padded_sequence(X_encoded, seq_lengths, 
+        X_encoded = self.embeddings(X)
+        X_packed = rnn_utils.pack_padded_sequence(X_encoded, seq_lengths, 
             batch_first=True)
-        outputs, (h_t, c_t) = self.lstm(X_encoded)
 
-        reduced = self._reduce_output(outputs, batch_size, seq_lengths)
+        outputs, (h_t, c_t) = self.lstm(X_packed)
+
+        outputs_unpacked, _ = rnn_utils.pad_packed_sequence(outputs, 
+            batch_first=True)
+        reduced = self._reduce_output(outputs_unpacked, seq_lengths)
         return reduced[inv_perm_idx, :]
 
 

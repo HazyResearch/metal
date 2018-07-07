@@ -8,3 +8,6 @@ class InputModule(nn.Module):
    
     def get_output_dim(self):
         raise NotImplementedError()
+
+    def reset_parameters(self):
+        raise NotImplementedError
