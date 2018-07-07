@@ -70,7 +70,7 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError
 
-    def score(self, X, Y, metrics=['accuracy'], break_ties='random', 
+    def score(self, X, Y, metric=['accuracy'], break_ties='random', 
         verbose=True, **kwargs):
         """Scores the predictive performance of the Classifier on all tasks
 
@@ -78,7 +78,8 @@ class Classifier(nn.Module):
             X: The input for the predict method
             Y: An [N] or [N, 1] torch.Tensor or np.ndarray of gold labels in 
                 {1,...,K_t}
-            metrics: A list of metrics with which to score performance
+            metric: A metric (string) with which to score performance or a 
+                list of such metrics
             break_ties: How to break ties when making predictions
 
         Returns:
@@ -87,7 +88,8 @@ class Classifier(nn.Module):
         Y = self._to_numpy(Y)
         Y_p = self.predict(X, break_ties=break_ties, **kwargs)
 
-        for metric in metrics:
+        metric_list = metric if isinstance(metric, list) else [metric]
+        for metric in metric_list:
             score = metric_score(Y, Y_p, metric, ignore_in_gold=[0])
             if verbose:
                 print(f"{metric.capitalize()}: {score:.3f}")

@@ -28,6 +28,6 @@ lm_model_defaults = {
         },
         # Train loop
         'n_epochs': 100, 
-        'print_at': 10, 
+        'print_every': 10, 
     },
 }

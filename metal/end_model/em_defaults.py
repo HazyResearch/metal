@@ -2,6 +2,8 @@ em_model_defaults = {
     ### GENERAL
     'seed': None,
     'verbose': True,
+    'show_plots': True,
+
     # Network
     'batchnorm': True,
     'dropout': 0.0,
@@ -42,6 +44,7 @@ em_model_defaults = {
         # 'early_stopping': False, # if true, save any model with best score so far
         # 'checkpoint_runway': 0, # if early stopping, don't save checkpoints until after at least this many epochs
         'l2': 0.0,
+        'validation_metric': 'accuracy',
 
         # Optimizer
         'optimizer_config': {

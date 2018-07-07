@@ -280,10 +280,10 @@ class LabelModel(Classifier):
             loss.backward()
             optimizer.step()
             
-            # Print loss every print_at steps
+            # Print loss every print_every steps
             if (self.config['verbose'] and 
-                (epoch % train_config['print_at'] == 0 
-                or epoch == train_config['n_epochs'] - 1)):
+                ((epoch + 1) % train_config['print_every'] == 0 
+                or (epoch in [0, train_config['n_epochs'] - 1]))):
                 msg = f"[Epoch {epoch}] Loss: {loss.item():0.6f}"
                 if accs is not None:
                     accs_score = self.get_accs_score(accs)

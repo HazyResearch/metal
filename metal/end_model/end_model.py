@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+from metal.analysis import plot_probabilities_histogram, confusion_matrix
 from metal.classifier import Classifier, MTClassifier
 from metal.end_model.em_defaults import em_model_defaults
 from metal.end_model.loss import SoftCrossEntropyLoss
@@ -177,6 +178,9 @@ class EndModel(Classifier):
         self.config = recursive_merge_dicts(self.config, kwargs)
         train_config = self.config['train_config']
 
+        Y_train = self._to_torch(Y_train)
+        Y_dev = self._to_torch(Y_dev)
+
         if train_config['use_cuda']:
             raise NotImplementedError
             # TODO: fix this
@@ -236,7 +240,9 @@ class EndModel(Classifier):
             train_loss = epoch_loss / len(train_loader.dataset)
 
             if dev_loader:
-                dev_score = self.score(X_dev, Y_dev, verbose=False)
+                val_metric = train_config['validation_metric']
+                dev_score = self.score(X_dev, Y_dev, metric=val_metric, 
+                    verbose=False)
             
             # Apply learning rate scheduler
             if (lr_scheduler is not None 
@@ -249,12 +255,26 @@ class EndModel(Classifier):
 
             # Report progress
             if (self.config['verbose'] and 
-                (epoch in [0, train_config['n_epochs'] - 1] or
-                ((epoch + 1) % train_config['print_every'] == 0))):
+                ((epoch + 1) % train_config['print_every'] == 0 
+                or (epoch in [0, train_config['n_epochs'] - 1]))):
                 msg = f'[E:{epoch+1}]\tTrain Loss: {train_loss:.3f}'
                 if dev_loader:
                     msg += f'\tDev score: {dev_score:.3f}'
                 print(msg)
+
+        if self.config['verbose']:
+            print('Finished Training')
+            
+            if self.config['show_plots']:
+                Y_p_train = self.predict_proba(X_train)
+                plot_probabilities_histogram(Y_p_train[:, 0], 
+                    title="Training Set Predictions")
+
+            if X_dev is not None and Y_dev is not None:
+                Y_ph_dev = self.predict(X_dev)
+
+                print("Confusion Matrix (Dev)")
+                mat = confusion_matrix(Y_ph_dev, Y_dev, pretty_print=True)                
 
     def predict_proba(self, X):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
