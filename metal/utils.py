@@ -4,7 +4,26 @@ import torch
 from torch.utils.data import Dataset
 
 
-class MultilabelDataset(Dataset):
+class MetalDataset(Dataset):
+    """A dataset that group each item in X with it label from Y
+    
+    Args:
+        X: an N-dim iterable of items
+        Y: a torch.Tensor of labels
+            This may be hard labels [N] or soft labels [N, k]
+    """
+    def __init__(self, X, Y):
+        self.X = X
+        self.Y = Y
+        assert(len(X) == len(Y))
+
+    def __getitem__(self, index):
+        return tuple([self.X[index], self.Y[index]])
+
+    def __len__(self):
+        return len(self.X)
+
+class MTMetalDataset(Dataset):
     """A dataset that group each item in X with its labels for T tasks from Y
     
     Args:
@@ -41,6 +60,7 @@ def hard_to_soft(Y_h, k):
         Y_h: an [N], or [N,1] tensor of hard (int) labels >= 1
         k: the target cardinality of the soft label matrix
     """
+    Y_h = Y_h.clone()
     Y_h = Y_h.squeeze()
     assert(Y_h.dim() == 1)
     assert((Y_h >= 1).all())

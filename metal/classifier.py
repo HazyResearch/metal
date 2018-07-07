@@ -104,7 +104,7 @@ class Classifier(nn.Module):
         Returns:
             An N-dim np.ndarray of predictions
         """
-        Y_p = self.predict_proba(X, **kwargs)
+        Y_p = self._to_numpy(self.predict_proba(X, **kwargs))
         Y_ph = self._break_ties(Y_p, break_ties)
         return Y_ph
 

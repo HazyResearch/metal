@@ -5,18 +5,22 @@ em_model_defaults = {
     # Network
     'batchnorm': True,
     'dropout': 0.0,
-        # The first value is the output dim of the input module
     'layer_output_dims': [100, 50],
-        # If head_output_dims is None, defaults to K_t for each task t
-    'head_output_dims': None,  # Optionally a list
+        # The first value is the output dim of the input module
+    'task_head_output_dims': None,
+        # If task_head_output_dims is None:
+        #   single-task: defaults to k (cardinality)
+        #   multi-task:  defaults to k_t (list of cardinalities)
+    'task_head_layers': 'top',
         # Optionally specify the layers that each head should attach to
-        # 'top': connect all heads to the final (top) layer
-        # 'auto': connect heads at layers corresponding to placement in the task
-        #    graph; the deepest leaf attaches to the top layer, then work backward
-        # [list]: specify explicitly the layer for each head
-    'head_layers': 'top',
-        # If True, pass output of parent tasks as additional input to children tasks
+        # For single-task settings, this is always 'top'
+        #   'top': connect all heads to the final (top) layer
+        #   'auto': connect heads at layers corresponding to placement in the 
+        #       task graph; the deepest leaf attaches to the top layer, then 
+        #       work backward
+        #   [list]: specify explicitly the layer for each head
     'pass_predictions': False,
+        # If True, pass output of parent tasks as additional input to children tasks
 
     ### TRAINING
     'train_config': {
@@ -60,8 +64,10 @@ em_model_defaults = {
 
         # Scheduler
         'scheduler_config': {
-            'scheduler': 'reduce_on_plateau', # ['constant', 'exponential', 'reduce_on_plateu']
-            'lr_freeze': 0, # Freeze learning rate initially this many epochs
+            'scheduler': 'reduce_on_plateau', 
+                # ['constant', 'exponential', 'reduce_on_plateu']
+            'lr_freeze': 0, 
+                # Freeze learning rate initially this many epochs
             # Scheduler - exponential
             'exponential_config': {
                 'gamma': 0.9, # decay rate
