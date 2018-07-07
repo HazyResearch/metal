@@ -33,7 +33,7 @@ em_model_defaults = {
 
         # Dataloader
         'data_loader_config': {
-            'batch_size': 128, 
+            'batch_size': 32, 
             'num_workers': 1,
         },
 
