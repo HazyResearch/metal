@@ -6,12 +6,12 @@ from metal.input_modules.base_module import InputModule
 
 class LSTMModule(InputModule):
     """An LSTM-based input module"""
-    def __init__(self, input_size, hidden_size, vocab_size=None, 
+    def __init__(self, embed_size, hidden_size, vocab_size=None, 
         embeddings=None, lstm_reduction='max', freeze=False, verbose=True,
         **lstm_kwargs):
         """
         Args:
-            input_size: The (integer) size of the input at each time
+            embed_size: The (integer) size of the input at each time
                 step; usually this is the size of the embeddings
             hidden_size: The size of the hidden layer in the LSTM
             vocab_size: The size of the vocabulary of the embeddings
@@ -34,7 +34,7 @@ class LSTMModule(InputModule):
 
         # Load provided embeddings or randomly initialize new ones
         if embeddings is None:
-            self.embeddings = nn.Embedding(vocab_size, input_size)
+            self.embeddings = nn.Embedding(vocab_size, embed_size)
             if self.verbose:
                 print(f"Using randomly initialized embeddings.")
         else:
@@ -52,7 +52,7 @@ class LSTMModule(InputModule):
             print(f"Using lstm_reduction = '{lstm_reduction}'")
         
         # Create lstm core
-        self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True, **lstm_kwargs)
+        self.lstm = nn.LSTM(embed_size, hidden_size, batch_first=True, **lstm_kwargs)
         if lstm_reduction == 'attention':
             raise NotImplementedError
             # self.attention = Attention(hidden_size * (self.lstm.bidirectional + 1))
