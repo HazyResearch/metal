@@ -7,8 +7,8 @@ from metal.input_modules.base_module import InputModule
 class LSTMModule(InputModule):
     """An LSTM-based input module"""
     def __init__(self, embed_size, hidden_size, vocab_size=None, 
-        embeddings=None, lstm_reduction='max', freeze=False, verbose=True,
-        **lstm_kwargs):
+        embeddings=None, lstm_reduction='max', freeze=False, bidirectional=True,
+        verbose=True, **lstm_kwargs):
         """
         Args:
             embed_size: The (integer) size of the input at each time
@@ -26,7 +26,7 @@ class LSTMModule(InputModule):
         """
         super().__init__()
         self.lstm_reduction = lstm_reduction
-        self.output_dim = hidden_size
+        self.output_dim = hidden_size * 2 if bidirectional else hidden_size
         self.verbose = verbose
 
         # Do not delete this until it is fixed!
@@ -52,11 +52,11 @@ class LSTMModule(InputModule):
             print(f"Using lstm_reduction = '{lstm_reduction}'")
         
         # Create lstm core
-        self.lstm = nn.LSTM(embed_size, hidden_size, batch_first=True, **lstm_kwargs)
+        self.lstm = nn.LSTM(embed_size, hidden_size, batch_first=True, 
+            bidirectional=bidirectional, **lstm_kwargs)
         if lstm_reduction == 'attention':
             raise NotImplementedError
             # self.attention = Attention(hidden_size * (self.lstm.bidirectional + 1))
-
 
     def get_output_dim(self):
         return self.output_dim
