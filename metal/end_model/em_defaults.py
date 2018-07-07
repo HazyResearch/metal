@@ -8,9 +8,8 @@ em_model_defaults = {
     'layer_output_dims': [100, 50],
         # The first value is the output dim of the input module
     'task_head_output_dims': None,
-        # If task_head_output_dims is None:
-        #   single-task: defaults to k (cardinality)
-        #   multi-task:  defaults to k_t (list of cardinalities)
+        # If single-task, an int (defaults to k if None)
+        # If multi-task, a list of ints (defaults to k_t if None)
     'task_head_layers': 'top',
         # Optionally specify the layers that each head should attach to
         # For single-task settings, this is always 'top'

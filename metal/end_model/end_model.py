@@ -31,7 +31,9 @@ class EndModel(Classifier):
 
        # Show network
         if self.config['verbose']:
+            print("\nNetwork architecture:")
             self._print()
+            print()
 
     def _build(self, input_module):
         """
@@ -247,8 +249,8 @@ class EndModel(Classifier):
 
             # Report progress
             if (self.config['verbose'] and 
-                epoch in [0, train_config['n_epochs'] - 1] or
-                ((epoch + 1) % train_config['print_every'] == 0)):
+                (epoch in [0, train_config['n_epochs'] - 1] or
+                ((epoch + 1) % train_config['print_every'] == 0))):
                 msg = f'[E:{epoch+1}]\tTrain Loss: {train_loss:.3f}'
                 if dev_loader:
                     msg += f'\tDev score: {dev_score:.3f}'

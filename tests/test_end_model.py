@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 sys.path.append("../metal")
-from metal.end_model import EndModel
+from metal.end_model import EndModel, LogisticRegression
 from metal.structs import TaskGraph
 from metal.utils import hard_to_soft
 
@@ -33,25 +33,27 @@ class EndModelTest(unittest.TestCase):
         Ys = [Y[:1000, :], Y[1000:1100, :], Y[1100:, :]]
         cls.multi_problem = (Xs, Ys)
 
-    def test_singletask(self):
-        em = EndModel(seed=1, verbose=False, layer_output_dims=[2,4,2],
-            batchnorm=False, dropout=0.0)
+    def test_logreg(self):
+        em = LogisticRegression(seed=1, verbose=False,
+            input_dim=2)
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], 
-            verbose=False,
-            n_epochs=10,
-        )
+        em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=10)
+        score = em.score(Xs[2], Ys[2], verbose=False)
+        self.assertEqual(score, 0.92)
+
+    def test_singletask(self):
+        em = EndModel(seed=1, verbose=False, 
+            layer_output_dims=[2,4,2], batchnorm=False, dropout=0.0)
+        Xs, Ys = self.single_problem
+        em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=10)
         score = em.score(Xs[2], Ys[2], verbose=False)
         self.assertEqual(score, 0.67)
 
     def test_singletask_extras(self):
-        em = EndModel(seed=1, verbose=False, layer_output_dims=[2,4,2],
-            batchnorm=True, dropout=0.05)
+        em = EndModel(seed=1, verbose=False, 
+            layer_output_dims=[2,4,2], batchnorm=True, dropout=0.05)
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], 
-            verbose=False,
-            n_epochs=10,
-        )
+        em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=10)
         score = em.score(Xs[2], Ys[2], verbose=False)
         self.assertEqual(score, 0.92)
 
