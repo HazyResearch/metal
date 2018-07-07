@@ -7,7 +7,6 @@ import torch
 sys.path.append("../metal")
 from metal.end_model import EndModel, LogisticRegression
 from metal.structs import TaskGraph
-from metal.utils import hard_to_soft
 
 class EndModelTest(unittest.TestCase):
 
@@ -39,7 +38,7 @@ class EndModelTest(unittest.TestCase):
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=10)
         score = em.score(Xs[2], Ys[2], verbose=False)
-        self.assertEqual(score, 0.92)
+        self.assertEqual(score, 0.99)
 
     def test_singletask(self):
         em = EndModel(seed=1, verbose=False, 
@@ -47,7 +46,7 @@ class EndModelTest(unittest.TestCase):
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=10)
         score = em.score(Xs[2], Ys[2], verbose=False)
-        self.assertEqual(score, 0.67)
+        self.assertEqual(score, 1.0)
 
     def test_singletask_extras(self):
         em = EndModel(seed=1, verbose=False, 
@@ -55,7 +54,7 @@ class EndModelTest(unittest.TestCase):
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=10)
         score = em.score(Xs[2], Ys[2], verbose=False)
-        self.assertEqual(score, 0.92)
+        self.assertEqual(score, 0.93)
 
     # def test_multitask_top(self):
     #     label_map=[[1,2],[1,2]]

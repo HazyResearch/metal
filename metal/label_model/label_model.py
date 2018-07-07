@@ -296,9 +296,10 @@ class LabelModel(Classifier):
             if self.config['show_plots']:
                 print(lf_summary(L=L_train, Y=Y_train, est_accs=self._alphas()))
     
-                Y_p_train = self.predict_proba(L_train)
-                plot_probabilities_histogram(Y_p_train[:, 0], 
-                    title="Training Set Predictions")
+                if self.k == 2:
+                    Y_p_train = self.predict_proba(X_train)
+                    plot_probabilities_histogram(Y_p_train[:, 0], 
+                        title="Training Set Predictions")
 
             if L_dev is not None and Y_dev is not None:
                 Y_ph_dev = self.predict(L_dev)

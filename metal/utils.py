@@ -57,17 +57,22 @@ def hard_to_soft(Y_h, k):
     """Converts a 1D tensor of hard labels into a 2D tensor of soft labels
 
     Args:
-        Y_h: an [N], or [N,1] tensor of hard (int) labels >= 1
-        k: the target cardinality of the soft label matrix
+        Y_h: an [N], or [N,1] tensor of hard (int) labels between 0 and k 
+            (inclusive), where 0 = abstain.
+        k: the largest possible label in Y_h
+    Returns:
+        Y_s: a torch.FloatTensor of shape [N, k + 1] where Y_s[i,j] is the soft
+            label for item i and class j.
     """
     Y_h = Y_h.clone()
     Y_h = Y_h.squeeze()
     assert(Y_h.dim() == 1)
-    assert((Y_h >= 1).all())
+    assert((Y_h >= 0).all())
+    assert((Y_h <= k).all())
     N = Y_h.shape[0]
-    Y_s = torch.zeros(N, k, dtype=torch.float)
+    Y_s = torch.zeros((N, k+1))
     for i, j in enumerate(Y_h):
-        Y_s[i, j-1] = 1.0
+        Y_s[i, j] = 1.0
     return Y_s
 
 def arraylike_to_numpy(array_like):

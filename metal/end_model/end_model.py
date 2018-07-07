@@ -44,6 +44,11 @@ class EndModel(Classifier):
         layer_dims = self.config['layer_output_dims']
         num_layers = len(layer_dims)
 
+        if not input_module.get_output_dim() == layer_dims[0]:
+            msg = (f"Input module output size != the first layer output size: "
+                f"({input_module.get_output_dim()} != {layer_dims[0]})")
+            raise ValueError(msg)
+
         # Set dropout probabilities for all layers
         dropout = self.config['dropout']
         if isinstance(dropout, float):
@@ -106,8 +111,7 @@ class EndModel(Classifier):
         """
         module_name = m.__class__.__name__
         if module_name in ['EndModel', 'Sequential', 'ModuleList', 'ReLU', 
-            'Dropout', 'LogisticRegression', 'SoftmaxRegression', 
-            'SoftCrossEntropyLoss']:
+            'Dropout', 'LogisticRegression', 'SoftCrossEntropyLoss']:
             pass
         elif callable(getattr(m, 'reset_parameters', None)):
             m.reset_parameters()
@@ -131,6 +135,11 @@ class EndModel(Classifier):
                 self._check(Y, typ=torch.LongTensor)
             # FIXME: This could fail if last class was never predicted
             Y = hard_to_soft(Y, k=Y.max().long())
+            # FIXME: This currently assumes that no model can output a 
+            # prediction of 0 (i.e., if cardinality=5, Y[0] corresponds to
+            # class 1 instead of 0, since the latter would give the model
+            # a 5-dim output space but a 6-dim label space)
+            Y = Y[:,1:]
         return Y
 
     def _make_data_loader(self, X, Y, data_loader_config):
@@ -266,9 +275,10 @@ class EndModel(Classifier):
             print('Finished Training')
             
             if self.config['show_plots']:
-                Y_p_train = self.predict_proba(X_train)
-                plot_probabilities_histogram(Y_p_train[:, 0], 
-                    title="Training Set Predictions")
+                if self.k == 2:
+                    Y_p_train = self.predict_proba(X_train)
+                    plot_probabilities_histogram(Y_p_train[:, 0], 
+                        title="Training Set Predictions")
 
             if X_dev is not None and Y_dev is not None:
                 Y_ph_dev = self.predict(X_dev)
@@ -397,7 +407,7 @@ class MTEndModel(MTClassifier, EndModel):
         summed over tasks.
         """
         loss = torch.tensor(0.0)
-        for t, Y_tp in enumerate(outputs):
+        for t, Y_tp in enumerate(output):
             loss += self.criteria(Y_tp, Y[t])
         return loss
 

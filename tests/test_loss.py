@@ -20,8 +20,8 @@ class LossTest(unittest.TestCase):
     def test_sce_equals_ce(self):
         # All correct predictions
         Y_h = torch.tensor([1, 2, 3], dtype=torch.long)
-        target = Y_h - 1  # Account for CrossEntropyLoss expecting 0-index
-        Y = hard_to_soft(Y_h, k=4)  # hard_to_soft converts to 0-index for us
+        target = Y_h
+        Y = hard_to_soft(Y_h, k=4)
         
         sce = SoftCrossEntropyLoss(reduce=False)
         ce = nn.CrossEntropyLoss(reduce=False)
@@ -43,7 +43,7 @@ class LossTest(unittest.TestCase):
 
     def test_perfect_predictions(self):
         Y_h = torch.tensor([1, 2, 3], dtype=torch.long)
-        target = Y_h - 1
+        target = Y_h
         Y = hard_to_soft(Y_h, k=4)
 
         sce = SoftCrossEntropyLoss()
@@ -77,16 +77,16 @@ class LossTest(unittest.TestCase):
     def test_loss_weights(self):
         # All incorrect predictions
         Y_h = torch.tensor([1,1,2], dtype=torch.long)
-        target = Y_h - 1
+        target = Y_h
         K_t = 3
         Y = hard_to_soft(Y_h, k=K_t)
         Y_p = torch.tensor([
-            [-100.,  100., -100.],
-            [-100.,  100., -100.],
-            [-100.,  100., -100.],
+            [0., -100.,  100., -100.],
+            [0., -100.,  100., -100.],
+            [0., -100.,  100., -100.],
         ])
-        weight1 = torch.tensor([1,2,1], dtype=torch.float)
-        weight2 = torch.tensor([10,20,10], dtype=torch.float)
+        weight1 = torch.tensor([0,1,2,1], dtype=torch.float)
+        weight2 = torch.tensor([0,10,20,10], dtype=torch.float)
         ce1 = nn.CrossEntropyLoss(weight=weight1, reduce=False)
         sce1 = SoftCrossEntropyLoss(weight=weight1, reduce=True)
         sce2 = SoftCrossEntropyLoss(weight=weight2, reduce=True)
