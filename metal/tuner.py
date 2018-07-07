@@ -25,7 +25,7 @@ class ModelTuner(object):
             np.random.seed(seed)
 
     def search(self, init_args, train_args, X_dev, Y_dev, search_space, 
-        max_search=None, **score_kwargs):
+        max_search=None, shuffle=True, **score_kwargs):
         """
         Args:
             init_args: (list) positional args for initializing the model
@@ -35,6 +35,7 @@ class ModelTuner(object):
                 T-length list of such tensors if model.multitask=True.
             search_space: see config_generator() documentation
             max_search: see config_generator() documentation
+            shuffle: see config_generator() documentation
 
         Returns:
             best_model: the highest performing trained model
@@ -45,7 +46,7 @@ class ModelTuner(object):
         parameters, including the network architecture (which is defined before
         the train loop).
         """
-        configs = self.config_generator(search_space, max_search)
+        configs = self.config_generator(search_space, max_search, shuffle)
         print_worthy = [k for k, v in search_space.items() 
             if isinstance(v, list) or isinstance(v, dict)]
         
@@ -97,6 +98,7 @@ class ModelTuner(object):
                     range parameters values; if there are no range parameters,
                     stop after yielding the full cross product of parameters
                     once.
+            shuffle: (bool) If True, shuffle the order of generated configs
 
         Yields:
             configs: each config is a dict of parameter values based on the
