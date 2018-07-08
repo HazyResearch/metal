@@ -37,7 +37,7 @@ class LSTMTest(unittest.TestCase):
         vocab_size = MAX_INT + 1
 
         lstm_module = LSTMModule(embed_size, hidden_size, vocab_size, 
-            verbose=False)
+            bidirectional=False, verbose=False)
         em = EndModel(
             cardinality=MAX_INT, 
             input_module=lstm_module, 
@@ -64,11 +64,11 @@ class LSTMTest(unittest.TestCase):
         vocab_size = MAX_INT + 2
 
         lstm_module = LSTMModule(embed_size, hidden_size, vocab_size, 
-            verbose=False)
+            bidirectional=True, verbose=False)
         em = EndModel(
             cardinality=MAX_INT, 
             input_module=lstm_module, 
-            layer_output_dims=[hidden_size, MAX_INT],
+            layer_output_dims=[hidden_size * 2, MAX_INT],
             seed=1,
             verbose=False)
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=10, verbose=False)

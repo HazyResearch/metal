@@ -29,9 +29,6 @@ class LSTMModule(InputModule):
         self.output_dim = hidden_size * 2 if bidirectional else hidden_size
         self.verbose = verbose
 
-        # Do not delete this until it is fixed!
-        print("WARNING: LSTM currently assumes sequences end at the first 0.")
-
         # Load provided embeddings or randomly initialize new ones
         if embeddings is None:
             self.embeddings = nn.Embedding(vocab_size, embed_size)
@@ -118,16 +115,16 @@ class LSTMModule(InputModule):
                 batch.
         """
         # Identify the first non-zero integer from the right (i.e., the length
-        # of the sequence before padding starts). Save these indices for 
-        # restoring the original order after the lstm.
+        # of the sequence before padding starts).
         batch_size, max_seq = X.shape
         seq_lengths = torch.zeros(batch_size, dtype=torch.long)
         for i in range(batch_size):
-            for j in range(max_seq):
-                if X[i, j] == 0:
-                    seq_lengths[i] = j
+            for j in range(max_seq - 1, -1, -1):
+                if X[i, j] != 0:
+                    seq_lengths[i] = j + 1
                     break
-                seq_lengths[i] = max_seq
+        # Sort by length because pack_padded_sequence requires it
+        # Save original order to restore before returning
         seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
         X = X[perm_idx, :]
         inv_perm_idx = torch.tensor([i for i, _ in sorted(enumerate(perm_idx), 
