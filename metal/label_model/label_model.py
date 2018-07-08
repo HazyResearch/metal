@@ -282,8 +282,8 @@ class LabelModel(Classifier):
             
             # Print loss every print_every steps
             if (self.config['verbose'] and 
-                ((epoch + 1) % train_config['print_every'] == 0 
-                or (epoch in [0, train_config['n_epochs'] - 1]))):
+                (epoch % train_config['print_every'] == 0 
+                or epoch == train_config['n_epochs'] - 1)):
                 msg = f"[Epoch {epoch}] Loss: {loss.item():0.6f}"
                 if accs is not None:
                     accs_score = self.get_accs_score(accs)

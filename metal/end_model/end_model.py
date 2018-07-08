@@ -264,8 +264,8 @@ class EndModel(Classifier):
 
             # Report progress
             if (self.config['verbose'] and 
-                ((epoch + 1) % train_config['print_every'] == 0 
-                or (epoch in [0, train_config['n_epochs'] - 1]))):
+                (epoch % train_config['print_every'] == 0 
+                or epoch == train_config['n_epochs'] - 1)):
                 msg = f'[E:{epoch+1}]\tTrain Loss: {train_loss:.3f}'
                 if dev_loader:
                     msg += f'\tDev score: {dev_score:.3f}'
