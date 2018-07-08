@@ -297,7 +297,7 @@ class LabelModel(Classifier):
                 print(lf_summary(L=L_train, Y=Y_train, est_accs=self._alphas()))
     
                 if self.k == 2:
-                    Y_p_train = self.predict_proba(X_train)
+                    Y_p_train = self.predict_proba(L_train)
                     plot_probabilities_histogram(Y_p_train[:, 0], 
                         title="Training Set Predictions")
 
