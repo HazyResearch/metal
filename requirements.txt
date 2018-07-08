@@ -5,4 +5,4 @@ pandas
 python=3.6
 pytorch=0.4
 scipy
-torchtext # For contrib
+torchtext # (contrib only)
