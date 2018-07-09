@@ -25,7 +25,7 @@ class ModelTuner(object):
             np.random.seed(seed)
 
     def search(self, init_args, train_args, X_dev, Y_dev, search_space, 
-        max_search=None, shuffle=True, **score_kwargs):
+        max_search=None, shuffle=True, verbose=True, **score_kwargs):
         """
         Args:
             init_args: (list) positional args for initializing the model
@@ -50,23 +50,25 @@ class ModelTuner(object):
         print_worthy = [k for k, v in search_space.items() 
             if isinstance(v, list) or isinstance(v, dict)]
         
+        best_index = 0
         best_score = 0
         best_model = None
         for i, config in enumerate(configs):
-            # Set verbose=False to avoid reporting config overwrites
-            config['verbose'] = False
             # Unless seeds are given explicitly, give each config a unique one
             if config.get('seed', None) is None:
                 config['seed'] = i
             model = self.model_class(*init_args, **config)
 
-            print_config = {k: v for k, v in config.items() if k in print_worthy}
-            print("=" * 60)
-            print(f"[{i + 1}] Testing {print_config}")
-            print("=" * 60)
-            model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, verbose=True, 
-                show_plots=False)
-            score = model.score(X_dev, Y_dev, **score_kwargs)
+            if verbose:
+                print_config = {k: v for k, v in config.items() if k in 
+                    print_worthy}
+                print("=" * 60)
+                print(f"[{i + 1}] Testing {print_config}")
+                print("=" * 60)
+            
+            model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, **config)
+                # verbose=True, show_plots=False, # Turn off for BL only
+            score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
 
             if score > best_score:
                 best_index = i + 1

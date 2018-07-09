@@ -121,6 +121,7 @@ def binary_to_categorical(X):
             1: positive
             2: negative
     """
+    if X is None: return X
     X = X.copy()
     X[X == -1] = 2
     return X
@@ -138,6 +139,7 @@ def categorical_to_binary(X):
             0: abstain
             1: positive
     """
+    if X is None: return X
     X = X.copy()
     X[X == 2] = -1
     return X
@@ -156,7 +158,7 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
 
     TODO: give example here (pull from tests)
     """
-    def recurse(x, y, misses='report', verbose=True):
+    def recurse(x, y, misses='report', verbose=1):
         found = True
         for k, v in y.items():
             found = False
@@ -174,7 +176,7 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
                     else:
                         msg = f"Overwriting {k}={x[k]} to {k}={v}"
                         x[k] = v
-                    if verbose and k != 'verbose':
+                    if verbose > 1 and k != 'verbose':
                         print(msg)
             else:
                 for kx, vx in x.items():
@@ -187,7 +189,7 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
                 msg = f'Could not find kwarg "{k}" in default config.'
                 if misses == 'insert':
                     x[k] = v
-                    if verbose: 
+                    if verbose > 1: 
                         print(f"Added {k}={v} from second dict to first")
                 elif misses == 'exception':
                     raise ValueError(msg)
@@ -200,7 +202,7 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
     # If verbose is not provided, look for an value in y first, then x
     # (Do this because 'verbose' kwarg is often inside one or both of x and y)
     if verbose is None:
-        verbose = y.get('verbose', x.get('verbose', True))
+        verbose = y.get('verbose', x.get('verbose', 1))
 
     z = x.copy()
     recurse(z, y, misses, verbose)

@@ -242,7 +242,7 @@ class LabelModel(Classifier):
         calculations. They are simply used for printing additional diagnostic 
         information if they are provided.
         """
-        self.config = recursive_merge_dicts(self.config, kwargs)
+        self.config = recursive_merge_dicts(self.config, kwargs, misses='ignore')
         train_config = self.config['train_config']
         optimizer_config = train_config['optimizer_config']
 

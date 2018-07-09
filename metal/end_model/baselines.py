@@ -13,8 +13,7 @@ class LogisticRegression(EndModel):
             'layer_output_dims': [input_dim],
             'task_head_output_dims': 2,
         }
-        kwargs = recursive_merge_dicts(kwargs, overrides, misses='insert', 
-            verbose=False)
+        kwargs = recursive_merge_dicts(kwargs, overrides, verbose=False)
         super().__init__(cardinality=2, **kwargs)
 
 # class SoftmaxRegression(EndModel):
@@ -26,7 +25,6 @@ class LogisticRegression(EndModel):
 #             'layer_output_dims': [input_dim],
 #             'task_head_output_dims': [output_dim],
 #         }
-#         kwargs = recursive_merge_dicts(kwargs, overrides, misses='insert', 
-#             verbose=False)
+#         kwargs = recursive_merge_dicts(kwargs, overrides, verbose=False)
 #         label_map = [range(output_dim)]
 #         super().__init__(label_map, **kwargs)
