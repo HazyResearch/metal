@@ -67,7 +67,6 @@ class ModelTuner(object):
                 print("=" * 60)
             
             model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, **config)
-                # verbose=True, show_plots=False, # Turn off for BL only
             score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
 
             if score > best_score:
