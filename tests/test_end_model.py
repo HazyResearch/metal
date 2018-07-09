@@ -33,8 +33,7 @@ class EndModelTest(unittest.TestCase):
         cls.multi_problem = (Xs, Ys)
 
     def test_logreg(self):
-        em = LogisticRegression(seed=1, verbose=False,
-            input_dim=2)
+        em = LogisticRegression(seed=1, verbose=False, input_dim=2)
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=10)
         score = em.score(Xs[2], Ys[2], verbose=False)
