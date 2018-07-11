@@ -210,6 +210,9 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
 
 def make_unipolar_matrix(L):
     """
+    Creates a unipolar label matrix from non-unipolar label matrix,
+    handles binary and categorical cases
+    
     Args:
         csr_matrix L: sparse label matrix
     
@@ -227,9 +230,9 @@ def make_unipolar_matrix(L):
             # If only one unique value in column, keep it
             col_list.append(L[:,col])
         else:
-            # Otherwise, make a new column for each output
+            # Otherwise, make a new column for each value taken by the LF 
             for val in col_unique_vals:
-                # Efficiently creating and appendin columns
+                # Efficiently creating and appending column for each LF value
                 val_col = csr_matrix(np.zeros((L.shape[0],1)))
                 val_col = val_col + val*(L[:,col] == val)
                 col_list.append(val_col)
