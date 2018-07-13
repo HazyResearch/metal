@@ -108,42 +108,32 @@ def arraylike_to_numpy(array_like):
 
     return array_like
 
-def binary_to_categorical(X):
-    """Convert a matrix from [-1,0,1] labels to [0,1,2] labels
-
+def convert_labels(Y, source, dest):
+    """Convert a matrix from one label type to another
+    
     Args:
-        X: A np.ndarray or torch.Tensor with the following label interpretations:
-            -1: negative
-            0: abstain
-            1: positive
-        After the conversion, the labels will be:
-            0: abstain
-            1: positive
-            2: negative
+        X: A np.ndarray or torch.Tensor of labels (ints)
+        source: The convention the labels are currently expressed in
+        dest: The convention to convert the labels to
+
+    Conventions:
+        'categorical': [0: abstain, 1: positive, 2: negative]
+        'plusminus': [0: abstain, 1: positive, -1: negative]
+        'onezero': [0: negative, 1: positive]
+
+    Note that converting to 'onezero' will combine abstain and negative labels.
     """
-    if X is None: return X
-    X = X.copy()
-    X[X == -1] = 2
-    return X
+    if Y is None: return Y
+    Y = Y.copy()
+    negative_map = {'categorical': 2, 'plusminus': -1, 'onezero': 0}
+    Y[Y == negative_map[source]] = negative_map[dest]
+    return Y
 
-def categorical_to_binary(X):
-    """Convert a matrix from [0,1,2] labels to [-1,0,1] labels
+def plusminus_to_categorical(Y):
+    return convert_labels(Y, 'plusminus', 'categorical')
 
-    Args:
-        X: A np.ndarray or torch.Tensor with the following label interpretations:
-            0: abstain
-            1: positive
-            2: negative
-        After the conversion, the labels will be:
-            -1: negative
-            0: abstain
-            1: positive
-    """
-    if X is None: return X
-    X = X.copy()
-    X[X == 2] = -1
-    return X
-
+def categorical_to_plusminus(Y):
+    return convert_labels(Y, 'categorical', 'plusminus')
 
 def recursive_merge_dicts(x, y, misses='report', verbose=None):
     """
