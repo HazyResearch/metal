@@ -21,8 +21,11 @@ class ModelTuner(object):
             raise NotImplementedError
         self.log_dir = log_dir
 
-        if seed is not None:
-            np.random.seed(seed)
+        if seed is None:
+            self.seed = 0
+        else:
+            random.seed(seed)
+            self.seed = seed
 
     def search(self, init_args, train_args, X_dev, Y_dev, search_space, 
         max_search=None, shuffle=True, verbose=True, **score_kwargs):
@@ -51,12 +54,12 @@ class ModelTuner(object):
             if isinstance(v, list) or isinstance(v, dict)]
         
         best_index = 0
-        best_score = 0
+        best_score = -1
         best_model = None
         for i, config in enumerate(configs):
             # Unless seeds are given explicitly, give each config a unique one
             if config.get('seed', None) is None:
-                config['seed'] = i
+                config['seed'] = self.seed + i
             model = self.model_class(*init_args, **config)
 
             if verbose:
@@ -78,7 +81,7 @@ class ModelTuner(object):
         print("=" * 60)
         print(f"[SUMMARY]")
         print(f"Best model: [{best_index}]")
-        print(f"Best config: {config}")
+        print(f"Best config: {best_config}")
         print(f"Best score: {best_score}")
         print("=" * 60)
         
