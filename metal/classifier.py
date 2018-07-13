@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
 
 
