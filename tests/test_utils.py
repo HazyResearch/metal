@@ -2,13 +2,15 @@ import sys
 import unittest
 
 import numpy as np
+import scipy
 import torch
 
 sys.path.append("../metal")
 from metal.utils import (
     rargmax,
     hard_to_soft,
-    recursive_merge_dicts
+    recursive_merge_dicts,
+    make_unipolar_matrix
 )
 
 class UtilsTest(unittest.TestCase):
@@ -46,7 +48,17 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(w['foo']['Foo']['FOO'], 4)
         with self.assertRaises(ValueError):
             recursive_merge_dicts(x, z, verbose=False)
-
-
+            
+    def test_make_unipolar_matrix(self):
+        a = np.ones((5,1))
+        b = a*2
+        c = a*3
+        d = a*0
+        col = np.vstack([a,b,c,d])
+        mat = np.hstack([col,col])
+        mat_up = make_unipolar_matrix(scipy.sparse.csr_matrix(mat)).todense()
+        self.assertTrue(np.array_equal(mat_up[:,0]+mat_up[:,1]+mat_up[:,2], col))
+        self.assertTrue(mat_up.shape[1] == 6)
+        
 if __name__ == '__main__':
     unittest.main()
