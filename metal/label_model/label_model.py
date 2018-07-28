@@ -29,7 +29,7 @@ class LabelModel(Classifier):
         super().__init__()
 
         self.P = torch.diag(torch.from_numpy(p)).float() # Class balance matrix
-        self.k = len(p)
+        self.k = len(p) # Note we set abstain = 0, so values are in {0,1,...,k}
         self.deps = deps
 
         # Whether to take the simple conditionally independent approach, or the
@@ -45,19 +45,19 @@ class LabelModel(Classifier):
         """Form the overlaps matrix, which is just all the different observed
         combinations of values of pairs of sources
 
-        Note that we only include the first (k-1) values of each source,
+        Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
         """
         self.n, self.m = L.shape
-        self.d = self.m * (self.k-1)
+        self.d = self.m * self.k 
         self.O = torch.zeros(self.d, self.d).float()
 
         # TODO: Generate this matrix in a more efficient way?
-        for (y1, y2) in product(range(self.k-1), range(self.k-1)):
+        for (y1, y2) in product(range(1,self.k+1), range(1,self.k+1)):
             O_i = np.where(L == y1, 1, 0).T @ np.where(L == y2, 1, 0) / self.n
             for j1 in range(self.m):
                 for j2 in range(self.m):
-                    self.O[j1*(self.k-1) + y1, j2*(self.k-1) + y2] = O_i[j1,j2]
+                    self.O[j1*self.k + y1 - 1, j2*self.k + y2 - 1] = O_i[j1,j2]
     
     def _generate_O_inv(self, L):
         """Form the *inverse* overlaps matrix"""
@@ -71,20 +71,18 @@ class LabelModel(Classifier):
         the probability of a clique C emitting a specific combination of labels,
         conditioned on different values of Y (for each column); that is:
         
-            self.mu[i*(self.k-1) + j, y] = P(\lambda_i = j | Y = y)
+            self.mu[i*self.k + j, y] = P(\lambda_i = j | Y = y)
         
         - Z is the inverse form version of \mu.
         - mask is the mask applied to O^{-1}, O for the matrix approx constraint
         """
-        km = self.k - 1
-
         # Initialize mu on the right side of the core reflective symmetry
         # TODO: Better way to do this as (a) a constraint, or (b) a 
         # post-processing step?
         mu_init = torch.zeros(self.d, self.k)
         for i in range(self.m):
-            for y in range(km):
-                mu_init[i*km + y, y] += np.random.random()
+            for y in range(self.k):
+                mu_init[i*self.k + y, y] += np.random.random()
         self.mu = nn.Parameter(mu_init).float()
 
         if self.inv_form:
@@ -95,31 +93,33 @@ class LabelModel(Classifier):
         self.mask = torch.ones(self.d, self.d).byte()
         for (i, j) in product(range(self.m), range(self.m)):
             if i == j or (i,j) in self.deps or (j,i) in self.deps:
-                self.mask[i*km:(i+1)*km, j*km:(j+1)*km] = 0
+                self.mask[i*self.k:(i+1)*self.k, j*self.k:(j+1)*self.k] = 0
     
     def get_conditional_probs(self, source=None):
         """Returns the full conditional probabilities table as a numpy array,
-        where row (i*k) + y is the conditional probabilities of source i 
-        emmiting label y conditioned on different values of Y, i.e.:
+        where row i*(k+1) + ly is the conditional probabilities of source i 
+        emmiting label ly (including abstains 0), conditioned on different 
+        values of Y, i.e.:
         
-            c_probs[(i*k)+y, y_true] = P(\lambda_i = y | Y = y_true)
+            c_probs[i*(k+1) + ly, y] = P(\lambda_i = ly | Y = y)
         
         Note that this simply involves inferring the kth row by law of total
         probability and adding in to mu.
         
         If `source` is not None, returns only the corresponding block.
         """
-        c_probs = np.zeros((self.m * self.k, self.k))
+        c_probs = np.zeros((self.m * (self.k+1), self.k))
         mu = self.mu.detach().clone().numpy()
         
         for i in range(self.m):
-            mu_i = mu[i*(self.k-1):(i+1)*(self.k-1),:]
-            c_probs[i*self.k:(i*self.k)+self.k-1,:] = mu_i 
-            # The kth row is the difference from 1, by law of total prob
-            c_probs[(i*self.k)+self.k-1,:] = 1 - mu_i.sum(axis=0)
+            mu_i = mu[i*self.k:(i+1)*self.k, :]
+            c_probs[i*(self.k+1) + 1:(i+1)*(self.k+1), :] = mu_i 
+            # The 0th row (corresponding to abstains) is the difference between
+            # the sums of the other rows and one, by law of total prob
+            c_probs[i*(self.k+1), :] = 1 - mu_i.sum(axis=0)
         
         if source is not None:
-            return c_probs[source*self.k:(source+1)*self.k]
+            return c_probs[source*(self.k+1):(source+1)*(self.k+1)]
         else:
             return c_probs
 

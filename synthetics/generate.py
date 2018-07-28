@@ -18,6 +18,9 @@ class SingleTaskTreeDepsGenerator(object):
     """Generates synthetic single-task labels from labeling functions with
     class-conditional accuracies, and class-unconditional pairwise correlations
     forming a tree-structured graph.
+
+    Note that k = the # of true classes; thus source labels are in {0,1,...,k}
+    because they include abstains.
     """
     def __init__(self, n, m, k=2, theta_range=(0, 1.5), edge_prob=0.0, 
         theta_edge_range=(-1,1)):
@@ -58,7 +61,7 @@ class SingleTaskTreeDepsGenerator(object):
         self.theta = defaultdict(float)
         for i in range(self.m):
             t_min, t_max = min(theta_range), max(theta_range)
-            self.theta[i] = (t_max - t_min) * random(self.k) + t_min
+            self.theta[i] = (t_max - t_min) * random(self.k+1) + t_min
 
         # Choose random weights for the edges
         te_min, te_max = min(theta_edge_range), max(theta_edge_range)
@@ -84,22 +87,24 @@ class SingleTaskTreeDepsGenerator(object):
             - a class-conditional LF accuracy parameter \theta_{i|y}
             - a symmetric LF correlation paramter \theta_{i,j}
         """
-        Z = np.sum([self._P(i, _li, j, lj, y) for _li in range(self.k)])
+        Z = np.sum([self._P(i, _li, j, lj, y) for _li in range(self.k+1)])
         return self._P(i, li, j, lj, y) / Z
     
     def _generate_label_matrix(self):
-        """Generate an n x m label matrix with entries in {0,...,k-1}"""
+        """Generate an n x m label matrix with entries in {0,...,k}"""
         self.L = np.zeros((self.n, self.m))
         self.Y = np.zeros(self.n)
         for i in range(self.n):
-            y = choice(self.k, p=self.p)
+            y = choice(self.k, p=self.p) + 1  # Note that y \in {1,...,k}
             self.Y[i] = y
             for j in range(self.m):
                 p_j = self.parent.get(j, 0)
-                if random() < self.P_conditional(j, y, p_j, self.L[i, p_j], y):
-                    self.L[i,j] = y
-                else:
-                    self.L[i,j] = choice(list(set(range(self.k)) - {y}))
+                prob_y = self.P_conditional(j, y, p_j, self.L[i, p_j], y)
+                prob_0 = self.P_conditional(j, 0, p_j, self.L[i, p_j], y)
+                p = np.ones(self.k+1) * (1 - prob_y - prob_0) / (self.k - 1)
+                p[0] = prob_0
+                p[y] = prob_y
+                self.L[i,j] = choice(self.k+1, p=p)
 
     def _get_conditional_probs(self):
         """Compute the true clique conditional probabilities P(\lC | Y) by
@@ -130,11 +135,11 @@ class SingleTaskTreeDepsGenerator(object):
         #     self.C_probs[(i,j)] = P_edge[ei]
 
         # TODO: Extend to higher-order cliques again
-        self.c_probs = np.zeros((self.m * self.k, self.k))
-        for y in range(self.k):
+        self.c_probs = np.zeros((self.m * (self.k+1), self.k))
+        for y in range(1,self.k+1):
             Ly = self.L[self.Y == y]
-            for ly in range(self.k):
-                self.c_probs[ly::self.k, y] = \
+            for ly in range(self.k+1):
+                self.c_probs[ly::(self.k+1), y-1] = \
                     np.where(Ly == ly, 1, 0).sum(axis=0) / Ly.shape[0]
 
 
