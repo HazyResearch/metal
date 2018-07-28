@@ -65,14 +65,33 @@ class LabelModel(Classifier):
         self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
     
     def _init_params(self):
-        """Initialize the learned params"""
-        self.mu = nn.Parameter(torch.randn(self.d, self.k)).float()
+        """Initialize the learned params
+        
+        - \mu is the primary learned parameter, where each row corresponds to 
+        the probability of a clique C emitting a specific combination of labels,
+        conditioned on different values of Y (for each column); that is:
+        
+            self.mu[i*(self.k-1) + j, y] = P(\lambda_i = j | Y = y)
+        
+        - Z is the inverse form version of \mu.
+        - mask is the mask applied to O^{-1}, O for the matrix approx constraint
+        """
+        km = self.k - 1
+
+        # Initialize mu on the right side of the core reflective symmetry
+        # TODO: Better way to do this as (a) a constraint, or (b) a 
+        # post-processing step?
+        mu_init = torch.zeros(self.d, self.k)
+        for i in range(self.m):
+            for y in range(km):
+                mu_init[i*km + y, y] += np.random.random()
+        self.mu = nn.Parameter(mu_init).float()
+
         if self.inv_form:
             self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
 
         # Initialize the mask for the masked matrix approximation step; masks 
         # out the block diagonal of O and any dependencies
-        km = self.k - 1
         self.mask = torch.ones(self.d, self.d).byte()
         for (i, j) in product(range(self.m), range(self.m)):
             if i == j or (i,j) in self.deps or (j,i) in self.deps:
