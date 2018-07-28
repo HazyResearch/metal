@@ -5,4 +5,5 @@ pandas
 python=3.6
 pytorch=0.4
 scipy
+networkx
 torchtext # (contrib only)

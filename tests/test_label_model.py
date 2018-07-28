@@ -26,7 +26,7 @@ class LabelModelTest(unittest.TestCase):
         cls.k = 2
     
     def _test_label_model(self, data):
-        label_model = LabelModel(data.p, deps=data.E)
+        label_model = LabelModel(data.p, data.m, deps=data.E)
         label_model.train(data.L, n_epochs=500, print_every=100)
         c_probs_est = label_model.get_conditional_probs()
         err = np.linalg.norm(data.c_probs - c_probs_est)**2

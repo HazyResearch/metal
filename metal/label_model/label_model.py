@@ -15,10 +15,11 @@ from metal.analysis import (
 from metal.classifier import Classifier
 from metal.label_model.lm_defaults import lm_model_defaults
 from metal.utils import recursive_merge_dicts
+from metal.label_model.graph_utils import get_clique_tree
 
 
 class LabelModel(Classifier):
-    def __init__(self, p, deps=[], **kwargs):
+    def __init__(self, p, m, deps=[], **kwargs):
         """
         Args:
             seed: int: Random state seed
@@ -30,7 +31,9 @@ class LabelModel(Classifier):
 
         self.P = torch.diag(torch.from_numpy(p)).float() # Class balance matrix
         self.k = len(p) # Note we set abstain = 0, so values are in {0,1,...,k}
+        self.m = m
         self.deps = deps
+        self.c_tree = get_clique_tree(range(self.m), self.deps)
 
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
