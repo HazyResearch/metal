@@ -96,6 +96,32 @@ class LabelModel(Classifier):
         for (i, j) in product(range(self.m), range(self.m)):
             if i == j or (i,j) in self.deps or (j,i) in self.deps:
                 self.mask[i*km:(i+1)*km, j*km:(j+1)*km] = 0
+    
+    def get_conditional_probs(self, source=None):
+        """Returns the full conditional probabilities table as a numpy array,
+        where row (i*k) + y is the conditional probabilities of source i 
+        emmiting label y conditioned on different values of Y, i.e.:
+        
+            c_probs[(i*k)+y, y_true] = P(\lambda_i = y | Y = y_true)
+        
+        Note that this simply involves inferring the kth row by law of total
+        probability and adding in to mu.
+        
+        If `source` is not None, returns only the corresponding block.
+        """
+        c_probs = np.zeros((self.m * self.k, self.k))
+        mu = self.mu.detach().clone().numpy()
+        
+        for i in range(self.m):
+            mu_i = mu[i*(self.k-1):(i+1)*(self.k-1),:]
+            c_probs[i*self.k:(i*self.k)+self.k-1,:] = mu_i 
+            # The kth row is the difference from 1, by law of total prob
+            c_probs[(i*self.k)+self.k-1,:] = 1 - mu_i.sum(axis=0)
+        
+        if source is not None:
+            return c_probs[source*self.k:(source+1)*self.k]
+        else:
+            return c_probs
 
     def loss_inv_Z(self):
         return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2

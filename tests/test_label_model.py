@@ -13,84 +13,43 @@ from metal.label_model.baselines import (
 )
 
 sys.path.append("../synthetics")
-from synthetics.generate import generate_single_task_unipolar
+from synthetics.generate import SingleTaskTreeDepsGenerator
 
 
+# TODO: Put in tests for LabelModel baseline again!
 class LabelModelTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # Set seed
-        np.random.seed(9)
-
-        # Generate unipolar L for single task
-        N, M = 10000, 40
-        L, Y, metadata = generate_single_task_unipolar(N, M, 
-            class_balance=[0.5, 0.5], alpha_range=[0.4, 0.8], beta_range=[0.5])
-        cls.single = (L, Y, metadata)
-
-    def test_single_random(self):
-        np.random.seed(1)
-        L, Y, _ = self.single
-        model = RandomVoter()
-        model.train(L)
-        score = model.score(L, Y, verbose=False)
-        self.assertAlmostEqual(score, 0.4963, places=2)
-
-    def test_single_mc(self):
-        np.random.seed(1)
-        L, Y, metadata = self.single
-        balance = metadata['class_balance']
-        model = MajorityClassVoter()
-        model.train(L, balance)
-        score = model.score(L, Y, verbose=False)
-        self.assertAlmostEqual(score, 0.5046, places=2)
-
-    def test_single_mv(self):
-        np.random.seed(1)
-        L, Y, _ = self.single
-        model = MajorityLabelVoter()
-        model.train(L)
-        score = model.score(L, Y, verbose=False, break_ties='abstain')
-        self.assertAlmostEqual(score, 0.7416, places=2)
-
-    def test_single_lm(self):
-        np.random.seed(1)
-        L, Y, metadata = self.single
-        model = LabelModel()
-        model.train(L, accs=metadata['cond_probs'], n_epochs=500, lr=0.01,
-            verbose=False)
-        score = model.score(L, Y, verbose=False)
-        accs_score = model.get_accs_score(metadata['cond_probs'])
-        self.assertAlmostEqual(score, 0.890, places=2)
-        self.assertLess(accs_score, 0.001)
-
-
-class LabelModelTestClassImbalanced(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        # Set seed
-        np.random.seed(9)
-
-        # Generate unipolar L for single task
-        N, M = 10000, 40
-        cls.y_pos = 0.25
-        L, Y, metadata = generate_single_task_unipolar(N, M, 
-            class_balance=[cls.y_pos, 1-cls.y_pos], alpha_range=[0.4, 0.8],
-            beta_range=[0.5])
-        cls.single = (L, Y, metadata)
-
-    def test_single_lm_given_y_pos(self):
-        np.random.seed(1)
-        L, Y, metadata = self.single
-        model = LabelModel()
-        model.train(L, accs=metadata['cond_probs'], n_epochs=500, lr=0.01,
-            verbose=False, class_balance_init=[self.y_pos, 1-self.y_pos])
-        score = model.score(L, Y, verbose=False)
-        accs_score = model.get_accs_score(metadata['cond_probs'])
-        self.assertAlmostEqual(score, 0.873, places=2)
-        self.assertLess(accs_score, 0.01)
+        cls.n = 10000
+        cls.m = 10
+        cls.k = 2
+    
+    def _test_label_model(self, data):
+        label_model = LabelModel(data.p, deps=data.E)
+        label_model.train(data.L, n_epochs=500, print_every=100)
+        c_probs_est = label_model.get_conditional_probs()
+        err = np.linalg.norm(data.c_probs - c_probs_est)**2
+        print(f"Err={err}")
+        self.assertLess(err, 0.01)
+    
+    def test_no_deps(self):
+        # Test for 5 random seeds
+        for seed in range(5):
+            np.random.seed(seed)
+            print(f">>> Testing for seed={seed}")
+            data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
+                edge_prob=0.0)
+            self._test_label_model(data)
+    
+    def test_with_deps(self):
+        # Test for 5 random seeds
+        for seed in range(5):
+            np.random.seed(seed)
+            print(f">>> Testing for seed={seed}")
+            data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
+                edge_prob=1.0)
+            self._test_label_model(data)
 
 
 if __name__ == '__main__':

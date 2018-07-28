@@ -39,7 +39,7 @@ class SingleTaskTreeDepsGenerator(object):
         self._generate_label_matrix()
 
         # Compute the conditional clique probabilities
-        self._compute_clique_conditional_probs()
+        self._get_conditional_probs()
     
     def _generate_edges(self, edge_prob):
         """Generate a random tree-structured dependency graph based on a
@@ -101,30 +101,41 @@ class SingleTaskTreeDepsGenerator(object):
                 else:
                     self.L[i,j] = choice(list(set(range(self.k)) - {y}))
 
-    def _compute_clique_conditional_probs(self):
-        """Compute the empirical clique conditional probabilities P(\lC | Y) 
-        given L, Y; we'll use this as ground truth to compare to.
+    def _get_conditional_probs(self):
+        """Compute the true clique conditional probabilities P(\lC | Y) by
+        counting given L, Y; we'll use this as ground truth to compare to.
+
+        Note that this generates an attribute, self.c_probs, that has the same
+        definition as returned by `LabelModel.get_conditional_probs`.
 
         TODO: Can compute these exactly if we want to implement that.
         """
-        P_unary = np.zeros((self.m, self.k))
-        P_edge = np.zeros(len(self.E))
+        # P_unary = np.zeros((self.m, self.k))
+        # P_edge = np.zeros(len(self.E))
+        # for y in range(self.k):
+        #     n_y = self.L[self.Y == y].shape[0]
+        #     L_yc = np.where(self.L[self.Y == y] == y, 1, 0)
+        #     P_unary[:, y] = L_yc.sum(axis=0) / n_y
+        
+        #     # Count the higher-arity clique marginals
+        #     for ei, (i,j) in enumerate(self.E):
+        #         P_edge[ei] = np.sum(L_yc[:,i] * L_yc[:,j]) / n_y
+        
+        # # Store as a single dict indexed by ints (for unary cliques) or tuples
+        # # (for higher-order cliques)
+        # self.C_probs = {}
+        # for i in range(self.m):
+        #     self.C_probs[i] = P_unary[i, :]
+        # for ei, (i,j) in enumerate(self.E):
+        #     self.C_probs[(i,j)] = P_edge[ei]
+
+        # TODO: Extend to higher-order cliques again
+        self.c_probs = np.zeros((self.m * self.k, self.k))
         for y in range(self.k):
-            n_y = self.L[self.Y == y].shape[0]
-            L_yc = np.where(self.L[self.Y == y] == y, 1, 0)
-            P_unary[:, y] = L_yc.sum(axis=0) / n_y
-        
-            # Count the higher-arity clique marginals
-            for ei, (i,j) in enumerate(self.E):
-                P_edge[ei] = np.sum(L_yc[:,i] * L_yc[:,j]) / n_y
-        
-        # Store as a single dict indexed by ints (for unary cliques) or tuples
-        # (for higher-order cliques)
-        self.C_probs = {}
-        for i in range(self.m):
-            self.C_probs[i] = P_unary[i, :]
-        for ei, (i,j) in enumerate(self.E):
-            self.C_probs[(i,j)] = P_edge[ei]
+            Ly = self.L[self.Y == y]
+            for ly in range(self.k):
+                self.c_probs[ly::self.k, y] = \
+                    np.where(Ly == ly, 1, 0).sum(axis=0) / Ly.shape[0]
 
 
 def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):
