@@ -25,13 +25,22 @@ class LabelModelTest(unittest.TestCase):
         cls.m = 10
         cls.k = 2
     
-    def _test_label_model(self, data):
+    def _test_label_model(self, data, test_acc=True):
         label_model = LabelModel(data.p, data.m, deps=data.E)
         label_model.train(data.L, n_epochs=500, print_every=100)
+        
+        # Test parameter estimation error
         c_probs_est = label_model.get_conditional_probs()
         err = np.linalg.norm(data.c_probs - c_probs_est)**2
-        print(f"Err={err}")
+        print(f"Parameter Estimation Error={err}")
         self.assertLess(err, 0.01)
+
+        # Test label prediction accuracy
+        if test_acc:
+            Y_pred = label_model.get_label_probs(data.L).argmax(axis=1) + 1
+            acc = np.where(data.Y == Y_pred, 1, 0).sum() / data.n
+            print(f"Label Prediction Accuracy={acc}")
+            self.assertGreater(acc, 0.95) 
     
     def test_no_deps(self):
         # Test for 5 random seeds
@@ -49,7 +58,7 @@ class LabelModelTest(unittest.TestCase):
             print(f">>> Testing for seed={seed}")
             data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
                 edge_prob=1.0)
-            self._test_label_model(data)
+            self._test_label_model(data, test_acc=False)
 
 
 if __name__ == '__main__':

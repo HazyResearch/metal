@@ -29,6 +29,7 @@ class LabelModel(Classifier):
         self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
         super().__init__()
 
+        self.p = p
         self.P = torch.diag(torch.from_numpy(p)).float() # Class balance matrix
         self.k = len(p) # Note we set abstain = 0, so values are in {0,1,...,k}
         self.m = m
@@ -44,6 +45,23 @@ class LabelModel(Classifier):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
     
+    def _get_augmented_label_matrix(self, L, offset=0):
+        """Returns an augmented version of L where each column is an indicator
+        for whether a certain source or clique of sources voted in a certain
+        pattern.
+        
+        Args:
+            - L: A dense n x m numpy array, where n is the number of data points
+                and m is the number of sources, with values in {0,1,...,k}
+            - offset: Create indicators for values {offset,...,k}
+        """
+        n, m = L.shape
+        km = self.k + 1 - offset
+        L_aug = np.zeros((n, m * km))  # TODO: Extend for arbitrary cliques
+        for y in range(offset, self.k+1):
+            L_aug[:, y-offset::km] = np.where(L == y, 1, 0)
+        return L_aug
+    
     def _generate_O(self, L):
         """Form the overlaps matrix, which is just all the different observed
         combinations of values of pairs of sources
@@ -52,15 +70,9 @@ class LabelModel(Classifier):
         otherwise the model not minimal --> leads to singular matrix
         """
         self.n, self.m = L.shape
-        self.d = self.m * self.k 
-        self.O = torch.zeros(self.d, self.d).float()
-
-        # TODO: Generate this matrix in a more efficient way?
-        for (y1, y2) in product(range(1,self.k+1), range(1,self.k+1)):
-            O_i = np.where(L == y1, 1, 0).T @ np.where(L == y2, 1, 0) / self.n
-            for j1 in range(self.m):
-                for j2 in range(self.m):
-                    self.O[j1*self.k + y1 - 1, j2*self.k + y2 - 1] = O_i[j1,j2]
+        self.d = self.m * self.k
+        L_aug = self._get_augmented_label_matrix(L, offset=1)
+        self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
     def _generate_O_inv(self, L):
         """Form the *inverse* overlaps matrix"""
@@ -125,6 +137,17 @@ class LabelModel(Classifier):
             return c_probs[source*(self.k+1):(source+1)*(self.k+1)]
         else:
             return c_probs
+
+    def get_label_probs(self, L):
+        """Returns the n x k matrix of label probabilities P(Y | \lambda)"""
+        if len(self.deps) > 0:
+            raise NotImplementedError("Prediction for |G| > 0 not implemented.")
+        
+        L_aug = self._get_augmented_label_matrix(L, offset=0)
+        theta = np.log(self.get_conditional_probs())
+        X = np.exp( L_aug @ theta + np.log(self.p) )
+        Z = np.tile(X.sum(axis=1).reshape(-1,1), self.k)
+        return X / Z
 
     def loss_inv_Z(self):
         return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2
