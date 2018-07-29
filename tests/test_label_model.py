@@ -26,7 +26,7 @@ class LabelModelTest(unittest.TestCase):
         cls.k = 2
     
     def _test_label_model(self, data, test_acc=True):
-        label_model = LabelModel(data.p, data.m, deps=data.E)
+        label_model = LabelModel(data.m, data.k, p=data.p, deps=data.E)
         label_model.train(data.L, n_epochs=500, print_every=100)
         
         # Test parameter estimation error

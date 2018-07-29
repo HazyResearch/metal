@@ -19,7 +19,7 @@ from metal.label_model.graph_utils import get_clique_tree
 
 
 class LabelModel(Classifier):
-    def __init__(self, p, m, deps=[], **kwargs):
+    def __init__(self, m, k, p=None, deps=[], **kwargs):
         """
         Args:
             seed: int: Random state seed
@@ -29,10 +29,18 @@ class LabelModel(Classifier):
         self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
         super().__init__()
 
-        self.p = p
-        self.P = torch.diag(torch.from_numpy(p)).float() # Class balance matrix
-        self.k = len(p) # Note we set abstain = 0, so values are in {0,1,...,k}
+        self.k = k
         self.m = m
+        self.d = self.m * self.k
+
+        # Class balance- assume uniform if not provided
+        if p is None:
+            self.p = (1/self.k) * np.ones(self.k)
+        else:
+            self.p = p
+        self.P = torch.diag(torch.from_numpy(self.p)).float()
+        
+        # Dependencies
         self.deps = deps
         self.c_tree = get_clique_tree(range(self.m), self.deps)
 
@@ -70,7 +78,6 @@ class LabelModel(Classifier):
         otherwise the model not minimal --> leads to singular matrix
         """
         self.n, self.m = L.shape
-        self.d = self.m * self.k
         L_aug = self._get_augmented_label_matrix(L, offset=1)
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
@@ -79,7 +86,7 @@ class LabelModel(Classifier):
         self._generate_O(L)
         self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
     
-    def _init_params(self):
+    def _init_params(self, init_precision=0.75, mu_init=0.25):
         """Initialize the learned params
         
         - \mu is the primary learned parameter, where each row corresponds to 
@@ -90,15 +97,25 @@ class LabelModel(Classifier):
         
         - Z is the inverse form version of \mu.
         - mask is the mask applied to O^{-1}, O for the matrix approx constraint
+
+        Note that mu_init is used both to initialize and regularize mu (if L2 
+        reg used). We initialize using:
+
+            P(\lambda_i=y | Y=y) = P(\lambda_i) * P(Y=y | \lambda_i=y) / P(Y=y)
+        
+        where we use init_precision for P(Y=y | \lambda_i).
         """
         # Initialize mu on the right side of the core reflective symmetry
         # TODO: Better way to do this as (a) a constraint, or (b) a 
         # post-processing step?
-        mu_init = torch.zeros(self.d, self.k)
+        self.mu_init = torch.zeros(self.d, self.k)
+        pl = torch.diag(self.O)
         for i in range(self.m):
             for y in range(self.k):
-                mu_init[i*self.k + y, y] += np.random.random()
-        self.mu = nn.Parameter(mu_init).float()
+                idx = i*self.k + y
+                # mu_init = min(0.25, pl[idx] * init_precision / self.p[y])
+                self.mu_init[idx, y] += mu_init
+        self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
             self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
@@ -133,6 +150,10 @@ class LabelModel(Classifier):
             # the sums of the other rows and one, by law of total prob
             c_probs[i*(self.k+1), :] = 1 - mu_i.sum(axis=0)
         
+        # Clipping to be safe for now
+        # TODO: Remove this
+        c_probs = np.clip(c_probs, 0.01, 0.99)
+    
         if source is not None:
             return c_probs[source*(self.k+1):(source+1)*(self.k+1)]
         else:
@@ -143,13 +164,15 @@ class LabelModel(Classifier):
         if len(self.deps) > 0:
             raise NotImplementedError("Prediction for |G| > 0 not implemented.")
         
-        L_aug = self._get_augmented_label_matrix(L, offset=0)
-        theta = np.log(self.get_conditional_probs())
-        X = np.exp( L_aug @ theta + np.log(self.p) )
+        mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
+
+        # Note: We omit abstains, effectively assuming uniform distribution here
+        L_aug = self._get_augmented_label_matrix(L, offset=1)
+        X = np.exp( L_aug @ np.log(mu) + np.log(self.p) )
         Z = np.tile(X.sum(axis=1).reshape(-1,1), self.k)
         return X / Z
 
-    def loss_inv_Z(self):
+    def loss_inv_Z(self, l2=0.0):
         return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2
     
     def get_Q(self):
@@ -163,18 +186,19 @@ class LabelModel(Classifier):
         I_k = np.eye(self.k)
         return O @ Z @ np.linalg.inv(I_k + Z.T @ O @ Z) @ Z.T @ O
 
-    def loss_inv_mu(self):
+    def loss_inv_mu(self, l2=0.0):
         loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t())**2
         loss_2 = torch.norm(
             torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
         return loss_1 + loss_2
     
-    def loss_mu(self):
+    def loss_mu(self, l2=0.0):
         loss_1 = torch.norm(
             (self.O - self.mu @ self.P @ self.mu.t())[self.mask])**2
         loss_2 = torch.norm(
             torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
-        return loss_1 + loss_2
+        loss_l2 = torch.norm( self.mu - self.mu_init )**2
+        return loss_1 + loss_2 + l2 * loss_l2
     
     def train(self, L, **kwargs):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
@@ -243,7 +267,7 @@ class LabelModel(Classifier):
             
             # Compute gradient and take a step
             # Note that since this uses all N training points this is an epoch!
-            loss = loss_fn()
+            loss = loss_fn(l2=train_config['l2'])
             if torch.isnan(loss):
                 raise Exception("Loss is NaN. Consider reducing learning rate.")
 

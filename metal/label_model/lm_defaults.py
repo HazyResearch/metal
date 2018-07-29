@@ -15,7 +15,7 @@ lm_model_defaults = {
         # Model params initialization / priors
         'mu_init': 0.4, 
         # L2 regularization (around prior values)
-        'l2': 0.0,
+        'l2': 0.01,
         # Optimizer
         'optimizer_config': {
             'optimizer_common': {
