@@ -1,4 +1,4 @@
-from itertools import product
+from itertools import product, chain
 
 import numpy as np
 from scipy.sparse import issparse, csc_matrix
@@ -53,7 +53,7 @@ class LabelModel(Classifier):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
     
-    def _get_augmented_label_matrix(self, L, offset=0):
+    def _get_augmented_label_matrix(self, L, offset=0, higher_order=True):
         """Returns an augmented version of L where each column is an indicator
         for whether a certain source or clique of sources voted in a certain
         pattern.
@@ -65,9 +65,41 @@ class LabelModel(Classifier):
         """
         n, m = L.shape
         km = self.k + 1 - offset
-        L_aug = np.zeros((n, m * km))  # TODO: Extend for arbitrary cliques
+
+        # Form the columns corresponding to unary source labels
+        L_aug = np.zeros((n, m * km))
         for y in range(offset, self.k+1):
             L_aug[:, y-offset::km] = np.where(L == y, 1, 0)
+        
+        # Get the higher-order clique statistics based on the clique tree
+        # First, iterate over the maximal cliques (nodes of c_tree) and
+        # separator sets (edges of c_tree)
+        for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
+            if isinstance(item, int):
+                C = self.c_tree.node[item]
+            elif isinstance(item, tuple):
+                C = self.c_tree[item[0]][item[1]]
+            else:
+                raise ValueError(item)
+            members = list(C['members'])
+            nc = len(members)
+
+            # If a unary maximal clique, just store its existing index
+            if nc == 1:
+                C['start_index'] = members[0] * km
+                C['end_index'] = (members[0]+1) * km
+            
+            # Else add one column for each possible value
+            else:
+                L_C = np.ones((n, km ** nc))
+                for i, vals in enumerate(product(range(km), repeat=nc)):
+                    for j, v in enumerate(vals):
+                        L_C[:,i] *= L_aug[:, members[j]*km + v]
+
+                # Add to L_aug and store the indices
+                C['start_index'] = L_aug.shape[1]
+                C['end_index'] = L_aug.shape[1] + L_C.shape[1]
+                L_aug = np.hstack([L_aug, L_C])
         return L_aug
     
     def _generate_O(self, L):
@@ -123,7 +155,7 @@ class LabelModel(Classifier):
         # Initialize the mask for the masked matrix approximation step; masks 
         # out the block diagonal of O and any dependencies
         self.mask = torch.ones(self.d, self.d).byte()
-        for (i, j) in product(range(self.m), range(self.m)):
+        for (i, j) in product(range(self.m), repeat=2):
             if i == j or (i,j) in self.deps or (j,i) in self.deps:
                 self.mask[i*self.k:(i+1)*self.k, j*self.k:(j+1)*self.k] = 0
     
