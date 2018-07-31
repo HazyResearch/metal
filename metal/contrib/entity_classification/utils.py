@@ -57,35 +57,3 @@ def mark_entities(tokens, positions, markers=[]):
         toks.insert(si + 2*i, start_marker)
         toks.insert(ei + 2*(i+1), end_marker)
     return toks
-
-
-# def make_entities(Y, vocab, word_dists, sentence_length, entity_length,
-#     mask_entities):
-#     print("Warning: this function has not yet been tested!")
-#     num_items = len(Y)
-#     sentence_lengths = np.random.randint(
-#         min(sentence_length), max(sentence_length), num_items)
-    
-#     entities = []
-#     for i, (y, sent_len) in enumerate(zip(Y, sentence_lengths)):
-#         doc_id = i
-#         selected_words = np.random.choice(
-#             len(vocab), sent_len, p=word_dists[y])
-#         tokens = [vocab[j] for j in selected_words]
-
-#         ent_word_len = np.random.choice(entity_length)
-#         word_start = np.random.choice(sent_len - (ent_word_len - 1))
-#         word_end = word_start + ent_word_len
-
-#         if mask_entities:
-#             for k in range(word_start, word_end):
-#                 tokens[k] = 'entity'
-
-#         doc = ' '.join(tokens)
-#         char_start = sum(len(t) + 1 for t in tokens[:word_start])
-#         ent_char_len = sum(len(t) for t in tokens[word_start:word_end])
-#         char_end = char_start + ent_char_len
-
-#         ent = Entity(doc_id, doc, char_start, char_end)
-#         entities.append(doc)
-#     return entities
