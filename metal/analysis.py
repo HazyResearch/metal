@@ -34,7 +34,7 @@ def error_buckets(gold, pred, X=None):
 
 
 def confusion_matrix(gold, pred, null_pred=False, null_gold=False, 
-    normalize=False, pretty_print=False):
+    normalize=False, pretty_print=True):
     """A shortcut method for building a confusion matrix all at once.
     
     Args:
@@ -279,7 +279,8 @@ def lf_summary(L, Y=None, lf_names=None, est_accs=None):
 
     if Y is not None:
         col_names.extend(['Correct', 'Incorrect', 'Emp. Acc.'])
-        confusions = [confusion_matrix(Y, L[:,i]) for i in range(m)]
+        confusions = [confusion_matrix(Y, L[:,i], pretty_print=False) 
+            for i in range(m)]
         corrects = [np.diagonal(conf).sum() for conf in confusions]
         incorrects = [conf.sum() - correct for conf, correct in 
             zip(confusions, corrects)]
@@ -293,6 +294,16 @@ def lf_summary(L, Y=None, lf_names=None, est_accs=None):
         d['Learned Acc.'] = Series(est_accs, index=lf_names)
 
     return DataFrame(data=d, index=lf_names)[col_names]    
+
+def single_lf_summary(Y_p, Y=None):
+    """Calculates coverage, overlap, conflicts, and accuracy for a single LF
+
+    Args:
+        Y_p: a np.array or torch.Tensor of predicted labels
+        Y: a np.array or torch.Tensor of true labels (if known)
+    """
+    L = sparse.csr_matrix(arraylike_to_numpy(Y_p).reshape(-1,1))
+    return lf_summary(L, Y)
 
 ############################################################
 # Label Matrix Plotting
