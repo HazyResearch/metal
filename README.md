@@ -25,7 +25,7 @@ source set_env.sh
 
 [5] Test functionality:
 ```
-python -m unittest discover tests
+nosetests
 ```
 
 [6] View analysis tools:
