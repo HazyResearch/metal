@@ -1,98 +1,146 @@
 from collections import defaultdict, Counter
-from itertools import chain
+from itertools import chain, product
 import os
 
 import numpy as np
-import numpy.random as random
+from numpy.random import random, choice
 from scipy.sparse import csc_matrix, lil_matrix
 import torch
 
 from metal.metrics import accuracy_score, coverage_score
 
 
-################################################################################
-# Single-Task 
-################################################################################
+def indpm(x, y):
+    """Plus-minus indicator function"""
+    return 1 if x == y else -1
 
-def logistic_fn(x):
-    return 1 / (1 + np.exp(-x))
+class SingleTaskTreeDepsGenerator(object):
+    """Generates synthetic single-task labels from labeling functions with
+    class-conditional accuracies, and class-unconditional pairwise correlations
+    forming a tree-structured graph.
 
-def choose_other_label(k, y):
-    """Given a cardinality k and true label y, return random value in 
-    {1,...,k} \ {y}."""
-    return random.choice(list(set(range(1, k+1)) - set([y])))
-
-def generate_single_task_unipolar(n, m, k=2, alpha_range=[0.6, 0.9],
-    beta_range=[0.25, 0.5], class_balance=None, polarity_balance=None, 
-    seed=None):
-    """Generate a single task unipolar label matrix
-    Args:
-        n: Number of data points
-        m: Number of LFs
-        k: Cardinality
-        alpha_range: Range of accuracy parameters to sample from uniformly
-        beta_range: Range of labeling propensity ranges to sample from uniformly
-        class_balance: Class balance of Y
-        polarity_balance: Balance of LF polarities
-    
-    Note that $P(\lambda_i=y | Y=y) = \alpha_i * \beta_i$, which we return as
-        the conditional_probs
-    
-    Generative process:
-        - LF alphas, betas, and polarities are chosen randomly
-        - For each data point:
-            - A label is chosen randomly according to the class balance
-            - For each LF j:
-                - If Y = p_j, label wp beta[j] * alpha[j]
-                - If Y != p_j, label wp beta[j] * (1-alpha[j])
-                - Else, abstain
-    
-    Returns:
-        L: Label matrix
-        Y: True labels, in {1,...,k}
-        metadata: Dictionary of metadata:
-            - k: Cardinality
-            - alphas: The LF accuracies
-            - betas: LF labeling propensities
-            - polarities: LF polarities p_i
-            - coverage: P(\lambda_i == p_i)
-            - cond_probs: P(\lambda_i == p_i | Y == p_i)
+    Note that k = the # of true classes; thus source labels are in {0,1,...,k}
+    because they include abstains.
     """
-    if seed is not None:
-        random.seed(seed)
+    def __init__(self, n, m, k=2, theta_range=(0, 1.5), edge_prob=0.0, 
+        theta_edge_range=(-1,1)):
+        self.n = n
+        self.m = m
+        self.k = k
 
-    # Choose LF accuracies and labeling propensities
-    alphas = random.rand(m) * (max(alpha_range) - min(alpha_range)) \
-        + min(alpha_range)
-    betas = random.rand(m) * (max(beta_range) - min(beta_range)) \
-        + min(beta_range)
-    polarities = random.choice(range(1, k+1), size=m, p=polarity_balance)
+        # Generate correlation structure: edges self.E, parents dict self.parent
+        self._generate_edges(edge_prob)
 
-    # Generate the true data point labels
-    Y = random.choice(range(1, k+1), size=n, p=class_balance)
+        # Generate class-conditional LF & edge parameters, stored in self.theta
+        self._generate_params(theta_range, theta_edge_range)
 
-    # Generate the label matrix
-    # Construct efficiently as LIL matrix, then convert to CSC
-    L = lil_matrix((n, m), dtype=np.int)
-    for i in range(n):
-        for j in range(m):
-            if random.random() < betas[j]:
-                correct = random.random() < alphas[j]
-                if (polarities[j] == Y[i] and correct) or \
-                    (polarities[j] != Y[i] and not correct):
-                    L[i,j] = polarities[j]
+        # Generate class balance self.p
+        self.p = random(self.k)
+        self.p /= self.p.sum()
+
+        # Generate the true labels self.Y and label matrix self.L
+        self._generate_label_matrix()
+
+        # Compute the conditional clique probabilities
+        self._get_conditional_probs()
     
-    # Return L, Y, and metadata dictionary
-    metadata = {
-        'k': k,
-        'alphas': alphas,
-        'betas': betas,
-        'polarities': polarities,
-        'coverages': np.where(L.todense() != 0, 1, 0).sum(axis=0) / n,
-        'cond_probs': alphas * betas,
-        'class_balance': class_balance or np.ones(k)/k,
-    }
-    return L.tocsc(), torch.tensor(Y, dtype=torch.short), metadata
+    def _generate_edges(self, edge_prob):
+        """Generate a random tree-structured dependency graph based on a
+        specified edge probability.
+    
+        Also create helper data struct mapping child -> parent.
+        """
+        self.E, self.parent = [], {}
+        for i in range(self.m):
+            if random() < edge_prob and i > 0:
+                p_i = choice(i)
+                self.E.append((p_i, i))
+                self.parent[i] = p_i
+
+    def _generate_params(self, theta_range, theta_edge_range):
+        self.theta = defaultdict(float)
+        for i in range(self.m):
+            t_min, t_max = min(theta_range), max(theta_range)
+            self.theta[i] = (t_max - t_min) * random(self.k+1) + t_min
+
+        # Choose random weights for the edges
+        te_min, te_max = min(theta_edge_range), max(theta_edge_range)
+        for (i,j) in self.E:
+            w_ij = (te_max - te_min) * random() + te_min
+            self.theta[(i,j)] = w_ij
+            self.theta[(j,i)] = w_ij
+    
+    def _P(self, i, li, j, lj, y):
+        return np.exp( 
+            self.theta[i][y] * indpm(li, y) + self.theta[(i,j)] * indpm(li, lj))
+    
+    def P_conditional(self, i, li, j, lj, y):
+        """Compute the conditional probability 
+            P_\theta(li | lj, y) 
+            = 
+            Z^{-1} exp( 
+                theta_{i|y} \indpm{ \lambda_i = Y }
+                + \theta_{i,j} \indpm{ \lambda_i = \lambda_j }
+            )
+        In other words, compute the conditional probability that LF i outputs
+        li given that LF j output lj, and Y = y, parameterized by
+            - a class-conditional LF accuracy parameter \theta_{i|y}
+            - a symmetric LF correlation paramter \theta_{i,j}
+        """
+        Z = np.sum([self._P(i, _li, j, lj, y) for _li in range(self.k+1)])
+        return self._P(i, li, j, lj, y) / Z
+    
+    def _generate_label_matrix(self):
+        """Generate an n x m label matrix with entries in {0,...,k}"""
+        self.L = np.zeros((self.n, self.m))
+        self.Y = np.zeros(self.n)
+        for i in range(self.n):
+            y = choice(self.k, p=self.p) + 1  # Note that y \in {1,...,k}
+            self.Y[i] = y
+            for j in range(self.m):
+                p_j = self.parent.get(j, 0)
+                prob_y = self.P_conditional(j, y, p_j, self.L[i, p_j], y)
+                prob_0 = self.P_conditional(j, 0, p_j, self.L[i, p_j], y)
+                p = np.ones(self.k+1) * (1 - prob_y - prob_0) / (self.k - 1)
+                p[0] = prob_0
+                p[y] = prob_y
+                self.L[i,j] = choice(self.k+1, p=p)
+
+    def _get_conditional_probs(self):
+        """Compute the true clique conditional probabilities P(\lC | Y) by
+        counting given L, Y; we'll use this as ground truth to compare to.
+
+        Note that this generates an attribute, self.c_probs, that has the same
+        definition as returned by `LabelModel.get_conditional_probs`.
+
+        TODO: Can compute these exactly if we want to implement that.
+        """
+        # P_unary = np.zeros((self.m, self.k))
+        # P_edge = np.zeros(len(self.E))
+        # for y in range(self.k):
+        #     n_y = self.L[self.Y == y].shape[0]
+        #     L_yc = np.where(self.L[self.Y == y] == y, 1, 0)
+        #     P_unary[:, y] = L_yc.sum(axis=0) / n_y
+        
+        #     # Count the higher-arity clique marginals
+        #     for ei, (i,j) in enumerate(self.E):
+        #         P_edge[ei] = np.sum(L_yc[:,i] * L_yc[:,j]) / n_y
+        
+        # # Store as a single dict indexed by ints (for unary cliques) or tuples
+        # # (for higher-order cliques)
+        # self.C_probs = {}
+        # for i in range(self.m):
+        #     self.C_probs[i] = P_unary[i, :]
+        # for ei, (i,j) in enumerate(self.E):
+        #     self.C_probs[(i,j)] = P_edge[ei]
+
+        # TODO: Extend to higher-order cliques again
+        self.c_probs = np.zeros((self.m * (self.k+1), self.k))
+        for y in range(1,self.k+1):
+            Ly = self.L[self.Y == y]
+            for ly in range(self.k+1):
+                self.c_probs[ly::(self.k+1), y-1] = \
+                    np.where(Ly == ly, 1, 0).sum(axis=0) / Ly.shape[0]
 
 
 def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):

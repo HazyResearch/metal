@@ -1,3 +1,5 @@
+from itertools import product, chain
+
 import numpy as np
 from scipy.sparse import issparse, csc_matrix
 import torch
@@ -13,267 +15,332 @@ from metal.analysis import (
 from metal.classifier import Classifier
 from metal.label_model.lm_defaults import lm_model_defaults
 from metal.utils import recursive_merge_dicts
+from metal.label_model.graph_utils import get_clique_tree
 
 
 class LabelModel(Classifier):
-    def __init__(self, deps=[], **kwargs):
+    def __init__(self, m, k=2, task_graph=None, p=None, deps=[], **kwargs):
         """
         Args:
-            seed: int: Random state seed
-            deps: list: A list of LF dependencies as tuples of LF indices
-            kwargs: TBD
+            m: int: Number of sources
+            k: int: Number of true classes
+            task_graph: TaskGraph: A TaskGraph which defines a feasible set of
+                task label vectors; note this overrides k
+            p: np.array: Class balance
+            deps: list: A list of source dependencies as tuples of indices 
+            kwargs:
+                - seed: int: Random state seed
         """
         self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
-        super().__init__(self.config['cardinality'], self.config['seed'])
+        super().__init__()
+        self.k = k
+        self.m = m
+
+        # TaskGraph; note overrides k if present
+        self.task_graph = task_graph
+        if self.task_graph is not None:
+            self.k = len(self.task_graph)
+
+        # Class balance- assume uniform if not provided
+        if p is None:
+            self.p = (1/self.k) * np.ones(self.k)
+        else:
+            self.p = p
+        self.P = torch.diag(torch.from_numpy(self.p)).float()
+        
+        # Dependencies
         self.deps = deps
+        self.c_tree = get_clique_tree(range(self.m), self.deps)
 
-        # TODO: This is temporary, need to update to handle categorical!
-        if self.k > 2:
-            raise NotImplementedError("Cardinaltiy > 2 not implemented.")
-        
-        # TODO: Extend to handl LF deps (merge with other branch...)
-        if len(self.deps) > 0:
-            raise NotImplementedError("Dependency handling not implemented.")
-    
-    def _check_L(self, L, init=False):
-        """Check the format and content of the label tensor
-        
-        Args:
-            L: An [n, m] scipy.sparse matrix of labels
-            init: If True, initialize self.m; else set based on input L
-        """
-        # Accept single CSC-sparse matrix (for efficient column/LF slicing)
-        if not issparse(L):
-            raise Exception(f"L has type {type(L)}, but should be a"
-                "scipy.sparse matrix.")
-        if L.dtype != np.dtype(int):
-            raise Exception(f"L has type {L.dtype}, should be int.")
-        L = L.tocsc()
-
-        # Check or set number of labeling functions
-        # M should be the same for all tasks, since all LFs label all inputs
-        n, m = L.shape
-        self._check_or_set_attr('m', m, set_val=init)
-        return L    
-    
-    def _infer_polarity(self, L, j):
-        """Infer the polarity (labeled class) of LF j"""
-        assert(isinstance(L, csc_matrix))
-        vals = set(L.data[L.indptr[j]:L.indptr[j+1]])
-        if len(vals) > 1:
-            raise Exception(f"LF {j} is non-unipolar with values: {vals}.")
-        elif len(vals) == 0:
-            # If an LF doesn't label this task, set its polarity to 0 = abstain
-            return 0
-        else:
-            return list(vals)[0]
-    
-    def _compute_overlaps_matrix(self, L):
-        """Initializes the data structures for training task t"""
-        # Check to make sure that L_t is unipolar, and infer polarities
-        self.polarity = [self._infer_polarity(L, j) for j in range(self.m)]
-
-        # Next, we form the empirical overlaps matrix O
-        # In the unipolar categorical setting, this is just the empirical count
-        # of non-zero overlaps; whether these were agreements or disagreements
-        # is then just a function of the polarities p
-        n, m = L.shape
-        L_nz = L.copy()
-        L_nz.data[:] = 1
-        O = L_nz.T @ L_nz / n 
-        self.O = torch.from_numpy(O.todense()).double()
-    
-    def _init_params(self, mu_init, learn_class_balance, class_balance_init):
-        """Initialize the parameters for each LF on each task separately.
-        
-        Args:
-            mu_init: float: Initial value & prior value for parameter mu, where
-                mu is the rank-2 factorization of O. Here, one row represents
-                (e.g. for k=2): 
-                    $[P(\lambda_i=p_i|Y=1), P(\lambda_i=p_i|Y=2)]$
-                where $p_i \in {1,2}$ is the polarity of $\lambda_i$.
-            learn_class_balance: bool: If true, learn the class balance
-                parameters $P(Y=y_k)$
-            class_balance_init: array(float) or None: If None, set to be the
-                uniform distribution across the classes. If 
-                `learn_class_balance=True`, then this is the initial value & 
-                prior value for the class balance; else, this is fixed as the
-                class balance.
-        """
-        self.mu_init = mu_init
-        self.mu = nn.Parameter(torch.randn(self.m, 2).double())
-
-        # Default to uniform class_balance_init
-        if class_balance_init is None:
-            self.class_balance_init = torch.ones(self.k) / self.k
-        else:
-            self.class_balance_init = self._to_torch(class_balance_init)
-        self.class_balance_init = self.class_balance_init.double()
-
-        # Class balance- can be fixed or learnable
-        if learn_class_balance:
-            self.class_balance = nn.Parameter(self.class_balance_init.double())
-        else:
-            self.class_balance = self.class_balance_init
-
-        # Initialize mask
-        self.mask = torch.ones(self.m, self.m).byte()
-        for i in range(self.m):
-            for j in range(self.m):
-                if i == j or (i,j) in self.deps or (j,i) in self.deps:
-                    self.mask[i,j] = 0
-    
-    def loss(self, l2=0.0):
-        """Returns the loss.
-
-        Note: A *centered* L2 loss term is incorporated here.
-        The L2 term is centered around the self.mu_init property, which thus
-        also serves as the value of a prior on the mus.
-        """
-        P = torch.diag(self.class_balance)
-
-        # Main masked rank-two matrix factorization objective
-        loss_1 = torch.norm((self.O - self.mu @ P @ self.mu.t())[self.mask] )**2
-
-        # Constraint that the entries of mu for each LF sum to the total
-        # probability of emitting a label (the diagonal entry of O)
-        loss_2 = torch.norm(torch.sum(self.mu @ P, 1) - torch.diag(self.O))**2
-        
-        # Constraint that the class balance parameters sum to one
-        loss_3 = torch.norm(torch.sum(self.class_balance) - 1)**2
-
-        # L2 regularization, centered around mu_init
-        loss_L2 = torch.norm(self.mu - self.mu_init)**2
-        return loss_1 + loss_2 + loss_3 + l2 * loss_L2
+        # Whether to take the simple conditionally independent approach, or the
+        # "inverse form" approach for handling dependencies
+        # This flag allows us to eg test the latter even with no deps present
+        self.inv_form = (len(self.deps) > 0)
     
     def config_set(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
-
-    def _betas(self):
-        """Returns the estimated beta (labeling propensity) parameters.
-        Note: As an internal function, returns torch.Tensor.
-        """
-        return torch.sum(self.mu.detach(), 1)
     
-    def _alphas(self):
-        """Returns the estimated alpha (accuracy) parameters.
-        Note: As an internal function, returns torch.Tensor.
-        """
-        alphas = self.mu.detach() / self._betas().repeat(2,1).t()
-
-        # Swap elements in each row so that column 1 corresponds to the polarity
-        # of the LF---i.e. represents P(\lf_i = p_i | Y = p_i)---and column 2
-        # is then P(\lf_i = p_i | Y != p_i)
-        # TODO: Update this to support categorical
-        for j in range(self.m):
-            if self.polarity[j] != 1:
-                row = alphas[j].numpy().copy()
-                alphas[j,0] = row[1]
-                alphas[j,1] = row[0]
+    def _get_augmented_label_matrix(self, L, offset=0, higher_order=False):
+        """Returns an augmented version of L where each column is an indicator
+        for whether a certain source or clique of sources voted in a certain
+        pattern.
         
-        # Need to break symmetry in the columns by assuming the more 
-        # net-accurate one is correct
-        # TODO: Update this to support categorical
-        if torch.sum(1-alphas[:,0]) > torch.sum(alphas[:,0]):
-            alphas_col = alphas[:,1]
+        Args:
+            - L: A dense n x m numpy array, where n is the number of data points
+                and m is the number of sources, with values in {0,1,...,k}
+            - offset: Create indicators for values {offset,...,k}
+        """
+        n, m = L.shape
+        km = self.k + 1 - offset
+
+        # Create a helper data structure which maps cliques (as tuples of member
+        # sources) --> {start_index, end_index, maximal_cliques}, where
+        # the last value is a set of indices in this data structure
+        self.c_data = {}
+        for i in range(m):
+            self.c_data[i] = {
+                'start_index': i*km,
+                'end_index': (i+1)*km,
+                'max_cliques': set([j for j in self.c_tree.nodes() 
+                    if i in self.c_tree.node[j]['members']])
+            }
+
+        # Form the columns corresponding to unary source labels
+        L_aug = np.zeros((n, m * km))
+        for y in range(offset, self.k+1):
+            L_aug[:, y-offset::km] = np.where(L == y, 1, 0)
+        
+        # Get the higher-order clique statistics based on the clique tree
+        # First, iterate over the maximal cliques (nodes of c_tree) and
+        # separator sets (edges of c_tree)
+        if higher_order:
+            for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
+                if isinstance(item, int):
+                    C = self.c_tree.node[item]
+                    C_type = 'node'
+                elif isinstance(item, tuple):
+                    C = self.c_tree[item[0]][item[1]]
+                    C_type = 'edge'
+                else:
+                    raise ValueError(item)
+                members = list(C['members'])
+                nc = len(members)
+
+                # If a unary maximal clique, just store its existing index
+                if nc == 1:
+                    C['start_index'] = members[0] * km
+                    C['end_index'] = (members[0]+1) * km
+                
+                # Else add one column for each possible value
+                else:
+                    L_C = np.ones((n, km ** nc))
+                    for i, vals in enumerate(product(range(km), repeat=nc)):
+                        for j, v in enumerate(vals):
+                            L_C[:,i] *= L_aug[:, members[j]*km + v]
+
+                    # Add to L_aug and store the indices
+                    C['start_index'] = L_aug.shape[1]
+                    C['end_index'] = L_aug.shape[1] + L_C.shape[1]
+                    L_aug = np.hstack([L_aug, L_C])
+                
+                # Add to self.c_data as well
+                self.c_data[tuple(members)] = {
+                    'start_index': C['start_index'],
+                    'end_index': C['end_index'],
+                    'max_cliques': set([item]) if C_type=='node' else set(item)
+                }
+        return L_aug
+    
+    def _generate_O(self, L):
+        """Form the overlaps matrix, which is just all the different observed
+        combinations of values of pairs of sources
+
+        Note that we only include the k non-abstain values of each source,
+        otherwise the model not minimal --> leads to singular matrix
+        """
+        self.n, self.m = L.shape
+        L_aug = self._get_augmented_label_matrix(L, offset=1)
+        self.d = L_aug.shape[1]
+        self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
+    
+    def _generate_O_inv(self, L):
+        """Form the *inverse* overlaps matrix"""
+        self._generate_O(L)
+        self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
+    
+    def _init_params(self):
+        """Initialize the learned params
+        
+        - \mu is the primary learned parameter, where each row corresponds to 
+        the probability of a clique C emitting a specific combination of labels,
+        conditioned on different values of Y (for each column); that is:
+        
+            self.mu[i*self.k + j, y] = P(\lambda_i = j | Y = y)
+        
+        and similarly for higher-order cliques.
+        - Z is the inverse form version of \mu.
+        - mask is the mask applied to O^{-1}, O for the matrix approx constraint
+        """
+        # Initialize mu so as to break basic reflective symmetry
+        # TODO: Update for higher-order cliques!
+        self.mu_init = torch.zeros(self.d, self.k)
+        for i in range(self.m):
+            for y in range(self.k):
+                self.mu_init[i*self.k + y, y] += np.random.random()
+        self.mu = nn.Parameter(self.mu_init.clone()).float()
+
+        if self.inv_form:
+            self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
+
+        self.mask = torch.ones(self.d, self.d).byte()
+        for ci in self.c_data.values():
+            si, ei = ci['start_index'], ci['end_index']
+            for cj in self.c_data.values():
+                sj, ej = cj['start_index'], cj['end_index']
+
+                # Check if ci and cj are part of the same maximal clique
+                # If so, mask out their corresponding blocks in O^{-1}
+                if len(ci['max_cliques'].intersection(cj['max_cliques'])) > 0:
+                    self.mask[si:ei, sj:ej] = 0
+                    self.mask[sj:ej, si:ei] = 0
+    
+    def get_conditional_probs(self, source=None):
+        """Returns the full conditional probabilities table as a numpy array,
+        where row i*(k+1) + ly is the conditional probabilities of source i 
+        emmiting label ly (including abstains 0), conditioned on different 
+        values of Y, i.e.:
+        
+            c_probs[i*(k+1) + ly, y] = P(\lambda_i = ly | Y = y)
+        
+        Note that this simply involves inferring the kth row by law of total
+        probability and adding in to mu.
+        
+        If `source` is not None, returns only the corresponding block.
+        """
+        c_probs = np.zeros((self.m * (self.k+1), self.k))
+        mu = self.mu.detach().clone().numpy()
+        
+        for i in range(self.m):
+            # si = self.c_data[(i,)]['start_index']
+            # ei = self.c_data[(i,)]['end_index']
+            # mu_i = mu[si:ei, :]
+            mu_i = mu[i*self.k:(i+1)*self.k, :]
+            c_probs[i*(self.k+1) + 1:(i+1)*(self.k+1), :] = mu_i 
+            
+            # The 0th row (corresponding to abstains) is the difference between
+            # the sums of the other rows and one, by law of total prob
+            c_probs[i*(self.k+1), :] = 1 - mu_i.sum(axis=0)
+        c_probs = np.clip(c_probs, 0.01, 0.99)
+    
+        if source is not None:
+            return c_probs[source*(self.k+1):(source+1)*(self.k+1)]
         else:
-            alphas_col = alphas[:,0]
-        return torch.clamp(alphas_col, min=0.05, max=0.95)
-    
-    def accs(self):
-        """The float numpy array of LF accuracies P(\lf_i=p_i|Y=p_i)."""
-        accs = self._alphas() * self._betas()
-        return accs.numpy()    
-    
-    def predict_proba(self, L):
-        """Get conditional probabilities P(Y | L) given the learned model
+            return c_probs
 
-        Args:
-            L: An [n, m] scipy.sparse matrix of labels 
-        Returns:
-            Y_p: An n x k numpy matrix of probabilistic labels (conditional
-                probabilities), i.e. $Y_p[i,j] = P(Y_i=j|L)$.
-        """
-        L = self._check_L(L)
-        # Note we cast to dense here
-        L = torch.from_numpy(L.todense()).float()
-        n = L.shape[0]
+    def get_label_probs(self, L):
+        """Returns the n x k matrix of label probabilities P(Y | \lambda)"""
+        L_aug = self._get_augmented_label_matrix(L, offset=1)        
+        mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
 
-        # Here we iterate over the values of Y in {1,...,k}, forming
-        # an [n, k] matrix of unnormalized predictions
-        # Note in the unipolar setting:
-        #   P(\lambda_j=k|y_t=k, \lambda_j != 0) = \alpha_i
-        #   P(\lambda_j=k|y_t=l != k, \lambda_j != 0) = 1 - \alpha_i
-        # So the computation is the same as in the binary case, except we
-        # compute
-        #   \theta^T \ind \{ \lambda_j != 0 \} \ind^{\pm} \{ \lambda_j = k \}
-        log_odds_alphas = torch.log(self._alphas() / (1-self._alphas())).float()
-        Y_p = torch.zeros((n, self.k))
-        for y_k in range(1, self.k):
-            L_y = torch.where(
-                (L != y_k) & (L != 0), torch.full((n, self.m), -1) , L)
-            L_y = torch.where(L_y == y_k, torch.full((n, self.m), 1), L_y)
-            Y_p[:, y_k-1] = L_y @ log_odds_alphas
+        # Create a "junction tree mask" over the columns of L_aug / mu
+        if len(self.deps) > 0:
+            jtm = np.zeros(L_aug.shape[1])
+
+            # All maximal cliques are +1
+            for i in self.c_tree.nodes():
+                node = self.c_tree.node[i]
+                jtm[node['start_index']:node['end_index']] = 1
+
+            # All separator sets are -1
+            for i, j in self.c_tree.edges():
+                edge = self.c_tree[i][j]
+                jtm[edge['start_index']:edge['end_index']] = 1
+        else:
+            jtm = np.ones(L_aug.shape[1])
+
+        # Note: We omit abstains, effectively assuming uniform distribution here
+        X = np.exp( L_aug @ np.diag(jtm) @ np.log(mu) + np.log(self.p) )
+        Z = np.tile(X.sum(axis=1).reshape(-1,1), self.k)
+        return X / Z
+
+    def loss_inv_Z(self, l2=0.0):
+        return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2
+    
+    def get_Q(self):
+        """Get the model's estimate of Q = \mu P \mu^T
         
-        # Add the class balance factor if not balanced
-        Y_cb = self.class_balance.detach().repeat(n,1).float()
-        Y_p += torch.log( Y_cb / (1-Y_cb) )
-
-        # Take the softmax to return an [n, k] numpy array
-        return F.softmax(Y_p, dim=1).numpy()
-
-    def get_accs_score(self, accs):
-        """Returns the *averaged squared estimation error."""
-        return np.linalg.norm(self.accs() - accs)**2 / self.m
-
-    def train(self, L_train, Y_train=None, L_dev=None, Y_dev=None, accs=None, 
-        **kwargs):
-        """Learns the accuracies of the labeling functions from L_train
-
-        Args:
-            L_train:
-            Y_train:
-            L_dev:
-            Y_dev:
-            accs: An M-length list of the true accuracies of the LFs if known
-
-        Note that Y_train, L_dev, and Y_dev are not required for any 
-        calculations. They are simply used for printing additional diagnostic 
-        information if they are provided.
+        We can then separately extract \mu subject to additional constraints,
+        e.g. \mu P 1 = diag(O).
         """
-        self.config = recursive_merge_dicts(self.config, kwargs, misses='ignore')
+        Z = self.Z.detach().clone().numpy()
+        O = self.O.numpy()
+        I_k = np.eye(self.k)
+        return O @ Z @ np.linalg.inv(I_k + Z.T @ O @ Z) @ Z.T @ O
+
+    def loss_inv_mu(self, l2=0.0):
+        loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t())**2
+        loss_2 = torch.norm(
+            torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
+        return loss_1 + loss_2
+    
+    def loss_mu(self, l2=0.0):
+        loss_1 = torch.norm(
+            (self.O - self.mu @ self.P @ self.mu.t())[self.mask])**2
+        loss_2 = torch.norm(
+            torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
+        # loss_l2 = torch.norm( self.mu - self.mu_init )**2
+        loss_l2 = 0
+        return loss_1 + loss_2 + l2 * loss_l2
+    
+    def train(self, L, **kwargs):
+        """Train the model (i.e. estimate mu) in one of two ways, depending on
+        whether source dependencies are provided or not:
+        
+        (1) No dependencies (conditionally independent sources): Estimate mu
+        subject to constraints:
+            (1a) O_{B(i,j)} - (mu P mu.T)_{B(i,j)} = 0, for i != j, where B(i,j)
+                is the block of entries corresponding to sources i,j
+            (1b) np.sum( mu P, 1 ) = diag(O)
+        
+        (2) Source dependencies:
+            - First, estimate Z subject to the inverse form
+            constraint:
+                (2a) O_\Omega + (ZZ.T)_\Omega = 0, \Omega is the deps mask
+            - Then, compute Q = mu P mu.T
+            - Finally, estimate mu subject to mu P mu.T = Q and (1b)
+        """
+        self.config = recursive_merge_dicts(self.config, kwargs, 
+            misses='ignore')
+
+        if self.inv_form:
+            # Compute O, O^{-1}, and initialize params
+            if self.config['verbose']:
+                print("Computing O^{-1}...")
+            self._generate_O_inv(L)
+            self._init_params()
+
+            # Estimate Z, compute Q = \mu P \mu^T
+            if self.config['verbose']:
+                print("Estimating Z...")
+            self._train(self.loss_inv_Z)
+            self.Q = torch.from_numpy(self.get_Q()).float()
+
+            # Estimate \mu
+            if self.config['verbose']:
+                print("Estimating \mu...")
+            self._train(self.loss_inv_mu)
+        else:
+            # Compute O and initialize params
+            if self.config['verbose']:
+                print("Computing O...")
+            self._generate_O(L)
+            self._init_params()
+
+            # Estimate \mu
+            if self.config['verbose']:
+                print("Estimating \mu...")
+            self._train(self.loss_mu)
+
+    def _train(self, loss_fn):
+        """Train model (self.parameters()) by optimizing the provided loss fn"""
         train_config = self.config['train_config']
-        optimizer_config = train_config['optimizer_config']
-
-        Y_dev = self._to_torch(Y_dev)
-
-        # Initialize class parameters based on L_train
-        L_train = self._check_L(L_train, init=True)
-
-        # Compute overlaps matrix self.O
-        self._compute_overlaps_matrix(L_train)
-
-        # Initialize params
-        self._init_params(
-            train_config['mu_init'],
-            train_config['learn_class_balance'],
-            train_config['class_balance_init'])
 
         # Set optimizer as SGD w/ momentum
+        optimizer_config = self.config['train_config']['optimizer_config']
         optimizer = optim.SGD(
-            self.parameters(), 
+            self.parameters(),
             **optimizer_config['optimizer_common'],
             **optimizer_config['sgd_config']
         )
-        
+
         # Train model
         for epoch in range(train_config['n_epochs']):
             optimizer.zero_grad()
             
             # Compute gradient and take a step
             # Note that since this uses all N training points this is an epoch!
-            loss = self.loss(l2=train_config['l2'])
+            loss = loss_fn(l2=train_config['l2'])
             if torch.isnan(loss):
                 raise Exception("Loss is NaN. Consider reducing learning rate.")
 
@@ -285,24 +352,4 @@ class LabelModel(Classifier):
                 (epoch % train_config['print_every'] == 0 
                 or epoch == train_config['n_epochs'] - 1)):
                 msg = f"[Epoch {epoch}] Loss: {loss.item():0.6f}"
-                if accs is not None:
-                    accs_score = self.get_accs_score(accs)
-                    msg += f"\tAccs mean sq. error = {accs_score}"
                 print(msg)
-
-        if self.config['verbose']:
-            print('Finished Training')
-            
-            if self.config['show_plots']:
-                print(lf_summary(L=L_train, Y=Y_train, est_accs=self._alphas()))
-    
-                if self.k == 2:
-                    Y_p_train = self.predict_proba(L_train)
-                    plot_probabilities_histogram(Y_p_train[:, 0], 
-                        title="Training Set Predictions")
-
-            if L_dev is not None and Y_dev is not None:
-                Y_ph_dev = self.predict(L_dev)
-
-                print("Confusion Matrix (Dev)")
-                mat = confusion_matrix(Y_ph_dev, Y_dev, pretty_print=True)
