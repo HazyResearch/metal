@@ -247,6 +247,9 @@ class LabelModel(Classifier):
         else:
             return c_probs
 
+    def predict_proba(self, L):
+        return self.get_label_probs(L)
+
     def get_label_probs(self, L):
         """Returns the n x k matrix of label probabilities P(Y | \lambda)"""
         L_aug = self._get_augmented_label_matrix(L, offset=1)        
