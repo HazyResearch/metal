@@ -186,10 +186,7 @@ class EndModel(Classifier):
         # Make data loaders
         loader_config = train_config['data_loader_config']
         train_loader = self._make_data_loader(X_train, Y_train, loader_config)
-        if X_dev is not None and Y_dev is not None:
-            dev_loader = self._make_data_loader(X_dev, Y_dev, loader_config)
-        else:
-            dev_loader = None
+        evaluate_dev = (X_dev is not None and Y_dev is not None)
 
         # Set the optimizer
         optimizer_config = train_config['optimizer_config']
@@ -234,7 +231,7 @@ class EndModel(Classifier):
             # mistake of averaging batch losses when the last batch is an orphan
             train_loss = epoch_loss / len(train_loader.dataset)
 
-            if dev_loader:
+            if evaluate_dev:
                 val_metric = train_config['validation_metric']
                 dev_score = self.score(X_dev, Y_dev, metric=val_metric, 
                     verbose=False)
@@ -243,7 +240,7 @@ class EndModel(Classifier):
             if (lr_scheduler is not None 
                 and epoch + 1 >= scheduler_config['lr_freeze']):
                 if scheduler_config['scheduler'] == 'reduce_on_plateau':
-                    if dev_loader:
+                    if evaluate_dev:
                         lr_scheduler.step(dev_score)
                 else:
                     lr_scheduler.step()
@@ -253,7 +250,7 @@ class EndModel(Classifier):
                 (epoch % train_config['print_every'] == 0 
                 or epoch == train_config['n_epochs'] - 1)):
                 msg = f'[E:{epoch+1}]\tTrain Loss: {train_loss:.3f}'
-                if dev_loader:
+                if evaluate_dev:
                     msg += f'\tDev score: {dev_score:.3f}'
                 print(msg)
 
