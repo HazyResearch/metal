@@ -8,6 +8,7 @@ from scipy.sparse import csc_matrix, lil_matrix
 import torch
 
 from metal.metrics import accuracy_score, coverage_score
+from metal.multitask.task_graph import TaskHierarchy
 
 
 def indpm(x, y):
@@ -115,25 +116,6 @@ class SingleTaskTreeDepsGenerator(object):
 
         TODO: Can compute these exactly if we want to implement that.
         """
-        # P_unary = np.zeros((self.m, self.k))
-        # P_edge = np.zeros(len(self.E))
-        # for y in range(self.k):
-        #     n_y = self.L[self.Y == y].shape[0]
-        #     L_yc = np.where(self.L[self.Y == y] == y, 1, 0)
-        #     P_unary[:, y] = L_yc.sum(axis=0) / n_y
-        
-        #     # Count the higher-arity clique marginals
-        #     for ei, (i,j) in enumerate(self.E):
-        #         P_edge[ei] = np.sum(L_yc[:,i] * L_yc[:,j]) / n_y
-        
-        # # Store as a single dict indexed by ints (for unary cliques) or tuples
-        # # (for higher-order cliques)
-        # self.C_probs = {}
-        # for i in range(self.m):
-        #     self.C_probs[i] = P_unary[i, :]
-        # for ei, (i,j) in enumerate(self.E):
-        #     self.C_probs[(i,j)] = P_edge[ei]
-
         # TODO: Extend to higher-order cliques again
         self.c_probs = np.zeros((self.m * (self.k+1), self.k))
         for y in range(1,self.k+1):
@@ -141,6 +123,28 @@ class SingleTaskTreeDepsGenerator(object):
             for ly in range(self.k+1):
                 self.c_probs[ly::(self.k+1), y-1] = \
                     np.where(Ly == ly, 1, 0).sum(axis=0) / Ly.shape[0]
+
+
+class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
+    def __init__(self, n, m, theta_range=(0, 1.5), edge_prob=0.0, 
+        theta_edge_range=(-1,1)):
+        super().__init__(n, m, k=4, theta_range=theta_range, 
+            edge_prob=edge_prob, theta_edge_range=theta_edge_range)
+
+        # Convert label matrix to tree task graph
+        self.task_graph = TaskHierarchy(
+            edges=[(0,1), (0,2)],
+            cardinalities=[2,2,2]
+        )
+        L_mt = [np.zeros((self.n, self.m)) for _ in range(self.task_graph.t)]
+        fs = list(self.task_graph.feasible_set())
+        for i in range(self.n):
+            for j in range(self.m):
+                if self.L[i,j] > 0:
+                    y = fs[int(self.L[i,j])-1]
+                    for s in range(self.task_graph.t):
+                        L_mt[s][i,j] = y[s]
+        self.L = list(map(csc_matrix, L_mt))
 
 
 def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):

@@ -12,7 +12,10 @@ from metal.label_model.baselines import (
 )
 
 sys.path.append("../synthetics")
-from synthetics.generate import SingleTaskTreeDepsGenerator
+from synthetics.generate import (
+    SingleTaskTreeDepsGenerator,
+    HierarchicalMultiTaskTreeDepsGenerator
+)
 
 
 # TODO: Put in tests for LabelModel baseline again!
@@ -20,19 +23,24 @@ class LabelModelTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.n_iters = 3
         cls.n = 10000
         cls.m = 10
         cls.k = 2
     
-    def _test_label_model(self, data, test_acc=True):
-        label_model = LabelModel(data.m, data.k, p=data.p, deps=data.E)
-        label_model.train(data.L, n_epochs=500, print_every=100)
+    def _test_label_model(self, data, test_acc=True, mts=False):
+        if mts:
+            label_model = LabelModel(data.m, task_graph=data.task_graph, 
+                p=data.p, deps=data.E)
+        else:
+            label_model = LabelModel(data.m, k=data.k, p=data.p, deps=data.E)
+        label_model.train(data.L, n_epochs=1000, print_every=200)
         
         # Test parameter estimation error
         c_probs_est = label_model.get_conditional_probs()
-        err = np.linalg.norm(data.c_probs - c_probs_est)**2
+        err = np.mean(np.abs(data.c_probs - c_probs_est))
         print(f"Parameter Estimation Error={err}")
-        self.assertLess(err, 0.01)
+        self.assertLess(err, 0.015)
 
         # Test label prediction accuracy
         if test_acc:
@@ -42,8 +50,7 @@ class LabelModelTest(unittest.TestCase):
             self.assertGreater(acc, 0.95)
     
     def test_no_deps(self):
-        # Test for 5 random seeds
-        for seed in range(5):
+        for seed in range(self.n_iters):
             np.random.seed(seed)
             print(f">>> Testing for seed={seed}")
             data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
@@ -93,13 +100,20 @@ class LabelModelTest(unittest.TestCase):
         self.assertEqual(L_aug[2, j], 1)
     
     def test_with_deps(self):
-        # Test for 5 random seeds
-        for seed in range(5):
+        for seed in range(self.n_iters):
             np.random.seed(seed)
             print(f">>> Testing for seed={seed}")
             data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
                 edge_prob=1.0)
             self._test_label_model(data, test_acc=False)
+    
+    def test_mts(self):
+        for seed in range(self.n_iters):
+            np.random.seed(seed)
+            print(f">>> Testing for seed={seed}")
+            data = HierarchicalMultiTaskTreeDepsGenerator(self.n, self.m,
+                edge_prob=0.0)
+            self._test_label_model(data, test_acc=False, mts=True)
 
 
 if __name__ == '__main__':
