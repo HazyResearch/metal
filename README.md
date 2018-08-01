@@ -7,7 +7,7 @@ Snorkel MeTaL can use the output of labeling functions developed and executed in
 
 **Check out the tutorial on basic usage: https://github.com/HazyResearch/metal/blob/master/Tutorial.ipynb**
 
-Snorkel MeTaL uses a new matrix approximation approach to learn the accuracies of diverse sources with unknown accuracies, arbitrary depenndency structures, and structured multi-task outputs.
+Snorkel MeTaL uses a new matrix approximation approach to learn the accuracies of diverse sources with unknown accuracies, arbitrary dependency structures, and structured multi-task outputs.
 For more detail, see the **working draft of our technical report on MeTaL: [_Training Complex Models with Multi-Task Weak Supervision_](https://ajratner.github.io/assets/papers/mts-draft.pdf)**
 
 ## Setup
