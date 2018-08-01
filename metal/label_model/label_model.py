@@ -19,17 +19,27 @@ from metal.label_model.graph_utils import get_clique_tree
 
 
 class LabelModel(Classifier):
-    def __init__(self, m, k, p=None, deps=[], **kwargs):
+    def __init__(self, m, k=2, task_graph=None, p=None, deps=[], **kwargs):
         """
         Args:
-            seed: int: Random state seed
-            deps: list: A list of LF dependencies as tuples of LF indices
-            kwargs: TBD
+            m: int: Number of sources
+            k: int: Number of true classes
+            task_graph: TaskGraph: A TaskGraph which defines a feasible set of
+                task label vectors; note this overrides k
+            p: np.array: Class balance
+            deps: list: A list of source dependencies as tuples of indices 
+            kwargs:
+                - seed: int: Random state seed
         """
         self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
         super().__init__()
         self.k = k
         self.m = m
+
+        # TaskGraph; note overrides k if present
+        self.task_graph = task_graph
+        if self.task_graph is not None:
+            self.k = len(self.task_graph)
 
         # Class balance- assume uniform if not provided
         if p is None:
