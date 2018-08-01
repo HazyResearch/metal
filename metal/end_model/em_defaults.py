@@ -1,4 +1,4 @@
-em_model_defaults = {
+em_default_config = {
     ### GENERAL
     'seed': None,
     'verbose': True,
@@ -9,19 +9,7 @@ em_model_defaults = {
     'dropout': 0.0,
     'layer_output_dims': [100, 50],
         # The first value is the output dim of the input module
-    'task_head_output_dims': None,
-        # If single-task, an int (defaults to k if None)
-        # If multi-task, a list of ints (defaults to k_t if None)
-    'task_head_layers': 'top',
-        # Optionally specify the layers that each head should attach to
-        # For single-task settings, this is always 'top'
-        #   'top': connect all heads to the final (top) layer
-        #   'auto': connect heads at layers corresponding to placement in the 
-        #       task graph; the deepest leaf attaches to the top layer, then 
-        #       work backward
-        #   [list]: specify explicitly the layer for each head
-    'pass_predictions': False,
-        # If True, pass output of parent tasks as additional input to children tasks
+        # The final output dim will be the cardinality of the classifier
 
     ### TRAINING
     'train_config': {

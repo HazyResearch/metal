@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from metal.end_model import EndModel
-from metal.end_model.em_defaults import em_model_defaults
+from metal.end_model.em_defaults import  em_default_config
 from metal.utils import recursive_merge_dicts
 
 class LogisticRegression(EndModel):
@@ -11,7 +11,6 @@ class LogisticRegression(EndModel):
             'batchnorm': False,
             'dropout': 0.0,
             'layer_output_dims': [input_dim],
-            'task_head_output_dims': 2,
         }
         kwargs = recursive_merge_dicts(kwargs, overrides, misses='insert',
             verbose=False)
@@ -24,7 +23,6 @@ class LogisticRegression(EndModel):
 #         overrides = {
 #             'batchnorm': False,
 #             'layer_output_dims': [input_dim],
-#             'task_head_output_dims': [output_dim],
 #         }
 #         kwargs = recursive_merge_dicts(kwargs, overrides, verbose=False)
 #         label_map = [range(output_dim)]

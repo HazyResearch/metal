@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from metal.analysis import plot_probabilities_histogram, confusion_matrix
 from metal.classifier import Classifier
-from metal.end_model.em_defaults import em_model_defaults
+from metal.end_model.em_defaults import  em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.input_modules import IdentityModule
 from metal.utils import (
@@ -20,7 +20,7 @@ from metal.utils import (
 
 class EndModel(Classifier):
     def __init__(self, cardinality=2, input_module=None, **kwargs):
-        self.config = recursive_merge_dicts(em_model_defaults, kwargs)
+        self.config = recursive_merge_dicts( em_default_config, kwargs)
         super().__init__(cardinality, seed=self.config['seed'])
 
         if input_module is None:
@@ -79,9 +79,7 @@ class EndModel(Classifier):
     def _attach_task_heads(self, num_layers):
         """Create and attach a task head to the end of the network trunk"""
         input_dim = self.config['layer_output_dims'][-1]
-        output_dim = self.config['task_head_output_dims']
-        if output_dim is None:
-            output_dim = self.k
+        output_dim = self.k
         head = nn.Linear(input_dim, output_dim)
         self.network = nn.Sequential(*(self.layers), head)
 
@@ -107,18 +105,8 @@ class EndModel(Classifier):
         This will be called on all children of m as well, so do not recurse
         manually.
         """
-        module_name = m.__class__.__name__
-        if module_name in ['EndModel', 'Sequential', 'ModuleList', 'ReLU', 
-            'Dropout', 'LogisticRegression', 'SoftCrossEntropyLoss']:
-            pass
-        elif callable(getattr(m, 'reset_parameters', None)):
+        if callable(getattr(m, 'reset_parameters', None)):
             m.reset_parameters()
-        else:
-            # TODO: Once the core library is in place and tested, remove this
-            # exception so it doesn't complain on user-provided input modules.
-            # Until then though, keep it in place so we notice when a module
-            # is not being initialized.
-            raise Exception(f"Module {module_name} was not initialized.")
 
     def config_set(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
@@ -285,5 +273,5 @@ class EndModel(Classifier):
                 mat = confusion_matrix(Y_ph_dev, Y_dev, pretty_print=True)                
 
     def predict_proba(self, X):
-        """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
-        return F.softmax(self.forward(X), dim=1).data.cpu()
+        """Returns a [N, K_t] tensor of soft (float) predictions."""
+        return F.softmax(self.forward(X), dim=1).data.cpu().numpy()
