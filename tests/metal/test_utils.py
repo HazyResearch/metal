@@ -5,7 +5,6 @@ import numpy as np
 import scipy
 import torch
 
-# sys.path.append("../metal")
 from metal.utils import (
     rargmax,
     hard_to_soft,

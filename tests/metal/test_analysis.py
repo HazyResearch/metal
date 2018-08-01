@@ -4,7 +4,6 @@ import unittest
 import numpy as np
 import scipy.sparse as sparse
 
-# sys.path.append("../metal")
 from metal.analysis import (
     label_coverage,
     label_overlap,
