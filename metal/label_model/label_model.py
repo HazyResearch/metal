@@ -28,10 +28,8 @@ class LabelModel(Classifier):
         """
         self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
         super().__init__()
-
         self.k = k
         self.m = m
-        self.d = self.m * self.k
 
         # Class balance- assume uniform if not provided
         if p is None:
@@ -53,7 +51,7 @@ class LabelModel(Classifier):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
     
-    def _get_augmented_label_matrix(self, L, offset=0, higher_order=True):
+    def _get_augmented_label_matrix(self, L, offset=0, higher_order=False):
         """Returns an augmented version of L where each column is an indicator
         for whether a certain source or clique of sources voted in a certain
         pattern.
@@ -66,6 +64,18 @@ class LabelModel(Classifier):
         n, m = L.shape
         km = self.k + 1 - offset
 
+        # Create a helper data structure which maps cliques (as tuples of member
+        # sources) --> {start_index, end_index, maximal_cliques}, where
+        # the last value is a set of indices in this data structure
+        self.c_data = {}
+        for i in range(m):
+            self.c_data[i] = {
+                'start_index': i*km,
+                'end_index': (i+1)*km,
+                'max_cliques': set([j for j in self.c_tree.nodes() 
+                    if i in self.c_tree.node[j]['members']])
+            }
+
         # Form the columns corresponding to unary source labels
         L_aug = np.zeros((n, m * km))
         for y in range(offset, self.k+1):
@@ -74,32 +84,42 @@ class LabelModel(Classifier):
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
-        for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
-            if isinstance(item, int):
-                C = self.c_tree.node[item]
-            elif isinstance(item, tuple):
-                C = self.c_tree[item[0]][item[1]]
-            else:
-                raise ValueError(item)
-            members = list(C['members'])
-            nc = len(members)
+        if higher_order:
+            for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
+                if isinstance(item, int):
+                    C = self.c_tree.node[item]
+                    C_type = 'node'
+                elif isinstance(item, tuple):
+                    C = self.c_tree[item[0]][item[1]]
+                    C_type = 'edge'
+                else:
+                    raise ValueError(item)
+                members = list(C['members'])
+                nc = len(members)
 
-            # If a unary maximal clique, just store its existing index
-            if nc == 1:
-                C['start_index'] = members[0] * km
-                C['end_index'] = (members[0]+1) * km
-            
-            # Else add one column for each possible value
-            else:
-                L_C = np.ones((n, km ** nc))
-                for i, vals in enumerate(product(range(km), repeat=nc)):
-                    for j, v in enumerate(vals):
-                        L_C[:,i] *= L_aug[:, members[j]*km + v]
+                # If a unary maximal clique, just store its existing index
+                if nc == 1:
+                    C['start_index'] = members[0] * km
+                    C['end_index'] = (members[0]+1) * km
+                
+                # Else add one column for each possible value
+                else:
+                    L_C = np.ones((n, km ** nc))
+                    for i, vals in enumerate(product(range(km), repeat=nc)):
+                        for j, v in enumerate(vals):
+                            L_C[:,i] *= L_aug[:, members[j]*km + v]
 
-                # Add to L_aug and store the indices
-                C['start_index'] = L_aug.shape[1]
-                C['end_index'] = L_aug.shape[1] + L_C.shape[1]
-                L_aug = np.hstack([L_aug, L_C])
+                    # Add to L_aug and store the indices
+                    C['start_index'] = L_aug.shape[1]
+                    C['end_index'] = L_aug.shape[1] + L_C.shape[1]
+                    L_aug = np.hstack([L_aug, L_C])
+                
+                # Add to self.c_data as well
+                self.c_data[tuple(members)] = {
+                    'start_index': C['start_index'],
+                    'end_index': C['end_index'],
+                    'max_cliques': set([item]) if C_type=='node' else set(item)
+                }
         return L_aug
     
     def _generate_O(self, L):
@@ -111,6 +131,7 @@ class LabelModel(Classifier):
         """
         self.n, self.m = L.shape
         L_aug = self._get_augmented_label_matrix(L, offset=1)
+        self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
     def _generate_O_inv(self, L):
@@ -118,7 +139,7 @@ class LabelModel(Classifier):
         self._generate_O(L)
         self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
     
-    def _init_params(self, init_precision=0.75, mu_init=0.25):
+    def _init_params(self):
         """Initialize the learned params
         
         - \mu is the primary learned parameter, where each row corresponds to 
@@ -127,37 +148,32 @@ class LabelModel(Classifier):
         
             self.mu[i*self.k + j, y] = P(\lambda_i = j | Y = y)
         
+        and similarly for higher-order cliques.
         - Z is the inverse form version of \mu.
         - mask is the mask applied to O^{-1}, O for the matrix approx constraint
-
-        Note that mu_init is used both to initialize and regularize mu (if L2 
-        reg used). We initialize using:
-
-            P(\lambda_i=y | Y=y) = P(\lambda_i) * P(Y=y | \lambda_i=y) / P(Y=y)
-        
-        where we use init_precision for P(Y=y | \lambda_i).
         """
-        # Initialize mu on the right side of the core reflective symmetry
-        # TODO: Better way to do this as (a) a constraint, or (b) a 
-        # post-processing step?
+        # Initialize mu so as to break basic reflective symmetry
+        # TODO: Update for higher-order cliques!
         self.mu_init = torch.zeros(self.d, self.k)
-        pl = torch.diag(self.O)
         for i in range(self.m):
             for y in range(self.k):
-                idx = i*self.k + y
-                # mu_init = min(0.25, pl[idx] * init_precision / self.p[y])
-                self.mu_init[idx, y] += mu_init
+                self.mu_init[i*self.k + y, y] += np.random.random()
         self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
             self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
 
-        # Initialize the mask for the masked matrix approximation step; masks 
-        # out the block diagonal of O and any dependencies
         self.mask = torch.ones(self.d, self.d).byte()
-        for (i, j) in product(range(self.m), repeat=2):
-            if i == j or (i,j) in self.deps or (j,i) in self.deps:
-                self.mask[i*self.k:(i+1)*self.k, j*self.k:(j+1)*self.k] = 0
+        for ci in self.c_data.values():
+            si, ei = ci['start_index'], ci['end_index']
+            for cj in self.c_data.values():
+                sj, ej = cj['start_index'], cj['end_index']
+
+                # Check if ci and cj are part of the same maximal clique
+                # If so, mask out their corresponding blocks in O^{-1}
+                if len(ci['max_cliques'].intersection(cj['max_cliques'])) > 0:
+                    self.mask[si:ei, sj:ej] = 0
+                    self.mask[sj:ej, si:ei] = 0
     
     def get_conditional_probs(self, source=None):
         """Returns the full conditional probabilities table as a numpy array,
@@ -176,14 +192,15 @@ class LabelModel(Classifier):
         mu = self.mu.detach().clone().numpy()
         
         for i in range(self.m):
+            # si = self.c_data[(i,)]['start_index']
+            # ei = self.c_data[(i,)]['end_index']
+            # mu_i = mu[si:ei, :]
             mu_i = mu[i*self.k:(i+1)*self.k, :]
             c_probs[i*(self.k+1) + 1:(i+1)*(self.k+1), :] = mu_i 
+            
             # The 0th row (corresponding to abstains) is the difference between
             # the sums of the other rows and one, by law of total prob
             c_probs[i*(self.k+1), :] = 1 - mu_i.sum(axis=0)
-        
-        # Clipping to be safe for now
-        # TODO: Remove this
         c_probs = np.clip(c_probs, 0.01, 0.99)
     
         if source is not None:
@@ -193,14 +210,27 @@ class LabelModel(Classifier):
 
     def get_label_probs(self, L):
         """Returns the n x k matrix of label probabilities P(Y | \lambda)"""
-        if len(self.deps) > 0:
-            raise NotImplementedError("Prediction for |G| > 0 not implemented.")
-        
+        L_aug = self._get_augmented_label_matrix(L, offset=1)        
         mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
 
+        # Create a "junction tree mask" over the columns of L_aug / mu
+        if len(self.deps) > 0:
+            jtm = np.zeros(L_aug.shape[1])
+
+            # All maximal cliques are +1
+            for i in self.c_tree.nodes():
+                node = self.c_tree.node[i]
+                jtm[node['start_index']:node['end_index']] = 1
+
+            # All separator sets are -1
+            for i, j in self.c_tree.edges():
+                edge = self.c_tree[i][j]
+                jtm[edge['start_index']:edge['end_index']] = 1
+        else:
+            jtm = np.ones(L_aug.shape[1])
+
         # Note: We omit abstains, effectively assuming uniform distribution here
-        L_aug = self._get_augmented_label_matrix(L, offset=1)
-        X = np.exp( L_aug @ np.log(mu) + np.log(self.p) )
+        X = np.exp( L_aug @ np.diag(jtm) @ np.log(mu) + np.log(self.p) )
         Z = np.tile(X.sum(axis=1).reshape(-1,1), self.k)
         return X / Z
 
@@ -229,7 +259,8 @@ class LabelModel(Classifier):
             (self.O - self.mu @ self.P @ self.mu.t())[self.mask])**2
         loss_2 = torch.norm(
             torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
-        loss_l2 = torch.norm( self.mu - self.mu_init )**2
+        # loss_l2 = torch.norm( self.mu - self.mu_init )**2
+        loss_l2 = 0
         return loss_1 + loss_2 + l2 * loss_l2
     
     def train(self, L, **kwargs):

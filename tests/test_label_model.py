@@ -63,7 +63,7 @@ class LabelModelTest(unittest.TestCase):
             [1, 1, 1, 1, 0]
         ])
         lm = LabelModel(m, k=k, deps=E)
-        L_aug = lm._get_augmented_label_matrix(L, offset=1)
+        L_aug = lm._get_augmented_label_matrix(L, offset=1, higher_order=True)
 
         # Should have 22 columns:
         # - 5 * 2 = 10 for the sources
@@ -93,14 +93,14 @@ class LabelModelTest(unittest.TestCase):
         self.assertEqual(L_aug[1, j], 1)
         self.assertEqual(L_aug[2, j], 1)
     
-    # def test_with_deps(self):
-    #     # Test for 5 random seeds
-    #     for seed in range(5):
-    #         np.random.seed(seed)
-    #         print(f">>> Testing for seed={seed}")
-    #         data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
-    #             edge_prob=1.0)
-    #         self._test_label_model(data, test_acc=False)
+    def test_with_deps(self):
+        # Test for 5 random seeds
+        for seed in range(5):
+            np.random.seed(seed)
+            print(f">>> Testing for seed={seed}")
+            data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
+                edge_prob=1.0)
+            self._test_label_model(data, test_acc=False)
 
 
 if __name__ == '__main__':
