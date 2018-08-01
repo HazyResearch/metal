@@ -21,7 +21,7 @@ source activate metal
 
 [3] Download dependencies:
 ```
-conda install -q matplotlib numpy pandas pytorch scipy torchvision -c pytorch
+conda install -q jupyter matplotlib networkx nose numpy pandas pytorch scipy torchtext -c pytorch
 conda install --channel=conda-forge nb_conda_kernels
 ```
 
@@ -37,10 +37,10 @@ source set_env.sh
 nosetests
 ```
 
-[6] View analysis tools:
+[6] View (bare bones) tutorial:
 [launch jupyter notebook] (selecting your metal conda environment as the kernel)
 
 ```jupyter notebook```
-Navigate to ```notebooks/Tools.ipynb```
+Navigate to ```Tutorial.ipynb```
 
 restart and run all
