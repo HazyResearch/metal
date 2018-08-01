@@ -10,7 +10,7 @@ def get_clique_tree(nodes, edges):
             set between maximal cliques i and j
     
     Note: This method is currently only implemented for chordal graphs; TODO:
-    add a step to triangulate non-chirdal graphs.
+    add a step to triangulate non-chordal graphs.
     """
     # Form the original graph G1
     G1 = nx.Graph()
