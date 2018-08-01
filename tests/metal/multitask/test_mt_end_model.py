@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 sys.path.append("../metal")
-from metal.multitask import MTEndModel, TaskGraph
+from metal.multitask import MTEndModel, TaskHierarchy
 
 class EndModelTest(unittest.TestCase):
 
@@ -34,7 +34,7 @@ class EndModelTest(unittest.TestCase):
     def test_multitask_top(self):
         edges = []
         cards = [2,2]
-        tg = TaskGraph(edges, cards)
+        tg = TaskHierarchy(edges, cards)
         em = MTEndModel(
             task_graph=tg,
             seed=1,
@@ -55,7 +55,7 @@ class EndModelTest(unittest.TestCase):
     # def test_multitask_auto(self):
     #     edges = [(0,1)]
     #     cards = [2,2]
-    #     tg = TaskGraph(edges, cards)
+    #     tg = TaskHierarchy(edges, cards)
     #     em = MTEndModel(
     #         task_graph=tg,
     #         seed=1,
@@ -74,7 +74,7 @@ class EndModelTest(unittest.TestCase):
     def test_multitask_custom(self):
         edges = [(0,1)]
         cards = [2,2]
-        tg = TaskGraph(edges, cards)
+        tg = TaskHierarchy(edges, cards)
         em = MTEndModel(
             task_graph=tg,
             seed=1,

@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from metal.end_model import EndModel
 from metal.end_model.em_defaults import em_default_config
-from metal.multitask import MTClassifier, TaskGraph, MTMetalDataset
+from metal.multitask import MTClassifier, TaskHierarchy, MTMetalDataset
 from metal.multitask.mt_em_defaults import mt_em_default_config
 from metal.input_modules import IdentityModule
 from metal.utils import recursive_merge_dicts
@@ -25,7 +25,7 @@ class MTEndModel(MTClassifier, EndModel):
 
         # If no task_graph is specified, default to a single binary task
         if task_graph is None:
-            task_graph = TaskGraph(edges=[], cardinalities=[2])
+            task_graph = TaskHierarchy(edges=[], cardinalities=[2])
         self.task_graph = task_graph
         self.K_t = self.task_graph.K_t  # Cardinalities by task
         self.T = self.task_graph.T      # Total number of tasks
