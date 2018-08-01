@@ -93,7 +93,7 @@ class SingleTaskTreeDepsGenerator(object):
     def _generate_label_matrix(self):
         """Generate an n x m label matrix with entries in {0,...,k}"""
         self.L = np.zeros((self.n, self.m))
-        self.Y = np.zeros(self.n)
+        self.Y = np.zeros(self.n, dtype=np.int64)
         for i in range(self.n):
             y = choice(self.k, p=self.p) + 1  # Note that y \in {1,...,k}
             self.Y[i] = y
@@ -148,13 +148,13 @@ def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):
     Generate Gaussian bags of words based on label assignments
 
     Args:
-        Y: (Tensor) true labels
+        Y: np.array of true labels
         sigma: (float) the standard deviation of the Gaussian distributions
         bag_size: (list) the min and max length of bags of words
 
     Returns:
         X: (Tensor) a tensor of indices representing tokens
-        items: (list) a list of entences (strings)
+        items: (list) a list of sentences (strings)
 
     The sentences are conditionally independent, given a label.
     Note that technically we use a half-normal distribution here because we 
@@ -168,7 +168,6 @@ def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):
         p = abs(np.random.normal(0, sigma, num_words))
         return p / sum(p)
     
-    Y = Y.numpy()
     num_words = len(vocab)
     word_dists = {y: make_distribution(sigma, num_words) for y in set(Y)}
     bag_sizes = np.random.choice(range(min(bag_size), max(bag_size)), len(Y))
