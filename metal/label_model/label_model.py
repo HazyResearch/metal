@@ -94,8 +94,9 @@ class LabelModel(Classifier):
             }
 
         # Form the columns corresponding to unary source labels
-        L_aug = np.zeros((n, m * km))
         if self.multi_task:
+            L_aug = np.ones((n, m * km))
+
             # TODO: By default, this will operate with offset = 1 by skipping
             # abstains; should fix this!
             for yi, y in enumerate(self.task_graph.feasible_set()):
@@ -111,6 +112,7 @@ class LabelModel(Classifier):
                     sum(map(abs, L)).todense() != 0, 1, 0)
 
         else:
+            L_aug = np.zeros((n, m * km))
             for y in range(offset, self.k+1):
                 L_aug[:, y-offset::km] = np.where(L == y, 1, 0)
         
