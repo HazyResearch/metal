@@ -40,6 +40,7 @@ class LabelModel(Classifier):
         self.task_graph = task_graph
         if self.task_graph is not None:
             self.k = len(self.task_graph)
+        self.multi_task = (self.task_graph is not None)
 
         # Class balance- assume uniform if not provided
         if p is None:
@@ -61,7 +62,7 @@ class LabelModel(Classifier):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
     
-    def _get_augmented_label_matrix(self, L, offset=0, higher_order=False):
+    def _get_augmented_label_matrix(self, L, offset=1, higher_order=False):
         """Returns an augmented version of L where each column is an indicator
         for whether a certain source or clique of sources voted in a certain
         pattern.
@@ -71,7 +72,13 @@ class LabelModel(Classifier):
                 and m is the number of sources, with values in {0,1,...,k}
             - offset: Create indicators for values {offset,...,k}
         """
-        n, m = L.shape
+        # TODO: Handle in cleaner way
+        if self.multi_task:
+            t = len(L)
+            n, m = L[0].shape
+        else:
+            t = 1
+            n, m = L.shape
         km = self.k + 1 - offset
 
         # Create a helper data structure which maps cliques (as tuples of member
@@ -88,8 +95,24 @@ class LabelModel(Classifier):
 
         # Form the columns corresponding to unary source labels
         L_aug = np.zeros((n, m * km))
-        for y in range(offset, self.k+1):
-            L_aug[:, y-offset::km] = np.where(L == y, 1, 0)
+        if self.multi_task:
+            # TODO: By default, this will operate with offset = 1 by skipping
+            # abstains; should fix this!
+            for yi, y in enumerate(self.task_graph.feasible_set()):
+                for s in range(t):
+                    # Note that we cast to dense here, and are creating a dense
+                    # matrix; can change to fully sparse operations if needed
+                    L_s = L[s].todense()
+                    L_aug[:, yi::km] *= np.where(
+                        np.logical_or(L_s == y[s], L_s == 0), 1, 0)
+                
+                # Handle abstains- if all elements of the task label are 0
+                L_aug[:, yi::km] *= np.where(
+                    sum(map(abs, L)).todense() != 0, 1, 0)
+
+        else:
+            for y in range(offset, self.k+1):
+                L_aug[:, y-offset::km] = np.where(L == y, 1, 0)
         
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
@@ -139,7 +162,13 @@ class LabelModel(Classifier):
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
         """
-        self.n, self.m = L.shape
+        # TODO: Handle in cleaner way
+        if self.multi_task:
+            self.t = len(L)
+            self.n, self.m = L[0].shape
+        else:
+            self.t = 1
+            self.n, self.m = L.shape
         L_aug = self._get_augmented_label_matrix(L, offset=1)
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
