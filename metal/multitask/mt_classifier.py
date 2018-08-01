@@ -34,7 +34,7 @@ class MTClassifier(Classifier):
     """
 
     def __init__(self, cardinalities, seed=None):
-        super().__init__()
+        Classifier.__init__(self)
         self.multitask = True
         self.K = cardinalities
 
@@ -161,4 +161,12 @@ class MTClassifier(Classifier):
         t. If it is possible to predict individual tasks in isolation, however,
         this method may be overriden for efficiency's sake.
         """
-        return self.predict_proba(X, **kwargs)[t]        
+        return self.predict_proba(X, **kwargs)[t]
+
+    @staticmethod
+    def _to_torch(Z):
+        """Converts a None, list, np.ndarray, or torch.Tensor to torch.Tensor"""
+        if isinstance(Z, list):
+            return [Classifier._to_torch(z) for z in Z]
+        else:
+            return Classifier._to_torch(Z)
