@@ -8,13 +8,12 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from metal.analysis import plot_probabilities_histogram, confusion_matrix
-from metal.classifier import Classifier, MTClassifier
+from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_model_defaults
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.input_modules import IdentityModule
 from metal.utils import (
     MetalDataset,
-    MTMetalDataset, 
     hard_to_soft, 
     recursive_merge_dicts,
 )
