@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-sys.path.append("../metal")
+# sys.path.append("../metal")
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.utils import (
     hard_to_soft,

@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-sys.path.append("../metal")
+# sys.path.append("../metal")
 from metal.tuner import ModelTuner
 
 class TunerTest(unittest.TestCase):

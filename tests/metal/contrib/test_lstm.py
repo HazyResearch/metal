@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import torch
 
-sys.path.append("../metal")
+# sys.path.append("../metal")
 from metal.input_modules import LSTMModule
 from metal.end_model import EndModel
 

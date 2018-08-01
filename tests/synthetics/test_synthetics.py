@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-sys.path.append("../metal")
+# sys.path.append("../metal")
 from metal.metrics import (
     accuracy_score,
     coverage_score,

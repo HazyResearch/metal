@@ -1,5 +1,6 @@
 jupyter
 matplotlib
+nose
 numpy
 pandas
 python=3.6

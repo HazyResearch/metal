@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import torch
 
-sys.path.append("../metal")
+# sys.path.append("../metal")
 from metal.label_model.label_model import LabelModel
 from metal.label_model.baselines import (
     RandomVoter,
