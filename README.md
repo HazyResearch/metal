@@ -40,6 +40,8 @@ nosetests
 [6] View (bare bones) tutorial:
 [launch jupyter notebook] (selecting your metal conda environment as the kernel)
 
-```jupyter notebook```
+```
+jupyter notebook
+```
 
-Navigate to ```Tutorial.ipynb```
+Navigate to ```Tutorial.ipynb``` and run all.
