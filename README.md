@@ -41,6 +41,5 @@ nosetests
 [launch jupyter notebook] (selecting your metal conda environment as the kernel)
 
 ```jupyter notebook```
-Navigate to ```Tutorial.ipynb```
 
-restart and run all
+Navigate to ```Tutorial.ipynb```
