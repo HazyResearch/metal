@@ -3,6 +3,7 @@
 <img src="assets/logo_01.png" width="150"/>
 
 **_v0.1.0-alpha_**
+
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
 Snorkel MeTaL: A framework for using multi-task weak supervision (MTS), provided by users in the form of _labeling functions_ applied over unlabeled data, to train multi-task models.
