@@ -9,7 +9,11 @@ em_default_config = {
     'dropout': 0.0,
     'layer_output_dims': [100, 50],
         # The first value is the output dim of the input module
-        # The final output dim will be the cardinality of the classifier
+        # The remaining values are the output dims of intermediate layers
+        # The task head attached to the final intermediate layer and has an
+        # output dim equal to the cardinality of the classifier.
+        # So the total number of layers in the network will be equal to
+        # len(layer_output_dims) + 1.
 
     ### TRAINING
     'train_config': {
