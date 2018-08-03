@@ -5,7 +5,7 @@ em_default_config = {
     'show_plots': True,
 
     # Network
-    'batchnorm': True,
+    'batchnorm': False,
     'dropout': 0.0,
     'layer_output_dims': [100, 50],
         # The first value is the output dim of the input module
