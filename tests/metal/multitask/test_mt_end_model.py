@@ -40,7 +40,7 @@ class EndModelTest(unittest.TestCase):
             seed=1,
             verbose=False,
             dropout=0.0,
-            layer_output_dims=[2,4,2],
+            layer_output_dims=[2,8,4],
             task_head_layers='top',
         )
         em.train(self.Xs[0], self.Ys[0], self.Xs[1], self.Ys[1],
@@ -48,7 +48,7 @@ class EndModelTest(unittest.TestCase):
             n_epochs=10,
         )
         score = em.score(self.Xs[2], self.Ys[2], reduce='mean', verbose=False)
-        self.assertEqual(score, 0.940)
+        self.assertGreater(score, 0.95)
 
     # TODO: Uncomment this test once 'auto' assignment of task heads to layers
     # is implemented in MTEndModel
@@ -60,17 +60,18 @@ class EndModelTest(unittest.TestCase):
     #         task_graph=tg,
     #         seed=1,
     #         dropout=0.0,
-    #         layer_output_dims=[2,4,2],
+    #         layer_output_dims=[2,5],
     #         task_head_layers='auto')
     #     em.train(self.Xs[0], self.Ys[0], self.Xs[1], self.Ys[1],
     #         verbose=False,
     #         n_epochs=10,
     #     )
     #     score = em.score(self.Xs[2], self.Ys[2], reduce='mean')
-    #     self.assertEqual(score, 42)
+    #     self.assertGreater(score, 0.95)
 
     # Having the output of the first task (X > 0.5) should be helpful for the
     # second task (X > 0.25).
+    
     def test_multitask_custom(self):
         edges = [(0,1)]
         cards = [2,2]
@@ -80,7 +81,7 @@ class EndModelTest(unittest.TestCase):
             seed=1,
             verbose=False,
             dropout=0.0,
-            layer_output_dims=[2,4,2],
+            layer_output_dims=[2,8,4],
             task_head_layers=[1,2],
         )
         em.train(self.Xs[0], self.Ys[0], self.Xs[1], self.Ys[1],
@@ -88,7 +89,7 @@ class EndModelTest(unittest.TestCase):
             n_epochs=10,
         )
         score = em.score(self.Xs[2], self.Ys[2], reduce='mean', verbose=False)
-        self.assertEqual(score, 0.965)
+        self.assertGreater(score, 0.95)
         
 if __name__ == '__main__':
     unittest.main()        

@@ -41,11 +41,12 @@ class LSTMTest(unittest.TestCase):
             cardinality=MAX_INT, 
             input_module=lstm_module, 
             layer_output_dims=[hidden_size, MAX_INT],
+            batchnorm=True,
             seed=1,
             verbose=False)
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=10, verbose=False)
         score = em.score(Xs[2], Ys[2], verbose=False)
-        self.assertEqual(score, 1.0)
+        self.assertGreater(score, 0.95)
 
     def test_lstm_memorize_marker(self):
         X = torch.randint(1, MAX_INT + 1, (N,SEQ_LEN)).long()
@@ -68,11 +69,12 @@ class LSTMTest(unittest.TestCase):
             cardinality=MAX_INT, 
             input_module=lstm_module, 
             layer_output_dims=[hidden_size * 2, MAX_INT],
+            batchnorm=True,
             seed=1,
             verbose=False)
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=10, verbose=False)
         score = em.score(Xs[2], Ys[2], verbose=False)
-        self.assertEqual(score, 1.0)
+        self.assertGreater(score, 0.95)
 
 
 if __name__ == '__main__':

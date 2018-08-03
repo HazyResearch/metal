@@ -22,20 +22,20 @@ class LossTest(unittest.TestCase):
         target = Y_h
         Y = hard_to_soft(Y_h, k=4)
         
-        sce = SoftCrossEntropyLoss(reduce=False)
-        ce = nn.CrossEntropyLoss(reduce=False)
+        sce = SoftCrossEntropyLoss(reduction='none')
+        ce = nn.CrossEntropyLoss(reduction='none')
         for _ in range(10):
             Y_p = torch.randn(Y.shape)
             self.assertTrue((sce(Y_p, Y) == ce(Y_p, target)).all())
 
-        sce = SoftCrossEntropyLoss(size_average=False)
-        ce = nn.CrossEntropyLoss(size_average=False)
+        sce = SoftCrossEntropyLoss(reduction='sum')
+        ce = nn.CrossEntropyLoss(reduction='sum')
         for _ in range(10):
             self.assertAlmostEqual(sce(Y_p, Y).numpy(), ce(Y_p, target).numpy(),
                 places=5)
 
-        sce = SoftCrossEntropyLoss(size_average=True)
-        ce = nn.CrossEntropyLoss(size_average=True)
+        sce = SoftCrossEntropyLoss(reduction='elementwise_mean') # default
+        ce = nn.CrossEntropyLoss(reduction='elementwise_mean')
         for _ in range(10):
             self.assertAlmostEqual(sce(Y_p, Y).numpy(), ce(Y_p, target).numpy(),
             places=5)
@@ -86,9 +86,9 @@ class LossTest(unittest.TestCase):
         ])
         weight1 = torch.tensor([0,1,2,1], dtype=torch.float)
         weight2 = torch.tensor([0,10,20,10], dtype=torch.float)
-        ce1 = nn.CrossEntropyLoss(weight=weight1, reduce=False)
-        sce1 = SoftCrossEntropyLoss(weight=weight1, reduce=True)
-        sce2 = SoftCrossEntropyLoss(weight=weight2, reduce=True)
+        ce1 = nn.CrossEntropyLoss(weight=weight1, reduction='none')
+        sce1 = SoftCrossEntropyLoss(weight=weight1)
+        sce2 = SoftCrossEntropyLoss(weight=weight2)
 
         self.assertAlmostEqual(
             float(ce1(Y_p, target).mean()), float(sce1(Y_p, Y)), places=3)
