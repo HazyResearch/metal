@@ -7,7 +7,11 @@ class SoftCrossEntropyLoss(nn.Module):
 
     Args:
         weight: a tensor of relative weights to assign to each class.
-        reduction:
+        reduction: the reduction to apply to the output, matching the options
+            for the standard Pytorch loss functions:
+            'none': return one loss per element
+            'sum': sum the losses
+            'elementwise_mean': return the mean loss of the elements
 
     Accepts:
         input: An [n, K_t] float tensor of prediction logits (not probabilities)
