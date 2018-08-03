@@ -4,6 +4,8 @@
 
 **_v0.1.0-alpha_**
 
+[![Build Status](https://travis-ci.org/HazyResearch/metal.svg?branch=master)](https://travis-ci.org/HazyResearch/metal)
+
 Snorkel MeTaL: A framework for using multi-task weak supervision (MTS), provided by users in the form of _labeling functions_ applied over unlabeled data, to train multi-task models.
 Snorkel MeTaL can use the output of labeling functions developed and executed in [Snorkel](snorkel.stanford.edu), or take in arbitrary _label matrices_ representing weak supervision from multiple sources of unknown quality, and then use this to train auto-compiled MTL networks.
 
