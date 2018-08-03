@@ -4,7 +4,7 @@ networkx
 nose
 numpy
 pandas
-python=3.6
-pytorch=0.4
+python==3.6
+pytorch==0.4 # -c pytorch
 scipy
 torchtext # (contrib only)

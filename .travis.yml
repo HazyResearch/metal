@@ -35,17 +35,11 @@ install:
 
   # Install requirements
   # Prefer conda, then use pip for those unavailable through conda
-  - travis_wait conda install -q matplotlib numpy pandas pytorch scipy torchvision -c pytorch
+  - travis_wait conda install -q jupyter matplotlib networkx nose numpy pandas pytorch=0.4 scipy -c pytorch
+  - travis_wait pip install -q cython torchtext
 
 script:
-  - python tests/test_travis.py -v
-  - python tests/test_utils.py -v
-  - python tests/test_metrics.py -v
-  - python tests/test_loss.py -v
-  - python tests/test_task_graph.py -v
-  - python tests/test_synthetics.py -v
-  - python tests/test_label_model.py -v
-  - python tests/test_end_model.py -v
+  - nosetests
 
 notifications:
   email:
