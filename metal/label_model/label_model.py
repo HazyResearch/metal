@@ -58,7 +58,7 @@ class LabelModel(Classifier):
         # This flag allows us to eg test the latter even with no deps present
         self.inv_form = (len(self.deps) > 0)
     
-    def config_set(self, update_dict):
+    def update_config(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
     

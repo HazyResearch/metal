@@ -108,7 +108,7 @@ class EndModel(Classifier):
         if callable(getattr(m, 'reset_parameters', None)):
             m.reset_parameters()
 
-    def config_set(self, update_dict):
+    def update_config(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
 
