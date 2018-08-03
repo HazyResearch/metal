@@ -7,19 +7,17 @@ class SoftCrossEntropyLoss(nn.Module):
 
     Args:
         weight: a tensor of relative weights to assign to each class.
-        size_average:
-        reduce:
+        reduction:
 
     Accepts:
         input: An [n, K_t] float tensor of prediction logits (not probabilities)
         target: An [n, K_t] float tensor of target probabilities
     """
-    def __init__(self, weight=None, size_average=True, reduce=True):
+    def __init__(self, weight=None, reduction='elementwise_mean'):
         super().__init__()
         assert(weight is None or isinstance(weight, torch.FloatTensor))
         self.weight = weight
-        self.reduce = reduce
-        self.size_average = size_average and reduce
+        self.reduction = reduction
 
     def forward(self, input, target):
         N, K_t = input.shape
@@ -27,13 +25,15 @@ class SoftCrossEntropyLoss(nn.Module):
         cum_losses = torch.zeros(N)
         for y in range(K_t):
             cls_idx = torch.full((N,), y, dtype=torch.long)
-            y_loss = F.cross_entropy(input, cls_idx, reduce=False)
+            y_loss = F.cross_entropy(input, cls_idx, reduction='none')
             if self.weight is not None:
                 y_loss = y_loss * self.weight[y]
             cum_losses += target[:, y] * y_loss
-        if not self.reduce:
+        if self.reduction == 'none':
             return cum_losses
-        elif self.size_average:
+        elif self.reduction == 'elementwise_mean':
             return cum_losses.mean()
-        else:
+        elif self.reduction == 'sum':
             return cum_losses.sum()
+        else:
+            raise ValueError(f"Unrecognized reduction: {self.reduction}")
