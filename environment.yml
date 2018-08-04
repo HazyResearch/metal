@@ -1,0 +1,17 @@
+name: metal
+channels:
+  - pytorch
+  - conda-forge 
+dependencies:
+  - python=3.6
+  - jupyter
+  - matplotlib
+  - nb_conda_kernels
+  - networkx
+  - nose
+  - numpy
+  - pandas
+  - pytorch=0.4
+  - scipy
+  - pip:
+    - torchtext==0.2.3  # contrib only

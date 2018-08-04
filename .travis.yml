@@ -29,14 +29,13 @@ before_install:
 
 install:
   # Check if <testing> environment exists; if not, create it
-  - chmod +x ./.travis/maybe_create_testing_env.sh
-  - ./.travis/maybe_create_testing_env.sh
-  - source activate testing
+  # - chmod +x ./.travis/maybe_create_testing_env.sh
+  # - ./.travis/maybe_create_testing_env.sh
+  # - source activate testing
 
-  # Install requirements
-  # Prefer conda, then use pip for those unavailable through conda
-  - travis_wait conda install -q jupyter matplotlib networkx nose numpy pandas pytorch=0.4 scipy -c pytorch
-  - travis_wait pip install -q cython torchtext
+  # Create conda environment
+  - conda env create -f environment.yml
+  - source activate metal
 
 script:
   - nosetests
