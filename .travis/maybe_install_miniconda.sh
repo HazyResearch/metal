@@ -2,7 +2,7 @@
 
 # Install miniconda to avoid compiling scipy
 if test -e $HOME/miniconda/bin ; then
-    echo "miniconda already installed."
+    echo "Package miniconda already installed."
 else
     echo "Installing miniconda."
     rm -rf $HOME/miniconda

@@ -28,12 +28,7 @@ before_install:
   - conda config --set changeps1 no  # Do not show the name of the active env
 
 install:
-  # Check if <testing> environment exists; if not, create it
-  # - chmod +x ./.travis/maybe_create_testing_env.sh
-  # - ./.travis/maybe_create_testing_env.sh
-  # - source activate testing
-
-  # Create conda environment
+# Create conda environment
   - conda env create -f environment.yml
   - source activate metal
 
