@@ -1,3 +1,4 @@
+import pickle
 import random
 
 import numpy as np
@@ -50,11 +51,27 @@ class Classifier(nn.Module):
         """An initialization method to be applied recursively to all modules"""
         raise NotImplementedError
 
-    def save(self):
-        raise NotImplementedError
+    def save(self, filepath):
+        """Serialize and save a model.
+        
+        Example:
+            end_model = EndModel(...)
+            end_model.train(...)
+            end_model.save('my_end_model.pkl')
+        """
+        with open(filepath, 'wb') as f:
+            pickle.dump(self, f)
 
-    def load(self):
-        raise NotImplementedError
+    @staticmethod
+    def load(filepath):
+        """Deserialize and load a model.
+
+        Example:
+            end_model = EndModel.load('my_end_model.pkl')
+            end_model.score(...)
+        """
+        with open(filepath, 'rb') as f:
+            return pickle.load(f)
 
     def reset(self):
         """Initializes all modules in a network"""

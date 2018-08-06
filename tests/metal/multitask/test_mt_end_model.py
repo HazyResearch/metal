@@ -1,10 +1,9 @@
-import sys
+
 import unittest
 
 import numpy as np
 import torch
 
-sys.path.append("../metal")
 from metal.multitask import MTEndModel, TaskHierarchy
 
 class EndModelTest(unittest.TestCase):

@@ -1,4 +1,4 @@
-import sys
+
 import unittest
 
 from metal.multitask.task_graph import TaskHierarchy, SingleTaskGraph
