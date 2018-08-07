@@ -7,21 +7,21 @@ class SoftCrossEntropyLoss(nn.Module):
 
     Args:
         weight: a tensor of relative weights to assign to each class.
-        reduction: the reduction to apply to the output, matching the options
-            for the standard Pytorch loss functions:
-            'none': return one loss per element
-            'sum': sum the losses
-            'elementwise_mean': return the mean loss of the elements
+        size_average: if True and reduce==True, return the average loss per 
+            element
+        reduce: if True, reduces the losses (sum or mean, depending on 
+            size_average)
 
     Accepts:
         input: An [n, K_t] float tensor of prediction logits (not probabilities)
         target: An [n, K_t] float tensor of target probabilities
     """
-    def __init__(self, weight=None, reduction='elementwise_mean'):
+    def __init__(self, weight=None, size_average=True, reduce=True):
         super().__init__()
         assert(weight is None or isinstance(weight, torch.FloatTensor))
         self.weight = weight
-        self.reduction = reduction
+        self.reduce = reduce
+        self.size_average = size_average and reduce
 
     def forward(self, input, target):
         N, K_t = input.shape
@@ -29,15 +29,13 @@ class SoftCrossEntropyLoss(nn.Module):
         cum_losses = torch.zeros(N)
         for y in range(K_t):
             cls_idx = torch.full((N,), y, dtype=torch.long)
-            y_loss = F.cross_entropy(input, cls_idx, reduction='none')
+            y_loss = F.cross_entropy(input, cls_idx, reduce=False)
             if self.weight is not None:
                 y_loss = y_loss * self.weight[y]
             cum_losses += target[:, y] * y_loss
-        if self.reduction == 'none':
+        if not self.reduce:
             return cum_losses
-        elif self.reduction == 'elementwise_mean':
+        elif self.size_average:
             return cum_losses.mean()
-        elif self.reduction == 'sum':
-            return cum_losses.sum()
         else:
-            raise ValueError(f"Unrecognized reduction: {self.reduction}")
+            return cum_losses.sum()

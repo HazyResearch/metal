@@ -11,7 +11,7 @@ dependencies:
   - nose
   - numpy
   - pandas
-  - pytorch=0.4
+  - pytorch=0.4.0
   - scipy
   - pip:
     - torchtext==0.2.3  # contrib only
