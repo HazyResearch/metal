@@ -40,7 +40,7 @@ class EndModelTest(unittest.TestCase):
         self.assertGreater(score, 0.95)
 
     def test_singletask_extras(self):
-        em = EndModel(seed=1, batchnorm=True, dropout=0.01, verbose=True,
+        em = EndModel(seed=1, batchnorm=True, dropout=0.01, verbose=False,
             layer_output_dims=[2,10])
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
