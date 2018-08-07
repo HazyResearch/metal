@@ -7,7 +7,7 @@ dependencies:
   - jupyter
   - matplotlib
   - nb_conda_kernels
-  - networkx
+  - networkx=2
   - nose
   - numpy
   - pandas
