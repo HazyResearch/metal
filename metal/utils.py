@@ -73,8 +73,9 @@ def arraylike_to_numpy(array_like):
     elif not isinstance(array_like, np.ndarray):
         array_like = np.array(array_like)
     else:
-        raise ValueError(f"Input of type {orig_type} could not be converted "
-            "to 1d np.ndarray")
+        msg = (f"Input of type {orig_type} could not be converted to 1d "
+            "np.ndarray")
+        raise ValueError(msg)
         
     # Correct shape
     if (array_like.ndim > 1) and (1 in array_like.shape):
