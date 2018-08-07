@@ -51,27 +51,40 @@ class Classifier(nn.Module):
         """An initialization method to be applied recursively to all modules"""
         raise NotImplementedError
 
-    def save(self, filepath):
+    def save(self, destination=None):
         """Serialize and save a model.
+
+        If destination is a filepath, write to file.
+        If destination is None, return a bytes object.
         
         Example:
             end_model = EndModel(...)
             end_model.train(...)
             end_model.save('my_end_model.pkl')
         """
-        with open(filepath, 'wb') as f:
-            pickle.dump(self, f)
+        if destination is None:
+            return pickle.dumps(self)
+        else:
+            with open(destination, 'wb') as f:
+                pickle.dump(self, f)
 
     @staticmethod
-    def load(filepath):
+    def load(source=None):
         """Deserialize and load a model.
+
+        If source is a filepath, load from file.
+        If source is a bytes object, load from bytes.
 
         Example:
             end_model = EndModel.load('my_end_model.pkl')
             end_model.score(...)
         """
-        with open(filepath, 'rb') as f:
-            return pickle.load(f)
+        if isinstance(source, bytes):
+            return pickle.loads(source)
+        else:
+            with open(source, 'rb') as f:
+                return pickle.load(f)
+        
 
     def reset(self):
         """Initializes all modules in a network"""
