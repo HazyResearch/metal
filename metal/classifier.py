@@ -110,6 +110,8 @@ class Classifier(nn.Module):
             metric: A metric (string) with which to score performance or a 
                 list of such metrics
             break_ties: How to break ties when making predictions
+            verbose: The verbosity for just this score method; it will not 
+                update the class config.
 
         Returns:
             scores: A (float) score

@@ -23,6 +23,49 @@ class MetalDataset(Dataset):
     def __len__(self):
         return len(self.X)
 
+
+class Checkpointer(object):
+    def __init__(self, model_class, checkpoint_min=0, checkpoint_runway=0,
+        verbose=True):
+        """Saves checkpoints as applicable based on a reported metric.
+
+        Args:
+            checkpoint_min (float): the initial "best" score to beat
+            checkpoint_runway (int): don't save any checkpoints for the first
+                this many iterations
+        """
+        self.model_class = model_class
+        self.best_model = None
+        self.best_iteration = None
+        self.best_score = checkpoint_min
+        self.checkpoint_runway = checkpoint_runway
+        self.verbose = verbose
+        if checkpoint_runway and verbose:
+            print(f"No checkpoints will be saved in the first "
+                f"checkpoint_runway={checkpoint_runway} iterations.")
+  
+    def checkpoint(self, model, iteration, score):
+        if iteration >= self.checkpoint_runway:
+            is_best = score > self.best_score
+            if is_best:
+                if self.verbose:
+                    print(f"Saving model at iteration {iteration} with best "
+                        f"score {score}")
+                self.best_model = model.state_dict()
+                self.best_iteration = iteration
+                self.best_score = score
+
+    def restore(self, model):
+        if self.best_model is None:
+            raise Exception(f"Best model was never found. Best score = "
+                f"{self.best_score}")
+        if self.verbose:
+            print(f"Restoring best model from iteration {self.best_iteration} "
+                f"with score {self.best_score}")
+            model.load_state_dict(self.best_model)
+            return model
+        
+
 def rargmax(x, eps=1e-8):
     """Argmax with random tie-breaking
     

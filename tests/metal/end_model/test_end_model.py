@@ -27,7 +27,7 @@ class EndModelTest(unittest.TestCase):
     def test_logreg(self):
         em = LogisticRegression(seed=1, verbose=False, input_dim=2)
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=5)
+        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
         score = em.score(Xs[2], Ys[2], verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -35,15 +35,15 @@ class EndModelTest(unittest.TestCase):
         em = EndModel(seed=1, verbose=False, batchnorm=False, dropout=0.0,
             layer_output_dims=[2,8,4])
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=5)
+        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
         score = em.score(Xs[2], Ys[2], verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_singletask_extras(self):
-        em = EndModel(seed=1, verbose=False, batchnorm=True, dropout=0.01,
+        em = EndModel(seed=1, batchnorm=True, dropout=0.01, verbose=False,
             layer_output_dims=[2,8,4])
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], verbose=False, n_epochs=5)
+        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5, lr=0.005)
         score = em.score(Xs[2], Ys[2], verbose=False)
         self.assertGreater(score, 0.95)
         

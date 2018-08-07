@@ -14,6 +14,7 @@ from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.input_modules import IdentityModule
 from metal.utils import (
     MetalDataset,
+    Checkpointer,
     hard_to_soft, 
     recursive_merge_dicts,
 )
@@ -196,6 +197,13 @@ class EndModel(Classifier):
         scheduler_config = train_config['scheduler_config']
         lr_scheduler = self._set_scheduler(scheduler_config, optimizer)
 
+        # Create the checkpointer if applicable
+        if train_config['checkpoint']:
+            checkpoint_config = train_config['checkpoint_config']
+            model_class = type(self).__name__
+            checkpointer = Checkpointer(model_class, **checkpoint_config, 
+                verbose=self.config['verbose'])
+
         # Initialize the model
         self.reset()
 
@@ -235,6 +243,8 @@ class EndModel(Classifier):
                 val_metric = train_config['validation_metric']
                 dev_score = self.score(X_dev, Y_dev, metric=val_metric, 
                     verbose=False)
+                if train_config['checkpoint']:
+                    checkpointer.checkpoint(self, epoch, dev_score)
             
             # Apply learning rate scheduler
             if (lr_scheduler is not None 
@@ -253,6 +263,10 @@ class EndModel(Classifier):
                 if evaluate_dev:
                     msg += f'\tDev score: {dev_score:.3f}'
                 print(msg)
+
+        # Restore best model if applicable
+        if train_config['checkpoint']:
+            checkpointer.restore(model=self)
 
         if self.config['verbose']:
             print('Finished Training')

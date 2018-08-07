@@ -74,5 +74,12 @@ em_default_config = {
                 'min_lr': 1e-4,
             },
         },
+
+        # Checkpointer
+        'checkpoint': True,
+        'checkpoint_config': {
+            'checkpoint_min': 0,
+            'checkpoint_runway': 0,
+        }
     },
 }
