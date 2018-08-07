@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 from scipy.sparse import issparse, csr_matrix, hstack
 import torch
 from torch.utils.data import Dataset
@@ -180,13 +181,15 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
     recurse(z, y, misses, verbose)
     return z
 
-def make_unipolar_matrix(L):
+def make_unipolar_matrix(L, force=None):
     """
     Creates a unipolar label matrix from non-unipolar label matrix,
     handles binary and categorical cases
     
     Args:
         csr_matrix L: sparse label matrix
+        int force: number of columns into which to force separation
+                   of each existing column of L
     
     Outputs:
         csr_matrix L_up: equivalent unipolar matrix
@@ -198,11 +201,13 @@ def make_unipolar_matrix(L):
     for col in range(L.shape[1]):
         # Getting unique values in column, ignoring 0
         col_unique_vals = list(set(L[:,col].data)-set([0]))
-        if len(col_unique_vals) == 1:
+        if len(col_unique_vals) == 1 and force is None:
             # If only one unique value in column, keep it
             col_list.append(L[:,col])
         else:
-            # Otherwise, make a new column for each value taken by the LF 
+            # Otherwise, make a new column for each value taken by the LF
+            if force is not None:
+                col_unique_vals = np.arange(1,np.max(force)+1) 
             for val in col_unique_vals:
                 # Efficiently creating and appending column for each LF value
                 val_col = csr_matrix(np.zeros((L.shape[0],1)))
@@ -213,3 +218,32 @@ def make_unipolar_matrix(L):
     L_up = hstack(col_list)
     L_up = csr_matrix(L_up)
     return L_up
+
+def pickle_model(model, filename):
+   """
+   Pickles metal model classes
+
+   Args:
+        ModelClass model: e.g. metal.LabelModel to be saved
+        str filename: name of file to save
+    
+    Outputs:
+        None
+   """
+    with open(filename,'wb') as fl:
+        pickle.dump(model, fl)
+        
+def unpickle_model(filename):
+   """
+   Unpickles saved metal model classes
+
+   Args:
+        str filename: name of file to load
+    
+    Outputs:
+        ModelClass model: loaded model
+   """
+
+    with open(filename,'rb') as fl:
+        model = pickle.load(fl)
+    return model
