@@ -327,4 +327,3 @@ def split_data(input_data, splits, input_labels=None, shuffle=True, stratify=Non
             labels_out.append([labels[x] for x in spl])        
 
     return data_out, labels_out, split_list
-        

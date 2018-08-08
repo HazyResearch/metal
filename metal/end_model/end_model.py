@@ -20,14 +20,12 @@ from metal.utils import (
 )
 
 class EndModel(Classifier):
-    def __init__(self, cardinality=2, input_module=None, **kwargs):
+    def __init__(self, cardinality=2, input_module=None, head_module=None, 
+        **kwargs):
         self.config = recursive_merge_dicts( em_default_config, kwargs)
         super().__init__(cardinality, seed=self.config['seed'])
 
-        if input_module is None:
-            input_module = IdentityModule(self.config['layer_output_dims'][0])
-
-        self._build(input_module)
+        self._build(input_module, head_module)
 
        # Show network
         if self.config['verbose']:
@@ -35,54 +33,53 @@ class EndModel(Classifier):
             self._print()
             print()
 
-    def _build(self, input_module):
+    def _build(self, input_module, head_module):
         """
         TBD
         """
-        # The number of layers is inferred from the specified layer_output_dims
-        layer_dims = self.config['layer_output_dims']
-        num_layers = len(layer_dims)
-
-        if not input_module.get_output_dim() == layer_dims[0]:
-            msg = (f"Input module output size != the first layer output size: "
-                f"({input_module.get_output_dim()} != {layer_dims[0]})")
-            raise ValueError(msg)
-
-        # Set dropout probabilities for all layers
-        dropout = self.config['dropout']
-        if isinstance(dropout, float):
-            dropouts = [dropout] * num_layers
-        elif isinstance(dropout, list):
-            dropouts = dropout
-        
-        # Construct layers
-        self.layers = nn.ModuleList()
-        for i in range(num_layers):
-            layer = []
-            # Input module or Linear
-            if i == 0:
-                layer.append(input_module)
-            else:
-                layer.append(nn.Linear(*layer_dims[i-1:i+1]))
-            if not isinstance(input_module, IdentityModule):
-                layer.append(nn.ReLU())
-            if self.config['batchnorm']:
-                layer.append(nn.BatchNorm1d(layer_dims[i]))
-            if self.config['dropout']:
-                layer.append(nn.Dropout(dropouts[i]))
-            self.layers.add_module(f'layer{i}', nn.Sequential(*layer))
-
-        self._attach_task_heads(num_layers)
+        input_layer = self._build_input_layer(input_module)
+        middle_layers = self._build_middle_layers()
+        head = self._build_task_head(head_module)  
+        self.network = nn.Sequential(input_layer, *middle_layers, head)
 
         # Construct loss module
         self.criteria = SoftCrossEntropyLoss()
 
-    def _attach_task_heads(self, num_layers):
-        """Create and attach a task head to the end of the network trunk"""
-        input_dim = self.config['layer_output_dims'][-1]
-        output_dim = self.k
-        head = nn.Linear(input_dim, output_dim)
-        self.network = nn.Sequential(*(self.layers), head)
+    def _build_input_layer(self, input_module):
+        if input_module is None:
+            input_module = IdentityModule()
+        output_dim = self.config['layer_out_dims'][0]
+        input_layer = self._make_layer(input_module, output_dim=output_dim)
+        return input_layer
+
+    def _build_middle_layers(self):
+        layers = nn.ModuleList()
+        layer_out_dims = self.config['layer_out_dims']
+        num_layers = len(layer_out_dims)
+        for i in range(1, num_layers):
+            module = nn.Linear(*layer_out_dims[i-1:i+1])
+            layer = self._make_layer(module, output_dim=layer_out_dims[i])
+            layers.add_module(f'layer{i}', layer)
+        return layers
+
+    def _build_task_head(self, head_module):
+        if head_module is None:
+            head = nn.Linear(self.config['layer_out_dims'][-1], self.k)
+        else:
+            # Note that if head module is provided, it must have input dim of
+            # the last middle module and output dim of self.k, the cardinality
+            head = head_module        
+        return head
+
+    def _make_layer(self, module, output_dim=None):
+        layer = [module]
+        if not isinstance(module, IdentityModule):
+            layer.append(nn.ReLU())
+            if self.config['batchnorm'] and output_dim:
+                layer.append(nn.BatchNorm1d(output_dim))
+            if self.config['dropout']:
+                layer.append(nn.Dropout(self.config['dropout']))
+        return nn.Sequential(*layer)
 
     def _print(self):
         print(self.network)
@@ -151,6 +148,12 @@ class EndModel(Classifier):
                 **optimizer_config['optimizer_common'],
                 **optimizer_config['sgd_config']
             )
+        elif opt == 'adam':
+            optimizer = optim.Adam(
+                self.parameters(), 
+                **optimizer_config['optimizer_common'],
+                **optimizer_config['adam_config']
+            )
         else:
             raise ValueError(f"Did not recognize optimizer option '{opt}''") 
         return optimizer
@@ -189,6 +192,11 @@ class EndModel(Classifier):
         train_loader = self._make_data_loader(X_train, Y_train, loader_config)
         evaluate_dev = (X_dev is not None and Y_dev is not None)
 
+        # Initialize the model
+        self.reset()
+
+        ### CUT HERE ###
+
         # Set the optimizer
         optimizer_config = train_config['optimizer_config']
         optimizer = self._set_optimizer(optimizer_config)
@@ -203,9 +211,6 @@ class EndModel(Classifier):
             model_class = type(self).__name__
             checkpointer = Checkpointer(model_class, **checkpoint_config, 
                 verbose=self.config['verbose'])
-
-        # Initialize the model
-        self.reset()
 
         # Train the model
         for epoch in range(train_config['n_epochs']):
@@ -232,7 +237,7 @@ class EndModel(Classifier):
                 optimizer.step()
 
                 # Keep running sum of losses
-                epoch_loss += loss.detach() * X.shape[0]
+                epoch_loss += loss.detach() * len(output)
 
             # Calculate average loss per training example
             # Saving division until this stage protects against the potential

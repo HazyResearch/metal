@@ -55,9 +55,6 @@ class LSTMModule(InputModule):
             raise NotImplementedError
             # self.attention = Attention(hidden_size * (self.lstm.bidirectional + 1))
 
-    def get_output_dim(self):
-        return self.output_dim
-
     def _load_pretrained(self, pretrained):
         if not pretrained.dim() == 2:
             msg = (f"Provided embeddings have shape {pretrained.shape}. "
