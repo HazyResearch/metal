@@ -34,7 +34,7 @@ class MTEndModel(MTClassifier, EndModel):
         self.K_t = self.task_graph.K_t  # Cardinalities by task
         self.T = self.task_graph.T      # Total number of tasks
 
-        MTClassifier.__init__(self, cardinalities=self.K_t, seed=seed)
+        MTClassifier.__init__(self, K=self.K_t, seed=seed)
 
         self._build(input_modules, middle_modules, head_modules)
 

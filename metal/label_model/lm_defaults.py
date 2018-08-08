@@ -1,4 +1,4 @@
-lm_model_defaults = {
+lm_default_config = {
     ### GENERAL
     'seed': None,
     'verbose': True,
