@@ -26,25 +26,20 @@ class TaskHierarchy(TaskGraph):
     
     Args:
         edges: A list of (a,b) tuples meaning a is a parent of b in a tree.
-        cardinalities: A T-length list of integers corresponding to the
+        cardinalities: A t-length list of integers corresponding to the
             cardinalities of each task.
         
     Defaults to a single binary task.
     """
     def __init__(self, edges=[], cardinalities=[2]):
         # Number of tasks
-        self.K_t = cardinalities     # Cardinalities by task
-        self.K = max(cardinalities)  # Max cardinality
-        self.T = len(cardinalities)  # Total number of tasks
+        self.K = cardinalities  # Max cardinality
+        self.t = len(cardinalities)  # Total number of tasks
         self.edges = edges
-
-        # TODO: Update LM to use the other versions and delete these
-        self.k = self.K
-        self.t = self.T
         
         # Create a task hierarchy
         self.G = nx.DiGraph()
-        self.G.add_nodes_from(range(self.T))
+        self.G.add_nodes_from(range(self.t))
         self.G.add_edges_from(edges)
         
         # Check that G is a tree
@@ -61,14 +56,14 @@ class TaskHierarchy(TaskGraph):
         # Get the leaf nodes
         # Note: by this definition, not all leaf nodes need be at the same level
         self.leaf_nodes = [i for i in self.G.nodes() if self.G.out_degree(i)==0]
-        self.parents = {t: self.get_parent(t) for t in range(self.T)}
-        self.children = {t: self.get_children(t) for t in range(self.T)}
+        self.parents = {t: self.get_parent(t) for t in range(self.t)}
+        self.children = {t: self.get_children(t) for t in range(self.t)}
 
     def __len__(self):
-        return len(self.leaf_nodes) * self.k
+        return len(self.leaf_nodes) * max(self.K)
 
     def __eq__(self, other):
-        return self.edges == other.edges and self.K_t == other.K_t
+        return self.edges == other.edges and self.K == other.K
 
     def get_parent(self, node):
         return sorted(list(self.G.predecessors(node)))
@@ -81,7 +76,7 @@ class TaskHierarchy(TaskGraph):
     
     def feasible_set(self):
         for i in self.leaf_nodes:
-            for yi in range(1, self.k+1):
+            for yi in range(1, max(self.K)+1):
                 # Set all values to default of -1 = not applicable, except leaf
                 y = -1 * np.ones(self.t)
                 y[i] = yi

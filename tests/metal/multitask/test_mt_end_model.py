@@ -15,10 +15,10 @@ class EndModelTest(unittest.TestCase):
         # Set seed
         np.random.seed(1)
 
-        N = 1200
+        n = 1200
 
-        X = np.random.random((N,2)) * 2 - 1
-        Y = np.zeros((N,2))
+        X = np.random.random((n,2)) * 2 - 1
+        Y = np.zeros((n,2))
         Y[:,0] = (X[:,0] > X[:,1] + 0.5).astype(int) + 1
         Y[:,1] = (X[:,0] > X[:,1] + 0.25).astype(int) + 1
 

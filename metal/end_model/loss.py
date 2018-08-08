@@ -13,8 +13,8 @@ class SoftCrossEntropyLoss(nn.Module):
             size_average)
 
     Accepts:
-        input: An [n, K_t] float tensor of prediction logits (not probabilities)
-        target: An [n, K_t] float tensor of target probabilities
+        input: An [n, k+1] float tensor of prediction logits (not probabilities)
+        target: An [n, k+1] float tensor of target probabilities
     """
     def __init__(self, weight=None, size_average=True, reduce=True):
         super().__init__()
@@ -24,10 +24,10 @@ class SoftCrossEntropyLoss(nn.Module):
         self.size_average = size_average and reduce
 
     def forward(self, input, target):
-        N, K_t = input.shape
-        cum_losses = torch.zeros(N)
-        for y in range(K_t):
-            cls_idx = torch.full((N,), y, dtype=torch.long)
+        n, k = input.shape
+        cum_losses = torch.zeros(n)
+        for y in range(k):
+            cls_idx = torch.full((n,), y, dtype=torch.long)
             y_loss = F.cross_entropy(input, cls_idx, reduce=False)
             if self.weight is not None:
                 y_loss = y_loss * self.weight[y]

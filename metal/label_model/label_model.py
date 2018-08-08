@@ -25,8 +25,8 @@ class LabelModel(Classifier):
         class_balance: (np.array) each class's percentage of the population
     """
     def __init__(self, k=2, class_balance=None, **kwargs):
-        self.config = recursive_merge_dicts(lm_default_config, kwargs)
-        super().__init__(k, seed=self.config['seed'])
+        config = recursive_merge_dicts(lm_default_config, kwargs)
+        super().__init__(k, config)
 
         self._set_class_balance(class_balance)
 
@@ -37,10 +37,6 @@ class LabelModel(Classifier):
         else:
             self.p = class_balance
         self.P = torch.diag(torch.from_numpy(self.p)).float()
-    
-    def update_config(self, update_dict):
-        """Updates self.config with the values in a given update dictionary"""
-        self.config = recursive_merge_dicts(self.config, update_dict)
     
     def _create_L_aug(self, L, km, offset):
         L_aug = np.zeros((self.n, self.m * km))
@@ -341,7 +337,7 @@ class LabelModel(Classifier):
             optimizer.zero_grad()
             
             # Compute gradient and take a step
-            # Note that since this uses all N training points this is an epoch!
+            # Note that since this uses all n training points this is an epoch!
             loss = loss_fn(l2=train_config['l2'])
             if torch.isnan(loss):
                 raise Exception("Loss is NaN. Consider reducing learning rate.")

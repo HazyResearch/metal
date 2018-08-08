@@ -30,8 +30,8 @@ class EndModel(Classifier):
     """
     def __init__(self, k=2, input_module=None, middle_modules=None,
         head_module=None, **kwargs):
-        self.config = recursive_merge_dicts( em_default_config, kwargs)
-        super().__init__(k, seed=self.config['seed'])
+        config = recursive_merge_dicts( em_default_config, kwargs)
+        super().__init__(k, config)
 
         self._build(input_module, middle_modules, head_module)
 
@@ -98,7 +98,7 @@ class EndModel(Classifier):
         print(self.network)
 
     def forward(self, x):
-        """Returns a list of outputs for tasks t=0,...T-1
+        """Returns a list of outputs for tasks 0,...t-1
         
         Args:
             x: a [batch_size, ...] batch from X
@@ -169,5 +169,5 @@ class EndModel(Classifier):
         self._train(train_loader, loss_fn, X_dev=X_dev, Y_dev=Y_dev)
 
     def predict_proba(self, X):
-        """Returns a [N, K_t] tensor of soft (float) predictions."""
+        """Returns a [n, k+1] tensor of soft (float) predictions."""
         return F.softmax(self.forward(X), dim=1).data.cpu().numpy()

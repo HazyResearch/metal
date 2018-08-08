@@ -8,9 +8,9 @@ class MetalDataset(Dataset):
     """A dataset that group each item in X with it label from Y
     
     Args:
-        X: an N-dim iterable of items
+        X: an n-dim iterable of items
         Y: a torch.Tensor of labels
-            This may be hard labels [N] or soft labels [N, k]
+            This may be hard labels [n] or soft labels [n, k]
     """
     def __init__(self, X, Y):
         self.X = X
@@ -81,11 +81,11 @@ def hard_to_soft(Y_h, k):
     """Converts a 1D tensor of hard labels into a 2D tensor of soft labels
 
     Args:
-        Y_h: an [N], or [N,1] tensor of hard (int) labels between 0 and k 
+        Y_h: an [n], or [n,1] tensor of hard (int) labels between 0 and k 
             (inclusive), where 0 = abstain.
         k: the largest possible label in Y_h
     Returns:
-        Y_s: a torch.FloatTensor of shape [N, k + 1] where Y_s[i,j] is the soft
+        Y_s: a torch.FloatTensor of shape [n, k + 1] where Y_s[i,j] is the soft
             label for item i and class j.
     """
     Y_h = Y_h.clone()
@@ -93,8 +93,8 @@ def hard_to_soft(Y_h, k):
     assert(Y_h.dim() == 1)
     assert((Y_h >= 0).all())
     assert((Y_h <= k).all())
-    N = Y_h.shape[0]
-    Y_s = torch.zeros((N, k+1))
+    n = Y_h.shape[0]
+    Y_s = torch.zeros((n, k+1))
     for i, j in enumerate(Y_h):
         Y_s[i, j] = 1.0
     return Y_s

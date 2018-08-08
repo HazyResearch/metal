@@ -14,9 +14,9 @@ class EndModelTest(unittest.TestCase):
         # Set seed
         np.random.seed(1)
 
-        N = 2000
+        n = 2000
 
-        X = np.random.random((N,2)) * 2 - 1
+        X = np.random.random((n,2)) * 2 - 1
         Y = (X[:,0] > X[:,1] + 0.25).astype(int) + 1
 
         X = torch.tensor(X, dtype=torch.float)

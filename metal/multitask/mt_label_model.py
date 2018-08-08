@@ -19,15 +19,15 @@ class MTLabelModel(MTClassifier, LabelModel):
             kwargs:
                 - seed: int: Random state seed
         """
-        self.config = recursive_merge_dicts(lm_default_config, kwargs)
-        super().__init__(K)
+        config = recursive_merge_dicts(lm_default_config, kwargs)
+        MTClassifier.__init__(self, K, config)
 
         # WARNING: Currently only storing 1 k for all tasks in self.k and
-        # ignores self.K!
+        # ignoring self.K!
         print("WARNING: Currently assuming all tasks have same cardinality!")
         self.task_graph = task_graph
         if self.task_graph is None:
-            self.k = K
+            self.k = K  # TODO: this should not typecheck!
         else:
             self.k = len(self.task_graph)
 

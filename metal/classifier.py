@@ -8,7 +8,7 @@ import torch.optim as optim
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
-from metal.utils import Checkpointer
+from metal.utils import Checkpointer, recursive_merge_dicts
 
 class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier.
@@ -31,15 +31,15 @@ class Classifier(nn.Module):
         k: (int) The cardinality of the classifier
         seed: (int) A random seed to set
     """
-
-    def __init__(self, k=2, seed=None):
+    def __init__(self, k, config):
         super().__init__()
+        self.config = config
         self.multitask = False
         self.k = k
 
-        if seed is None:
-            seed = np.random.randint(1e6)
-        self._set_seed(seed)
+        if self.config['seed'] is None:
+            self.config['seed'] = np.random.randint(1e6)
+        self._set_seed(self.config['seed'])
 
     def _set_seed(self, seed):
         self.seed = seed
@@ -56,6 +56,10 @@ class Classifier(nn.Module):
     def _reset_module(m):
         """An initialization method to be applied recursively to all modules"""
         raise NotImplementedError
+
+    def update_config(self, update_dict):
+        """Updates self.config with the values in a given update dictionary"""
+        self.config = recursive_merge_dicts(self.config, update_dict)
 
     def save(self, destination=None):
         """Serialize and save a model.
@@ -242,8 +246,8 @@ class Classifier(nn.Module):
 
         Args:
             X: The input for the predict method
-            Y: An [N] or [N, 1] torch.Tensor or np.ndarray of gold labels in 
-                {1,...,K_t}
+            Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels in 
+                {0,...,k}
             metric: A metric (string) with which to score performance or a 
                 list of such metrics
             break_ties: How to break ties when making predictions
@@ -272,7 +276,7 @@ class Classifier(nn.Module):
             break_ties: A tie-breaking policy
 
         Returns:
-            An N-dim np.ndarray of predictions
+            An n-dim np.ndarray of predictions
         """
         Y_p = self._to_numpy(self.predict_proba(X, **kwargs))
         Y_ph = self._break_ties(Y_p, break_ties)
@@ -283,7 +287,7 @@ class Classifier(nn.Module):
         Args:
             X: An appropriate input for the child class of Classifier
         Returns:
-            An [N, K_t] np.ndarray of soft predictions
+            An [n, k+1] np.ndarray of soft predictions
         """
         raise NotImplementedError
 
@@ -291,19 +295,19 @@ class Classifier(nn.Module):
         """Break ties in each row of a tensor according to the specified policy
 
         Args:
-            Y_s: An [N, K_t] np.ndarray of probabilities
+            Y_s: An [n, k+1] np.ndarray of probabilities
             break_ties: A tie-breaking policy:
                 'abstain': return an abstain vote (0)
                 'random': randomly choose among the tied options
                     NOTE: if break_ties='random', repeated runs may have 
                     slightly different results due to difference in broken ties
         """
-        N, k = Y_s.shape
-        Y_th = np.zeros(N)
+        n, k = Y_s.shape
+        Y_th = np.zeros(n)
         diffs = np.abs(Y_s - Y_s.max(axis=1).reshape(-1, 1))
 
         TOL = 1e-5
-        for i in range(N):
+        for i in range(n):
             max_idxs = np.where(diffs[i, :] < TOL)[0]
             if len(max_idxs) == 1:
                 Y_th[i] = max_idxs[0] + 1

@@ -76,8 +76,8 @@ class LossTest(unittest.TestCase):
         # All incorrect predictions
         Y_h = torch.tensor([1,1,2], dtype=torch.long)
         target = Y_h
-        K_t = 3
-        Y = hard_to_soft(Y_h, k=K_t)
+        k = 3
+        Y = hard_to_soft(Y_h, k=k)
         Y_p = torch.tensor([
             [0., -100.,  100., -100.],
             [0., -100.,  100., -100.],

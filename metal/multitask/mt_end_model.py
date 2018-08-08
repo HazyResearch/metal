@@ -20,21 +20,35 @@ class MTEndModel(MTClassifier, EndModel):
 
     Note that when looking up methods, MTEndModel will first search in 
     MTClassifier, followed by EndModel.
+
+    Args:
+        K: A t-length list of task cardinalities (overrided by task_graph
+            if task_graph is not None)
+        task_graph: TaskGraph: A TaskGraph which defines a feasible set of
+            task label vectors; overrides K
+        input_module: (nn.Module) a module that converts the user-provided 
+            model inputs to torch.Tensors. Defaults to IdentityModule.
+        middle_modules: (nn.Module) a list of modules to execute between the
+            input_module and task head. Defaults to nn.Linear.
+        head_module: (nn.Module) a module to execute right before the final
+            softmax that outputs a prediction for the task.            
     """
-    def __init__(self, task_graph=None, input_modules=None, middle_modules=None, 
-        head_modules=None, seed=None, **kwargs):
-        defaults = recursive_merge_dicts(
+    def __init__(self, K=[], task_graph=None, input_modules=None, 
+        middle_modules=None, head_modules=None, **kwargs):
+        config = recursive_merge_dicts(
             em_default_config, mt_em_default_config, misses='insert')
-        self.config = recursive_merge_dicts(defaults, kwargs)
+        config = recursive_merge_dicts(config, kwargs)
+        MTClassifier.__init__(self, K, config)
 
-        # If no task_graph is specified, default to a single binary task
         if task_graph is None:
-            task_graph = TaskHierarchy(edges=[], cardinalities=[2])
+            if K is None:
+                raise ValueError("You must supply either a list of "
+                    "cardinalities (K) or a TaskGraph.")
+            task_graph = TaskHierarchy(edges=[], cardinalities=K)
         self.task_graph = task_graph
-        self.K_t = self.task_graph.K_t  # Cardinalities by task
-        self.T = self.task_graph.T      # Total number of tasks
-
-        MTClassifier.__init__(self, K=self.K_t, seed=seed)
+        self.K = self.task_graph.K  # Cardinalities by task
+        self.t = self.task_graph.t  # Total number of tasks
+        assert(len(self.K) == self.t)
 
         self._build(input_modules, middle_modules, head_modules)
 
@@ -87,10 +101,10 @@ class MTEndModel(MTClassifier, EndModel):
                 "cannot be inferred.")
 
         # Construct heads
-        head_dims = [self.K_t[t] for t in range(self.T)]
+        head_dims = [self.K[t] for t in range(self.t)]
 
         heads = nn.ModuleList()
-        for t in range(self.T):
+        for t in range(self.t):
             input_dim = self.config['layer_out_dims'][task_head_layers[t]]
             if self.config['pass_predictions']:
                 for p in self.task_graph.parents[t]:
@@ -111,7 +125,7 @@ class MTEndModel(MTClassifier, EndModel):
         if isinstance(head_layers, list):
             task_head_layers = head_layers
         elif head_layers == 'top':
-            task_head_layers = [num_layers - 1] * self.T
+            task_head_layers = [num_layers - 1] * self.t
         elif head_layers == 'auto':
             raise NotImplementedError
         else:
@@ -161,12 +175,12 @@ class MTEndModel(MTClassifier, EndModel):
             print()
 
     def forward(self, x):
-        """Returns a list of outputs for tasks t=0,...T-1
+        """Returns a list of outputs for tasks 0,...t-1
         
         Args:
             x: a [batch_size, ...] batch from X
         """
-        head_outputs = [None] * self.T
+        head_outputs = [None] * self.t
         
         # Execute input layer
         if isinstance(self.input_layer, list): # One input_module per task
@@ -205,16 +219,17 @@ class MTEndModel(MTClassifier, EndModel):
         return head_outputs
 
     def _preprocess_Y(self, Y):
-        """Convert Y to T-dim lists of soft labels if necessary"""
+        """Convert Y to t-length list of soft labels if necessary"""
         # If not a list, convert to a singleton list
         if not isinstance(Y, list):
-            if self.T != 1:
-                msg = "For T > 1, Y must be a list of N-dim or [N, K_t] tensors"
+            if self.t != 1:
+                msg = ("For t > 1, Y must be a list of n-dim or [n, K_t+1] "
+                    "tensors")
                 raise ValueError(msg)
             Y = [Y]
         
-        if not len(Y) == self.T:
-            msg = "Expected Y to be a list of length T ({self.T}), not {len(Y)}"
+        if not len(Y) == self.t:
+            msg = f"Expected Y to be a t-length list (t={self.t}), not {len(Y)}"
             raise ValueError(msg)
 
         Y = [Y_t.clone() for Y_t in Y]
@@ -236,10 +251,10 @@ class MTEndModel(MTClassifier, EndModel):
         return loss_fn
 
     def predict_proba(self, X):
-        """Returns a list of T [N, K_t] tensors of soft (float) predictions."""
+        """Returns a list of t [n, K_t+1] tensors of soft (float) predictions."""
         return [F.softmax(output, dim=1).data.cpu().numpy() for output in 
             self.forward(X)]
 
     def predict_task_proba(self, X, t):
-        """Returns an N x k matrix of probabilities for each label of task t"""
+        """Returns an n x k matrix of probabilities for each label of task t"""
         return self.predict_tasks_proba(X)[t]
