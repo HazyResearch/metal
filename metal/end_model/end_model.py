@@ -73,13 +73,14 @@ class EndModel(Classifier):
         return head
 
     def _make_layer(self, module, output_dim=None):
+        if isinstance(module, IdentityModule):
+            return module
         layer = [module]
-        if not isinstance(module, IdentityModule):
-            layer.append(nn.ReLU())
-            if self.config['batchnorm'] and output_dim:
-                layer.append(nn.BatchNorm1d(output_dim))
-            if self.config['dropout']:
-                layer.append(nn.Dropout(self.config['dropout']))
+        layer.append(nn.ReLU())
+        if self.config['batchnorm'] and output_dim:
+            layer.append(nn.BatchNorm1d(output_dim))
+        if self.config['dropout']:
+            layer.append(nn.Dropout(self.config['dropout']))
         return nn.Sequential(*layer)
 
     def _print(self):
