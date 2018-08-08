@@ -2,7 +2,7 @@ import numpy as np
 from scipy.sparse import issparse, csr_matrix, hstack
 import torch
 from torch.utils.data import Dataset
-
+import random
 
 class MetalDataset(Dataset):
     """A dataset that group each item in X with it label from Y
@@ -256,3 +256,108 @@ def make_unipolar_matrix(L):
     L_up = hstack(col_list)
     L_up = csr_matrix(L_up)
     return L_up
+
+def split_data(input_data, splits, input_labels=None, shuffle=True, stratify=None, seed=None):
+    """Splits inputs into multiple splits of defined sizes
+
+    Args:
+        data: iterable containing data points
+        labels: iterable containing labels
+        splits: list containing of split sizes (fraction or integer)
+        shuffle: if True, shuffle the data before splitting
+        stratify: if shuffle=True, uses these labels to stratify the splits
+            (separating the data into groups by these labels and sampling from
+            those, rather than from the population at large)
+
+    Note: This is very similar to scikit-learn's train_test_split() method,
+        but with support for more than two splits.
+    """
+
+    # Making copies
+    data = input_data.copy()
+    labels = input_labels.copy()
+
+    # Setting random seed
+    if seed is not None:
+        random.seed(seed)
+
+    # Checking size of data
+    n_points = len(data)
+    if n_points == 0:
+        raise ValueError("At least one iterable required as input")
+    
+    # Ensuring we have either all ints or all floats
+    valid_int_split = all(isinstance(x, int) for x in splits)
+    valid_float_split = all(isinstance(x, float) for x in splits)
+    if not (valid_int_split or valid_float_split):
+        raise ValueError(
+            'Argument split must contain all decimals or all integers!')
+
+    # If we have a valid split, make sure it's mathematically consistent:
+    consistent_int_split = np.sum(splits) == n_points
+    consistent_float_split = np.sum(splits) == 1
+    if not (consistent_int_split or consistent_float_split):
+        raise ValueError(
+            'Integer splits must add up to number of data points, fractions to one!')
+
+    # Checking if we are using integer or fractional splits
+    int_split = float(splits[0]).is_integer()
+
+    # Converting to integer representation
+    if int_split:
+        split_nums = splits.copy()
+        split_fracs = [float(x)/n_points for x in splits]
+    else:
+        split_nums = [int(x*n_points) for x in splits]
+        split_fracs = splits.copy()
+    
+    # Adding in 0th element
+    split_nums.insert(0,0)
+    split_fracs.insert(0,0)
+
+    # Creating index per split vector with 0 in first index
+    split_sum = np.cumsum(split_nums).astype(int)
+    split_frac_sum = np.cumsum(split_fracs)
+
+    # Shuffling
+    if shuffle:
+        random.shuffle(data)
+        
+    # Defining outputs
+    data_out = []
+    labels_out = []
+    split_list = []
+
+    # Handling case without stratification
+    if stratify:
+        if labels is None:
+            raise ValueError("Cannot stratify without labels!")
+        if shuffle:
+            inds = {}
+            unique_vals = np.unique(labels)
+            for val in unique_vals:
+                inds[val] = np.where(labels == val)[0]
+            for ii in range(len(splits)):
+                spl_list = []
+                for val in unique_vals:
+                    start_ind = int(split_frac_sum[ii]*len(inds[val]))
+                    end_ind = int(split_frac_sum[ii+1]*len(inds[val]))
+                    val_list = [inds[val][x] for x in range(start_ind,end_ind)]
+                    spl_list = spl_list + val_list   
+                split_list.append(spl_list)
+        else:
+            raise ValueError(
+                "Stratified train/test split is not implemented for "
+                "shuffle=False")
+    
+    else:
+        for ii in range(len(splits)):
+            split_list.append([x for x in range(split_sum[ii],split_sum[ii+1])])
+    
+    for spl in split_list:
+        data_out.append([data[x] for x in spl])
+        if labels is not None:
+            labels_out.append([labels[x] for x in spl])        
+
+    return data_out, labels_out, split_list
+        

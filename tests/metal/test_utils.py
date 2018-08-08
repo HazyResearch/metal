@@ -8,7 +8,7 @@ from metal.utils import (
     rargmax,
     hard_to_soft,
     recursive_merge_dicts,
-    make_unipolar_matrix
+    split_data
 )
 
 class UtilsTest(unittest.TestCase):
@@ -46,17 +46,41 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(w['foo']['Foo']['FOO'], 4)
         with self.assertRaises(ValueError):
             recursive_merge_dicts(x, z, verbose=False)
-            
-    def test_make_unipolar_matrix(self):
-        a = np.ones((5,1))
-        b = a*2
-        c = a*3
-        d = a*0
-        col = np.vstack([a,b,c,d])
-        mat = np.hstack([col,col])
-        mat_up = make_unipolar_matrix(scipy.sparse.csr_matrix(mat)).todense()
-        self.assertTrue(np.array_equal(mat_up[:,0]+mat_up[:,1]+mat_up[:,2], col))
-        self.assertTrue(mat_up.shape[1] == 6)
         
+    def test_split_data(self):
+        # Creating data
+        X = np.random.randint(0,100, size=100000)
+        Y = np.random.randint(0,4,size=100000).astype(int)
+
+        # Creating splits of correct size
+        splits = [100, 1000, 100000-1000-100]
+        data_out, labels_out, split_list = split_data(X, splits, input_labels=Y, shuffle=True, stratify=None, seed=None)
+        out_dim = [len(data_out[0]), len(data_out[1]), len(data_out[2])]
+        self.assertTrue(np.array_equal(out_dim, splits))
+
+        # Checking functionality with fractional arguments
+        splits_frac = [float(a)/np.sum(splits) for a in splits]
+        data_out, labels_out, split_list = split_data(X, splits_frac, input_labels=Y, shuffle=True, stratify=None, seed=None)
+        out_dim = [len(data_out[0]), len(data_out[1]), len(data_out[2])]
+        self.assertTrue(np.array_equal(out_dim, splits))
+
+        #Checking to make sure that we've actually shuffled!
+        self.assertTrue(X[0] != data_out[0][0])
+
+        # Turning off shuffling
+        splits_frac = [float(a)/np.sum(splits) for a in splits]
+        data_out, labels_out, split_list = split_data(X, splits_frac, input_labels=Y, shuffle=False, stratify=None, seed=None)
+        out_dim = [len(data_out[0]), len(data_out[1]), len(data_out[2])]
+        # Making sure we haven't shuffled!
+        self.assertTrue(X[0] == data_out[0][0])
+
+        # Testing stratification -- making sure proportion of label `test_label` is constant in splits!
+        test_label = 3
+        splits_frac = [float(a)/np.sum(splits) for a in splits]
+        data_out, labels_out, split_list = split_data(X, splits_frac, input_labels=Y, shuffle=True, stratify=True, seed=1701)
+        out_dim = [len(data_out[0]), len(data_out[1]), len(data_out[2])]
+        props = [np.sum([b==test_label for b in labels_out[a]])/len(labels_out[a]) for a in range(len(labels_out))]
+        self.assertTrue(np.max([np.abs(a-props[0]) for a in props])<0.01)
+
 if __name__ == '__main__':
     unittest.main()
