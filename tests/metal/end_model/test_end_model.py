@@ -34,7 +34,7 @@ class EndModelTest(unittest.TestCase):
         self.assertGreater(score, 0.95)
 
     def test_softmax(self):
-        em = SoftmaxRegression(seed=1, input_dim=2, output_dim=3, verbose=True)
+        em = SoftmaxRegression(seed=1, input_dim=2, output_dim=3, verbose=False)
         Xs, _ = self.single_problem
         Ys = []
         for X in Xs:
@@ -45,7 +45,7 @@ class EndModelTest(unittest.TestCase):
                 torch.stack([class1, class2, class3], dim=1), dim=1) + 1
             Ys.append(Y)
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], lr=0.1, n_epochs=10)
-        score = em.score(Xs[2], Ys[2], verbose=True)
+        score = em.score(Xs[2], Ys[2], verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_singletask(self):
@@ -71,9 +71,9 @@ class EndModelTest(unittest.TestCase):
         input_module = nn.Sequential(IdentityModule(), nn.Linear(2,10))
         head_module = nn.Sequential(nn.Linear(10,2), IdentityModule())
         em = EndModel(seed=1, input_module=input_module, 
-            head_module=head_module, layer_out_dims=[10], verbose=True)
+            head_module=head_module, layer_out_dims=[10], verbose=False)
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5, verbose=True, show_plots=False)
+        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5, verbose=False, show_plots=False)
         score = em.score(Xs[2], Ys[2], verbose=False)
         self.assertGreater(score, 0.95)
         
