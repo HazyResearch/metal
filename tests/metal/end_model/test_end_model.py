@@ -69,9 +69,11 @@ class EndModelTest(unittest.TestCase):
     def test_custom_modules(self):
         """Test custom input/head modules"""
         input_module = nn.Sequential(IdentityModule(), nn.Linear(2,10))
-        head_module = nn.Sequential(nn.Linear(10,2), IdentityModule())
+        middle_modules = [nn.Linear(10,8), IdentityModule()]
+        head_module = nn.Sequential(nn.Linear(8,2), IdentityModule())
         em = EndModel(seed=1, input_module=input_module, 
-            head_module=head_module, layer_out_dims=[10], verbose=False)
+            middle_modules=middle_modules, head_module=head_module, 
+            layer_out_dims=[10,8,8], verbose=True)
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5, verbose=False, show_plots=False)
         score = em.score(Xs[2], Ys[2], verbose=False)

@@ -17,12 +17,12 @@ from metal.utils import (
 )
 
 class EndModel(Classifier):
-    def __init__(self, cardinality=2, input_module=None, head_module=None, 
-        **kwargs):
+    def __init__(self, cardinality=2, input_module=None, middle_modules=None,
+        head_module=None, **kwargs):
         self.config = recursive_merge_dicts( em_default_config, kwargs)
         super().__init__(cardinality, seed=self.config['seed'])
 
-        self._build(input_module, head_module)
+        self._build(input_module, middle_modules, head_module)
 
        # Show network
         if self.config['verbose']:
@@ -30,12 +30,12 @@ class EndModel(Classifier):
             self._print()
             print()
 
-    def _build(self, input_module, head_module):
+    def _build(self, input_module, middle_modules, head_module):
         """
         TBD
         """
         input_layer = self._build_input_layer(input_module)
-        middle_layers = self._build_middle_layers()
+        middle_layers = self._build_middle_layers(middle_modules)
         head = self._build_task_head(head_module)  
         self.network = nn.Sequential(input_layer, *middle_layers, head)
 
@@ -49,15 +49,19 @@ class EndModel(Classifier):
         input_layer = self._make_layer(input_module, output_dim=output_dim)
         return input_layer
 
-    def _build_middle_layers(self):
-        layers = nn.ModuleList()
+    def _build_middle_layers(self, middle_modules):
+        middle_layers = nn.ModuleList()
         layer_out_dims = self.config['layer_out_dims']
         num_layers = len(layer_out_dims)
         for i in range(1, num_layers):
-            module = nn.Linear(*layer_out_dims[i-1:i+1])
-            layer = self._make_layer(module, output_dim=layer_out_dims[i])
-            layers.add_module(f'layer{i}', layer)
-        return layers
+            if middle_modules is None:
+                module = nn.Linear(*layer_out_dims[i-1:i+1])
+                layer = self._make_layer(module, output_dim=layer_out_dims[i])
+            else:
+                module = middle_modules[i-1]
+                layer = self._make_layer(module)
+            middle_layers.add_module(f'layer{i}', layer)
+        return middle_layers
 
     def _build_task_head(self, head_module):
         if head_module is None:

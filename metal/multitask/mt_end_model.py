@@ -21,8 +21,8 @@ class MTEndModel(MTClassifier, EndModel):
     Note that when looking up methods, MTEndModel will first search in 
     MTClassifier, followed by EndModel.
     """
-    def __init__(self, task_graph=None, input_modules=None, head_modules=None,
-        seed=None, **kwargs):
+    def __init__(self, task_graph=None, input_modules=None, middle_modules=None, 
+        head_modules=None, seed=None, **kwargs):
         defaults = recursive_merge_dicts(
             em_default_config, mt_em_default_config, misses='insert')
         self.config = recursive_merge_dicts(defaults, kwargs)
@@ -36,7 +36,7 @@ class MTEndModel(MTClassifier, EndModel):
 
         MTClassifier.__init__(self, cardinalities=self.K_t, seed=seed)
 
-        self._build(input_modules, head_modules)
+        self._build(input_modules, middle_modules, head_modules)
 
         # Show network
         if self.config['verbose']:
@@ -44,12 +44,12 @@ class MTEndModel(MTClassifier, EndModel):
             self._print()
             print()
 
-    def _build(self, input_modules, head_modules):
+    def _build(self, input_modules, middle_modules, head_modules):
         """
         TBD
         """
         self.input_layer = self._build_input_layer(input_modules)
-        self.middle_layers = self._build_middle_layers()
+        self.middle_layers = self._build_middle_layers(middle_modules)
         self.heads = self._build_task_heads(head_modules)  
 
         # Construct loss module
@@ -66,16 +66,6 @@ class MTEndModel(MTClassifier, EndModel):
             input_layer = self._make_layer(input_modules, output_dim)
 
         return input_layer
-
-    def _build_middle_layers(self):
-        middle_layers = nn.ModuleList()
-        layer_out_dims = self.config['layer_out_dims']
-        num_layers = len(layer_out_dims)
-        for i in range(1, num_layers):
-            module = nn.Linear(*layer_out_dims[i-1:i+1])
-            layer = self._make_layer(module, output_dim=layer_out_dims[i])
-            middle_layers.add_module(f'layer{i}', layer)
-        return middle_layers
 
     def _build_task_heads(self, head_modules):
         """Creates and attaches task_heads to the appropriate network layers"""
