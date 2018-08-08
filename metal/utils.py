@@ -223,51 +223,18 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
     recurse(z, y, misses, verbose)
     return z
 
-def make_unipolar_matrix(L):
-    """
-    Creates a unipolar label matrix from non-unipolar label matrix,
-    handles binary and categorical cases
-    
-    Args:
-        csr_matrix L: sparse label matrix
-    
-    Outputs:
-        csr_matrix L_up: equivalent unipolar matrix
-    """
-    
-    # Creating list of columns for matrix
-    col_list = []
-    
-    for col in range(L.shape[1]):
-        # Getting unique values in column, ignoring 0
-        col_unique_vals = list(set(L[:,col].data)-set([0]))
-        if len(col_unique_vals) == 1:
-            # If only one unique value in column, keep it
-            col_list.append(L[:,col])
-        else:
-            # Otherwise, make a new column for each value taken by the LF 
-            for val in col_unique_vals:
-                # Efficiently creating and appending column for each LF value
-                val_col = csr_matrix(np.zeros((L.shape[0],1)))
-                val_col = val_col + val*(L[:,col] == val)
-                col_list.append(val_col)
-                
-    # Stacking columns and converting to csr_matrix
-    L_up = hstack(col_list)
-    L_up = csr_matrix(L_up)
-    return L_up
-
 def split_data(input_data, splits, input_labels=None, shuffle=True, stratify=None, seed=None):
     """Splits inputs into multiple splits of defined sizes
 
     Args:
-        data: iterable containing data points
-        labels: iterable containing labels
+        input_data: iterable containing data points
         splits: list containing of split sizes (fraction or integer)
+        input_labels: iterable containing labels (optional)
         shuffle: if True, shuffle the data before splitting
         stratify: if shuffle=True, uses these labels to stratify the splits
             (separating the data into groups by these labels and sampling from
             those, rather than from the population at large)
+        seed: int, set random seed
 
     Note: This is very similar to scikit-learn's train_test_split() method,
         but with support for more than two splits.
