@@ -7,13 +7,13 @@ em_default_config = {
     # Network
     'batchnorm': False,
     'dropout': 0.0,
-    'layer_output_dims': [100, 50],
-        # The first value is the output dim of the input module
-        # The remaining values are the output dims of intermediate layers
-        # The task head attached to the final intermediate layer and has an
+    'layer_out_dims': [100, 50],
+        # The first value is the output dim of the input module (or the sum of
+        # the output dims of all the input modules if multitask=True and 
+        # multiple input modules are provided). The input module is layer 0.
+        # The remaining values are the output dims of middle layers
+        # The task head is attached to the final middle layer and has an
         # output dim equal to the cardinality of the classifier.
-        # So the total number of layers in the network will be equal to
-        # len(layer_output_dims) + 1.
 
     ### TRAINING
     'train_config': {
@@ -40,7 +40,7 @@ em_default_config = {
 
         # Optimizer
         'optimizer_config': {
-            'optimizer': 'sgd',
+            'optimizer': 'adam',
             'optimizer_common': {
                 'lr': 0.01,
                 'weight_decay': 0.0,
@@ -51,8 +51,7 @@ em_default_config = {
             },
             # Optimizer - Adam
             'adam_config': {
-                'beta1': 0.9,
-                'beta2': 0.999,
+                'betas': (0.9, 0.999)
             },
         },
 
