@@ -2,7 +2,9 @@
 
 <img src="assets/logo_01.png" width="150"/>
 
-**_v0.1.0-alpha_**
+**_v0.1.0-alpha_** 
+
+(Expect frequent changes, not all backwards-compatible, through mid-August when v0.1.0 is solidified)
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
@@ -13,8 +15,6 @@ Snorkel MeTaL can use the output of labeling functions developed and executed in
 
 Snorkel MeTaL uses a new matrix approximation approach to learn the accuracies of diverse sources with unknown accuracies, arbitrary dependency structures, and structured multi-task outputs.
 For more detail, see the **working draft of our technical report on MeTaL: [_Training Complex Models with Multi-Task Weak Supervision_](https://ajratner.github.io/assets/papers/mts-draft.pdf)**
-
-v0.2.0 will be coming soon (mid-August) with additional documentation and tutorials.
 
 ## Setup
 [1] Install anaconda3 (https://www.anaconda.com/download/#macos)
