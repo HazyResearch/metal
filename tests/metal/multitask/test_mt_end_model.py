@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from metal.input_modules import IdentityModule
+from metal.modules import IdentityModule
 from metal.multitask import MTEndModel, TaskHierarchy
 
 class EndModelTest(unittest.TestCase):

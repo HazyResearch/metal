@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from metal.classifier import Classifier
 from metal.end_model.em_defaults import  em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.input_modules import IdentityModule
+from metal.modules import IdentityModule
 from metal.utils import (
     MetalDataset,
     hard_to_soft, 

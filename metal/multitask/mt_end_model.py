@@ -12,7 +12,7 @@ from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.multitask import TaskHierarchy, MTClassifier
 from metal.multitask import MultiYDataset, MultiXYDataset
 from metal.multitask.mt_em_defaults import mt_em_default_config
-from metal.input_modules import IdentityModule
+from metal.modules import IdentityModule
 from metal.utils import recursive_merge_dicts
 
 class MTEndModel(MTClassifier, EndModel):

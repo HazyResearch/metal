@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from metal.end_model import EndModel, LogisticRegression, SoftmaxRegression
-from metal.input_modules import IdentityModule
+from metal.modules import IdentityModule
 
 class EndModelTest(unittest.TestCase):
 

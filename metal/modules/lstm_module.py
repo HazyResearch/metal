@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn_utils
 
-from metal.input_modules.base_module import InputModule
+from metal.modules.base_module import InputModule
 
 class LSTMModule(InputModule):
     """An LSTM-based input module"""

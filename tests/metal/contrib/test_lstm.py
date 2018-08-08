@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import torch
 
-from metal.input_modules import LSTMModule
+from metal.modules import LSTMModule
 from metal.end_model import EndModel
 
 
