@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 import torch
+import torch.nn as nn
 
 from metal.input_modules import IdentityModule
 from metal.multitask import MTEndModel, TaskHierarchy
@@ -51,7 +52,7 @@ class EndModelTest(unittest.TestCase):
         score = em.score(self.Xs[2], self.Ys[2], reduce='mean', verbose=False)
         self.assertGreater(score, 0.95)
     
-    def test_multitask_custom(self):
+    def test_multitask_custom_attachments(self):
         """Attach the task heads at user-specified layers"""
         edges = [(0,1)]
         cards = [2,2]
@@ -71,7 +72,7 @@ class EndModelTest(unittest.TestCase):
         score = em.score(self.Xs[2], self.Ys[2], reduce='mean', verbose=False)
         self.assertGreater(score, 0.95)
 
-    def test_multitask_many_modules(self):
+    def test_multitask_two_modules(self):
         """Accept a different representation for each task"""
         edges = []
         cards = [2,2]
@@ -93,6 +94,27 @@ class EndModelTest(unittest.TestCase):
             n_epochs=10,
         )
         score = em.score(Xs[2], self.Ys[2], reduce='mean', verbose=False)
+        self.assertGreater(score, 0.95)      
+
+    def test_multitask_custom_heads(self):
+        """Accept a different representation for each task"""
+        edges = []
+        cards = [2,2]
+        tg = TaskHierarchy(edges, cards)
+        em = MTEndModel(
+            task_graph=tg,
+            seed=1,
+            verbose=False,
+            dropout=0.0,
+            layer_out_dims=[2,8,4],
+            head_modules=[nn.Linear(8,2), nn.Linear(4,2)],
+            task_head_layers=[1,2],
+        )
+        em.train(self.Xs[0], self.Ys[0], self.Xs[1], self.Ys[1],
+            verbose=False,
+            n_epochs=10,
+        )
+        score = em.score(self.Xs[2], self.Ys[2], reduce='mean', verbose=False)
         self.assertGreater(score, 0.95)      
 
 if __name__ == '__main__':
