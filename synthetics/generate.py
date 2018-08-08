@@ -16,9 +16,20 @@ def indpm(x, y):
     return 1 if x == y else -1
 
 class SingleTaskTreeDepsGenerator(object):
-    """Generates synthetic single-task labels from labeling functions with
-    class-conditional accuracies, and class-unconditional pairwise correlations
-    forming a tree-structured graph.
+    """Generates a synthetic single-task L and Y matrix with dependencies
+    
+    Args:
+        n: (int) The number of data points
+        m: (int) The number of labeling sources
+        k: (int) The cardinality of the classification task
+        theta_range: (tuple) The min and max possible values for theta, the
+            class conditional accuracy for each labeling source
+        edge_prob: edge density in the graph of correlations between sources
+        theta_edge_range: The min and max possible values for theta_edge, the
+            strength of correlation between correlated sources
+
+    The labeling functions have class-conditional accuracies, and 
+    class-unconditional pairwise correlations forming a tree-structured graph.
 
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains.
