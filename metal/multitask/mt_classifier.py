@@ -31,12 +31,15 @@ class MTClassifier(Classifier):
     also override predict_task_proba for efficiency. 
     Otherwise, predict_task_proba() will default to calling predict_proba and 
     accessing element t.
+
+    Args:
+        K: (list) A t-length list of cardinalities (ints) for each task
     """
 
-    def __init__(self, cardinalities, seed=None):
+    def __init__(self, K, seed=None):
         Classifier.__init__(self)
         self.multitask = True
-        self.K = cardinalities
+        self.K = K
 
         if seed is None:
             seed = np.random.randint(1e6)

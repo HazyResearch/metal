@@ -34,7 +34,7 @@ class MTEndModel(MTClassifier, EndModel):
         self.K_t = self.task_graph.K_t  # Cardinalities by task
         self.T = self.task_graph.T      # Total number of tasks
 
-        MTClassifier.__init__(self, cardinalities=self.K_t, seed=seed)
+        MTClassifier.__init__(self, K=self.K_t, seed=seed)
 
         self._build(input_modules, middle_modules, head_modules)
 
@@ -78,6 +78,13 @@ class MTEndModel(MTClassifier, EndModel):
         self.task_map = defaultdict(list)
         for t, l in enumerate(task_head_layers):
             self.task_map[l].append(t)
+
+        if (any(l == 0 for l in task_head_layers) 
+            and head_modules is None):
+            raise Exception("If any task head is being attached to layer 0 "
+                "(the input modules), then you must provide a t-length list of "
+                "head_modules, since the output dimension of each input_module "
+                "cannot be inferred.")
 
         # Construct heads
         head_dims = [self.K_t[t] for t in range(self.T)]

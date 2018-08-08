@@ -26,12 +26,16 @@ class Classifier(nn.Module):
     The method predict_proba() method calculates the probabilistic labels,
     the predict() method handles tie-breaking, and the score() method 
     calculates metrics based on predictions.
+
+    Args:
+        k: (int) The cardinality of the classifier
+        seed: (int) A random seed to set
     """
 
-    def __init__(self, cardinality=2, seed=None):
+    def __init__(self, k=2, seed=None):
         super().__init__()
         self.multitask = False
-        self.k = cardinality
+        self.k = k
 
         if seed is None:
             seed = np.random.randint(1e6)

@@ -17,10 +17,21 @@ from metal.utils import (
 )
 
 class EndModel(Classifier):
-    def __init__(self, cardinality=2, input_module=None, middle_modules=None,
+    """A dynamically constructed discriminative classifier
+
+    Args:
+        k: (int) the cardinality of the classifier
+        input_module: (nn.Module) a module that converts the user-provided 
+            model inputs to torch.Tensors. Defaults to IdentityModule.
+        middle_modules: (nn.Module) a list of modules to execute between the
+            input_module and task head. Defaults to nn.Linear.
+        head_module: (nn.Module) a module to execute right before the final
+            softmax that outputs a prediction for the task.
+    """
+    def __init__(self, k=2, input_module=None, middle_modules=None,
         head_module=None, **kwargs):
         self.config = recursive_merge_dicts( em_default_config, kwargs)
-        super().__init__(cardinality, seed=self.config['seed'])
+        super().__init__(k, seed=self.config['seed'])
 
         self._build(input_module, middle_modules, head_module)
 
@@ -73,13 +84,14 @@ class EndModel(Classifier):
         return head
 
     def _make_layer(self, module, output_dim=None):
+        if isinstance(module, IdentityModule):
+            return module
         layer = [module]
-        if not isinstance(module, IdentityModule):
-            layer.append(nn.ReLU())
-            if self.config['batchnorm'] and output_dim:
-                layer.append(nn.BatchNorm1d(output_dim))
-            if self.config['dropout']:
-                layer.append(nn.Dropout(self.config['dropout']))
+        layer.append(nn.ReLU())
+        if self.config['batchnorm'] and output_dim:
+            layer.append(nn.BatchNorm1d(output_dim))
+        if self.config['dropout']:
+            layer.append(nn.Dropout(self.config['dropout']))
         return nn.Sequential(*layer)
 
     def _print(self):
