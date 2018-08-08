@@ -3,7 +3,6 @@ lm_default_config = {
     'seed': None,
     'verbose': True,
     'show_plots': True,
-    'cardinality': 2,
     
     ### TRAIN
     'train_config': {

@@ -14,7 +14,7 @@ class LogisticRegression(EndModel):
         }
         kwargs = recursive_merge_dicts(kwargs, overrides, misses='insert',
             verbose=False)
-        super().__init__(cardinality=2, **kwargs)
+        super().__init__(k=2, **kwargs)
 
 class SoftmaxRegression(EndModel):
     """A softmax regression classifier for a multi-class single-task problem"""
@@ -26,4 +26,4 @@ class SoftmaxRegression(EndModel):
         }
         kwargs = recursive_merge_dicts(kwargs, overrides, misses='insert', 
             verbose=False)
-        super().__init__(cardinality=output_dim, **kwargs)
+        super().__init__(k=output_dim, **kwargs)

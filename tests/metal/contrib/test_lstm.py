@@ -37,7 +37,7 @@ class LSTMTest(unittest.TestCase):
         lstm_module = LSTMModule(embed_size, hidden_size, vocab_size, 
             bidirectional=False, verbose=False)
         em = EndModel(
-            cardinality=MAX_INT, 
+            k=MAX_INT, 
             input_module=lstm_module, 
             layer_out_dims=[hidden_size, MAX_INT],
             optimizer='adam',
@@ -66,7 +66,7 @@ class LSTMTest(unittest.TestCase):
         lstm_module = LSTMModule(embed_size, hidden_size, vocab_size, 
             bidirectional=True, verbose=False)
         em = EndModel(
-            cardinality=MAX_INT, 
+            k=MAX_INT, 
             input_module=lstm_module, 
             layer_out_dims=[hidden_size * 2, MAX_INT],
             batchnorm=True,
