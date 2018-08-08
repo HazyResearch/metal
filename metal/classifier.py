@@ -5,8 +5,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
-
+from metal.utils import Checkpointer
 
 class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier.
@@ -98,6 +99,137 @@ class Classifier(nn.Module):
         gradients at the beginning of each iteration inside the loop.
         """
         raise NotImplementedError
+
+    def _train(self, train_loader, loss_fn, X_dev=None, Y_dev=None):
+        """The internal iterative train loop called by train()
+
+        Args:
+            train_loader: a torch DataLoader of X (data) and Y (labels) for
+                the train split
+            loss_fn: the loss function to minimize
+            X_dev: the dev set model input
+            Y_dev: the dev set target labels
+
+        If either of X_dev or Y_dev is not provided, then no checkpointing or
+        evaluation on the dev set will occur.
+        """
+        train_config = self.config['train_config']
+        evaluate_dev = (X_dev is not None and Y_dev is not None)
+
+        # Set the optimizer
+        optimizer_config = train_config['optimizer_config']
+        optimizer = self._set_optimizer(optimizer_config)
+
+        # Set the lr scheduler
+        scheduler_config = train_config['scheduler_config']
+        lr_scheduler = self._set_scheduler(scheduler_config, optimizer)
+
+        # Create the checkpointer if applicable
+        if train_config['checkpoint']:
+            checkpoint_config = train_config['checkpoint_config']
+            model_class = type(self).__name__
+            checkpointer = Checkpointer(model_class, **checkpoint_config, 
+                verbose=self.config['verbose'])
+
+        # Train the model
+        for epoch in range(train_config['n_epochs']):
+            epoch_loss = 0.0
+            for i, data in enumerate(train_loader):
+                # Zero the parameter gradients
+                optimizer.zero_grad()
+
+                # Forward pass to calculate outputs
+                loss = loss_fn(*data)
+
+                # Backward pass to calculate gradients
+                loss.backward()
+
+                # Clip gradients
+                # if grad_clip:
+                #     torch.nn.utils.clip_grad_norm(
+                #        self.net.parameters(), grad_clip)
+
+                # Perform optimizer step
+                optimizer.step()
+
+                # Keep running sum of losses
+                epoch_loss += loss.detach()
+
+            # Calculate average loss per training example
+            # Saving division until this stage protects against the potential
+            # mistake of averaging batch losses when the last batch is an orphan
+            train_loss = epoch_loss / len(train_loader.dataset)
+
+            # Checkpoint performance on dev
+            if evaluate_dev:
+                val_metric = train_config['validation_metric']
+                dev_score = self.score(X_dev, Y_dev, metric=val_metric, 
+                    verbose=False)
+                if train_config['checkpoint']:
+                    checkpointer.checkpoint(self, epoch, dev_score)
+            
+            # Apply learning rate scheduler
+            if (lr_scheduler is not None 
+                and epoch + 1 >= scheduler_config['lr_freeze']):
+                if scheduler_config['scheduler'] == 'reduce_on_plateau':
+                    if evaluate_dev:
+                        lr_scheduler.step(dev_score)
+                else:
+                    lr_scheduler.step()
+
+            # Report progress
+            if (self.config['verbose'] and 
+                (epoch % train_config['print_every'] == 0 
+                or epoch == train_config['n_epochs'] - 1)):
+                msg = f'[E:{epoch+1}]\tTrain Loss: {train_loss:.3f}'
+                if evaluate_dev:
+                    msg += f'\tDev score: {dev_score:.3f}'
+                print(msg)
+
+        # Restore best model if applicable
+        if train_config['checkpoint']:
+            checkpointer.restore(model=self)
+
+        if self.config['verbose']:
+            print('Finished Training')
+
+            if evaluate_dev:
+                Y_p_dev = self.predict(X_dev)
+
+                print("Confusion Matrix (Dev)")
+                mat = confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)     
+
+    def _set_optimizer(self, optimizer_config):
+        opt = optimizer_config['optimizer']
+        if opt == 'sgd':
+            optimizer = optim.SGD(
+                self.parameters(), 
+                **optimizer_config['optimizer_common'],
+                **optimizer_config['sgd_config']
+            )
+        elif opt == 'adam':
+            optimizer = optim.Adam(
+                self.parameters(), 
+                **optimizer_config['optimizer_common'],
+                **optimizer_config['adam_config']
+            )
+        else:
+            raise ValueError(f"Did not recognize optimizer option '{opt}''") 
+        return optimizer
+
+    def _set_scheduler(self, scheduler_config, optimizer):
+        scheduler = scheduler_config['scheduler']
+        if scheduler is None:
+            pass
+        elif scheduler == 'exponential':
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, **scheduler_config['exponential_config'])
+        elif scheduler == 'reduce_on_plateau':
+            lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, **scheduler_config['plateau_config'])
+        else:
+            raise ValueError(f"Did not recognize scheduler option '{scheduler}''")
+        return lr_scheduler
 
     def score(self, X, Y, metric=['accuracy'], break_ties='random', 
         verbose=True, **kwargs):

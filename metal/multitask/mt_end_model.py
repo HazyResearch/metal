@@ -53,7 +53,7 @@ class MTEndModel(MTClassifier, EndModel):
         self.heads = self._build_task_heads(head_modules)  
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss()
+        self.criteria = SoftCrossEntropyLoss(reduce=True, size_average=False)
 
     def _build_input_layer(self, input_modules):
         if input_modules is None:
@@ -232,16 +232,11 @@ class MTEndModel(MTClassifier, EndModel):
         data_loader = DataLoader(dataset, shuffle=True, **data_loader_config)
         return data_loader
 
-    def _get_loss(self, output, Y):
-        """Return the loss of Y and the output of the net forward pass.
-        
-        The returned loss is averaged over items (by the loss function) but
-        summed over tasks.
-        """
-        loss = torch.tensor(0.0)
-        for t, Y_tp in enumerate(output):
-            loss += self.criteria(Y_tp, Y[t])
-        return loss
+    def _get_loss_fn(self):
+        """Returns the loss function to use in the train routine"""
+        loss_fn = lambda X, Y: sum(
+            self.criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y))
+        return loss_fn
 
     def predict_proba(self, X):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""

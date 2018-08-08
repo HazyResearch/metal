@@ -25,7 +25,6 @@ class SoftCrossEntropyLoss(nn.Module):
 
     def forward(self, input, target):
         N, K_t = input.shape
-        total_loss = torch.tensor(0.0)
         cum_losses = torch.zeros(N)
         for y in range(K_t):
             cls_idx = torch.full((N,), y, dtype=torch.long)
