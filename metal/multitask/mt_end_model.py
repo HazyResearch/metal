@@ -1,4 +1,5 @@
 from collections import defaultdict
+import copy
 
 import torch
 import torch.nn as nn
@@ -7,7 +8,9 @@ from torch.utils.data import DataLoader
 
 from metal.end_model import EndModel
 from metal.end_model.em_defaults import em_default_config
-from metal.multitask import MTClassifier, TaskHierarchy, MTMetalDataset
+from metal.end_model.loss import SoftCrossEntropyLoss
+from metal.multitask import TaskHierarchy, MTClassifier
+from metal.multitask import MultiYDataset, MultiXYDataset
 from metal.multitask.mt_em_defaults import mt_em_default_config
 from metal.input_modules import IdentityModule
 from metal.utils import recursive_merge_dicts
@@ -18,7 +21,8 @@ class MTEndModel(MTClassifier, EndModel):
     Note that when looking up methods, MTEndModel will first search in 
     MTClassifier, followed by EndModel.
     """
-    def __init__(self, task_graph=None, input_module=None, seed=None, **kwargs):
+    def __init__(self, task_graph=None, input_modules=None, head_modules=None,
+        seed=None, **kwargs):
         defaults = recursive_merge_dicts(
             em_default_config, mt_em_default_config, misses='insert')
         self.config = recursive_merge_dicts(defaults, kwargs)
@@ -32,16 +36,78 @@ class MTEndModel(MTClassifier, EndModel):
 
         MTClassifier.__init__(self, cardinalities=self.K_t, seed=seed)
 
-        if input_module is None:
-            input_module = IdentityModule(self.config['layer_output_dims'][0])
-
-        self._build(input_module)
+        self._build(input_modules, head_modules)
 
         # Show network
         if self.config['verbose']:
             print("\nNetwork architecture:")
             self._print()
             print()
+
+    def _build(self, input_modules, head_modules):
+        """
+        TBD
+        """
+        self.input_layer = self._build_input_layer(input_modules)
+        self.middle_layers = self._build_middle_layers()
+        self.heads = self._build_task_heads(head_modules)  
+
+        # Construct loss module
+        self.criteria = SoftCrossEntropyLoss()
+
+    def _build_input_layer(self, input_modules):
+        if input_modules is None:
+            output_dim = self.config['layer_out_dims'][0]
+            input_modules = IdentityModule()
+
+        if isinstance(input_modules, list):
+            input_layer = [self._make_layer(mod) for mod in input_modules]
+        else:
+            input_layer = self._make_layer(input_modules, output_dim)
+
+        return input_layer
+
+    def _build_middle_layers(self):
+        middle_layers = nn.ModuleList()
+        layer_out_dims = self.config['layer_out_dims']
+        num_layers = len(layer_out_dims)
+        for i in range(1, num_layers):
+            module = nn.Linear(*layer_out_dims[i-1:i+1])
+            layer = self._make_layer(module, output_dim=layer_out_dims[i])
+            middle_layers.add_module(f'layer{i}', layer)
+        return middle_layers
+
+    def _build_task_heads(self, head_modules):
+        """Creates and attaches task_heads to the appropriate network layers"""
+        # Make task head layer assignments
+        num_layers = len(self.config['layer_out_dims'])
+        task_head_layers = self._set_task_head_layers(num_layers)
+
+        # task_head_layers stores the layer whose output task head t takes as input
+        # task_map stores the task heads that appear at each layer
+        self.task_map = defaultdict(list)
+        for t, l in enumerate(task_head_layers):
+            self.task_map[l].append(t)
+
+        # Construct heads
+        head_dims = [self.K_t[t] for t in range(self.T)]
+
+        heads = nn.ModuleList()
+        for t in range(self.T):
+            input_dim = self.config['layer_out_dims'][task_head_layers[t]]
+            if self.config['pass_predictions']:
+                for p in self.task_graph.parents[t]:
+                    input_dim += head_dims[p]
+            output_dim = head_dims[t]
+
+            if head_modules is None:
+                head = nn.Linear(input_dim, output_dim)
+            elif isinstance(head_modules, list):
+                head = head_modules[t]
+            else:
+                head = copy.deepcopy(head_modules)
+            heads.append(head)
+        return heads
 
     def _set_task_head_layers(self, num_layers):
         head_layers = self.config['task_head_layers']
@@ -76,40 +142,70 @@ class MTEndModel(MTClassifier, EndModel):
 
         return task_head_layers
 
-    def _attach_task_heads(self, num_layers):
-        """Creates and attaches task_heads to the appropriate network layers"""
-        # Make task head layer assignments
-        task_head_layers = self._set_task_head_layers(num_layers)
-
-        # task_head_layers stores the layer whose output task head t takes as input
-        # task_map stores the task heads that appear at each layer
-        self.task_map = defaultdict(list)
-        for t, l in enumerate(task_head_layers):
-            self.task_map[l].append(t)
-
-        # Construct heads
-        # TODO: Try to get heads to show up at proper depth when printing net
-        head_dims = self.config['task_head_output_dims']
-        if head_dims is None:
-            head_dims = [self.K_t[t] for t in range(self.T)]
-
-        self.heads = nn.ModuleList()
-        for t in range(self.T):
-            input_dim = self.config['layer_output_dims'][task_head_layers[t]]
-            if self.config['pass_predictions']:
-                for p in self.task_graph.parents[t]:
-                    input_dim += head_dims[p]
-            output_dim = head_dims[t]
-            self.heads.append(nn.Linear(input_dim, output_dim))
-
     def _print(self):
-        print("\n--Trunk--")
-        print(self.layers)
-        print("\n--Heads--")
-        for layer, tasks in self.task_map.items():
-            print(f"(layer{layer})+:")
-            for t in tasks:
+        print("\n--Input Layer--")
+        if isinstance(self.input_layer, list):
+            for mod in self.input_layer:
+                print(mod)
+        else:
+            print(self.input_layer)
+            
+        for t in self.task_map[0]:
+            print(f"(head{t})")
+            print(self.heads[t])
+
+        print("\n--Middle Layers--")
+        for i, layer in enumerate(self.middle_layers, start=1):
+            print(f"(layer{i}):")
+            print(layer)
+            for t in self.task_map[i]:
+                print(f"(head{t})")
                 print(self.heads[t])
+            print()
+
+    def forward(self, x):
+        """Returns a list of outputs for tasks t=0,...T-1
+        
+        Args:
+            x: a [batch_size, ...] batch from X
+        """
+        head_outputs = [None] * self.T
+        
+        # Execute input layer
+        if isinstance(self.input_layer, list): # One input_module per task
+            input_outputs = [mod(x) for mod, x in zip(self.input_layer, x)]
+            x = torch.stack(input_outputs, dim=1)
+
+            # Execute level-0 task heads from their respective input modules
+            for t in self.task_map[0]:
+                head = self.heads[t]
+                head_outputs[t] = head(input_outputs[t])
+        else: # One input_module for all tasks
+            x = self.input_layer(x)
+
+            # Execute level-0 task heads from the single input module    
+            for t in self.task_map[0]:
+                head = self.heads[t]
+                head_outputs[t] = head(x)
+
+        # Execute middle layers
+        for i, layer in enumerate(self.middle_layers, start=1):
+            x = layer(x)
+
+            # Attach level-i task heads from the ith middle module
+            for t in self.task_map[i]:
+                head = self.heads[t]
+                # Optionally include as input the predictions of parent tasks
+                if (self.config['pass_predictions'] and 
+                    bool(self.task_graph.parents[t])):
+                    task_input = [x]
+                    for p in self.task_graph.parents[t]:
+                        task_input.append(head_outputs[p])
+                    task_input = torch.stack(task_input, dim=1)
+                else:
+                    task_input = x
+                head_outputs[t] = head(task_input)
+        return head_outputs
 
     def _preprocess_Y(self, Y):
         """Convert Y to T-dim lists of soft labels if necessary"""
@@ -129,7 +225,10 @@ class MTEndModel(MTClassifier, EndModel):
         return [EndModel._preprocess_Y(self, Y_t) for Y_t in Y]
 
     def _make_data_loader(self, X, Y, data_loader_config):
-        dataset = MTMetalDataset(X, self._preprocess_Y(Y))
+        if isinstance(X, list):
+            dataset = MultiXYDataset(X, self._preprocess_Y(Y))
+        else:   
+            dataset = MultiYDataset(X, self._preprocess_Y(Y))
         data_loader = DataLoader(dataset, shuffle=True, **data_loader_config)
         return data_loader
 
@@ -143,28 +242,6 @@ class MTEndModel(MTClassifier, EndModel):
         for t, Y_tp in enumerate(output):
             loss += self.criteria(Y_tp, Y[t])
         return loss
-
-    def forward(self, x):
-        """Returns a list of outputs for tasks t=0,...T-1
-        
-        Args:
-            x: a [batch_size, ...] batch from X
-        """
-        task_outputs = [None] * self.T
-        for i, layer in enumerate(self.layers):
-            x = layer(x)
-            for t in self.task_map[i]:
-                head = self.heads[t]
-                if (self.config['pass_predictions'] and 
-                    bool(self.task_graph.parents[t])):
-                    task_input = [x]
-                    for p in self.task_graph.parents[t]:
-                        task_input.append(task_outputs[p])
-                    task_input = torch.cat(task_input, dim=1)
-                else:
-                    task_input = x
-                task_outputs[t] = head(task_input)
-        return task_outputs
 
     def predict_proba(self, X):
         """Returns a list of T [N, K_t] tensors of soft (float) predictions."""

@@ -39,11 +39,12 @@ class LSTMTest(unittest.TestCase):
         em = EndModel(
             cardinality=MAX_INT, 
             input_module=lstm_module, 
-            layer_output_dims=[hidden_size, MAX_INT],
+            layer_out_dims=[hidden_size, MAX_INT],
+            optimizer='adam',
             batchnorm=True,
             seed=1,
             verbose=False)
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=10, verbose=False)
+        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5, verbose=True)
         score = em.score(Xs[2], Ys[2], verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -67,7 +68,7 @@ class LSTMTest(unittest.TestCase):
         em = EndModel(
             cardinality=MAX_INT, 
             input_module=lstm_module, 
-            layer_output_dims=[hidden_size * 2, MAX_INT],
+            layer_out_dims=[hidden_size * 2, MAX_INT],
             batchnorm=True,
             seed=1,
             verbose=False)
