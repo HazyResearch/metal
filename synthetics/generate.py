@@ -22,6 +22,7 @@ class SingleTaskTreeDepsGenerator(object):
         n: (int) The number of data points
         m: (int) The number of labeling sources
         k: (int) The cardinality of the classification task
+        class_balance: (np.array) each class's percentage of the population
         theta_range: (tuple) The min and max possible values for theta, the
             class conditional accuracy for each labeling source
         edge_prob: edge density in the graph of correlations between sources
@@ -34,8 +35,8 @@ class SingleTaskTreeDepsGenerator(object):
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains.
     """
-    def __init__(self, n, m, k=2, theta_range=(0, 1.5), edge_prob=0.0, 
-        theta_edge_range=(-1,1)):
+    def __init__(self, n, m, k=2, class_balance=None, theta_range=(0, 1.5), 
+        edge_prob=0.0, theta_edge_range=(-1,1)):
         self.n = n
         self.m = m
         self.k = k
@@ -47,8 +48,11 @@ class SingleTaskTreeDepsGenerator(object):
         self._generate_params(theta_range, theta_edge_range)
 
         # Generate class balance self.p
-        self.p = random(self.k)
-        self.p /= self.p.sum()
+        if class_balance is None:
+            self.p = random(self.k)
+            self.p /= self.p.sum()
+        else:
+            self.p = class_balance
 
         # Generate the true labels self.Y and label matrix self.L
         self._generate_label_matrix()
