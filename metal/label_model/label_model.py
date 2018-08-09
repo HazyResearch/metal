@@ -197,11 +197,14 @@ class LabelModel(Classifier):
             return c_probs
 
     def predict_proba(self, L):
-        return self.get_label_probs(L)
+        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)"""
+        # TODO: Change internals to use sparse throughout and delete this:
+        if issparse(L):
+            L = L.todense()     
 
-    def get_label_probs(self, L):
-        """Returns the n x k matrix of label probabilities P(Y | \lambda)"""
-        L_aug = self._get_augmented_label_matrix(L, offset=1)        
+        self._set_constants(L)               
+        
+        L_aug = self._get_augmented_label_matrix(L, offset=1)     
         mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
 
         # Create a "junction tree mask" over the columns of L_aug / mu
@@ -283,6 +286,10 @@ class LabelModel(Classifier):
         self.config = recursive_merge_dicts(self.config, kwargs, 
             misses='ignore')
 
+        # TODO: Change internals to use sparse throughout and delete this:
+        if issparse(L):
+            L = L.todense()
+
         self._set_constants(L)
         self._set_dependencies(deps)
 
@@ -322,6 +329,8 @@ class LabelModel(Classifier):
 
     def _train(self, loss_fn):
         """Train model (self.parameters()) by optimizing the provided loss fn"""
+        # TODO: Merge this _train with Classifier._train
+
         train_config = self.config['train_config']
 
         # Set optimizer as SGD w/ momentum
