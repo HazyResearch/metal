@@ -229,7 +229,7 @@ def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None,
     """Splits inputs into multiple splits of defined sizes
 
     Args:
-        inputs: correlated lists/arrays/matrices/tensors to split
+        inputs: correlated tuples/lists/arrays/matrices/tensors to split
         splits: list containing split sizes (fractions or counts);
         shuffle: if True, shuffle the data before splitting
         stratify_by: (None or an input) if not None, use these labels to 
@@ -256,17 +256,16 @@ def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None,
         return counts
 
     def slice_data(data, indices):
-        if isinstance(data, list):
+        if isinstance(data, list) or isinstance(data, tuple):
             return [d for i, d in enumerate(data) if i in set(indices)]
-        elif isinstance(data, np.ndarray):
-            return data[indices]
-            # TODO: test this with 2D arrays
-        elif issparse(data):
-            return data[indices]
-        elif torch.is_tensor(data):
-            return data[indices]
         else:
-            raise NotImplementedError
+            try:
+                # Works for np.ndarray, scipy.sparse, torch.Tensor
+                return data[indices]
+            except:
+                raise Exception(f"split_data() currently only accepts inputs "
+                    f"of type tuple, list, np.ndarray, scipy.sparse, or "
+                    f"torch.Tensor; not {type(data)}")
 
     # Setting random seed
     if seed is not None:
