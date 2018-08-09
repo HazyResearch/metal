@@ -283,7 +283,7 @@ class Classifier(nn.Module):
         """
         Y_p = self._to_numpy(self.predict_proba(X, **kwargs))
         Y_ph = self._break_ties(Y_p, break_ties)
-        return Y_ph
+        return Y_ph.astype(np.int)
 
     def predict_proba(self, X, **kwargs):
         """Predicts soft probabilistic labels for an input X on all tasks
@@ -306,22 +306,22 @@ class Classifier(nn.Module):
                     slightly different results due to difference in broken ties
         """
         n, k = Y_s.shape
-        Y_th = np.zeros(n)
+        Y_h = np.zeros(n)
         diffs = np.abs(Y_s - Y_s.max(axis=1).reshape(-1, 1))
 
         TOL = 1e-5
         for i in range(n):
             max_idxs = np.where(diffs[i, :] < TOL)[0]
             if len(max_idxs) == 1:
-                Y_th[i] = max_idxs[0] + 1
+                Y_h[i] = max_idxs[0] + 1
             # Deal with 'tie votes' according to the specified policy
             elif break_ties == 'random':
-                Y_th[i] = np.random.choice(max_idxs) + 1
+                Y_h[i] = np.random.choice(max_idxs) + 1
             elif break_ties == 'abstain':
-                Y_th[i] = 0
+                Y_h[i] = 0
             else:
                 ValueError(f'break_ties={break_ties} policy not recognized.')     
-        return Y_th 
+        return Y_h
 
     @staticmethod
     def _to_numpy(Z):
