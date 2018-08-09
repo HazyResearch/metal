@@ -110,7 +110,7 @@ class Classifier(nn.Module):
         raise NotImplementedError
 
     def _train(self, train_loader, loss_fn, X_dev=None, Y_dev=None):
-        """The internal iterative train loop called by train()
+        """The internal training routine called by train() after initial setup
 
         Args:
             train_loader: a torch DataLoader of X (data) and Y (labels) for
@@ -149,6 +149,9 @@ class Classifier(nn.Module):
 
                 # Forward pass to calculate outputs
                 loss = loss_fn(*data)
+                if torch.isnan(loss):
+                    msg = "Loss is NaN. Consider reducing learning rate."
+                    raise Exception(msg)
 
                 # Backward pass to calculate gradients
                 loss.backward()
@@ -190,7 +193,7 @@ class Classifier(nn.Module):
             if (self.config['verbose'] and 
                 (epoch % train_config['print_every'] == 0 
                 or epoch == train_config['n_epochs'] - 1)):
-                msg = f'[E:{epoch+1}]\tTrain Loss: {train_loss:.3f}'
+                msg = f'[E:{epoch}]\tTrain Loss: {train_loss:.3f}'
                 if evaluate_dev:
                     msg += f'\tDev score: {dev_score:.3f}'
                 print(msg)
