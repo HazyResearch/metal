@@ -12,8 +12,8 @@ from metal.label_model.baselines import (
 )
 from metal.multitask import MTLabelModel
 
-sys.path.append("../synthetics")
-from synthetics.generate import (
+sys.path.append("../synthetic")
+from synthetic.generate import (
     SingleTaskTreeDepsGenerator,
     HierarchicalMultiTaskTreeDepsGenerator
 )
@@ -48,7 +48,7 @@ class LabelModelTest(unittest.TestCase):
 
         # Test label prediction accuracy
         if test_acc:
-            Y_pred = label_model.get_label_probs(data.L).argmax(axis=1) + 1
+            Y_pred = label_model.predict_proba(data.L).argmax(axis=1) + 1
             acc = np.where(data.Y == Y_pred, 1, 0).sum() / data.n
             print(f"Label Prediction Accuracy={acc}")
             self.assertGreater(acc, 0.95)
