@@ -1,8 +1,10 @@
+from collections import defaultdict
+import random
+
 import numpy as np
 from scipy.sparse import issparse, csr_matrix, hstack
 import torch
 from torch.utils.data import Dataset
-import random
 
 class MetalDataset(Dataset):
     """A dataset that group each item in X with it label from Y
@@ -63,8 +65,7 @@ class Checkpointer(object):
             print(f"Restoring best model from iteration {self.best_iteration} "
                 f"with score {self.best_score}")
             model.load_state_dict(self.best_model)
-            return model
-        
+            return model 
 
 def rargmax(x, eps=1e-8):
     """Argmax with random tie-breaking
@@ -223,107 +224,108 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
     recurse(z, y, misses, verbose)
     return z
 
-def split_data(input_data, splits, input_labels=None, shuffle=True, stratify=None, seed=None):
+def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None, 
+    index_only=False, seed=None):
     """Splits inputs into multiple splits of defined sizes
 
     Args:
-        input_data: iterable containing data points
-        splits: list containing of split sizes (fraction or integer)
-        input_labels: iterable containing labels (optional)
+        inputs: correlated lists/arrays/matrices/tensors to split
+        splits: list containing split sizes (fractions or counts);
         shuffle: if True, shuffle the data before splitting
-        stratify: if shuffle=True, uses these labels to stratify the splits
-            (separating the data into groups by these labels and sampling from
-            those, rather than from the population at large)
-        seed: int, set random seed
+        stratify_by: (None or an input) if not None, use these labels to 
+            stratify the splits (separating the data into groups by these 
+            labels and sampling from those, rather than from the population at 
+            large); overrides shuffle
+        index_only: if True, return only the indices of the new splits, not the 
+            split data itself
+        seed: (int) random seed
+
+    Example usage:
+        Ls, Xs, Ys = split_data(L, X, Y, splits=[0.8, 0.1, 0.1])
+        OR
+        assignments = split_data(Y, splits=[0.8, 0.1, 0.1], index_only=True)
 
     Note: This is very similar to scikit-learn's train_test_split() method,
         but with support for more than two splits.
     """
+    def fractions_to_counts(fracs, n):
+        """Converts a list of fractions to a list of counts that sum to n"""
+        counts = [int(np.round(n * frac)) for frac in fracs]
+        # Ensure sum of split counts sums to n
+        counts[-1] = n - sum(counts[:-1])
+        return counts
 
-    # Making copies
-    data = input_data.copy()
-    labels = input_labels.copy()
+    def slice_data(data, indices):
+        if isinstance(data, list):
+            return [d for i, d in enumerate(data) if i in set(indices)]
+        elif isinstance(data, np.ndarray):
+            return data[indices]
+            # TODO: test this with 2D arrays
+        elif issparse(data):
+            return data[indices]
+        elif torch.is_tensor(data):
+            return data[indices]
+        else:
+            raise NotImplementedError
 
     # Setting random seed
     if seed is not None:
         random.seed(seed)
 
-    # Checking size of data
-    n_points = len(data)
-    if n_points == 0:
-        raise ValueError("At least one iterable required as input")
+    try:
+        n = len(inputs[0])
+    except:
+        n = inputs[0].shape[0]
+    num_splits = len(splits)
     
-    # Ensuring we have either all ints or all floats
-    valid_int_split = all(isinstance(x, int) for x in splits)
-    valid_float_split = all(isinstance(x, float) for x in splits)
-    if not (valid_int_split or valid_float_split):
-        raise ValueError(
-            'Argument split must contain all decimals or all integers!')
-
-    # If we have a valid split, make sure it's mathematically consistent:
-    consistent_int_split = np.sum(splits) == n_points
-    consistent_float_split = np.sum(splits) == 1
-    if not (consistent_int_split or consistent_float_split):
-        raise ValueError(
-            'Integer splits must add up to number of data points, fractions to one!')
-
-    # Checking if we are using integer or fractional splits
-    int_split = float(splits[0]).is_integer()
-
-    # Converting to integer representation
-    if int_split:
-        split_nums = splits.copy()
-        split_fracs = [float(x)/n_points for x in splits]
-    else:
-        split_nums = [int(x*n_points) for x in splits]
-        split_fracs = splits.copy()
-    
-    # Adding in 0th element
-    split_nums.insert(0,0)
-    split_fracs.insert(0,0)
-
-    # Creating index per split vector with 0 in first index
-    split_sum = np.cumsum(split_nums).astype(int)
-    split_frac_sum = np.cumsum(split_fracs)
-
-    # Shuffling
-    if shuffle:
-        random.shuffle(data)
-        
-    # Defining outputs
-    data_out = []
-    labels_out = []
-    split_list = []
-
-    # Handling case without stratification
-    if stratify:
-        if labels is None:
-            raise ValueError("Cannot stratify without labels!")
-        if shuffle:
-            inds = {}
-            unique_vals = np.unique(labels)
-            for val in unique_vals:
-                inds[val] = np.where(labels == val)[0]
-            for ii in range(len(splits)):
-                spl_list = []
-                for val in unique_vals:
-                    start_ind = int(split_frac_sum[ii]*len(inds[val]))
-                    end_ind = int(split_frac_sum[ii+1]*len(inds[val]))
-                    val_list = [inds[val][x] for x in range(start_ind,end_ind)]
-                    spl_list = spl_list + val_list   
-                split_list.append(spl_list)
-        else:
+    # Check splits for validity and convert to fractions
+    if all(isinstance(x, int) for x in splits):
+        if not sum(splits) == n:
             raise ValueError(
-                "Stratified train/test split is not implemented for "
-                "shuffle=False")
-    
-    else:
-        for ii in range(len(splits)):
-            split_list.append([x for x in range(split_sum[ii],split_sum[ii+1])])
-    
-    for spl in split_list:
-        data_out.append([data[x] for x in spl])
-        if labels is not None:
-            labels_out.append([labels[x] for x in spl])        
+                f"Provided split counts must sum to n ({n}), not {sum(splits)}.")
+        fracs = [count/n for count in splits]
 
-    return data_out, labels_out, split_list
+    elif all(isinstance(x, float) for x in splits):
+        if not sum(splits) == 1.0:
+            raise ValueError(
+                f'Split fractions must sum to 1.0, not {sum(splits)}.')
+        fracs = splits
+
+    else:
+        raise ValueError("Splits must contain all ints or all floats.")
+
+    # Make sampling pools
+    if stratify_by is None:
+        pools = [np.arange(n)]
+    else:
+        pools = defaultdict(list)
+        for i, val in enumerate(stratify_by):
+            pools[val].append(i)
+        pools = list(pools.values())
+
+    # Make index assignments
+    assignments = [[] for _ in range(num_splits)]
+    for pool in pools:
+        if shuffle or stratify_by is not None:
+            random.shuffle(pool)
+
+        counts = fractions_to_counts(fracs, len(pool))
+        counts.insert(0, 0)
+        cum_counts = np.cumsum(counts)
+        for i in range(num_splits):
+            assignments[i].extend(pool[cum_counts[i]:cum_counts[i+1]])
+    
+    if index_only:
+        return assignments
+    else:
+        outputs = []
+        for data in inputs:
+            data_splits = []
+            for split in range(num_splits):
+                data_splits.append(slice_data(data, assignments[split]))
+            outputs.append(data_splits)
+
+        if len(outputs) == 1:
+            return outputs[0]
+        else:
+            return outputs

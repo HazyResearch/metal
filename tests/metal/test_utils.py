@@ -1,7 +1,8 @@
+from collections import Counter
 import unittest
 
 import numpy as np
-import scipy
+import scipy.sparse as sparse
 import torch
 
 from metal.utils import (
@@ -48,39 +49,58 @@ class UtilsTest(unittest.TestCase):
             recursive_merge_dicts(x, z, verbose=False)
         
     def test_split_data(self):
-        # Creating data
-        X = np.random.randint(0,100, size=100000)
-        Y = np.random.randint(0,4,size=100000).astype(int)
+        N = 1000
+        K = 4
 
-        # Creating splits of correct size
-        splits = [100, 1000, 100000-1000-100]
-        data_out, labels_out, split_list = split_data(X, splits, input_labels=Y, shuffle=True, stratify=None, seed=None)
-        out_dim = [len(data_out[0]), len(data_out[1]), len(data_out[2])]
-        self.assertTrue(np.array_equal(out_dim, splits))
+        X = np.arange(0, N)
+        Y = np.random.randint(0, K, size=N).astype(int)
 
-        # Checking functionality with fractional arguments
-        splits_frac = [float(a)/np.sum(splits) for a in splits]
-        data_out, labels_out, split_list = split_data(X, splits_frac, input_labels=Y, shuffle=True, stratify=None, seed=None)
-        out_dim = [len(data_out[0]), len(data_out[1]), len(data_out[2])]
-        self.assertTrue(np.array_equal(out_dim, splits))
+        # Creates splits of correct size
+        splits = [800, 100, 100]
+        Xs_1 = split_data(X, splits=splits, shuffle=False)
+        for i, count in enumerate(splits):
+            self.assertEqual(len(Xs_1[i]), count)
 
-        #Checking to make sure that we've actually shuffled!
-        self.assertTrue(X[0] != data_out[0][0])
+        # Accepts floats or ints
+        splits = [0.8, 0.1, 0.1]
+        Xs_2 = split_data(X, splits=splits, shuffle=False)
+        for split in range(len(splits)):
+            self.assertTrue(np.array_equal(Xs_2[split], Xs_1[split]))
 
-        # Turning off shuffling
-        splits_frac = [float(a)/np.sum(splits) for a in splits]
-        data_out, labels_out, split_list = split_data(X, splits_frac, input_labels=Y, shuffle=False, stratify=None, seed=None)
-        out_dim = [len(data_out[0]), len(data_out[1]), len(data_out[2])]
-        # Making sure we haven't shuffled!
-        self.assertTrue(X[0] == data_out[0][0])
+        # Shuffles correctly
+        Xs_3 = split_data(X, splits=splits, shuffle=True, seed=123)
+        self.assertNotEqual(Xs_3[0][0], Xs_2[0][0])
 
-        # Testing stratification -- making sure proportion of label `test_label` is constant in splits!
-        test_label = 3
-        splits_frac = [float(a)/np.sum(splits) for a in splits]
-        data_out, labels_out, split_list = split_data(X, splits_frac, input_labels=Y, shuffle=True, stratify=True, seed=1701)
-        out_dim = [len(data_out[0]), len(data_out[1]), len(data_out[2])]
-        props = [np.sum([b==test_label for b in labels_out[a]])/len(labels_out[a]) for a in range(len(labels_out))]
-        self.assertTrue(np.max([np.abs(a-props[0]) for a in props])<0.01)
+        # Indices only
+        splits = [0.8, 0.1, 0.1]
+        Ys = split_data(Y, splits=splits, shuffle=False, index_only=True)
+        self.assertGreater(max(Ys[0]), K)
+
+        # Handles multiple inputs
+        Xs, Ys = split_data(X, Y, splits=splits, shuffle=True, seed=123)
+        self.assertEqual(Ys[0][0], Y[Xs[0][0]])
+
+        # Confirm statification (correct proportion of labels in each split)
+        Ys = split_data(Y, splits=splits, stratify_by=Y, seed=123)
+        counts = [Counter(Y) for Y in Ys]
+        for y in np.unique(Y):
+            ratio0 = counts[0][y]/len(Ys[0])
+            ratio1 = counts[1][y]/len(Ys[1])
+            ratio2 = counts[2][y]/len(Ys[2])
+            self.assertLess(abs(ratio0 - ratio1), 0.05)
+
+        # Handles scipy.sparse matrices
+        Z = sparse.csr_matrix([[1,0,1,2], [0,3,0,3], [1,2,3,4], [5,4,3,2]])
+        splits = [0.75, 0.25]
+        Zs = split_data(Z, splits=splits, shuffle=True, seed=123)
+        self.assertEqual(Zs[0].shape, (3,4))
+
+        # Handles torch.Tensors
+        W = torch.Tensor([[1,0,1,2], [0,3,0,3], [1,2,3,4], [5,4,3,2]])
+        splits = [0.75, 0.25]
+        Ws = split_data(W, splits=splits, shuffle=True, seed=123)
+        self.assertEqual(Ws[0].shape, (3,4))
+
 
 if __name__ == '__main__':
     unittest.main()
