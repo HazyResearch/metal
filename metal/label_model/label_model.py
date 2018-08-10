@@ -68,34 +68,8 @@ class LabelModel(Classifier):
                     if i in self.c_tree.node[j]['members']])
             }
 
-<<<<<<< HEAD
-        # Form the columns corresponding to unary source labels
-        if self.multi_task:
-            L_ind = np.ones((n, m * km))
-
-            # TODO: By default, this will operate with offset = 1 by skipping
-            # abstains; should fix this!
-            for yi, y in enumerate(self.task_graph.feasible_set()):
-                for s in range(t):
-                    # Note that we cast to dense here, and are creating a dense
-                    # matrix; can change to fully sparse operations if needed
-                    L_s = L[s].todense()
-                    L_ind[:, yi::km] *= np.where(
-                        np.logical_or(L_s == y[s], L_s == 0), 1, 0)
-                
-                # Handle abstains- if all elements of the task label are 0
-                L_ind[:, yi::km] *= np.where(
-                    sum(map(abs, L)).todense() != 0, 1, 0)
-
-        else:
-            L_ind = np.zeros((n, m * km))
-            for y in range(offset, self.k+1):
-                L_ind[:, y-offset::km] = np.where(L == y, 1, 0)
-        
-=======
         L_aug = self._create_L_aug(L, km, offset)
 
->>>>>>> 1f561fca30317a07b143a3aca457e565ecb7aa0f
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
