@@ -95,7 +95,7 @@ class LabelModel(Classifier):
 
         # Form the columns corresponding to unary source labels
         if self.multi_task:
-            L_aug = np.ones((n, m * km))
+            L_ind = np.ones((n, m * km))
 
             # TODO: By default, this will operate with offset = 1 by skipping
             # abstains; should fix this!
@@ -104,22 +104,23 @@ class LabelModel(Classifier):
                     # Note that we cast to dense here, and are creating a dense
                     # matrix; can change to fully sparse operations if needed
                     L_s = L[s].todense()
-                    L_aug[:, yi::km] *= np.where(
+                    L_ind[:, yi::km] *= np.where(
                         np.logical_or(L_s == y[s], L_s == 0), 1, 0)
                 
                 # Handle abstains- if all elements of the task label are 0
-                L_aug[:, yi::km] *= np.where(
+                L_ind[:, yi::km] *= np.where(
                     sum(map(abs, L)).todense() != 0, 1, 0)
 
         else:
-            L_aug = np.zeros((n, m * km))
+            L_ind = np.zeros((n, m * km))
             for y in range(offset, self.k+1):
-                L_aug[:, y-offset::km] = np.where(L == y, 1, 0)
+                L_ind[:, y-offset::km] = np.where(L == y, 1, 0)
         
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
         if higher_order:
+            L_aug = np.copy(L_ind)
             for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
                 if isinstance(item, int):
                     C = self.c_tree.node[item]
@@ -142,20 +143,43 @@ class LabelModel(Classifier):
                     L_C = np.ones((n, km ** nc))
                     for i, vals in enumerate(product(range(km), repeat=nc)):
                         for j, v in enumerate(vals):
-                            L_C[:,i] *= L_aug[:, members[j]*km + v]
+                            L_C[:,i] *= L_ind[:, members[j]*km + v]
 
                     # Add to L_aug and store the indices
-                    C['start_index'] = L_aug.shape[1]
-                    C['end_index'] = L_aug.shape[1] + L_C.shape[1]
-                    L_aug = np.hstack([L_aug, L_C])
-                
-                # Add to self.c_data as well
-                self.c_data[tuple(members)] = {
-                    'start_index': C['start_index'],
-                    'end_index': C['end_index'],
-                    'max_cliques': set([item]) if C_type=='node' else set(item)
-                }
-        return L_aug
+                    if L_aug is not None:
+                        C['start_index'] = L_aug.shape[1]
+                        C['end_index'] = L_aug.shape[1] + L_C.shape[1]
+                        L_aug = np.hstack([L_aug, L_C])
+                    else:
+                        C['start_index'] = 0
+                        C['end_index'] = L_C.shape[1]
+                        L_aug = L_C
+                    
+                    # Add to self.c_data as well
+                    id = tuple(members) if len(members) > 1 else members[0]
+                    self.c_data[id] = {
+                        'start_index': C['start_index'],
+                        'end_index': C['end_index'],
+                        'max_cliques': set([item]) if C_type == 'node' 
+                            else set(item)
+                    }
+            return L_aug
+        else:
+            return L_ind
+    
+    def _build_mask(self):
+        """Build mask applied to O^{-1}, O for the matrix approx constraint"""
+        self.mask = torch.ones(self.d, self.d).byte()
+        for ci in self.c_data.values():
+            si, ei = ci['start_index'], ci['end_index']
+            for cj in self.c_data.values():
+                sj, ej = cj['start_index'], cj['end_index']
+
+                # Check if ci and cj are part of the same maximal clique
+                # If so, mask out their corresponding blocks in O^{-1}
+                if len(ci['max_cliques'].intersection(cj['max_cliques'])) > 0:
+                    self.mask[si:ei, sj:ej] = 0
+                    self.mask[sj:ej, si:ei] = 0
     
     def _generate_O(self, L):
         """Form the overlaps matrix, which is just all the different observed
@@ -191,7 +215,6 @@ class LabelModel(Classifier):
         
         and similarly for higher-order cliques.
         - Z is the inverse form version of \mu.
-        - mask is the mask applied to O^{-1}, O for the matrix approx constraint
         """
         # Initialize mu so as to break basic reflective symmetry
         # TODO: Update for higher-order cliques!
@@ -204,17 +227,9 @@ class LabelModel(Classifier):
         if self.inv_form:
             self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
 
-        self.mask = torch.ones(self.d, self.d).byte()
-        for ci in self.c_data.values():
-            si, ei = ci['start_index'], ci['end_index']
-            for cj in self.c_data.values():
-                sj, ej = cj['start_index'], cj['end_index']
-
-                # Check if ci and cj are part of the same maximal clique
-                # If so, mask out their corresponding blocks in O^{-1}
-                if len(ci['max_cliques'].intersection(cj['max_cliques'])) > 0:
-                    self.mask[si:ei, sj:ej] = 0
-                    self.mask[sj:ej, si:ei] = 0
+        # Build the mask over O^{-1}
+        # TODO: Put this elsewhere?
+        self._build_mask()
     
     def get_conditional_probs(self, source=None):
         """Returns the full conditional probabilities table as a numpy array,
