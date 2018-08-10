@@ -10,9 +10,10 @@ from metal.label_model.baselines import (
     MajorityClassVoter,
     MajorityLabelVoter,
 )
+from metal.multitask import MTLabelModel
 
-sys.path.append("../synthetics")
-from synthetics.generate import (
+sys.path.append("../synthetic")
+from synthetic.generate import (
     SingleTaskTreeDepsGenerator,
     HierarchicalMultiTaskTreeDepsGenerator
 )
@@ -28,23 +29,26 @@ class LabelModelTest(unittest.TestCase):
         cls.m = 10
         cls.k = 2
     
-    def _test_label_model(self, data, test_acc=True, mts=False):
-        if mts:
-            label_model = LabelModel(data.m, task_graph=data.task_graph, 
-                p=data.p, deps=data.E)
+    def _test_label_model(self, data, test_acc=True, multitask=False):
+        if multitask:
+            label_model = MTLabelModel(task_graph=data.task_graph, 
+                class_balance=data.p)
+            label_model.train(data.L, deps=data.E,  
+                n_epochs=1000, print_every=200)
         else:
-            label_model = LabelModel(data.m, k=data.k, p=data.p, deps=data.E)
-        label_model.train(data.L, n_epochs=1000, print_every=200)
+            label_model = LabelModel(k=data.k, class_balance=data.p)
+            label_model.train(data.L, deps=data.E,
+                n_epochs=1000, print_every=200)
         
         # Test parameter estimation error
         c_probs_est = label_model.get_conditional_probs()
         err = np.mean(np.abs(data.c_probs - c_probs_est))
         print(f"Parameter Estimation Error={err}")
-        self.assertLess(err, 0.015)
+        self.assertLess(err, 0.025)
 
         # Test label prediction accuracy
         if test_acc:
-            Y_pred = label_model.get_label_probs(data.L).argmax(axis=1) + 1
+            Y_pred = label_model.predict_proba(data.L).argmax(axis=1) + 1
             acc = np.where(data.Y == Y_pred, 1, 0).sum() / data.n
             print(f"Label Prediction Accuracy={acc}")
             self.assertGreater(acc, 0.95)
@@ -68,7 +72,9 @@ class LabelModelTest(unittest.TestCase):
             [1, 2, 2, 1, 0],
             [1, 1, 1, 1, 0]
         ])
-        lm = LabelModel(m, k=k, deps=E)
+        lm = LabelModel(k=k)
+        lm._set_constants(L)
+        lm._set_dependencies(E)
         L_aug = lm._get_augmented_label_matrix(L, offset=1, higher_order=True)
 
         # Should have 22 columns:
@@ -107,13 +113,13 @@ class LabelModelTest(unittest.TestCase):
                 edge_prob=1.0)
             self._test_label_model(data, test_acc=False)
     
-    def test_mts(self):
+    def test_multitask(self):
         for seed in range(self.n_iters):
             np.random.seed(seed)
             print(f">>> Testing for seed={seed}")
             data = HierarchicalMultiTaskTreeDepsGenerator(self.n, self.m,
                 edge_prob=0.0)
-            self._test_label_model(data, test_acc=False, mts=True)
+            self._test_label_model(data, test_acc=False, multitask=True)
 
 
 if __name__ == '__main__':

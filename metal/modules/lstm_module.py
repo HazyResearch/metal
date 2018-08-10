@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn_utils
 
-from metal.input_modules.base_module import InputModule
+from metal.modules.base_module import InputModule
 
 class LSTMModule(InputModule):
     """An LSTM-based input module"""
@@ -54,9 +54,6 @@ class LSTMModule(InputModule):
         if lstm_reduction == 'attention':
             raise NotImplementedError
             # self.attention = Attention(hidden_size * (self.lstm.bidirectional + 1))
-
-    def get_output_dim(self):
-        return self.output_dim
 
     def _load_pretrained(self, pretrained):
         if not pretrained.dim() == 2:

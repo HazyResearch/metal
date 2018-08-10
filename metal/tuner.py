@@ -34,8 +34,8 @@ class ModelTuner(object):
             init_args: (list) positional args for initializing the model
             train_args: (list) positional args for training the model
             X_dev: The appropriate input for evaluating the given model
-            Y_dev: An [N] or [N, 1] tensor of gold labels in {1,...,K_t} or a
-                T-length list of such tensors if model.multitask=True.
+            Y_dev: An [n] or [n, 1] tensor of gold labels in {0,...,K_t} or a
+                t-length list of such tensors if model.multitask=True.
             search_space: see config_generator() documentation
             max_search: see config_generator() documentation
             shuffle: see config_generator() documentation

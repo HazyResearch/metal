@@ -1,16 +1,18 @@
+from collections import defaultdict
+import random
+
 import numpy as np
 from scipy.sparse import issparse, csr_matrix, hstack
 import torch
 from torch.utils.data import Dataset
 
-
 class MetalDataset(Dataset):
     """A dataset that group each item in X with it label from Y
     
     Args:
-        X: an N-dim iterable of items
+        X: an n-dim iterable of items
         Y: a torch.Tensor of labels
-            This may be hard labels [N] or soft labels [N, k]
+            This may be hard labels [n] or soft labels [n, k]
     """
     def __init__(self, X, Y):
         self.X = X
@@ -63,8 +65,7 @@ class Checkpointer(object):
             print(f"Restoring best model from iteration {self.best_iteration} "
                 f"with score {self.best_score}")
             model.load_state_dict(self.best_model)
-            return model
-        
+            return model 
 
 def rargmax(x, eps=1e-8):
     """Argmax with random tie-breaking
@@ -81,11 +82,11 @@ def hard_to_soft(Y_h, k):
     """Converts a 1D tensor of hard labels into a 2D tensor of soft labels
 
     Args:
-        Y_h: an [N], or [N,1] tensor of hard (int) labels between 0 and k 
+        Y_h: an [n], or [n,1] tensor of hard (int) labels between 0 and k 
             (inclusive), where 0 = abstain.
         k: the largest possible label in Y_h
     Returns:
-        Y_s: a torch.FloatTensor of shape [N, k + 1] where Y_s[i,j] is the soft
+        Y_s: a torch.FloatTensor of shape [n, k + 1] where Y_s[i,j] is the soft
             label for item i and class j.
     """
     Y_h = Y_h.clone()
@@ -93,8 +94,8 @@ def hard_to_soft(Y_h, k):
     assert(Y_h.dim() == 1)
     assert((Y_h >= 0).all())
     assert((Y_h <= k).all())
-    N = Y_h.shape[0]
-    Y_s = torch.zeros((N, k+1))
+    n = Y_h.shape[0]
+    Y_s = torch.zeros((n, k+1))
     for i, j in enumerate(Y_h):
         Y_s[i, j] = 1.0
     return Y_s
@@ -223,36 +224,107 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
     recurse(z, y, misses, verbose)
     return z
 
-def make_unipolar_matrix(L):
-    """
-    Creates a unipolar label matrix from non-unipolar label matrix,
-    handles binary and categorical cases
-    
+def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None, 
+    index_only=False, seed=None):
+    """Splits inputs into multiple splits of defined sizes
+
     Args:
-        csr_matrix L: sparse label matrix
-    
-    Outputs:
-        csr_matrix L_up: equivalent unipolar matrix
+        inputs: correlated tuples/lists/arrays/matrices/tensors to split
+        splits: list containing split sizes (fractions or counts);
+        shuffle: if True, shuffle the data before splitting
+        stratify_by: (None or an input) if not None, use these labels to 
+            stratify the splits (separating the data into groups by these 
+            labels and sampling from those, rather than from the population at 
+            large); overrides shuffle
+        index_only: if True, return only the indices of the new splits, not the 
+            split data itself
+        seed: (int) random seed
+
+    Example usage:
+        Ls, Xs, Ys = split_data(L, X, Y, splits=[0.8, 0.1, 0.1])
+        OR
+        assignments = split_data(Y, splits=[0.8, 0.1, 0.1], index_only=True)
+
+    Note: This is very similar to scikit-learn's train_test_split() method,
+        but with support for more than two splits.
     """
-    
-    # Creating list of columns for matrix
-    col_list = []
-    
-    for col in range(L.shape[1]):
-        # Getting unique values in column, ignoring 0
-        col_unique_vals = list(set(L[:,col].data)-set([0]))
-        if len(col_unique_vals) == 1:
-            # If only one unique value in column, keep it
-            col_list.append(L[:,col])
+    def fractions_to_counts(fracs, n):
+        """Converts a list of fractions to a list of counts that sum to n"""
+        counts = [int(np.round(n * frac)) for frac in fracs]
+        # Ensure sum of split counts sums to n
+        counts[-1] = n - sum(counts[:-1])
+        return counts
+
+    def slice_data(data, indices):
+        if isinstance(data, list) or isinstance(data, tuple):
+            return [d for i, d in enumerate(data) if i in set(indices)]
         else:
-            # Otherwise, make a new column for each value taken by the LF 
-            for val in col_unique_vals:
-                # Efficiently creating and appending column for each LF value
-                val_col = csr_matrix(np.zeros((L.shape[0],1)))
-                val_col = val_col + val*(L[:,col] == val)
-                col_list.append(val_col)
-                
-    # Stacking columns and converting to csr_matrix
-    L_up = hstack(col_list)
-    L_up = csr_matrix(L_up)
-    return L_up
+            try:
+                # Works for np.ndarray, scipy.sparse, torch.Tensor
+                return data[indices]
+            except:
+                raise Exception(f"split_data() currently only accepts inputs "
+                    f"of type tuple, list, np.ndarray, scipy.sparse, or "
+                    f"torch.Tensor; not {type(data)}")
+
+    # Setting random seed
+    if seed is not None:
+        random.seed(seed)
+
+    try:
+        n = len(inputs[0])
+    except:
+        n = inputs[0].shape[0]
+    num_splits = len(splits)
+    
+    # Check splits for validity and convert to fractions
+    if all(isinstance(x, int) for x in splits):
+        if not sum(splits) == n:
+            raise ValueError(
+                f"Provided split counts must sum to n ({n}), not {sum(splits)}.")
+        fracs = [count/n for count in splits]
+
+    elif all(isinstance(x, float) for x in splits):
+        if not sum(splits) == 1.0:
+            raise ValueError(
+                f'Split fractions must sum to 1.0, not {sum(splits)}.')
+        fracs = splits
+
+    else:
+        raise ValueError("Splits must contain all ints or all floats.")
+
+    # Make sampling pools
+    if stratify_by is None:
+        pools = [np.arange(n)]
+    else:
+        pools = defaultdict(list)
+        for i, val in enumerate(stratify_by):
+            pools[val].append(i)
+        pools = list(pools.values())
+
+    # Make index assignments
+    assignments = [[] for _ in range(num_splits)]
+    for pool in pools:
+        if shuffle or stratify_by is not None:
+            random.shuffle(pool)
+
+        counts = fractions_to_counts(fracs, len(pool))
+        counts.insert(0, 0)
+        cum_counts = np.cumsum(counts)
+        for i in range(num_splits):
+            assignments[i].extend(pool[cum_counts[i]:cum_counts[i+1]])
+    
+    if index_only:
+        return assignments
+    else:
+        outputs = []
+        for data in inputs:
+            data_splits = []
+            for split in range(num_splits):
+                data_splits.append(slice_data(data, assignments[split]))
+            outputs.append(data_splits)
+
+        if len(outputs) == 1:
+            return outputs[0]
+        else:
+            return outputs

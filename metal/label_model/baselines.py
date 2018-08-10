@@ -17,12 +17,12 @@ class RandomVoter(LabelModel):
     def predict_proba(self, L):
         """
         Args:
-            L: An [N, M] scipy.sparse matrix of labels
+            L: An [n, m] scipy.sparse matrix of labels
         Returns:
-            output: A [N, K_t] np.ndarray of soft predictions
+            output: A [n, k] np.ndarray of soft predictions
         """
-        N = L.shape[0]
-        Y_p = np.random.rand(N, self.k)
+        n = L.shape[0]
+        Y_p = np.random.rand(n, self.k)
         Y_p /= Y_p.sum(axis=1).reshape(-1, 1)
         return Y_p
 
@@ -43,8 +43,8 @@ class MajorityClassVoter(RandomVoter):
         self.balance = np.array(balance)
         
     def predict_proba(self, L):
-        N = L.shape[0]
-        Y_p = np.zeros((N, self.k))
+        n = L.shape[0]
+        Y_p = np.zeros((n, self.k))
         max_classes = np.where(self.balance == max(self.balance))
         for c in max_classes:
             Y_p[:, c] = 1.0
@@ -64,11 +64,11 @@ class MajorityLabelVoter(RandomVoter):
 
     def predict_proba(self, L):
         L = np.array(L.todense()).astype(int)
-        N, M = L.shape
-        Y_p = np.zeros((N, self.k))
-        for i in range(N):
+        n, m = L.shape
+        Y_p = np.zeros((n, self.k))
+        for i in range(n):
             counts = np.zeros(self.k)
-            for j in range(M):
+            for j in range(m):
                 if L[i,j]:
                     counts[L[i,j] - 1] += 1
             Y_p[i, :] = np.where(counts == max(counts), 1, 0)

@@ -4,27 +4,54 @@ import os
 
 import numpy as np
 from numpy.random import random, choice
-from scipy.sparse import csc_matrix, lil_matrix
+from scipy.sparse import csr_matrix, csc_matrix, lil_matrix
 import torch
 
 from metal.metrics import accuracy_score, coverage_score
 from metal.multitask.task_graph import TaskHierarchy
 
+from synthetic.words1k import vocab1k
+
+def singletask_synthetic(n, m, k, **kwargs):
+    data = SingleTaskTreeDepsGenerator(n, m, k, **kwargs)
+
+    L = data.L
+    Y = data.Y
+    deps = data.E
+
+    bags, D = gaussian_bags_of_words(Y, vocab1k, **kwargs) 
+    X = bags_to_counts(bags, len(vocab1k))
+
+    return D, L, X, Y, deps
+
+############################# Generating Ls and Ys #############################
 
 def indpm(x, y):
     """Plus-minus indicator function"""
     return 1 if x == y else -1
 
 class SingleTaskTreeDepsGenerator(object):
-    """Generates synthetic single-task labels from labeling functions with
-    class-conditional accuracies, and class-unconditional pairwise correlations
-    forming a tree-structured graph.
+    """Generates a synthetic single-task L and Y matrix with dependencies
+    
+    Args:
+        n: (int) The number of data points
+        m: (int) The number of labeling sources
+        k: (int) The cardinality of the classification task
+        class_balance: (np.array) each class's percentage of the population
+        theta_range: (tuple) The min and max possible values for theta, the
+            class conditional accuracy for each labeling source
+        edge_prob: edge density in the graph of correlations between sources
+        theta_edge_range: The min and max possible values for theta_edge, the
+            strength of correlation between correlated sources
+
+    The labeling functions have class-conditional accuracies, and 
+    class-unconditional pairwise correlations forming a tree-structured graph.
 
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains.
     """
-    def __init__(self, n, m, k=2, theta_range=(0, 1.5), edge_prob=0.0, 
-        theta_edge_range=(-1,1)):
+    def __init__(self, n, m, k=2, class_balance=None, theta_range=(0, 1.5), 
+        edge_prob=0.0, theta_edge_range=(-1,1), **kwargs):
         self.n = n
         self.m = m
         self.k = k
@@ -36,14 +63,19 @@ class SingleTaskTreeDepsGenerator(object):
         self._generate_params(theta_range, theta_edge_range)
 
         # Generate class balance self.p
-        self.p = random(self.k)
-        self.p /= self.p.sum()
+        if class_balance is None:
+            self.p = np.full(k, 1/k)
+        else:
+            self.p = class_balance
 
         # Generate the true labels self.Y and label matrix self.L
         self._generate_label_matrix()
 
         # Compute the conditional clique probabilities
         self._get_conditional_probs()
+
+        # Correct output type
+        self.L = csr_matrix(self.L, dtype=np.int)
     
     def _generate_edges(self, edge_prob):
         """Generate a random tree-structured dependency graph based on a
@@ -144,10 +176,13 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
                     y = fs[int(self.L[i,j])-1]
                     for s in range(self.task_graph.t):
                         L_mt[s][i,j] = y[s]
-        self.L = list(map(csc_matrix, L_mt))
+        self.L = list(map(csr_matrix, L_mt))
 
 
-def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):
+############################# Generating Xs and Ds #############################
+
+def gaussian_bags_of_words(Y, vocab=vocab1k, sigma=1, bag_size=[25, 50], 
+    **kwargs):
     """
     Generate Gaussian bags of words based on label assignments
 
@@ -158,7 +193,7 @@ def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):
 
     Returns:
         X: (Tensor) a tensor of indices representing tokens
-        items: (list) a list of sentences (strings)
+        D: (list) a list of sentences (strings)
 
     The sentences are conditionally independent, given a label.
     Note that technically we use a half-normal distribution here because we 
@@ -185,3 +220,11 @@ def gaussian_bags_of_words(Y, vocab, sigma=1, bag_size=[25, 50]):
         items.append(' '.join(vocab[j] for j in x))
 
     return X, items
+
+def bags_to_counts(bags, vocab_size):
+    X = torch.zeros(len(bags), vocab_size, dtype=torch.float)
+    for i, bag in enumerate(bags):
+        for word in bag:
+            X[i, word] += 1
+    return X
+        

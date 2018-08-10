@@ -13,55 +13,37 @@ from metal.analysis import (
     confusion_matrix,
 )
 from metal.classifier import Classifier
-from metal.label_model.lm_defaults import lm_model_defaults
-from metal.utils import recursive_merge_dicts
+from metal.label_model.lm_defaults import lm_default_config
 from metal.label_model.graph_utils import get_clique_tree
-
+from metal.utils import recursive_merge_dicts
 
 class LabelModel(Classifier):
-    def __init__(self, m, k=2, task_graph=None, p=None, deps=[], **kwargs):
-        """
-        Args:
-            m: int: Number of sources
-            k: int: Number of true classes
-            task_graph: TaskGraph: A TaskGraph which defines a feasible set of
-                task label vectors; note this overrides k
-            p: np.array: Class balance
-            deps: list: A list of source dependencies as tuples of indices 
-            kwargs:
-                - seed: int: Random state seed
-        """
-        self.config = recursive_merge_dicts(lm_model_defaults, kwargs)
-        super().__init__()
-        self.k = k
-        self.m = m
+    """A LabelModel...TBD
 
-        # TaskGraph; note overrides k if present
-        self.task_graph = task_graph
-        if self.task_graph is not None:
-            self.k = len(self.task_graph)
-        self.multi_task = (self.task_graph is not None)
+    Args:
+        k: (int) the cardinality of the classifier
+        class_balance: (np.array) each class's percentage of the population
+    """
+    def __init__(self, k=2, class_balance=None, **kwargs):
+        config = recursive_merge_dicts(lm_default_config, kwargs)
+        super().__init__(k, config)
 
+        self._set_class_balance(class_balance)
+
+    def _set_class_balance(self, class_balance):
         # Class balance- assume uniform if not provided
-        if p is None:
+        if class_balance is None:
             self.p = (1/self.k) * np.ones(self.k)
         else:
-            self.p = p
+            self.p = class_balance
         self.P = torch.diag(torch.from_numpy(self.p)).float()
-        
-        # Dependencies
-        self.deps = deps
-        self.c_tree = get_clique_tree(range(self.m), self.deps)
+    
+    def _create_L_aug(self, L, km, offset):
+        L_aug = np.zeros((self.n, self.m * km))
+        for y in range(offset, self.k+1):
+            L_aug[:, y-offset::km] = np.where(L == y, 1, 0)     
+        return L_aug   
 
-        # Whether to take the simple conditionally independent approach, or the
-        # "inverse form" approach for handling dependencies
-        # This flag allows us to eg test the latter even with no deps present
-        self.inv_form = (len(self.deps) > 0)
-    
-    def update_config(self, update_dict):
-        """Updates self.config with the values in a given update dictionary"""
-        self.config = recursive_merge_dicts(self.config, update_dict)
-    
     def _get_augmented_label_matrix(self, L, offset=1, higher_order=False):
         """Returns an augmented version of L where each column is an indicator
         for whether a certain source or clique of sources voted in a certain
@@ -72,20 +54,13 @@ class LabelModel(Classifier):
                 and m is the number of sources, with values in {0,1,...,k}
             - offset: Create indicators for values {offset,...,k}
         """
-        # TODO: Handle in cleaner way
-        if self.multi_task:
-            t = len(L)
-            n, m = L[0].shape
-        else:
-            t = 1
-            n, m = L.shape
         km = self.k + 1 - offset
 
         # Create a helper data structure which maps cliques (as tuples of member
         # sources) --> {start_index, end_index, maximal_cliques}, where
         # the last value is a set of indices in this data structure
         self.c_data = {}
-        for i in range(m):
+        for i in range(self.m):
             self.c_data[i] = {
                 'start_index': i*km,
                 'end_index': (i+1)*km,
@@ -93,6 +68,7 @@ class LabelModel(Classifier):
                     if i in self.c_tree.node[j]['members']])
             }
 
+<<<<<<< HEAD
         # Form the columns corresponding to unary source labels
         if self.multi_task:
             L_ind = np.ones((n, m * km))
@@ -116,6 +92,10 @@ class LabelModel(Classifier):
             for y in range(offset, self.k+1):
                 L_ind[:, y-offset::km] = np.where(L == y, 1, 0)
         
+=======
+        L_aug = self._create_L_aug(L, km, offset)
+
+>>>>>>> 1f561fca30317a07b143a3aca457e565ecb7aa0f
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
@@ -140,7 +120,7 @@ class LabelModel(Classifier):
                 
                 # Else add one column for each possible value
                 else:
-                    L_C = np.ones((n, km ** nc))
+                    L_C = np.ones((self.n, km ** nc))
                     for i, vals in enumerate(product(range(km), repeat=nc)):
                         for j, v in enumerate(vals):
                             L_C[:,i] *= L_ind[:, members[j]*km + v]
@@ -188,13 +168,6 @@ class LabelModel(Classifier):
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
         """
-        # TODO: Handle in cleaner way
-        if self.multi_task:
-            self.t = len(L)
-            self.n, self.m = L[0].shape
-        else:
-            self.t = 1
-            self.n, self.m = L.shape
         L_aug = self._get_augmented_label_matrix(L, offset=1)
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
@@ -265,11 +238,14 @@ class LabelModel(Classifier):
             return c_probs
 
     def predict_proba(self, L):
-        return self.get_label_probs(L)
+        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)"""
+        # TODO: Change internals to use sparse throughout and delete this:
+        if issparse(L):
+            L = L.todense()     
 
-    def get_label_probs(self, L):
-        """Returns the n x k matrix of label probabilities P(Y | \lambda)"""
-        L_aug = self._get_augmented_label_matrix(L, offset=1)        
+        self._set_constants(L)               
+        
+        L_aug = self._get_augmented_label_matrix(L, offset=1)     
         mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
 
         # Create a "junction tree mask" over the columns of L_aug / mu
@@ -322,7 +298,16 @@ class LabelModel(Classifier):
         loss_l2 = 0
         return loss_1 + loss_2 + l2 * loss_l2
     
-    def train(self, L, **kwargs):
+    def _set_constants(self, L):
+        self.n, self.m = L.shape
+        self.t = 1
+
+    def _set_dependencies(self, deps):
+        nodes = range(self.m)
+        self.deps = deps
+        self.c_tree = get_clique_tree(nodes, deps)
+
+    def train(self, L, deps=[], **kwargs):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
         whether source dependencies are provided or not:
         
@@ -341,6 +326,18 @@ class LabelModel(Classifier):
         """
         self.config = recursive_merge_dicts(self.config, kwargs, 
             misses='ignore')
+
+        # TODO: Change internals to use sparse throughout and delete this:
+        if issparse(L):
+            L = L.todense()
+
+        self._set_constants(L)
+        self._set_dependencies(deps)
+
+        # Whether to take the simple conditionally independent approach, or the
+        # "inverse form" approach for handling dependencies
+        # This flag allows us to eg test the latter even with no deps present
+        self.inv_form = (len(self.deps) > 0)            
 
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
@@ -373,6 +370,8 @@ class LabelModel(Classifier):
 
     def _train(self, loss_fn):
         """Train model (self.parameters()) by optimizing the provided loss fn"""
+        # TODO: Merge this _train with Classifier._train
+
         train_config = self.config['train_config']
 
         # Set optimizer as SGD w/ momentum
@@ -388,7 +387,7 @@ class LabelModel(Classifier):
             optimizer.zero_grad()
             
             # Compute gradient and take a step
-            # Note that since this uses all N training points this is an epoch!
+            # Note that since this uses all n training points this is an epoch!
             loss = loss_fn(l2=train_config['l2'])
             if torch.isnan(loss):
                 raise Exception("Loss is NaN. Consider reducing learning rate.")
