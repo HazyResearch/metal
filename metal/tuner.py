@@ -343,11 +343,14 @@ class HyperbandTuner(ModelTuner):
             
             # Sample random configurations to seed SuccessiveHalving
             n_starting_configurations, _ = bracket[0]
-            configurations = islice(self.config_generator(search_space, None, shuffle=True), 
-                                    n_starting_configurations)
+            configurations = list(self.config_generator(search_space, 
+                                                        max_search=n_starting_configurations, 
+                                                        shuffle=True))
 
             # Successive Halving
             for band_index, (n_i, r_i) in enumerate(bracket):
+
+                assert(len(configurations) == n_i)
                 
                 # Evaluate each configuration for r_i epochs
                 scored_configurations = []
