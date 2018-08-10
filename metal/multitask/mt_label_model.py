@@ -37,8 +37,8 @@ class MTLabelModel(MTClassifier, LabelModel):
         self.n, self.m = L[0].shape
         self.t = len(L)
 
-    def _create_L_aug(self, L, km, offset):
-        L_aug = np.ones((self.n, self.m * km))
+    def _create_L_ind(self, L, km, offset):
+        L_ind = np.ones((self.n, self.m * km))
 
         # TODO: By default, this will operate with offset = 1 by skipping
         # abstains; should fix this!
@@ -47,11 +47,11 @@ class MTLabelModel(MTClassifier, LabelModel):
                 # Note that we cast to dense here, and are creating a dense
                 # matrix; can change to fully sparse operations if needed
                 L_s = L[s].todense()
-                L_aug[:, yi::km] *= np.where(
+                L_ind[:, yi::km] *= np.where(
                     np.logical_or(L_s == y[s], L_s == 0), 1, 0)
             
             # Handle abstains- if all elements of the task label are 0
-            L_aug[:, yi::km] *= np.where(
+            L_ind[:, yi::km] *= np.where(
                 sum(map(abs, L)).todense() != 0, 1, 0)     
 
-        return L_aug   
+        return L_ind   

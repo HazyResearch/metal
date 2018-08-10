@@ -50,7 +50,7 @@ class SingleTaskTreeDepsGenerator(object):
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains.
     """
-    def __init__(self, n, m, k=2, class_balance=None, theta_range=(0, 1.5), 
+    def __init__(self, n, m, k=2, class_balance='random', theta_range=(0, 1.5), 
         edge_prob=0.0, theta_edge_range=(-1,1), **kwargs):
         self.n = n
         self.m = m
@@ -65,6 +65,9 @@ class SingleTaskTreeDepsGenerator(object):
         # Generate class balance self.p
         if class_balance is None:
             self.p = np.full(k, 1/k)
+        elif class_balance == 'random':
+            self.p = np.random.random(k)
+            self.p /= self.p.sum()
         else:
             self.p = class_balance
 
