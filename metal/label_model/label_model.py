@@ -38,11 +38,11 @@ class LabelModel(Classifier):
             self.p = class_balance
         self.P = torch.diag(torch.from_numpy(self.p)).float()
     
-    def _create_L_aug(self, L, km, offset):
-        L_aug = np.zeros((self.n, self.m * km))
+    def _create_L_ind(self, L, km, offset):
+        L_ind = np.zeros((self.n, self.m * km))
         for y in range(offset, self.k+1):
-            L_aug[:, y-offset::km] = np.where(L == y, 1, 0)     
-        return L_aug   
+            L_ind[:, y-offset::km] = np.where(L == y, 1, 0)     
+        return L_ind   
 
     def _get_augmented_label_matrix(self, L, offset=1, higher_order=False):
         """Returns an augmented version of L where each column is an indicator
@@ -68,7 +68,7 @@ class LabelModel(Classifier):
                     if i in self.c_tree.node[j]['members']])
             }
 
-        L_aug = self._create_L_aug(L, km, offset)
+        L_ind = self._create_L_ind(L, km, offset)
 
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
