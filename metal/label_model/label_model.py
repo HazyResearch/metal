@@ -1,6 +1,4 @@
 from itertools import product, chain
-from collections import OrderedDict
-import random
 
 import numpy as np
 from scipy.sparse import issparse, csc_matrix
