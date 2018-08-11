@@ -2,12 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def compute_covariance(L_aug, Y, k, p):
-    """Given label matrix L and labels Y, compute the covariance.
+def compute_mu(L_aug, Y, k, p):
+    """Given label matrix L_aug and labels Y, compute the true mu params.
 
     Args:
-        L: (np.array) [n, d] The augmented (indicator) label matrix
+        L: (np.array {0,1}) [n, d] The augmented (indicator) label matrix
         Y: (np.array int) [n] The true labels in {1,...,k}
+        k: (int) Cardinality
+        p: (np.array float) [k] The class balance
     """
     n, d = L_aug.shape
     assert Y.shape[0] == n
@@ -17,8 +19,20 @@ def compute_covariance(L_aug, Y, k, p):
     for y in range(1, k+1):
         L_y = L_aug[Y == y]
         mu[:, y-1] = L_y.sum(axis=0) / L_y.shape[0]
-    
-    # Compute covariance
+    return mu
+
+def compute_covariance(L_aug, Y, k, p):
+    """Given label matrix L_aug and labels Y, compute the covariance.
+
+    Args:
+        L: (np.array {0,1}) [n, d] The augmented (indicator) label matrix
+        Y: (np.array int) [n] The true labels in {1,...,k}
+        k: (int) Cardinality
+        p: (np.array float) [k] The class balance
+    """
+    n, d = L_aug.shape
+    assert Y.shape[0] == n
+    mu = compute_mu(L_aug, Y, k, p)
     return (L_aug.T @ L_aug) / n - mu @ np.diag(p) @ mu.T
 
 def compute_inv_covariance(L_aug, Y, k, p):

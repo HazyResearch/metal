@@ -3,6 +3,9 @@ lm_default_config = {
     'seed': None,
     'verbose': True,
     'show_plots': True,
+
+    ### Key configurations
+    'higher_order_cliques': False,
     
     ### TRAIN
     'train_config': {

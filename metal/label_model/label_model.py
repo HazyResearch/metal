@@ -44,7 +44,7 @@ class LabelModel(Classifier):
             L_ind[:, y-offset::km] = np.where(L == y, 1, 0)     
         return L_ind   
 
-    def _get_augmented_label_matrix(self, L, offset=1, higher_order=True):
+    def _get_augmented_label_matrix(self, L, offset=1):
         """Returns an augmented version of L where each column is an indicator
         for whether a certain source or clique of sources voted in a certain
         pattern.
@@ -73,7 +73,7 @@ class LabelModel(Classifier):
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
-        if higher_order:
+        if self.higher_order_cliques:
             L_aug = np.copy(L_ind)
             for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
                 if isinstance(item, int):
@@ -311,7 +311,12 @@ class LabelModel(Classifier):
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
         # This flag allows us to eg test the latter even with no deps present
-        self.inv_form = (len(self.deps) > 0)            
+        self.inv_form = (len(self.deps) > 0)
+
+        # Whether to compute higher-order cliques
+        self.higher_order_cliques = self.config['higher_order_cliques']
+        if self.higher_order_cliques:
+            print("Learning higher-order clique parameters = True.")
 
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
@@ -341,7 +346,7 @@ class LabelModel(Classifier):
             if self.config['verbose']:
                 print("Estimating \mu...")
             self._train(self.loss_mu)
-
+    
     def _train(self, loss_fn):
         """Train model (self.parameters()) by optimizing the provided loss fn"""
         # TODO: Merge this _train with Classifier._train
