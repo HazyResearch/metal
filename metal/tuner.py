@@ -79,7 +79,7 @@ class ModelTuner(object):
             except:
                 score = float("nan")
 
-            if score > best_score:
+            if score > best_score or best_model is None:
                 best_index = i + 1
                 best_model = model
                 best_score = score
@@ -362,7 +362,7 @@ class HyperbandTuner(ModelTuner):
             # Successive Halving
             for band_index, (n_i, r_i) in enumerate(bracket):
 
-                assert(len(configurations) == n_i)
+                assert(len(configurations) <= n_i)
                 
                 # Evaluate each configuration for r_i epochs
                 scored_configurations = []
@@ -396,7 +396,7 @@ class HyperbandTuner(ModelTuner):
                     scored_configurations.append((model, score, cur_model_index, configuration))
 
                     # Update best model and score
-                    if score > best_score:
+                    if score > best_score or best_model is None:
                         best_model, best_score, best_model_index, best_configuration = (
                             model, score, cur_model_index, configuration
                         )
