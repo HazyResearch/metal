@@ -1,4 +1,6 @@
 from itertools import product, chain
+from collections import OrderedDict
+import random
 
 import numpy as np
 from scipy.sparse import issparse, csc_matrix
@@ -132,20 +134,6 @@ class LabelModel(Classifier):
         else:
             return L_ind
     
-    def _build_mask(self):
-        """Build mask applied to O^{-1}, O for the matrix approx constraint"""
-        self.mask = torch.ones(self.d, self.d).byte()
-        for ci in self.c_data.values():
-            si, ei = ci['start_index'], ci['end_index']
-            for cj in self.c_data.values():
-                sj, ej = cj['start_index'], cj['end_index']
-
-                # Check if ci and cj are part of the same maximal clique
-                # If so, mask out their corresponding blocks in O^{-1}
-                if len(ci['max_cliques'].intersection(cj['max_cliques'])) > 0:
-                    self.mask[si:ei, sj:ej] = 0
-                    self.mask[sj:ej, si:ei] = 0
-    
     def _generate_O(self, L):
         """Form the overlaps matrix, which is just all the different observed
         combinations of values of pairs of sources
@@ -157,9 +145,16 @@ class LabelModel(Classifier):
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
-    def _generate_O_inv(self, L, eps=1e-2, prec=1000):
+    def _generate_O_inv(self, L, eps=1e-2, prec=1000, cond_thresh=500):
         """Form the *inverse* overlaps matrix"""
         self._generate_O(L)
+
+        # Print warning if O is poorly conditioned
+        kappa_O = np.linalg.cond(self.O.numpy())
+        if kappa_O > cond_thresh:
+            print(f"Warning: O is ill-conditioned: kappa(O) = {kappa_O:0.2f}.")
+        
+        # self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
 
         # Trying the pseudoinverse, dropping singular values that are too small
         # O = self.O.numpy()
@@ -167,13 +162,38 @@ class LabelModel(Classifier):
         # S = np.diag(1/s)
         # S[1/S < eps] = 0
         # self.O_inv = torch.from_numpy(V.T @ S @ U.T).float()
-
-        # self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
         
+        # Use high-precision matrix operations starting with L.T @ L...
+        L_aug = self._get_augmented_label_matrix(L, offset=1)
+        O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
+        n = mpmath.mpf(self.n)
+        O_inv = (O_unnorm / n) ** -1
         with mpmath.workdps(prec):
-            self.O_inv = torch.from_numpy(np.array(
-                (mpmath.matrix(self.O.numpy())**-1).tolist(), dtype=float)
-            ).float()
+            self.O_inv = torch.from_numpy(
+                np.array(O_inv.tolist(), dtype=float)).float()
+    
+    def _build_mask(self):
+        """Build mask applied to O^{-1}, O for the matrix approx constraint"""
+        self.mask = torch.ones(self.d, self.d).byte()
+        for members_i, ci in self.c_data.items():
+            si, ei = ci['start_index'], ci['end_index']
+            for members_j, cj in self.c_data.items():
+                sj, ej = cj['start_index'], cj['end_index']
+
+                # Check if ci and cj are part of the same maximal clique
+                # If so, mask out their corresponding blocks in O^{-1}
+                if len(ci['max_cliques'].intersection(cj['max_cliques'])) > 0:
+                    self.mask[si:ei, sj:ej] = 0
+                    self.mask[sj:ej, si:ei] = 0
+                
+                # Also try masking out any overlaps
+                # mi = set(members_i) if isinstance(members_i, tuple) else \
+                #     set([members_i])
+                # mj = set(members_j) if isinstance(members_j, tuple) else \
+                #     set([members_j])
+                # if len(mi.intersection(mj)) > 0:
+                #     self.mask[si:ei, sj:ej] = 0
+                #     self.mask[sj:ej, si:ei] = 0
         
     def _init_params(self):
         """Initialize the learned params
@@ -188,12 +208,17 @@ class LabelModel(Classifier):
         - Z is the inverse form version of \mu.
         """
         # Initialize mu so as to break basic reflective symmetry
-        # TODO: Update for higher-order cliques!
         self.mu_init = torch.randn(self.d, self.k)
-        # self.mu_init = torch.zeros(self.d, self.k)
-        # for i in range(self.m):
-        #     for y in range(self.k):
-        #         self.mu_init[i*self.k + y, y] += np.random.random()
+        for members_i, ci in self.c_data.items():
+            si, ei = ci['start_index'], ci['end_index']
+
+            # Unary cliques
+            if isinstance(members_i, int) or len(members_i) == 1:
+                self.mu_init[si:ei, :] = torch.eye(self.k) * np.random.random()
+
+            # Higher-order cliques
+            # TODO
+        
         self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
