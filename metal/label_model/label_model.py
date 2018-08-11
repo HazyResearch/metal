@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import mpmath
 
 from metal.analysis import (
     plot_probabilities_histogram,
@@ -156,7 +157,7 @@ class LabelModel(Classifier):
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
-    def _generate_O_inv(self, L, eps=1e-2):
+    def _generate_O_inv(self, L, eps=1e-2, prec=1000):
         """Form the *inverse* overlaps matrix"""
         self._generate_O(L)
 
@@ -167,7 +168,12 @@ class LabelModel(Classifier):
         # S[1/S < eps] = 0
         # self.O_inv = torch.from_numpy(V.T @ S @ U.T).float()
 
-        self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
+        # self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
+        
+        with mpmath.workdps(prec):
+            self.O_inv = torch.from_numpy(np.array(
+                (mpmath.matrix(self.O.numpy())**-1).tolist(), dtype=float)
+            ).float()
         
     def _init_params(self):
         """Initialize the learned params
