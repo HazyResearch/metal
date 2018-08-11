@@ -5,6 +5,7 @@ lm_default_config = {
     'show_plots': True,
 
     ### Key configurations
+    'all_unary_cliques': True,
     'higher_order_cliques': False,
     
     ### TRAIN

@@ -60,21 +60,27 @@ class LabelModel(Classifier):
         # sources) --> {start_index, end_index, maximal_cliques}, where
         # the last value is a set of indices in this data structure
         self.c_data = {}
-        for i in range(self.m):
-            self.c_data[i] = {
-                'start_index': i*km,
-                'end_index': (i+1)*km,
-                'max_cliques': set([j for j in self.c_tree.nodes() 
-                    if i in self.c_tree.node[j]['members']])
-            }
-
+        
+        # Create the basic indicator version of the source label matrix
         L_ind = self._create_L_ind(L, km, offset)
 
+        if self.config['all_unary_cliques']:
+            # Add all unary cliques
+            for i in range(self.m):
+                self.c_data[i] = {
+                    'start_index': i*km,
+                    'end_index': (i+1)*km,
+                    'max_cliques': set([j for j in self.c_tree.nodes() 
+                        if i in self.c_tree.node[j]['members']])
+                }
+            L_aug = np.copy(L_ind)
+        else:
+            L_aug = None
+        
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
-        if self.higher_order_cliques:
-            L_aug = np.copy(L_ind)
+        if self.config['higher_order_cliques']:
             for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
                 if isinstance(item, int):
                     C = self.c_tree.node[item]
@@ -86,12 +92,17 @@ class LabelModel(Classifier):
                     raise ValueError(item)
                 members = list(C['members'])
                 nc = len(members)
+                id = tuple(members) if len(members) > 1 else members[0]
+
+                # Check if already added
+                if id in self.c_data:
+                    continue
 
                 # If a unary maximal clique, just store its existing index
-                if nc == 1:
+                if nc == 1 and self.config['all_unary_cliques']:
                     C['start_index'] = members[0] * km
                     C['end_index'] = (members[0]+1) * km
-                
+
                 # Else add one column for each possible value
                 else:
                     L_C = np.ones((self.n, km ** nc))
@@ -110,7 +121,6 @@ class LabelModel(Classifier):
                         L_aug = L_C
                     
                     # Add to self.c_data as well
-                    id = tuple(members) if len(members) > 1 else members[0]
                     self.c_data[id] = {
                         'start_index': C['start_index'],
                         'end_index': C['end_index'],
@@ -146,11 +156,19 @@ class LabelModel(Classifier):
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
-    def _generate_O_inv(self, L):
+    def _generate_O_inv(self, L, eps=1e-2):
         """Form the *inverse* overlaps matrix"""
         self._generate_O(L)
+
+        # Trying the pseudoinverse, dropping singular values that are too small
+        # O = self.O.numpy()
+        # U, s, V = np.linalg.svd(O)
+        # S = np.diag(1/s)
+        # S[1/S < eps] = 0
+        # self.O_inv = torch.from_numpy(V.T @ S @ U.T).float()
+
         self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
-    
+        
     def _init_params(self):
         """Initialize the learned params
         
@@ -165,10 +183,11 @@ class LabelModel(Classifier):
         """
         # Initialize mu so as to break basic reflective symmetry
         # TODO: Update for higher-order cliques!
-        self.mu_init = torch.zeros(self.d, self.k)
-        for i in range(self.m):
-            for y in range(self.k):
-                self.mu_init[i*self.k + y, y] += np.random.random()
+        self.mu_init = torch.randn(self.d, self.k)
+        # self.mu_init = torch.zeros(self.d, self.k)
+        # for i in range(self.m):
+        #     for y in range(self.k):
+        #         self.mu_init[i*self.k + y, y] += np.random.random()
         self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
@@ -244,7 +263,9 @@ class LabelModel(Classifier):
         return X / Z
 
     def loss_inv_Z(self, l2=0.0):
-        return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2
+        loss_1 = torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2
+        loss_l2 = torch.norm(self.Z)**2
+        return loss_1 + l2 * loss_l2
     
     def get_Q(self):
         """Get the model's estimate of Q = \mu P \mu^T
@@ -312,11 +333,6 @@ class LabelModel(Classifier):
         # "inverse form" approach for handling dependencies
         # This flag allows us to eg test the latter even with no deps present
         self.inv_form = (len(self.deps) > 0)
-
-        # Whether to compute higher-order cliques
-        self.higher_order_cliques = self.config['higher_order_cliques']
-        if self.higher_order_cliques:
-            print("Learning higher-order clique parameters = True.")
 
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
