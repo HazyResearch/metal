@@ -1,4 +1,5 @@
 from itertools import product, chain
+from collections import Counter
 
 import numpy as np
 from scipy.sparse import issparse, csc_matrix
@@ -22,21 +23,10 @@ class LabelModel(Classifier):
 
     Args:
         k: (int) the cardinality of the classifier
-        class_balance: (np.array) each class's percentage of the population
     """
-    def __init__(self, k=2, class_balance=None, **kwargs):
+    def __init__(self, k=2, **kwargs):
         config = recursive_merge_dicts(lm_default_config, kwargs)
         super().__init__(k, config)
-
-        self._set_class_balance(class_balance)
-
-    def _set_class_balance(self, class_balance):
-        # Class balance- assume uniform if not provided
-        if class_balance is None:
-            self.p = (1/self.k) * np.ones(self.k)
-        else:
-            self.p = np.array(class_balance)
-        self.P = torch.diag(torch.from_numpy(self.p)).float()
     
     def _create_L_ind(self, L, km, offset):
         L_ind = np.zeros((self.n, self.m * km))
@@ -272,6 +262,24 @@ class LabelModel(Classifier):
         loss_l2 = 0
         return loss_1 + loss_2 + l2 * loss_l2
     
+    def _set_class_balance(self, class_balance, Y_dev):
+        """Set a prior for the class balance
+        
+        In order of preference:
+        1) Use user-provided class_balance
+        2) Estimate balance from Y_dev
+        3) Assume uniform class distribution
+        """
+        if class_balance is not None:
+            self.p = np.array(class_balance)
+        elif Y_dev is not None:
+            class_counts = Counter(Y_dev)
+            sorted_counts = np.array([v for k,v in sorted(class_counts.items())])
+            self.p = sorted_counts/sum(sorted_counts)
+        else:
+            self.p = (1/self.k) * np.ones(self.k)
+        self.P = torch.diag(torch.from_numpy(self.p)).float()
+
     def _set_constants(self, L):
         self.n, self.m = L.shape
         self.t = 1
@@ -281,10 +289,22 @@ class LabelModel(Classifier):
         self.deps = deps
         self.c_tree = get_clique_tree(nodes, deps)
 
-    def train(self, L, deps=[], **kwargs):
+    def train(self, L_train, L_dev=None, Y_dev=None, deps=[], 
+        class_balance=None, **kwargs):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
         whether source dependencies are provided or not:
         
+        Args:
+            L_train: An [n,m] scipy.sparse matrix with values in {0,1,...,k}
+                corresponding to labels from supervision sources on the 
+                training set.
+            L_dev: A label matrix similiar to L_train, but on the dev set.
+            Y_dev: Target labels for the dev set.
+            deps: (list of tuples) known dependencies between supervision 
+                sources. If not provided, sources are assumed to be independent.
+                TODO: add automatic dependency-learning code
+            class_balance: (np.array) each class's percentage of the population
+
         (1) No dependencies (conditionally independent sources): Estimate mu
         subject to constraints:
             (1a) O_{B(i,j)} - (mu P mu.T)_{B(i,j)} = 0, for i != j, where B(i,j)
@@ -301,11 +321,14 @@ class LabelModel(Classifier):
         self.config = recursive_merge_dicts(self.config, kwargs, 
             misses='ignore')
 
-        # TODO: Change internals to use sparse throughout and delete this:
-        if issparse(L):
-            L = L.todense()
+        # TODO: Change internals to use sparse throughout and delete these:
+        if issparse(L_train):
+            L_train = L_train.todense()
+        if issparse(L_dev):
+            L_dev = L_dev.todense()
 
-        self._set_constants(L)
+        self._set_class_balance(class_balance, Y_dev)
+        self._set_constants(L_train)
         self._set_dependencies(deps)
 
         # Whether to take the simple conditionally independent approach, or the
@@ -317,7 +340,7 @@ class LabelModel(Classifier):
             # Compute O, O^{-1}, and initialize params
             if self.config['verbose']:
                 print("Computing O^{-1}...")
-            self._generate_O_inv(L)
+            self._generate_O_inv(L_train)
             self._init_params()
 
             # Estimate Z, compute Q = \mu P \mu^T
@@ -334,7 +357,7 @@ class LabelModel(Classifier):
             # Compute O and initialize params
             if self.config['verbose']:
                 print("Computing O...")
-            self._generate_O(L)
+            self._generate_O(L_train)
             self._init_params()
 
             # Estimate \mu
