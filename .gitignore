@@ -17,3 +17,7 @@ docs/_build/
 
 # VSCode
 .vscode/
+
+# Local data and notebooks
+data/*
+notebooks/local/*
