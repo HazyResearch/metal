@@ -24,11 +24,26 @@ def singletask_synthetic(n, m, k, **kwargs):
 
     return D, L, X, Y, deps
 
-############################# Generating Ls and Ys #############################
+################################################################################
+# Helpers
+################################################################################
+
+def logistic_fn(x):
+    return 1 / (1 + np.exp(-x))
+
+def choose_other_label(k, y):
+    """Given a cardinality k and true label y, return random value in 
+    {1,...,k} \ {y}."""
+    return random.choice(list(set(range(1, k+1)) - set([y])))
 
 def indpm(x, y):
     """Plus-minus indicator function"""
     return 1 if x == y else -1
+
+
+################################################################################
+# Single-task (Ls and Ys)
+################################################################################
 
 class SingleTaskTreeDepsGenerator(object):
     """Generates a synthetic single-task L and Y matrix with dependencies
@@ -124,7 +139,7 @@ class SingleTaskTreeDepsGenerator(object):
         return self._P(i, li, j, lj, y) / Z
     
     def _generate_label_matrix(self):
-        """Generate an n x m label matrix with entries in {0,...,k}"""
+        """Generate an [n,m] label matrix with entries in {0,...,k}"""
         self.L = np.zeros((self.n, self.m))
         self.Y = np.zeros(self.n, dtype=np.int64)
         for i in range(self.n):
