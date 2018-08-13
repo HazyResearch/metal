@@ -65,7 +65,7 @@ class RandomSearchModelTuner(ModelTuner):
                 print("=" * 60)
 
             try:
-                model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, **config)
+                model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, **config, verbose=verbose)
                 score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
             except:
                 score = float("nan")
@@ -78,7 +78,7 @@ class RandomSearchModelTuner(ModelTuner):
 
                 # Keep track of running statistics
                 time_elapsed = time.time() - start_time
-                run_stats.append({
+                self.run_stats.append({
                         "time_elapsed": time_elapsed,
                         "best_score": best_score
                 })

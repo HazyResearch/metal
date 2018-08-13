@@ -54,7 +54,7 @@ class ModelTuner(object):
         """
         raise NotImplementedError()
 
-    def get_run_stats():
+    def get_run_stats(self):
         """
         Returns run stats of the previous search run.
         Expect a list of dictionaries with the following keys:
