@@ -7,4 +7,4 @@ from .label_model import (
 from .end_model import (
     EndModel
 )
-from .tuner import ModelTuner
+from .tuners.tuner import ModelTuner
