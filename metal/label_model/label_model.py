@@ -35,7 +35,7 @@ class LabelModel(Classifier):
         if class_balance is None:
             self.p = (1/self.k) * np.ones(self.k)
         else:
-            self.p = class_balance
+            self.p = np.array(class_balance)
         self.P = torch.diag(torch.from_numpy(self.p)).float()
     
     def _create_L_aug(self, L, km, offset):
