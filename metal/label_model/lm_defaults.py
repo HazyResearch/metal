@@ -8,9 +8,11 @@ lm_default_config = {
     'all_unary_cliques': True,
     'higher_order_cliques': False,
 
-    ### Data caching
+    ### Computing O^{-1}
+    'O_inv_prec': 16384,
     'cache_O_inv': True,
     'cache_O_inv_thresh': 1e-5,
+    'kappa_warning_thresh': 500,
     
     ### TRAIN
     'train_config': {

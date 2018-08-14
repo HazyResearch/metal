@@ -149,7 +149,7 @@ class LabelModel(Classifier):
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
-    def _generate_O_inv(self, L, eps=1e-2, prec=16384, cond_thresh=500):
+    def _generate_O_inv(self, L):
         """Form the *inverse* overlaps matrix"""
         self._generate_O(L)
 
@@ -167,7 +167,7 @@ class LabelModel(Classifier):
 
         # Print warning if O is poorly conditioned
         kappa_O = np.linalg.cond(self.O.numpy())
-        if kappa_O > cond_thresh:
+        if kappa_O > self.config['kappa_warning_thresh']:
             print(f"Warning: O is ill-conditioned: kappa(O) = {kappa_O:0.2f}.")
 
         # Use high-precision matrix operations starting with L.T @ L...
@@ -175,7 +175,7 @@ class LabelModel(Classifier):
             if self.config['verbose']:
                 print("Computing O^{-1}...")
             L_aug = self._get_augmented_label_matrix(L, offset=1)
-            with mpmath.workdps(prec):
+            with mpmath.workdps(self.config['O_inv_prec']):
                 O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
                 n = mpmath.mpf(self.n)
                 O_inv = (O_unnorm / n) ** -1
@@ -185,6 +185,7 @@ class LabelModel(Classifier):
         # self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
 
         # Trying the pseudoinverse, dropping singular values that are too small
+        # eps = 1e-2
         # O = self.O.numpy()
         # U, s, V = np.linalg.svd(O)
         # S = np.diag(1/s)
