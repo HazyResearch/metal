@@ -131,8 +131,9 @@ class LabelModel(Classifier):
                     }
 
                     # Make sure to add all permutations!
-                    for id_perm in permutations(id):
-                        self.c_data[id_perm] = self.c_data[id]
+                    if isinstance(id, tuple):
+                        for id_perm in permutations(id):
+                            self.c_data[id_perm] = self.c_data[id]
 
             return L_aug
         else:
@@ -155,7 +156,7 @@ class LabelModel(Classifier):
 
         # If caching enabled, test to see if O_inv has already been computed
         if self.config['cache_O_inv'] and hasattr(self, 'O_inv') \
-            and self.O_inv is not None:
+            and self.O_inv is not None and self.O_inv.shape == self.O.shape:
             err = torch.mean(torch.abs(self.O @ self.O_inv - torch.eye(self.d)))
             if err < self.config['cache_O_inv_thresh']:
                 if self.config['verbose']:
