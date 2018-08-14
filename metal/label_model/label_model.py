@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader
 
 from metal.analysis import (
     plot_probabilities_histogram,
@@ -16,7 +17,7 @@ from metal.analysis import (
 from metal.classifier import Classifier
 from metal.label_model.lm_defaults import lm_default_config
 from metal.label_model.graph_utils import get_clique_tree
-from metal.utils import recursive_merge_dicts
+from metal.utils import MetalDataset, recursive_merge_dicts
 
 class LabelModel(Classifier):
     """A LabelModel...TBD
@@ -29,6 +30,7 @@ class LabelModel(Classifier):
         super().__init__(k, config)
     
     def _create_L_ind(self, L, km, offset):
+        """Convert a label matrix with labels in 0...k to a one-hot format"""
         L_ind = np.zeros((self.n, self.m * km))
         for y in range(offset, self.k+1):
             L_ind[:, y-offset::km] = np.where(L == y, 1, 0)     
@@ -131,6 +133,8 @@ class LabelModel(Classifier):
 
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
+
+        TODO: explain the meaning of the offset kwarg
         """
         L_aug = self._get_augmented_label_matrix(L, offset=1)
         self.d = L_aug.shape[1]
@@ -233,9 +237,6 @@ class LabelModel(Classifier):
         Z = np.tile(X.sum(axis=1).reshape(-1,1), self.k)
         return X / Z
 
-    def loss_inv_Z(self, l2=0.0):
-        return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2
-    
     def get_Q(self):
         """Get the model's estimate of Q = \mu P \mu^T
         
@@ -247,20 +248,26 @@ class LabelModel(Classifier):
         I_k = np.eye(self.k)
         return O @ Z @ np.linalg.inv(I_k + Z.T @ O @ Z) @ Z.T @ O
 
-    def loss_inv_mu(self, l2=0.0):
+    # These loss functions get all their data directly from the LabelModel
+    # (for better or worse). The unused *args make these compatible with the
+    # Classifer._train() method which expect loss functions to accept an input.
+    # TODO: Add l2 regularization to all three of these loss functions
+
+    def loss_inv_Z(self, *args):
+        return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2
+
+    def loss_inv_mu(self, *args):
         loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t())**2
         loss_2 = torch.norm(
             torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
         return loss_1 + loss_2
     
-    def loss_mu(self, l2=0.0):
+    def loss_mu(self, *args):
         loss_1 = torch.norm(
             (self.O - self.mu @ self.P @ self.mu.t())[self.mask])**2
         loss_2 = torch.norm(
             torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
-        # loss_l2 = torch.norm( self.mu - self.mu_init )**2
-        loss_l2 = 0
-        return loss_1 + loss_2 + l2 * loss_l2
+        return loss_1 + loss_2
     
     def _set_class_balance(self, class_balance, Y_dev):
         """Set a prior for the class balance
@@ -336,6 +343,11 @@ class LabelModel(Classifier):
         # This flag allows us to eg test the latter even with no deps present
         self.inv_form = (len(self.deps) > 0)            
 
+        # Creating this faux dataset is necessary for now because the LabelModel
+        # loss functions do not accept inputs, but Classifer._train() expects
+        # training data to feed to the loss functions.
+        dataset = MetalDataset([0], [0])
+        train_loader = DataLoader(dataset)
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
             if self.config['verbose']:
@@ -346,13 +358,14 @@ class LabelModel(Classifier):
             # Estimate Z, compute Q = \mu P \mu^T
             if self.config['verbose']:
                 print("Estimating Z...")
-            self._train(self.loss_inv_Z)
+            self._train(train_loader, self.loss_inv_Z)
+            # _train(self, train_loader, loss_fn, X_dev=None, Y_dev=None):
             self.Q = torch.from_numpy(self.get_Q()).float()
 
             # Estimate \mu
             if self.config['verbose']:
                 print("Estimating \mu...")
-            self._train(self.loss_inv_mu)
+            self._train(train_loader, self.loss_inv_mu)
         else:
             # Compute O and initialize params
             if self.config['verbose']:
@@ -363,38 +376,4 @@ class LabelModel(Classifier):
             # Estimate \mu
             if self.config['verbose']:
                 print("Estimating \mu...")
-            self._train(self.loss_mu)
-
-    def _train(self, loss_fn):
-        """Train model (self.parameters()) by optimizing the provided loss fn"""
-        # TODO: Merge this _train with Classifier._train
-
-        train_config = self.config['train_config']
-
-        # Set optimizer as SGD w/ momentum
-        optimizer_config = self.config['train_config']['optimizer_config']
-        optimizer = optim.SGD(
-            self.parameters(),
-            **optimizer_config['optimizer_common'],
-            **optimizer_config['sgd_config']
-        )
-
-        # Train model
-        for epoch in range(train_config['n_epochs']):
-            optimizer.zero_grad()
-            
-            # Compute gradient and take a step
-            # Note that since this uses all n training points this is an epoch!
-            loss = loss_fn(l2=train_config['l2'])
-            if torch.isnan(loss):
-                raise Exception("Loss is NaN. Consider reducing learning rate.")
-
-            loss.backward()
-            optimizer.step()
-            
-            # Print loss every print_every steps
-            if (self.config['verbose'] and 
-                (epoch % train_config['print_every'] == 0 
-                or epoch == train_config['n_epochs'] - 1)):
-                msg = f"[Epoch {epoch}] Loss: {loss.item():0.6f}"
-                print(msg)
+            self._train(train_loader, self.loss_mu)

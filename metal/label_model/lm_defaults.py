@@ -15,8 +15,10 @@ lm_default_config = {
         'mu_init': 0.4, 
         # L2 regularization (around prior values)
         'l2': 0.01,
+        
         # Optimizer
         'optimizer_config': {
+            'optimizer': 'sgd',
             'optimizer_common': {
                 'lr': 0.01,
             },
@@ -25,6 +27,15 @@ lm_default_config = {
                 'momentum': 0.9, 
             },
         },
+
+        # Scheduler
+        'scheduler_config': {
+            'scheduler': None, 
+        },
+
+        # Checkpointer
+        'checkpoint': False,
+
         # Train loop
         'n_epochs': 100, 
         'print_every': 10, 
