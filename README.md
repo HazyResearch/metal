@@ -22,6 +22,7 @@ Snorkel MeTaL can use the output of labeling functions developed and executed in
 **Check out the intro tutorial: https://github.com/HazyResearch/metal/blob/master/Intro_Tutorial.ipynb**
 
 Snorkel MeTaL uses a new matrix approximation approach to learn the accuracies of diverse sources with unknown accuracies, arbitrary dependency structures, and structured multi-task outputs.
+This makes it significantly more scalable than our previous approaches.
 For more detail, see the **working draft of our technical report on MeTaL: [_Training Complex Models with Multi-Task Weak Supervision_](https://ajratner.github.io/assets/papers/mts-draft.pdf)**
 
 ## Sample Usage
@@ -32,8 +33,8 @@ For a multi-task example, see tutorials/Multi-task.ipynb.
 """
 Load for each split: 
 L: an [n,m] scipy.sparse label matrix of noisy labels
-Y: an [n] numpy.ndarray of target labels
-X: an n-length iterable (e.g., a list) of end model inputs
+Y: an n-dim numpy.ndarray of target labels
+X: an n-dim iterable (e.g., a list) of end model inputs
 """
 
 from metal.label_model import LabelModel, EndModel
