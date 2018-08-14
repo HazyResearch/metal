@@ -6,18 +6,13 @@ from metal.utils import recursive_merge_dicts
 from metal.label_model.lm_defaults import lm_default_config
 
 class MTLabelModel(MTClassifier, LabelModel):
-    def __init__(self, K=None, task_graph=None, class_balance=None, deps=[], 
-        **kwargs):
+    def __init__(self, K=None, task_graph=None, **kwargs):
         """
         Args:
             K: A t-length list of task cardinalities (overrided by task_graph
                 if task_graph is not None)
             task_graph: TaskGraph: A TaskGraph which defines a feasible set of
                 task label vectors; overrides K
-            class_balance: (np.array) each class's percentage of the population
-            deps: list: A list of source dependencies as tuples of indices 
-            kwargs:
-                - seed: int: Random state seed
         """
         config = recursive_merge_dicts(lm_default_config, kwargs)
         MTClassifier.__init__(self, K, config)
@@ -27,11 +22,9 @@ class MTLabelModel(MTClassifier, LabelModel):
         print("WARNING: Currently assuming all tasks have same cardinality!")
         self.task_graph = task_graph
         if self.task_graph is None:
-            self.k = K  # TODO: this should not typecheck!
+            self.k = K  # TODO: this should not typecheck! scalar == list
         else:
             self.k = len(self.task_graph)
-
-        self._set_class_balance(class_balance)
 
     def _set_constants(self, L):
         self.n, self.m = L[0].shape
