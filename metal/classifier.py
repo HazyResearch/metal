@@ -115,7 +115,7 @@ class Classifier(nn.Module):
         Args:
             train_loader: a torch DataLoader of X (data) and Y (labels) for
                 the train split
-            loss_fn: the loss function to minimize
+            loss_fn: the loss function to minimize (maps *data -> loss)
             X_dev: the dev set model input
             Y_dev: the dev set target labels
 
@@ -143,7 +143,7 @@ class Classifier(nn.Module):
         # Train the model
         for epoch in range(train_config['n_epochs']):
             epoch_loss = 0.0
-            for i, data in enumerate(train_loader):
+            for data in train_loader:
                 # Zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -156,6 +156,7 @@ class Classifier(nn.Module):
                 # Backward pass to calculate gradients
                 loss.backward()
 
+                # TODO: restore this once it has unit tests
                 # Clip gradients
                 # if grad_clip:
                 #     torch.nn.utils.clip_grad_norm(
@@ -232,7 +233,7 @@ class Classifier(nn.Module):
     def _set_scheduler(self, scheduler_config, optimizer):
         scheduler = scheduler_config['scheduler']
         if scheduler is None:
-            pass
+            lr_scheduler = None
         elif scheduler == 'exponential':
             lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
                 optimizer, **scheduler_config['exponential_config'])

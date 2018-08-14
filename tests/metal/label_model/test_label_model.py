@@ -32,12 +32,12 @@ class LabelModelTest(unittest.TestCase):
     def _test_label_model(self, data, test_acc=True, multitask=False):
         if multitask:
             label_model = MTLabelModel(task_graph=data.task_graph, 
-                class_balance=data.p)
-            label_model.train(data.L, deps=data.E,  
+                verbose=False)
+            label_model.train(data.L, deps=data.E, class_balance=data.p,
                 n_epochs=1000, print_every=200)
         else:
-            label_model = LabelModel(k=data.k, class_balance=data.p)
-            label_model.train(data.L, deps=data.E,
+            label_model = LabelModel(k=data.k, verbose=False)
+            label_model.train(data.L, deps=data.E, class_balance=data.p,
                 n_epochs=1000, print_every=200)
         
         # Test parameter estimation error
@@ -56,7 +56,6 @@ class LabelModelTest(unittest.TestCase):
     def test_no_deps(self):
         for seed in range(self.n_iters):
             np.random.seed(seed)
-            print(f">>> Testing for seed={seed}")
             data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
                 edge_prob=0.0)
             self._test_label_model(data)
@@ -72,7 +71,7 @@ class LabelModelTest(unittest.TestCase):
             [1, 2, 2, 1, 0],
             [1, 1, 1, 1, 0]
         ])
-        lm = LabelModel(k=k)
+        lm = LabelModel(k=k, verbose=False)
         lm._set_constants(L)
         lm._set_dependencies(E)
         L_aug = lm._get_augmented_label_matrix(L, offset=1, higher_order=True)
@@ -108,7 +107,6 @@ class LabelModelTest(unittest.TestCase):
     def test_with_deps(self):
         for seed in range(self.n_iters):
             np.random.seed(seed)
-            print(f">>> Testing for seed={seed}")
             data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, 
                 edge_prob=1.0)
             self._test_label_model(data, test_acc=False)
@@ -116,7 +114,6 @@ class LabelModelTest(unittest.TestCase):
     def test_multitask(self):
         for seed in range(self.n_iters):
             np.random.seed(seed)
-            print(f">>> Testing for seed={seed}")
             data = HierarchicalMultiTaskTreeDepsGenerator(self.n, self.m,
                 edge_prob=0.0)
             self._test_label_model(data, test_acc=False, multitask=True)
