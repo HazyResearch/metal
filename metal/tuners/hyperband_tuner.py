@@ -39,15 +39,18 @@ class HyperbandTuner(ModelTuner):
         self.hyperband_epochs_budget = hyperband_epochs_budget
         self.hyperband_proportion_discard = hyperband_proportion_discard
 
-        # Given the budget, generate the largest hyperband schedule within budget
+        # Given the budget, generate the largest hyperband schedule 
+        # within budget
         self.hyperband_schedule = (
-            self.get_largest_hyperband_schedule_within_budget(self.hyperband_epochs_budget,
-                                                              self.hyperband_proportion_discard))
+            self.get_largest_hyperband_schedule_within_budget(
+                self.hyperband_epochs_budget,
+                self.hyperband_proportion_discard))
         
         # Print the search schedule
         self.pretty_print_schedule(self.hyperband_schedule)
 
-    def pretty_print_schedule(self, hyperband_schedule, describe_hyperband=True):
+    def pretty_print_schedule(self, hyperband_schedule, 
+                              describe_hyperband=True):
         """
         Prints scheduler for user to read.
         """
@@ -56,11 +59,15 @@ class HyperbandTuner(ModelTuner):
         print("=========================================")
         if describe_hyperband:
             # Print a message indicating what the below schedule means
-            print("Table consists of tuples of (num configs, num_resources_per_config) which specify "
-                  "how many configs to run and for how many epochs. ")
-            print("Each bracket starts with a list of random configurations which is successively halved "
+            print("Table consists of tuples of "
+                  "(num configs, num_resources_per_config)"
+                  "which specify how many configs to run and"
+                  "for how many epochs. ")
+            print("Each bracket starts with a list of random "
+                  "configurations which is successively halved "
                   "according the schedule.")
-            print("See the Hyperband paper (https://arxiv.org/pdf/1603.06560.pdf) for more details.")
+            print("See the Hyperband paper "
+                  "(https://arxiv.org/pdf/1603.06560.pdf) for more details.")
             print("-----------------------------------------")
         for bracket_index, bracket in enumerate(hyperband_schedule):
             bracket_string = "Bracket %d:" % bracket_index
@@ -69,7 +76,8 @@ class HyperbandTuner(ModelTuner):
             print(bracket_string)
         print("-----------------------------------------")
     
-    def get_largest_hyperband_schedule_within_budget(self, budget, proportion_discard):
+    def get_largest_hyperband_schedule_within_budget(self, budget, 
+                                                     proportion_discard):
         """
         Gets the largest hyperband schedule within target_budget.
         This is required since the original hyperband algorithm uses R, 
@@ -82,10 +90,12 @@ class HyperbandTuner(ModelTuner):
                 the proportion of configurations to discard per iteration.
         """
         
-        # Exhaustively generate schedules and check if they're within budget, adding to a list.
+        # Exhaustively generate schedules and check if 
+        # they're within budget, adding to a list.
         valid_schedules_and_costs = []
         for R in range(1, budget):
-            schedule = self.generate_hyperband_schedule(R, proportion_discard)
+            schedule = (self.generate_hyperband_schedule(R, 
+                                                         proportion_discard))
             cost = self.compute_schedule_cost(schedule)
             if cost <= budget:
                 valid_schedules_and_costs.append((schedule, cost))
@@ -108,9 +118,11 @@ class HyperbandTuner(ModelTuner):
             eta: proportion of configruations to discard per 
                 iteration of successive halving.        
             
-        Returns: hyperband schedule, which is represented as a list of brackets, 
-            where each bracket contains a list of (num configurations, 
-            num resources to use per configuration). See the paper for more details.
+        Returns: hyperband schedule, which is represented 
+            as a list of brackets, where each bracket
+            contains a list of (num configurations, 
+            num resources to use per configuration). 
+            See the paper for more details.
         """
         schedule = []
         s_max = int(math.floor(math.log(R, eta)))
@@ -133,9 +145,10 @@ class HyperbandTuner(ModelTuner):
         """
         Performs hyperband search according to the generated schedule.
         
-        At the beginning of each bracket, we generate a list of random configurations
-        and perform successive halving on it; we repeat this process for the number
-        of brackets in the schedule.        
+        At the beginning of each bracket, we generate a 
+        list of random configurations and perform 
+        successive halving on it; we repeat this process 
+        for the number of brackets in the schedule.        
 
         Args:
             init_args: (list) positional args for initializing the model
@@ -164,16 +177,18 @@ class HyperbandTuner(ModelTuner):
                         if isinstance(v, list) or isinstance(v, dict)]
         
         # Loop over each bracket
-        best_model, best_score, best_config, best_model_index = None, float("-inf"), None, -1
+        best_model, best_score, best_config, best_model_index = (
+            None, float("-inf"), None, -1)
         n_models_scored = 0
         start_time = time.time()
         for bracket_index, bracket in enumerate(self.hyperband_schedule):
             
             # Sample random configurations to seed SuccessiveHalving
             n_starting_configurations, _ = bracket[0]
-            configurations = list(self.config_generator(search_space, 
-                                                        max_search=n_starting_configurations, 
-                                                        shuffle=True))
+            configurations = list(
+                self.config_generator(search_space, 
+                                      max_search=n_starting_configurations, 
+                                      shuffle=True))
 
             # Successive Halving
             for band_index, (n_i, r_i) in enumerate(bracket):
@@ -194,28 +209,36 @@ class HyperbandTuner(ModelTuner):
                     configuration['n_epochs'] = r_i
 
                     # Train model and get the score
-                    model = self.model_class(*init_args, **configuration)                    
+                    model = self.model_class(*init_args, 
+                                              **configuration)
                     if verbose:
-                        print_config = {k: v for k, v in configuration.items() if k in 
-                                        print_worthy}
+                        print_config = {k: v for k, v in configuration.items() 
+                                        if k in print_worthy}
                         print("=" * 60)
                         print(f"[{cur_model_index} Testing {print_config}")
                         print("=" * 60)
 
                     try:
-                        model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, **configuration, verbose=verbose)
-                        score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
+                        model.train(*train_args, X_dev=X_dev, 
+                                     Y_dev=Y_dev, **configuration, 
+                                     verbose=verbose)
+                        score = model.score(X_dev, Y_dev, 
+                                            verbose=verbose, 
+                                            **score_kwargs)
                     except:
                         score = float("nan")
 
                     # Add score and model to list
-                    scored_configurations.append((model, score, cur_model_index, configuration))
+                    scored_configurations.append((model, score, 
+                                                  cur_model_index, 
+                                                  configuration))
 
                     # Update best model and score
                     if score > best_score or best_model is None:
-                        best_model, best_score, best_model_index, best_config = (
-                            model, score, cur_model_index, configuration
-                        )
+                        best_model = model
+                        best_score = score
+                        best_model_index = cur_model_index
+                        best_config = configuration
 
                         # Keep track of running statistics
                         time_elapsed = time.time() - start_time
@@ -234,7 +257,8 @@ class HyperbandTuner(ModelTuner):
                 # Successively halve the configurations
                 if band_index+1 < len(bracket):
                     n_to_keep, _ = bracket[band_index+1]
-                    configurations = [x[3] for x in scored_configurations][:n_to_keep]        
+                    configurations = (
+                        [x[3] for x in scored_configurations][:n_to_keep])
 
         print("=" * 60)
         print(f"[SUMMARY]")

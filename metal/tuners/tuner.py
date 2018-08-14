@@ -108,8 +108,8 @@ class ModelTuner(object):
                 just cover the full cross-product of discrete values, filled
                 in with sampled range values)
             Otherewise, this will return max_search configurations
-                (cycling through the discrete value combinations multiple times
-                if necessary)
+                (cycling through the discrete value combinations multiple 
+                time if necessary)
         """
         def dict_product(d):
             keys = d.keys()
@@ -147,8 +147,8 @@ class ModelTuner(object):
             random.shuffle(discrete_configs)
 
         # If there are range parameters and a non-None max_search, cycle 
-        # through the discrete_configs (with new range values) until max_search 
-        # is met
+        # through the discrete_configs (with new range values) until 
+        # max_search is met
         if ranges and max_search:
             discrete_configs = cycle(discrete_configs)
 
