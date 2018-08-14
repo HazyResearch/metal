@@ -147,10 +147,34 @@ class LabelModel(Classifier):
         """Form the *inverse* overlaps matrix"""
         self._generate_O(L)
 
+        # If caching enabled, test to see if O_inv has already been computed
+        if self.config['cache_O_inv'] and hasattr(self, 'O_inv') \
+            and self.O_inv is not None:
+            err = torch.mean(torch.abs(self.O @ self.O_inv - torch.eye(self.d)))
+            if err < self.config['cache_O_inv_thresh']:
+                if self.config['verbose']:
+                    print("Using cached O_inv...")
+            else:
+                self.O_inv = None
+        else:
+            self.O_inv = None
+
         # Print warning if O is poorly conditioned
         kappa_O = np.linalg.cond(self.O.numpy())
         if kappa_O > cond_thresh:
             print(f"Warning: O is ill-conditioned: kappa(O) = {kappa_O:0.2f}.")
+
+        # Use high-precision matrix operations starting with L.T @ L...
+        if self.O_inv is None:
+            if self.config['verbose']:
+                    print("Computing O^{-1}...")
+            L_aug = self._get_augmented_label_matrix(L, offset=1)
+            with mpmath.workdps(prec):
+                O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
+                n = mpmath.mpf(self.n)
+                O_inv = (O_unnorm / n) ** -1
+                self.O_inv = torch.from_numpy(
+                    np.array(O_inv.tolist(), dtype=float)).float()
         
         # self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
 
@@ -161,14 +185,7 @@ class LabelModel(Classifier):
         # S[1/S < eps] = 0
         # self.O_inv = torch.from_numpy(V.T @ S @ U.T).float()
         
-        # Use high-precision matrix operations starting with L.T @ L...
-        L_aug = self._get_augmented_label_matrix(L, offset=1)
-        with mpmath.workdps(prec):
-            O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
-            n = mpmath.mpf(self.n)
-            O_inv = (O_unnorm / n) ** -1
-            self.O_inv = torch.from_numpy(
-                np.array(O_inv.tolist(), dtype=float)).float()
+       
     
     def _build_mask(self):
         """Build mask applied to O^{-1}, O for the matrix approx constraint"""
@@ -365,8 +382,6 @@ class LabelModel(Classifier):
 
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
-            if self.config['verbose']:
-                print("Computing O^{-1}...")
             self._generate_O_inv(L)
             self._init_params()
 

@@ -7,6 +7,10 @@ lm_default_config = {
     ### Key configurations
     'all_unary_cliques': True,
     'higher_order_cliques': False,
+
+    ### Data caching
+    'cache_O_inv': True,
+    'cache_O_inv_thresh': 1e-5,
     
     ### TRAIN
     'train_config': {
