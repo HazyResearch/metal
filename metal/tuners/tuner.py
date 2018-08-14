@@ -1,9 +1,10 @@
-from itertools import cycle, product
+from itertools import cycle, product, islice
+import math
 import random
+import time
 
 from pprint import pprint
 import numpy as np
-
 
 class ModelTuner(object):
     """A tuner for models
@@ -27,6 +28,8 @@ class ModelTuner(object):
             random.seed(seed)
             self.seed = seed
 
+        self.run_stats = []
+
     def search(self, init_args, train_args, X_dev, Y_dev, search_space, 
         max_search=None, shuffle=True, verbose=True, **score_kwargs):
         """
@@ -42,50 +45,25 @@ class ModelTuner(object):
 
         Returns:
             best_model: the highest performing trained model
-            best_config: (dict) the config corresponding to the best model
 
         Note: Initialization is performed by ModelTuner instead of passing a
         pre-initialized model so that tuning may be performed over all model
         parameters, including the network architecture (which is defined before
         the train loop).
         """
-        configs = self.config_generator(search_space, max_search, shuffle)
-        print_worthy = [k for k, v in search_space.items() 
-            if isinstance(v, list) or isinstance(v, dict)]
-        
-        best_index = 0
-        best_score = -1
-        best_model = None
-        for i, config in enumerate(configs):
-            # Unless seeds are given explicitly, give each config a unique one
-            if config.get('seed', None) is None:
-                config['seed'] = self.seed + i
-            model = self.model_class(*init_args, **config)
+        raise NotImplementedError()
 
-            if verbose:
-                print_config = {k: v for k, v in config.items() if k in 
-                    print_worthy}
-                print("=" * 60)
-                print(f"[{i + 1}] Testing {print_config}")
-                print("=" * 60)
-            
-            model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, **config)
-            score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
-
-            if score > best_score:
-                best_index = i + 1
-                best_model = model
-                best_score = score
-                best_config = config
-
-        print("=" * 60)
-        print(f"[SUMMARY]")
-        print(f"Best model: [{best_index}]")
-        print(f"Best config: {best_config}")
-        print(f"Best score: {best_score}")
-        print("=" * 60)
-        
-        return best_model, best_config
+    def get_run_stats(self):
+        """
+        Returns run stats of the previous search run.
+        Expect a list of dictionaries with the following keys:
+        {
+          "time_elapsed": the time elapsed for config
+          "best_score": the best score at the given time_elapsed
+          "best_config": the config of the best performing model
+          }
+        """
+        return self.run_stats
         
     @staticmethod
     def config_generator(search_space, max_search, shuffle=True):
@@ -130,8 +108,8 @@ class ModelTuner(object):
                 just cover the full cross-product of discrete values, filled
                 in with sampled range values)
             Otherewise, this will return max_search configurations
-                (cycling through the discrete value combinations multiple times
-                if necessary)
+                (cycling through the discrete value combinations multiple 
+                time if necessary)
         """
         def dict_product(d):
             keys = d.keys()
@@ -169,8 +147,8 @@ class ModelTuner(object):
             random.shuffle(discrete_configs)
 
         # If there are range parameters and a non-None max_search, cycle 
-        # through the discrete_configs (with new range values) until max_search 
-        # is met
+        # through the discrete_configs (with new range values) until 
+        # max_search is met
         if ranges and max_search:
             discrete_configs = cycle(discrete_configs)
 
