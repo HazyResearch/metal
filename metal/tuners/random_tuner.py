@@ -8,14 +8,14 @@ import numpy as np
 
 from metal.tuners.tuner import ModelTuner
 
-class RandomSearchModelTuner(ModelTuner):
+class RandomSearchTuner(ModelTuner):
     """A tuner for models
 
     Args:
         model: (nn.Module) The model class to train (uninitiated)
         log_dir: The directory in which to save intermediate results
             If no log_dir is given, the model tuner will attempt to keep
-            all trained models in memory.
+            best trained model in memory.
     """
 
     def search(self, init_args, train_args, X_dev, Y_dev, search_space, 
@@ -33,7 +33,6 @@ class RandomSearchModelTuner(ModelTuner):
 
         Returns:
             best_model: the highest performing trained model
-            best_config: (dict) the config corresponding to the best model
 
         Note: Initialization is performed by ModelTuner instead of passing a
         pre-initialized model so that tuning may be performed over all model
@@ -65,8 +64,10 @@ class RandomSearchModelTuner(ModelTuner):
                 print("=" * 60)
 
             try:
-                model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, **config, verbose=verbose)
-                score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
+                model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, 
+                    verbose=verbose, **config)
+                score = model.score(X_dev, Y_dev, verbose=verbose, 
+                    **score_kwargs)
             except:
                 score = float("nan")
 
@@ -80,7 +81,8 @@ class RandomSearchModelTuner(ModelTuner):
                 time_elapsed = time.time() - start_time
                 self.run_stats.append({
                         "time_elapsed": time_elapsed,
-                        "best_score": best_score
+                        "best_score": best_score,
+                        "best_config": best_config,
                 })
 
         print("=" * 60)

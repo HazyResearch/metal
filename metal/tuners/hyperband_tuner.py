@@ -8,14 +8,17 @@ import numpy as np
 
 from metal.tuners.tuner import ModelTuner
 
-class HyperbandModelTuner(ModelTuner):
-    """Performs hyperparameter search according to the Hyperband algorithm (https://arxiv.org/pdf/1603.06560.pdf).
+class HyperbandTuner(ModelTuner):
+    """Performs hyperparameter search according to the Hyperband algorithm 
+    
+    Reference: (https://arxiv.org/pdf/1603.06560.pdf)
 
     Args:
         model: (nn.Module) The model class to train (uninitiated)
-        hyperband_epochs_budget: Number of total epochs of training to perform in search. 
-        hyperband_proportion_discard: proportion of configurations to discard in 
-            each round of Hyperband's SuccessiveHalving. An integer.
+        hyperband_epochs_budget: Number of total epochs of training to perform 
+            in search. 
+        hyperband_proportion_discard: proportion of configurations to discard 
+            in each round of Hyperband's SuccessiveHalving. An integer.
         log_dir: The directory in which to save intermediate results
             If no log_dir is given, the model tuner will attempt to keep
             all trained models in memory.
@@ -161,7 +164,7 @@ class HyperbandModelTuner(ModelTuner):
                         if isinstance(v, list) or isinstance(v, dict)]
         
         # Loop over each bracket
-        best_model, best_score, best_configuration, best_model_index = None, float("-inf"), None, -1
+        best_model, best_score, best_config, best_model_index = None, float("-inf"), None, -1
         n_models_scored = 0
         start_time = time.time()
         for bracket_index, bracket in enumerate(self.hyperband_schedule):
@@ -210,7 +213,7 @@ class HyperbandModelTuner(ModelTuner):
 
                     # Update best model and score
                     if score > best_score or best_model is None:
-                        best_model, best_score, best_model_index, best_configuration = (
+                        best_model, best_score, best_model_index, best_config = (
                             model, score, cur_model_index, configuration
                         )
 
@@ -218,7 +221,8 @@ class HyperbandModelTuner(ModelTuner):
                         time_elapsed = time.time() - start_time
                         self.run_stats.append({
                                 "time_elapsed": time_elapsed,
-                                "best_score": best_score
+                                "best_score": best_score,
+                                "best_config": best_config,
                         })
                         
 
@@ -235,7 +239,7 @@ class HyperbandModelTuner(ModelTuner):
         print("=" * 60)
         print(f"[SUMMARY]")
         print(f"Best model: [{best_model_index}]")
-        print(f"Best config: {best_configuration}")
+        print(f"Best config: {best_config}")
         print(f"Best score: {best_score}")
         print("=" * 60)
         return best_model

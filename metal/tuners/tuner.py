@@ -45,7 +45,6 @@ class ModelTuner(object):
 
         Returns:
             best_model: the highest performing trained model
-            best_config: (dict) the config corresponding to the best model
 
         Note: Initialization is performed by ModelTuner instead of passing a
         pre-initialized model so that tuning may be performed over all model
@@ -59,8 +58,9 @@ class ModelTuner(object):
         Returns run stats of the previous search run.
         Expect a list of dictionaries with the following keys:
         {
-          "time_elapsed" - the time elapsed for config
-          "best_score" - best score at the given time_elapsed
+          "time_elapsed": the time elapsed for config
+          "best_score": the best score at the given time_elapsed
+          "best_config": the config of the best performing model
           }
         """
         return self.run_stats
