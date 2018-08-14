@@ -1,4 +1,4 @@
-from itertools import product, chain
+from itertools import product, chain, permutations
 
 import numpy as np
 from scipy.sparse import issparse, csc_matrix
@@ -91,7 +91,8 @@ class LabelModel(Classifier):
                     C_type = 'edge'
                 else:
                     raise ValueError(item)
-                members = list(C['members'])
+                # Important to sort here!!
+                members = sorted(list(C['members']))
                 nc = len(members)
                 id = tuple(members) if len(members) > 1 else members[0]
 
@@ -128,6 +129,11 @@ class LabelModel(Classifier):
                         'max_cliques': set([item]) if C_type == 'node' 
                             else set(item)
                     }
+
+                    # Make sure to add all permutations!
+                    for id_perm in permutations(id):
+                        self.c_data[id_perm] = self.c_data[id]
+
             return L_aug
         else:
             return L_ind
@@ -167,7 +173,7 @@ class LabelModel(Classifier):
         # Use high-precision matrix operations starting with L.T @ L...
         if self.O_inv is None:
             if self.config['verbose']:
-                    print("Computing O^{-1}...")
+                print("Computing O^{-1}...")
             L_aug = self._get_augmented_label_matrix(L, offset=1)
             with mpmath.workdps(prec):
                 O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
@@ -185,8 +191,6 @@ class LabelModel(Classifier):
         # S[1/S < eps] = 0
         # self.O_inv = torch.from_numpy(V.T @ S @ U.T).float()
         
-       
-    
     def _build_mask(self):
         """Build mask applied to O^{-1}, O for the matrix approx constraint"""
         self.mask = torch.ones(self.d, self.d).byte()
