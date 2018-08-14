@@ -143,7 +143,7 @@ class LabelModel(Classifier):
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
-    def _generate_O_inv(self, L, eps=1e-2, prec=1000, cond_thresh=500):
+    def _generate_O_inv(self, L, eps=1e-2, prec=16384, cond_thresh=500):
         """Form the *inverse* overlaps matrix"""
         self._generate_O(L)
 
@@ -163,10 +163,10 @@ class LabelModel(Classifier):
         
         # Use high-precision matrix operations starting with L.T @ L...
         L_aug = self._get_augmented_label_matrix(L, offset=1)
-        O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
-        n = mpmath.mpf(self.n)
-        O_inv = (O_unnorm / n) ** -1
         with mpmath.workdps(prec):
+            O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
+            n = mpmath.mpf(self.n)
+            O_inv = (O_unnorm / n) ** -1
             self.O_inv = torch.from_numpy(
                 np.array(O_inv.tolist(), dtype=float)).float()
     
