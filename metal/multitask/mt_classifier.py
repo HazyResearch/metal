@@ -163,9 +163,9 @@ class MTClassifier(Classifier):
         return self.predict_proba(X, **kwargs)[t]
 
     @staticmethod
-    def _to_torch(Z):
+    def _to_torch(Z, dtype=None):
         """Converts a None, list, np.ndarray, or torch.Tensor to torch.Tensor"""
         if isinstance(Z, list):
-            return [Classifier._to_torch(z) for z in Z]
+            return [Classifier._to_torch(z, dtype=dtype) for z in Z]
         else:
             return Classifier._to_torch(Z)
