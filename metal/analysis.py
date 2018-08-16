@@ -326,7 +326,7 @@ def confusion_matrix(gold, pred, null_pred=False, null_gold=False,
         mat = mat / len(gold)
 
     if pretty_print:
-        conf.display()
+        conf.display(normalize=normalize)
 
     return mat
 
@@ -376,7 +376,7 @@ class ConfusionMatrix(object):
         self.mat = mat
         return mat
 
-    def display(self, counts=True, indent=0, spacing=2, decimals=3, 
+    def display(self, normalize=False, indent=0, spacing=2, decimals=3, 
         mark_diag=True):
         mat = self.compile(trim=False)
         m, n = mat.shape
@@ -402,10 +402,10 @@ class ConfusionMatrix(object):
                 if j == 0 and not self.null_gold:
                     continue
                 else:
-                    if i == j and mark_diag and not counts:
+                    if i == j and mark_diag and normalize:
                         s = s[:-1] + '*'
-                    if counts:
-                        s += f"{mat[i,j]:^5d}" + tab
-                    else:
+                    if normalize:
                         s += f"{mat[i,j]/sum(mat[i,1:]):>5.3f}" + tab
+                    else:
+                        s += f"{mat[i,j]:^5d}" + tab
             print(s)
