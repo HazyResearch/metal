@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
-from metal.end_model.em_defaults import  em_default_config
+from metal.end_model.em_defaults import em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.modules import IdentityModule
 from metal.utils import (
@@ -30,7 +30,7 @@ class EndModel(Classifier):
     """
     def __init__(self, k=2, input_module=None, middle_modules=None,
         head_module=None, **kwargs):
-        config = recursive_merge_dicts( em_default_config, kwargs)
+        config = recursive_merge_dicts(em_default_config, kwargs)
         super().__init__(k, config)
 
         self._build(input_module, middle_modules, head_module)
