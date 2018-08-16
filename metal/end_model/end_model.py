@@ -69,7 +69,7 @@ class EndModel(Classifier):
             self.network = nn.Sequential(input_layer, *middle_layers, head)
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduce=True, size_average=False)
+        self.criteria = SoftCrossEntropyLoss(reduction='sum')
 
     def _build_input_layer(self, input_module):
         if input_module is None:
