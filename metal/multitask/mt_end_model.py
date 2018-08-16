@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from metal.end_model import EndModel
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.multitask import TaskHierarchy, MTClassifier
+from metal.multitask import TaskGraph, MTClassifier
 from metal.multitask import MultiYDataset, MultiXYDataset
 from metal.multitask.mt_em_defaults import mt_em_default_config
 from metal.modules import IdentityModule
@@ -44,7 +44,7 @@ class MTEndModel(MTClassifier, EndModel):
             if K is None:
                 raise ValueError("You must supply either a list of "
                     "cardinalities (K) or a TaskGraph.")
-            task_graph = TaskHierarchy(edges=[], cardinalities=K)
+            task_graph = TaskGraph(K)
         self.task_graph = task_graph
         self.K = self.task_graph.K  # Cardinalities by task
         self.t = self.task_graph.t  # Total number of tasks

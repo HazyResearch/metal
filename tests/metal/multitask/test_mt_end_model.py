@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 from metal.modules import IdentityModule
-from metal.multitask import MTEndModel, TaskHierarchy
+from metal.multitask import MTEndModel, TaskGraph, TaskHierarchy
 
 class EndModelTest(unittest.TestCase):
 
@@ -36,7 +36,7 @@ class EndModelTest(unittest.TestCase):
         """Attach all task heads to the top layer"""
         edges = []
         cards = [2,2]
-        tg = TaskHierarchy(edges, cards)
+        tg = TaskGraph(cards, edges)
         em = MTEndModel(
             task_graph=tg,
             seed=1,
@@ -56,7 +56,7 @@ class EndModelTest(unittest.TestCase):
         """Attach the task heads at user-specified layers"""
         edges = [(0,1)]
         cards = [2,2]
-        tg = TaskHierarchy(edges, cards)
+        tg = TaskHierarchy(cards, edges)
         em = MTEndModel(
             task_graph=tg,
             seed=1,
@@ -76,7 +76,7 @@ class EndModelTest(unittest.TestCase):
         """Accept a different representation for each task"""
         edges = []
         cards = [2,2]
-        tg = TaskHierarchy(edges, cards)
+        tg = TaskGraph(cards, edges)
         em = MTEndModel(
             task_graph=tg,
             seed=1,
@@ -100,7 +100,7 @@ class EndModelTest(unittest.TestCase):
         """Accept a different representation for each task"""
         edges = []
         cards = [2,2]
-        tg = TaskHierarchy(edges, cards)
+        tg = TaskGraph(cards, edges)
         em = MTEndModel(
             task_graph=tg,
             seed=1,

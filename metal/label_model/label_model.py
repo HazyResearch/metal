@@ -29,38 +29,50 @@ class LabelModel(Classifier):
         config = recursive_merge_dicts(lm_default_config, kwargs)
         super().__init__(k, config)
     
-    def _create_L_ind(self, L, km, offset):
-        """Convert a label matrix with labels in 0...k to a one-hot format"""
-        L_ind = np.zeros((self.n, self.m * km))
-        for y in range(offset, self.k+1):
-            L_ind[:, y-offset::km] = np.where(L == y, 1, 0)     
+    def _create_L_ind(self, L):
+        """Convert a label matrix with labels in 0...k to a one-hot format
+        
+        Args:
+            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
+        
+        Returns:
+            L_ind: An [n,m*k] dense np.ndarray with values in {0,1}
+        
+        Note that no column is required for 0 (abstain) labels.
+        """
+        # TODO: Update LabelModel to keep L variants as sparse matrices 
+        # throughout and remove this line.
+        if issparse(L): 
+            L = L.todense()
+
+        L_ind = np.zeros((self.n, self.m * self.k))
+        for y in range(1, self.k+1):
+            # A[x::y] slices A starting at x at intervals of y
+            # e.g., np.arange(9)[0::3] == np.array([0,3,6])
+            L_ind[:, (y-1)::self.k] = np.where(L == y, 1, 0)     
         return L_ind   
 
-    def _get_augmented_label_matrix(self, L, offset=1, higher_order=False):
+    def _get_augmented_label_matrix(self, L, higher_order=False):
         """Returns an augmented version of L where each column is an indicator
         for whether a certain source or clique of sources voted in a certain
         pattern.
         
         Args:
-            - L: A dense n x m numpy array, where n is the number of data points
-                and m is the number of sources, with values in {0,1,...,k}
-            - offset: Create indicators for values {offset,...,k}
+            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
         """
-        km = self.k + 1 - offset
-
         # Create a helper data structure which maps cliques (as tuples of member
         # sources) --> {start_index, end_index, maximal_cliques}, where
         # the last value is a set of indices in this data structure
         self.c_data = {}
         for i in range(self.m):
             self.c_data[i] = {
-                'start_index': i*km,
-                'end_index': (i+1)*km,
+                'start_index': i * self.k,
+                'end_index': (i+1) * self.k,
                 'max_cliques': set([j for j in self.c_tree.nodes() 
                     if i in self.c_tree.node[j]['members']])
             }
 
-        L_ind = self._create_L_ind(L, km, offset)
+        L_ind = self._create_L_ind(L)
 
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
@@ -81,15 +93,15 @@ class LabelModel(Classifier):
 
                 # If a unary maximal clique, just store its existing index
                 if nc == 1:
-                    C['start_index'] = members[0] * km
-                    C['end_index'] = (members[0]+1) * km
+                    C['start_index'] = members[0] * self.k
+                    C['end_index'] = (members[0]+1) * self.k
                 
                 # Else add one column for each possible value
                 else:
-                    L_C = np.ones((self.n, km ** nc))
-                    for i, vals in enumerate(product(range(km), repeat=nc)):
+                    L_C = np.ones((self.n, self.k ** nc))
+                    for i, vals in enumerate(product(range(self.k), repeat=nc)):
                         for j, v in enumerate(vals):
-                            L_C[:,i] *= L_ind[:, members[j]*km + v]
+                            L_C[:,i] *= L_ind[:, members[j] * self.k + v]
 
                     # Add to L_aug and store the indices
                     if L_aug is not None:
@@ -133,10 +145,8 @@ class LabelModel(Classifier):
 
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
-
-        TODO: explain the meaning of the offset kwarg
         """
-        L_aug = self._get_augmented_label_matrix(L, offset=1)
+        L_aug = self._get_augmented_label_matrix(L)
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
@@ -207,13 +217,9 @@ class LabelModel(Classifier):
 
     def predict_proba(self, L):
         """Returns the [n,k] matrix of label probabilities P(Y | \lambda)"""
-        # TODO: Change internals to use sparse throughout and delete this:
-        if issparse(L):
-            L = L.todense()     
-
         self._set_constants(L)               
         
-        L_aug = self._get_augmented_label_matrix(L, offset=1)     
+        L_aug = self._get_augmented_label_matrix(L)     
         mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
 
         # Create a "junction tree mask" over the columns of L_aug / mu
@@ -296,7 +302,7 @@ class LabelModel(Classifier):
         self.deps = deps
         self.c_tree = get_clique_tree(nodes, deps)
 
-    def train(self, L_train, L_dev=None, Y_dev=None, deps=[], 
+    def train(self, L_train, Y_dev=None, deps=[], 
         class_balance=None, **kwargs):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
         whether source dependencies are provided or not:
@@ -304,9 +310,8 @@ class LabelModel(Classifier):
         Args:
             L_train: An [n,m] scipy.sparse matrix with values in {0,1,...,k}
                 corresponding to labels from supervision sources on the 
-                training set.
-            L_dev: A label matrix similiar to L_train, but on the dev set.
-            Y_dev: Target labels for the dev set.
+                training set
+            Y_dev: Target labels for the dev set, for estimating class_balance
             deps: (list of tuples) known dependencies between supervision 
                 sources. If not provided, sources are assumed to be independent.
                 TODO: add automatic dependency-learning code
@@ -327,12 +332,6 @@ class LabelModel(Classifier):
         """
         self.config = recursive_merge_dicts(self.config, kwargs, 
             misses='ignore')
-
-        # TODO: Change internals to use sparse throughout and delete these:
-        if issparse(L_train):
-            L_train = L_train.todense()
-        if issparse(L_dev):
-            L_dev = L_dev.todense()
 
         self._set_class_balance(class_balance, Y_dev)
         self._set_constants(L_train)
