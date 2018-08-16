@@ -19,7 +19,7 @@ Our goal with the Snorkel MeTaL project is to understand this new regime, and th
 More concretely, Snorkel MeTaL is a framework for using multi-task weak supervision (MTS), provided by users in the form of _labeling functions_ applied over unlabeled data, to train multi-task models.
 Snorkel MeTaL can use the output of labeling functions developed and executed in [Snorkel](snorkel.stanford.edu), or take in arbitrary _label matrices_ representing weak supervision from multiple sources of unknown quality, and then use this to train auto-compiled MTL networks.
 
-**Check out the intro tutorial: https://github.com/HazyResearch/metal/blob/master/Intro_Tutorial.ipynb**
+**Check out the basics tutorial: https://github.com/HazyResearch/metal/blob/master/tutorials/Basics.ipynb**
 
 Snorkel MeTaL uses a new matrix approximation approach to learn the accuracies of diverse sources with unknown accuracies, arbitrary dependency structures, and structured multi-task outputs.
 This makes it significantly more scalable than our previous approaches.
