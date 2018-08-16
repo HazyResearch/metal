@@ -81,6 +81,23 @@ class MTEndModel(MTClassifier, EndModel):
 
         return input_layer
 
+    def _build_middle_layers(self, middle_modules):
+        layer_out_dims = self.config['layer_out_dims']
+        num_mid_layers = len(layer_out_dims) - 1
+        if num_mid_layers == 0:
+            return None
+
+        middle_layers = nn.ModuleList()
+        for i in range(num_mid_layers):
+            if middle_modules is None:
+                module = nn.Linear(*layer_out_dims[i:i+2])
+                layer = self._make_layer(module, output_dim=layer_out_dims[i+1])
+            else:
+                module = middle_modules[i]
+                layer = self._make_layer(module)
+            middle_layers.add_module(f'layer{i+1}', layer)
+        return middle_layers
+
     def _build_task_heads(self, head_modules):
         """Creates and attaches task_heads to the appropriate network layers"""
         # Make task head layer assignments
@@ -232,9 +249,8 @@ class MTEndModel(MTClassifier, EndModel):
             msg = f"Expected Y to be a t-length list (t={self.t}), not {len(Y)}"
             raise ValueError(msg)
 
-        Y = [Y_t.clone() for Y_t in Y]
-
-        return [EndModel._preprocess_Y(self, Y_t) for Y_t in Y]
+        return [EndModel._preprocess_Y(self, Y_t, self.K[t]) for t, Y_t in 
+            enumerate(Y)]
 
     def _make_data_loader(self, X, Y, data_loader_config):
         if isinstance(X, list):

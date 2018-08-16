@@ -144,16 +144,17 @@ class EndModel(Classifier):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
 
-    def _preprocess_Y(self, Y):
+    def _preprocess_Y(self, Y, k):
         """Convert Y to soft labels if necessary"""
+        Y = Y.clone()
 
         # If hard labels, convert to soft labels
         if Y.dim() == 1 or Y.shape[1] == 1:
-            Y = hard_to_soft(Y.long(), k=self.k)
+            Y = hard_to_soft(Y.long(), k=k)
         return Y
 
     def _make_data_loader(self, X, Y, data_loader_config):
-        dataset = MetalDataset(X, self._preprocess_Y(Y))
+        dataset = MetalDataset(X, self._preprocess_Y(Y, self.k))
         data_loader = DataLoader(dataset, shuffle=True, **data_loader_config)
         return data_loader
 
