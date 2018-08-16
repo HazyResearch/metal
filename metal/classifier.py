@@ -224,7 +224,7 @@ class Classifier(nn.Module):
             optimizer = optim.Adam(
                 self.parameters(), 
                 **optimizer_config['optimizer_common'],
-                **optimizer_config['adam_config']
+                **optimizer_config['adam_config'],
             )
         else:
             raise ValueError(f"Did not recognize optimizer option '{opt}''") 
@@ -251,7 +251,7 @@ class Classifier(nn.Module):
         Args:
             X: The input for the predict method
             Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels in 
-                {0,...,k}
+                {1,...,k}
             metric: A metric (string) with which to score performance or a 
                 list of such metrics
             break_ties: How to break ties when making predictions
@@ -280,7 +280,7 @@ class Classifier(nn.Module):
             break_ties: A tie-breaking policy
 
         Returns:
-            An n-dim np.ndarray of predictions
+            An n-dim np.ndarray of predictions in {1,...k}
         """
         Y_p = self._to_numpy(self.predict_proba(X, **kwargs))
         Y_ph = self._break_ties(Y_p, break_ties)
@@ -291,7 +291,7 @@ class Classifier(nn.Module):
         Args:
             X: An appropriate input for the child class of Classifier
         Returns:
-            An [n, k+1] np.ndarray of soft predictions
+            An [n, k] np.ndarray of soft predictions
         """
         raise NotImplementedError
 
@@ -299,7 +299,7 @@ class Classifier(nn.Module):
         """Break ties in each row of a tensor according to the specified policy
 
         Args:
-            Y_s: An [n, k+1] np.ndarray of probabilities
+            Y_s: An [n, k] np.ndarray of probabilities
             break_ties: A tie-breaking policy:
                 'abstain': return an abstain vote (0)
                 'random': randomly choose among the tied options
