@@ -31,6 +31,10 @@ For a multi-task example, see tutorials/Multi-task.ipynb.
 
 ```
 """
+n = # data points
+m = # labeling functions
+k = cardinality of the classification task
+
 Load for each split: 
 L: an [n,m] scipy.sparse label matrix of noisy labels
 Y: an n-dim numpy.ndarray of target labels
@@ -45,7 +49,7 @@ label_model.train(L_train)
 Y_train_pred = label_model.predict(L_train)
 
 # Train a discriminative end model with the generated labels
-end_model = EndModel(k, layer_out_dims=[1000,10])
+end_model = EndModel([1000,10,2])
 end_model.train(X_train, Y_train_pred, X_dev, Y_dev)
 
 # Evaluate performance
@@ -73,10 +77,10 @@ source activate metal
 nosetests
 ```
 
-[5] Run tutorial:
+[5] Run the Basics Tutorial:
 ```
 jupyter notebook 
 ```
-Open ```tutorials/Tutorial.ipynb```  
+Open ```tutorials/Basics.ipynb```  
 Select Kernel > Change kernel > Python [conda env:metal]  
 Restart and run all
