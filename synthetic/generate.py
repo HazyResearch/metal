@@ -34,7 +34,7 @@ def logistic_fn(x):
 def choose_other_label(k, y):
     """Given a cardinality k and true label y, return random value in 
     {1,...,k} \ {y}."""
-    return random.choice(list(set(range(1, k+1)) - set([y])))
+    return choice(list(set(range(1, k+1)) - set([y])))
 
 def indpm(x, y):
     """Plus-minus indicator function"""
@@ -180,8 +180,8 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
 
         # Convert label matrix to tree task graph
         self.task_graph = TaskHierarchy(
+            cardinalities=[2,2,2],
             edges=[(0,1), (0,2)],
-            cardinalities=[2,2,2]
         )
         L_mt = [np.zeros((self.n, self.m)) for _ in range(self.task_graph.t)]
         fs = list(self.task_graph.feasible_set())
