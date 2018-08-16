@@ -13,8 +13,6 @@ lm_default_config = {
         'class_balance_init': None, # (array) If None, assume uniform
         # Model params initialization / priors
         'mu_init': 0.4, 
-        # L2 regularization (around prior values)
-        'l2': 0.01,
         
         # Optimizer
         'optimizer_config': {
