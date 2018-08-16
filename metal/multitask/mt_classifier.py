@@ -47,7 +47,7 @@ class MTClassifier(Classifier):
         Args:
             X: The input for the predict method
             Y: A t-length list of [n] or [n, 1] np.ndarrays or torch.Tensors of 
-                gold labels in {0,...,K_t}
+                gold labels in {1,...,K_t}
             metric: The metric with which to score performance on each task
             reduce: How to reduce the scores of multiple tasks:
                  None : return a t-length list of scores
@@ -93,7 +93,7 @@ class MTClassifier(Classifier):
             X: The input for the predict_proba method
             break_ties: A tie-breaking policy
         Returns:
-            A t-length list of n-dim np.ndarrays of predictions
+            A t-length list of n-dim np.ndarrays of predictions in [n, K_t]
         """
         Y_p = self.predict_proba(X, **kwargs)
         self._check(Y_p, typ=list)
@@ -111,7 +111,7 @@ class MTClassifier(Classifier):
         Args:
             X: An appropriate input for the child class of Classifier
         Returns:
-            A t-length list of [n, K_t+1] np.ndarrays of soft predictions
+            A t-length list of [n, K_t] np.ndarrays of soft predictions
         """
         raise NotImplementedError
 
@@ -121,7 +121,7 @@ class MTClassifier(Classifier):
         Args:
             X: The input for the predict_task method
             Y: A [n] or [n, 1] np.ndarray or torch.Tensor of gold labels in 
-                {0,...,K_t}
+                {1,...,K_t}
             t: The task index to score
             metric: The metric with which to score performance on this task
         Returns:
@@ -155,7 +155,7 @@ class MTClassifier(Classifier):
             X: The input for the predict_proba method
             t: The task index to predict for which to predict probabilities
         Returns:
-            An [n, K_t+1] tensor of predictions for task t
+            An [n, K_t] tensor of predictions for task t
         NOTE: By default, this method calls predict_proba and extracts element
         t. If it is possible to predict individual tasks in isolation, however,
         this method may be overriden for efficiency's sake.
