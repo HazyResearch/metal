@@ -21,10 +21,10 @@ class UtilsTest(unittest.TestCase):
     def test_hard_to_soft(self):
         x = torch.tensor([1,2,2,1])
         target = torch.tensor([
-            [0, 1, 0],
-            [0, 0, 1],
-            [0, 0, 1],
-            [0, 1, 0],
+            [1, 0],
+            [0, 1],
+            [0, 1],
+            [1, 0],
         ], dtype=torch.float)
         self.assertTrue((hard_to_soft(x, 2) == target).sum() 
             == torch.prod(torch.tensor(target.shape)))

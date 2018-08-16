@@ -27,7 +27,7 @@ class MetalDataset(Dataset):
 
 
 class Checkpointer(object):
-    def __init__(self, model_class, checkpoint_min=0, checkpoint_runway=0,
+    def __init__(self, model_class, checkpoint_min=-1, checkpoint_runway=0,
         verbose=True):
         """Saves checkpoints as applicable based on a reported metric.
 
@@ -63,7 +63,7 @@ class Checkpointer(object):
                 f"{self.best_score}")
         if self.verbose:
             print(f"Restoring best model from iteration {self.best_iteration} "
-                f"with score {self.best_score}")
+                f"with score {self.best_score:.3f}")
             model.load_state_dict(self.best_model)
             return model 
 
@@ -82,22 +82,21 @@ def hard_to_soft(Y_h, k):
     """Converts a 1D tensor of hard labels into a 2D tensor of soft labels
 
     Args:
-        Y_h: an [n], or [n,1] tensor of hard (int) labels between 0 and k 
-            (inclusive), where 0 = abstain.
+        Y_h: an [n], or [n,1] tensor of hard (int) labels in {1,...,k}
         k: the largest possible label in Y_h
     Returns:
-        Y_s: a torch.FloatTensor of shape [n, k + 1] where Y_s[i,j] is the soft
-            label for item i and class j.
+        Y_s: a torch.FloatTensor of shape [n, k] where Y_s[i, j-1] is the soft
+            label for item i and label j
     """
     Y_h = Y_h.clone()
     Y_h = Y_h.squeeze()
     assert(Y_h.dim() == 1)
-    assert((Y_h >= 0).all())
+    assert((Y_h >= 1).all())
     assert((Y_h <= k).all())
     n = Y_h.shape[0]
-    Y_s = torch.zeros((n, k+1))
+    Y_s = torch.zeros((n, k))
     for i, j in enumerate(Y_h):
-        Y_s[i, j] = 1.0
+        Y_s[i, j-1] = 1.0
     return Y_s
 
 def arraylike_to_numpy(array_like):
