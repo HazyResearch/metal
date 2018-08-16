@@ -259,7 +259,8 @@ def lf_summary(L, Y=None, lf_names=None, est_accs=None):
     Args:
         L: an n x m scipy.sparse matrix where L_{i,j} is the label given by the 
             jth LF to the ith candidate
-        Y: an [n] or [n, 1] np.ndarray of gold labels
+        Y: an [n] or [n, 1] np.ndarray of gold labels. 
+            If provided, the empirical accuracy for each LF will be calculated
     """
     n, m = L.shape
     if lf_names is not None:
