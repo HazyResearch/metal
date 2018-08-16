@@ -73,10 +73,10 @@ source activate metal
 nosetests
 ```
 
-[5] Run tutorial:
+[5] Run the Basics Tutorial:
 ```
 jupyter notebook 
 ```
-Open ```tutorials/Tutorial.ipynb```  
+Open ```tutorials/Basics.ipynb```  
 Select Kernel > Change kernel > Python [conda env:metal]  
 Restart and run all
