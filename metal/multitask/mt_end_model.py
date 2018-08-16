@@ -67,7 +67,7 @@ class MTEndModel(MTClassifier, EndModel):
         self.heads = self._build_task_heads(head_modules)  
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduce=True, size_average=False)
+        self.criteria = SoftCrossEntropyLoss(reduction='sum')
 
     def _build_input_layer(self, input_modules):
         if input_modules is None:
