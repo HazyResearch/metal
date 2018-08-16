@@ -1,4 +1,5 @@
 from collections import defaultdict
+import copy
 import random
 
 import numpy as np
@@ -52,8 +53,8 @@ class Checkpointer(object):
             if is_best:
                 if self.verbose:
                     print(f"Saving model at iteration {iteration} with best "
-                        f"score {score}")
-                self.best_model = model.state_dict()
+                        f"score {score:.3f}")
+                self.best_model = copy.deepcopy(model.state_dict())
                 self.best_iteration = iteration
                 self.best_score = score
 
