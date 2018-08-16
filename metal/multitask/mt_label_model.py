@@ -24,8 +24,7 @@ class MTLabelModel(MTClassifier, LabelModel):
 
         # Note: While K is a list of the cardinalities of the tasks, k is the 
         # cardinality of the feasible set. These are always the same for a 
-        # single-task model, but rarely for a multi-task model.
-        self.K = self.task_graph.K  
+        # single-task model, but rarely the same for a multi-task model.
         self.k = self.task_graph.k
 
     def _set_constants(self, L):
@@ -35,8 +34,8 @@ class MTLabelModel(MTClassifier, LabelModel):
     def _create_L_ind(self, L):
         """Convert T label matrices with labels in 0...K_t to a one-hot format
 
-        An [n,m] matrix will become a [n,m*k] matrix. Note that no column is
-        required for 0 (abstain) labels.
+        Here we can view e.g. the $(i,j)$ entries of the $T$ label matrices as 
+        a _label vector_ emitted by LF j for data point i.
 
         Args:
             L: a T-length list of [n,m] scipy.sparse label matrices with values
