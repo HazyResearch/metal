@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from metal.end_model import EndModel, LogisticRegression, SoftmaxRegression
+from metal.end_model import EndModel, LogisticRegression
 from metal.modules import IdentityModule
 
 class EndModelTest(unittest.TestCase):
@@ -34,7 +34,7 @@ class EndModelTest(unittest.TestCase):
         self.assertGreater(score, 0.95)
 
     def test_softmax(self):
-        em = SoftmaxRegression(seed=1, input_dim=2, output_dim=3, verbose=False)
+        em = LogisticRegression(seed=1, input_dim=2, output_dim=3, verbose=False)
         Xs, _ = self.single_problem
         Ys = []
         for X in Xs:
@@ -51,7 +51,7 @@ class EndModelTest(unittest.TestCase):
     def test_singletask(self):
         """Test basic single-task end model"""
         em = EndModel(seed=1, batchnorm=False, dropout=0.0, 
-            layer_out_dims=[2,10], verbose=False)
+            layer_out_dims=[2,10,2], verbose=False)
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
         score = em.score(Xs[2], Ys[2], verbose=False)
@@ -60,7 +60,7 @@ class EndModelTest(unittest.TestCase):
     def test_singletask_extras(self):
         """Test batchnorm and dropout"""
         em = EndModel(seed=1, batchnorm=True, dropout=0.01, 
-            layer_out_dims=[2,10], verbose=False)
+            layer_out_dims=[2,10,2], verbose=False)
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
         score = em.score(Xs[2], Ys[2], verbose=False)
@@ -73,7 +73,7 @@ class EndModelTest(unittest.TestCase):
         head_module = nn.Sequential(nn.Linear(8,2), IdentityModule())
         em = EndModel(seed=1, input_module=input_module, 
             middle_modules=middle_modules, head_module=head_module, 
-            layer_out_dims=[10,8,8], verbose=True)
+            layer_out_dims=[10,8,8], verbose=False)
         Xs, Ys = self.single_problem
         em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5, verbose=False, show_plots=False)
         score = em.score(Xs[2], Ys[2], verbose=False)

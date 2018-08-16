@@ -174,7 +174,7 @@ class Classifier(nn.Module):
             train_loss = epoch_loss / len(train_loader.dataset)
 
             # Checkpoint performance on dev
-            if evaluate_dev:
+            if evaluate_dev and (epoch % train_config['validation_freq'] == 0):
                 val_metric = train_config['validation_metric']
                 dev_score = self.score(X_dev, Y_dev, metric=val_metric, 
                     verbose=False)
@@ -265,12 +265,17 @@ class Classifier(nn.Module):
         Y_p = self.predict(X, break_ties=break_ties, **kwargs)
 
         metric_list = metric if isinstance(metric, list) else [metric]
+        scores = []
         for metric in metric_list:
             score = metric_score(Y, Y_p, metric, ignore_in_gold=[0])
+            scores.append(score)
             if verbose:
                 print(f"{metric.capitalize()}: {score:.3f}")
 
-        return score
+        if isinstance(scores, list) and len(scores) == 1:
+            return scores[0]
+        else:
+            return scores
 
     def predict(self, X, break_ties='random', **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
@@ -341,20 +346,22 @@ class Classifier(nn.Module):
             raise Exception(msg)
 
     @staticmethod
-    def _to_torch(Z):
+    def _to_torch(Z, dtype=None):
         """Converts a None, list, np.ndarray, or torch.Tensor to torch.Tensor"""
         if Z is None:
             return None
         elif isinstance(Z, torch.Tensor):
-            return Z
+            pass
         elif isinstance(Z, list):
-            return torch.from_numpy(np.array(Z))
+            Z = torch.from_numpy(np.array(Z))
         elif isinstance(Z, np.ndarray):
-            return torch.from_numpy(Z)
+            Z = torch.from_numpy(Z)
         else:
             msg = (f"Expected list, numpy.ndarray or torch.Tensor, "
                 f"got {type(Z)} instead.")
             raise Exception(msg)
+
+        return Z.type(dtype) if dtype else Z
 
     def _check(self, var, val=None, typ=None, shape=None):
         if val is not None and not var != val:

@@ -20,7 +20,12 @@ class EndModel(Classifier):
     """A dynamically constructed discriminative classifier
 
     Args:
-        k: (int) the cardinality of the classifier
+        layer_out_dims: a list of integers corresponding to the output sizes
+            of the layers of your network. The first element is the 
+            dimensionality of the input layer, the last element is the 
+            dimensionality of the head layer (equal to the cardinality of the 
+            task), and all other elements dictate the sizes of middle layers.
+            The number of middle layers will be inferred from this list.
         input_module: (nn.Module) a module that converts the user-provided 
             model inputs to torch.Tensors. Defaults to IdentityModule.
         middle_modules: (nn.Module) a list of modules to execute between the
@@ -28,10 +33,20 @@ class EndModel(Classifier):
         head_module: (nn.Module) a module to execute right before the final
             softmax that outputs a prediction for the task.
     """
-    def __init__(self, k=2, input_module=None, middle_modules=None,
+    def __init__(self, layer_out_dims, input_module=None, middle_modules=None,
         head_module=None, **kwargs):
+
+        if len(layer_out_dims) < 2:
+            raise ValueError("Arg layer_out_dims must have at least two "
+                "elements corresponding to the output dim of the input module "
+                "and the cardinality of the task. If the input module is the "
+                "IdentityModule, then the output dim of the input module will "
+                "be equal to the dimensionality of your input data points")
+
+        # Add layer_out_dims to kwargs so it will be merged into the config dict
+        kwargs['layer_out_dims'] = layer_out_dims
         config = recursive_merge_dicts(em_default_config, kwargs)
-        super().__init__(k, config)
+        super().__init__(k=layer_out_dims[-1], config=config)
 
         self._build(input_module, middle_modules, head_module)
 
@@ -48,7 +63,10 @@ class EndModel(Classifier):
         input_layer = self._build_input_layer(input_module)
         middle_layers = self._build_middle_layers(middle_modules)
         head = self._build_task_head(head_module)  
-        self.network = nn.Sequential(input_layer, *middle_layers, head)
+        if middle_layers is None:
+            self.network = nn.Sequential(input_layer, head)
+        else:
+            self.network = nn.Sequential(input_layer, *middle_layers, head)
 
         # Construct loss module
         self.criteria = SoftCrossEntropyLoss(reduce=True, size_average=False)
@@ -61,26 +79,29 @@ class EndModel(Classifier):
         return input_layer
 
     def _build_middle_layers(self, middle_modules):
-        middle_layers = nn.ModuleList()
         layer_out_dims = self.config['layer_out_dims']
-        num_layers = len(layer_out_dims)
-        for i in range(1, num_layers):
+        num_mid_layers = len(layer_out_dims) - 2
+        if num_mid_layers == 0:
+            return None
+
+        middle_layers = nn.ModuleList()
+        for i in range(num_mid_layers):
             if middle_modules is None:
-                module = nn.Linear(*layer_out_dims[i-1:i+1])
-                layer = self._make_layer(module, output_dim=layer_out_dims[i])
+                module = nn.Linear(*layer_out_dims[i:i+2])
+                layer = self._make_layer(module, output_dim=layer_out_dims[i+1])
             else:
-                module = middle_modules[i-1]
+                module = middle_modules[i]
                 layer = self._make_layer(module)
-            middle_layers.add_module(f'layer{i}', layer)
+            middle_layers.add_module(f'layer{i+1}', layer)
         return middle_layers
 
     def _build_task_head(self, head_module):
         if head_module is None:
-            head = nn.Linear(self.config['layer_out_dims'][-1], self.k)
+            head = nn.Linear(self.config['layer_out_dims'][-2], self.k)
         else:
             # Note that if head module is provided, it must have input dim of
             # the last middle module and output dim of self.k, the cardinality
-            head = head_module        
+            head = head_module
         return head
 
     def _make_layer(self, module, output_dim=None):
@@ -128,15 +149,7 @@ class EndModel(Classifier):
 
         # If hard labels, convert to soft labels
         if Y.dim() == 1 or Y.shape[1] == 1:
-            if not isinstance(Y, torch.LongTensor):
-                self._check(Y, typ=torch.LongTensor)
-            # FIXME: This could fail if last class was never predicted
-            Y = hard_to_soft(Y, k=Y.max().long())
-            # FIXME: This currently assumes that no model can output a 
-            # prediction of 0 (i.e., if cardinality=5, Y[0] corresponds to
-            # class 1 instead of 0, since the latter would give the model
-            # a 5-dim output space but a 6-dim label space)
-            Y = Y[:,1:]
+            Y = hard_to_soft(Y.long(), k=self.k)
         return Y
 
     def _make_data_loader(self, X, Y, data_loader_config):
@@ -152,7 +165,7 @@ class EndModel(Classifier):
         self.config = recursive_merge_dicts(self.config, kwargs)
         train_config = self.config['train_config']
 
-        Y_train = self._to_torch(Y_train)
+        Y_train = self._to_torch(Y_train, dtype=torch.FloatTensor)
         Y_dev = self._to_torch(Y_dev)
 
         # Make data loaders
@@ -169,5 +182,5 @@ class EndModel(Classifier):
         self._train(train_loader, loss_fn, X_dev=X_dev, Y_dev=Y_dev)
 
     def predict_proba(self, X):
-        """Returns a [n, k+1] tensor of soft (float) predictions."""
+        """Returns a [n, k] tensor of soft (float) predictions."""
         return F.softmax(self.forward(X), dim=1).data.cpu().numpy()

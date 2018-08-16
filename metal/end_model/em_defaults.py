@@ -5,15 +5,16 @@ em_default_config = {
     'show_plots': True,
 
     # Network
-    'batchnorm': False,
-    'dropout': 0.0,
-    'layer_out_dims': [100, 50],
+    'layer_out_dims': [10, 2],
         # The first value is the output dim of the input module (or the sum of
         # the output dims of all the input modules if multitask=True and 
-        # multiple input modules are provided). The input module is layer 0.
-        # The remaining values are the output dims of middle layers
-        # The task head is attached to the final middle layer and has an
-        # output dim equal to the cardinality of the classifier.
+        # multiple input modules are provided). The last value is the 
+        # output dim of the head layer (i.e., the cardinality of the 
+        # classification task). The remaining values are the output dims of 
+        # middle layers (if any). The number of middle layers will be inferred
+        # from this list.
+    'batchnorm': False,
+    'dropout': 0.0,
 
     ### TRAINING
     'train_config': {
@@ -37,6 +38,8 @@ em_default_config = {
         # 'checkpoint_runway': 0, # if early stopping, don't save checkpoints until after at least this many epochs
         'l2': 0.0,
         'validation_metric': 'accuracy',
+        'validation_freq': 1,
+            # Evaluate dev for during training every this many epochs
 
         # Optimizer
         'optimizer_config': {
@@ -77,8 +80,10 @@ em_default_config = {
         # Checkpointer
         'checkpoint': True,
         'checkpoint_config': {
-            'checkpoint_min': 0,
+            'checkpoint_min': -1,
+                # The initial best score to beat to merit checkpointing
             'checkpoint_runway': 0,
+                # Don't start taking checkpoints until after this many epochs
         }
     },
 }

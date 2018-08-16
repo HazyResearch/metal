@@ -3,7 +3,7 @@ lm_default_config = {
     'seed': None,
     'verbose': True,
     'show_plots': True,
-    
+
     ### TRAIN
     'train_config': {
         # Classifier
