@@ -358,7 +358,6 @@ class LabelModel(Classifier):
             if self.config['verbose']:
                 print("Estimating Z...")
             self._train(train_loader, self.loss_inv_Z)
-            # _train(self, train_loader, loss_fn, X_dev=None, Y_dev=None):
             self.Q = torch.from_numpy(self.get_Q()).float()
 
             # Estimate \mu

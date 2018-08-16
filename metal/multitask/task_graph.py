@@ -22,7 +22,7 @@ class TaskGraph(object):
         cardinalities: A t-length list of integers corresponding to the
             cardinalities of each task.
 
-    Defaults to a signle binary task.
+    Defaults to a single binary task.
     """
     def __init__(self, cardinalities=[2], edges=[]):
         self.K = cardinalities       # Max cardinality

@@ -8,7 +8,7 @@ import torch.nn as nn
 from metal.modules import IdentityModule
 from metal.multitask import MTEndModel, TaskGraph, TaskHierarchy
 
-class EndModelTest(unittest.TestCase):
+class MTEndModelTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -23,7 +23,6 @@ class EndModelTest(unittest.TestCase):
         Y[:,1] = (X[:,0] > X[:,1] + 0.25).astype(int) + 1
 
         X = torch.tensor(X, dtype=torch.float)
-        Y = torch.tensor(Y, dtype=torch.long)
 
         Xs = [X[:1000], X[1000:1100], X[1100:]]
         Ys = [[Y[:1000,     0], Y[:1000,     1]],
