@@ -1,7 +1,7 @@
 name: metal
 channels:
   - pytorch
-  - conda-forge 
+  - conda-forge
 dependencies:
   - python=3.6
   - jupyter
@@ -12,6 +12,7 @@ dependencies:
   - numpy
   - pandas
   - pytorch=0.4.1
+  - runipy
   - scipy
   - pip:
     - torchtext==0.2.3  # contrib only
