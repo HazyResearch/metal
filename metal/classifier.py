@@ -101,7 +101,7 @@ class Classifier(nn.Module):
         # The apply(f) method recursively calls f on itself and all children
         self.apply(self._reset_module)
 
-    def train(self, X, Y, X_dev=None, Y_dev=None, **kwargs):
+    def train(self, *args, **kwargs):
         """Trains a classifier
 
         Take care to initialize weights outside the training loop and zero out 
