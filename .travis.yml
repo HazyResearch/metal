@@ -28,9 +28,13 @@ before_install:
   - conda config --set changeps1 no  # Do not show the name of the active env
 
 install:
-# Create conda environment
+  # Create conda environment
   - conda env create -f environment.yml
   - source activate metal
+  
+  # Run linter/style checks
+  - make dev 
+  - make check
 
 script:
   - nosetests
