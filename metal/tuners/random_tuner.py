@@ -1,12 +1,7 @@
-from itertools import cycle, product, islice
-import math
-import random
 import time
 
-from pprint import pprint
-import numpy as np
-
 from metal.tuners.tuner import ModelTuner
+
 
 class RandomSearchTuner(ModelTuner):
     """A tuner for models
@@ -18,8 +13,18 @@ class RandomSearchTuner(ModelTuner):
             best trained model in memory.
     """
 
-    def search(self, init_args, train_args, X_dev, Y_dev, search_space, 
-        max_search=None, shuffle=True, verbose=True, **score_kwargs):
+    def search(
+        self,
+        init_args,
+        train_args,
+        X_dev,
+        Y_dev,
+        search_space,
+        max_search=None,
+        shuffle=True,
+        verbose=True,
+        **score_kwargs,
+    ):
         """
         Args:
             init_args: (list) positional args for initializing the model
@@ -43,33 +48,34 @@ class RandomSearchTuner(ModelTuner):
         self.run_stats = []
 
         configs = self.config_generator(search_space, max_search, shuffle)
-        print_worthy = [k for k, v in search_space.items() 
-            if isinstance(v, list) or isinstance(v, dict)]
-        
+        print_worthy = [
+            k
+            for k, v in search_space.items()
+            if isinstance(v, list) or isinstance(v, dict)
+        ]
+
         best_index = 0
         best_score = -1
         best_model = None
         start_time = time.time()
         for i, config in enumerate(configs):
             # Unless seeds are given explicitly, give each config a unique one
-            if config.get('seed', None) is None:
-                config['seed'] = self.seed + i
+            if config.get("seed", None) is None:
+                config["seed"] = self.seed + i
             model = self.model_class(*init_args, **config)
 
             if verbose:
-                print_config = {k: v for k, v in config.items() if k in 
-                    print_worthy}
+                print_config = {
+                    k: v for k, v in config.items() if k in print_worthy
+                }
                 print("=" * 60)
                 print(f"[{i + 1}] Testing {print_config}")
                 print("=" * 60)
 
-            try:
-                model.train(*train_args, X_dev=X_dev, Y_dev=Y_dev, 
-                    verbose=verbose, **config)
-                score = model.score(X_dev, Y_dev, verbose=verbose, 
-                    **score_kwargs)
-            except:
-                score = float("nan")
+            model.train(
+                *train_args, X_dev=X_dev, Y_dev=Y_dev, verbose=verbose, **config
+            )
+            score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
 
             if score > best_score or best_model is None:
                 best_index = i + 1
@@ -79,11 +85,13 @@ class RandomSearchTuner(ModelTuner):
 
                 # Keep track of running statistics
                 time_elapsed = time.time() - start_time
-                self.run_stats.append({
+                self.run_stats.append(
+                    {
                         "time_elapsed": time_elapsed,
                         "best_score": best_score,
                         "best_config": best_config,
-                })
+                    }
+                )
 
         print("=" * 60)
         print(f"[SUMMARY]")
@@ -91,6 +99,5 @@ class RandomSearchTuner(ModelTuner):
         print(f"Best config: {best_config}")
         print(f"Best score: {best_score}")
         print("=" * 60)
-        
+
         return best_model
-        

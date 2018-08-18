@@ -1,5 +1,5 @@
-from collections import defaultdict
 import copy
+from collections import defaultdict
 
 import torch
 import torch.nn as nn
@@ -9,16 +9,21 @@ from torch.utils.data import DataLoader
 from metal.end_model import EndModel
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.multitask import TaskGraph, MTClassifier
-from metal.multitask import MultiYDataset, MultiXYDataset
-from metal.multitask.mt_em_defaults import mt_em_default_config
 from metal.modules import IdentityModule
+from metal.multitask import (
+    MTClassifier,
+    MultiXYDataset,
+    MultiYDataset,
+    TaskGraph,
+)
+from metal.multitask.mt_em_defaults import mt_em_default_config
 from metal.utils import recursive_merge_dicts
+
 
 class MTEndModel(MTClassifier, EndModel):
     """A multi-task discriminative model.
 
-    Note that when looking up methods, MTEndModel will first search in 
+    Note that when looking up methods, MTEndModel will first search in
     MTClassifier, followed by EndModel.
 
     Args:
@@ -26,34 +31,45 @@ class MTEndModel(MTClassifier, EndModel):
             if task_graph is not None)
         task_graph: TaskGraph: A TaskGraph which defines a feasible set of
             task label vectors; overrides K
-        input_module: (nn.Module) a module that converts the user-provided 
+        input_module: (nn.Module) a module that converts the user-provided
             model inputs to torch.Tensors. Defaults to IdentityModule.
         middle_modules: (nn.Module) a list of modules to execute between the
             input_module and task head. Defaults to nn.Linear.
         head_module: (nn.Module) a module to execute right before the final
-            softmax that outputs a prediction for the task.            
+            softmax that outputs a prediction for the task.
     """
-    def __init__(self, K=[], task_graph=None, input_modules=None, 
-        middle_modules=None, head_modules=None, **kwargs):
+
+    def __init__(
+        self,
+        K=[],
+        task_graph=None,
+        input_modules=None,
+        middle_modules=None,
+        head_modules=None,
+        **kwargs,
+    ):
         config = recursive_merge_dicts(
-            em_default_config, mt_em_default_config, misses='insert')
+            em_default_config, mt_em_default_config, misses="insert"
+        )
         config = recursive_merge_dicts(config, kwargs)
         MTClassifier.__init__(self, K, config)
 
         if task_graph is None:
             if K is None:
-                raise ValueError("You must supply either a list of "
-                    "cardinalities (K) or a TaskGraph.")
+                raise ValueError(
+                    "You must supply either a list of "
+                    "cardinalities (K) or a TaskGraph."
+                )
             task_graph = TaskGraph(K)
         self.task_graph = task_graph
         self.K = self.task_graph.K  # Cardinalities by task
         self.t = self.task_graph.t  # Total number of tasks
-        assert(len(self.K) == self.t)
+        assert len(self.K) == self.t
 
         self._build(input_modules, middle_modules, head_modules)
 
         # Show network
-        if self.config['verbose']:
+        if self.config["verbose"]:
             print("\nNetwork architecture:")
             self._print()
             print()
@@ -64,14 +80,14 @@ class MTEndModel(MTClassifier, EndModel):
         """
         self.input_layer = self._build_input_layer(input_modules)
         self.middle_layers = self._build_middle_layers(middle_modules)
-        self.heads = self._build_task_heads(head_modules)  
+        self.heads = self._build_task_heads(head_modules)
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduction='sum')
+        self.criteria = SoftCrossEntropyLoss(reduction="sum")
 
     def _build_input_layer(self, input_modules):
         if input_modules is None:
-            output_dim = self.config['layer_out_dims'][0]
+            output_dim = self.config["layer_out_dims"][0]
             input_modules = IdentityModule()
 
         if isinstance(input_modules, list):
@@ -82,7 +98,7 @@ class MTEndModel(MTClassifier, EndModel):
         return input_layer
 
     def _build_middle_layers(self, middle_modules):
-        layer_out_dims = self.config['layer_out_dims']
+        layer_out_dims = self.config["layer_out_dims"]
         num_mid_layers = len(layer_out_dims) - 1
         if num_mid_layers == 0:
             return None
@@ -90,40 +106,43 @@ class MTEndModel(MTClassifier, EndModel):
         middle_layers = nn.ModuleList()
         for i in range(num_mid_layers):
             if middle_modules is None:
-                module = nn.Linear(*layer_out_dims[i:i+2])
-                layer = self._make_layer(module, output_dim=layer_out_dims[i+1])
+                module = nn.Linear(*layer_out_dims[i : i + 2])
+                layer = self._make_layer(
+                    module, output_dim=layer_out_dims[i + 1]
+                )
             else:
                 module = middle_modules[i]
                 layer = self._make_layer(module)
-            middle_layers.add_module(f'layer{i+1}', layer)
+            middle_layers.add_module(f"layer{i+1}", layer)
         return middle_layers
 
     def _build_task_heads(self, head_modules):
         """Creates and attaches task_heads to the appropriate network layers"""
         # Make task head layer assignments
-        num_layers = len(self.config['layer_out_dims'])
+        num_layers = len(self.config["layer_out_dims"])
         task_head_layers = self._set_task_head_layers(num_layers)
 
-        # task_head_layers stores the layer whose output task head t takes as input
+        # task_head_layers stores the layer whose output is input to task head t
         # task_map stores the task heads that appear at each layer
         self.task_map = defaultdict(list)
         for t, l in enumerate(task_head_layers):
             self.task_map[l].append(t)
 
-        if (any(l == 0 for l in task_head_layers) 
-            and head_modules is None):
-            raise Exception("If any task head is being attached to layer 0 "
+        if any(l == 0 for l in task_head_layers) and head_modules is None:
+            raise Exception(
+                "If any task head is being attached to layer 0 "
                 "(the input modules), then you must provide a t-length list of "
                 "head_modules, since the output dimension of each input_module "
-                "cannot be inferred.")
+                "cannot be inferred."
+            )
 
         # Construct heads
         head_dims = [self.K[t] for t in range(self.t)]
 
         heads = nn.ModuleList()
         for t in range(self.t):
-            input_dim = self.config['layer_out_dims'][task_head_layers[t]]
-            if self.config['pass_predictions']:
+            input_dim = self.config["layer_out_dims"][task_head_layers[t]]
+            if self.config["pass_predictions"]:
                 for p in self.task_graph.parents[t]:
                     input_dim += head_dims[p]
             output_dim = head_dims[t]
@@ -138,34 +157,37 @@ class MTEndModel(MTClassifier, EndModel):
         return heads
 
     def _set_task_head_layers(self, num_layers):
-        head_layers = self.config['task_head_layers']
+        head_layers = self.config["task_head_layers"]
         if isinstance(head_layers, list):
             task_head_layers = head_layers
-        elif head_layers == 'top':
+        elif head_layers == "top":
             task_head_layers = [num_layers - 1] * self.t
-        elif head_layers == 'auto':
+        elif head_layers == "auto":
             raise NotImplementedError
         else:
-            msg = (f"Invalid option to 'head_layers' parameter: "
-                f"{head_layers}")
+            msg = f"Invalid option to 'head_layers' parameter: '{head_layers}'"
             raise ValueError(msg)
 
         # Confirm that the network does not extend beyond the latest task head
         if max(task_head_layers) < num_layers - 1:
             unused = num_layers - 1 - max(task_head_layers)
-            msg = (f"The last {unused} layer(s) of your network have no task "
-                "heads attached to them")
+            msg = (
+                f"The last {unused} layer(s) of your network have no task "
+                "heads attached to them"
+            )
             raise ValueError(msg)
 
-        # Confirm that parents come b/f children if predictions are passed 
+        # Confirm that parents come b/f children if predictions are passed
         # between tasks
-        if self.config['pass_predictions']:
+        if self.config["pass_predictions"]:
             for t, l in enumerate(task_head_layers):
                 for p in self.task_graph.parents[t]:
                     if task_head_layers[p] >= l:
                         p_layer = task_head_layers[p]
-                        msg = (f"Task {t}'s layer ({l}) must be larger than its "
-                            f"parent task {p}'s layer ({p_layer})")
+                        msg = (
+                            f"Task {t}'s layer ({l}) must be larger than its "
+                            f"parent task {p}'s layer ({p_layer})"
+                        )
                         raise ValueError(msg)
 
         return task_head_layers
@@ -177,7 +199,7 @@ class MTEndModel(MTClassifier, EndModel):
                 print(mod)
         else:
             print(self.input_layer)
-            
+
         for t in self.task_map[0]:
             print(f"(head{t})")
             print(self.heads[t])
@@ -193,14 +215,14 @@ class MTEndModel(MTClassifier, EndModel):
 
     def forward(self, x):
         """Returns a list of outputs for tasks 0,...t-1
-        
+
         Args:
             x: a [batch_size, ...] batch from X
         """
         head_outputs = [None] * self.t
-        
+
         # Execute input layer
-        if isinstance(self.input_layer, list): # One input_module per task
+        if isinstance(self.input_layer, list):  # One input_module per task
             input_outputs = [mod(x) for mod, x in zip(self.input_layer, x)]
             x = torch.stack(input_outputs, dim=1)
 
@@ -208,10 +230,10 @@ class MTEndModel(MTClassifier, EndModel):
             for t in self.task_map[0]:
                 head = self.heads[t]
                 head_outputs[t] = head(input_outputs[t])
-        else: # One input_module for all tasks
+        else:  # One input_module for all tasks
             x = self.input_layer(x)
 
-            # Execute level-0 task heads from the single input module    
+            # Execute level-0 task heads from the single input module
             for t in self.task_map[0]:
                 head = self.heads[t]
                 head_outputs[t] = head(x)
@@ -224,8 +246,9 @@ class MTEndModel(MTClassifier, EndModel):
             for t in self.task_map[i]:
                 head = self.heads[t]
                 # Optionally include as input the predictions of parent tasks
-                if (self.config['pass_predictions'] and 
-                    bool(self.task_graph.parents[t])):
+                if self.config["pass_predictions"] and bool(
+                    self.task_graph.parents[t]
+                ):
                     task_input = [x]
                     for p in self.task_graph.parents[t]:
                         task_input.append(head_outputs[p])
@@ -240,22 +263,23 @@ class MTEndModel(MTClassifier, EndModel):
         # If not a list, convert to a singleton list
         if not isinstance(Y, list):
             if self.t != 1:
-                msg = ("For t > 1, Y must be a list of n-dim or [n, K_t+1] "
-                    "tensors")
+                msg = "For t > 1, Y must be a list of n-dim or [n, K_t] tensors"
                 raise ValueError(msg)
             Y = [Y]
-        
+
         if not len(Y) == self.t:
             msg = f"Expected Y to be a t-length list (t={self.t}), not {len(Y)}"
             raise ValueError(msg)
 
-        return [EndModel._preprocess_Y(self, Y_t, self.K[t]) for t, Y_t in 
-            enumerate(Y)]
+        return [
+            EndModel._preprocess_Y(self, Y_t, self.K[t])
+            for t, Y_t in enumerate(Y)
+        ]
 
     def _make_data_loader(self, X, Y, data_loader_config):
         if isinstance(X, list):
             dataset = MultiXYDataset(X, self._preprocess_Y(Y))
-        else:   
+        else:
             dataset = MultiYDataset(X, self._preprocess_Y(Y))
         data_loader = DataLoader(dataset, shuffle=True, **data_loader_config)
         return data_loader
@@ -263,13 +287,16 @@ class MTEndModel(MTClassifier, EndModel):
     def _get_loss_fn(self):
         """Returns the loss function to use in the train routine"""
         loss_fn = lambda X, Y: sum(
-            self.criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y))
+            self.criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
+        )
         return loss_fn
 
     def predict_proba(self, X):
-        """Returns a list of t [n, K_t+1] tensors of soft (float) predictions."""
-        return [F.softmax(output, dim=1).data.cpu().numpy() for output in 
-            self.forward(X)]
+        """Returns a list of t [n, K_t] tensors of soft (float) predictions."""
+        return [
+            F.softmax(output, dim=1).data.cpu().numpy()
+            for output in self.forward(X)
+        ]
 
     def predict_task_proba(self, X, t):
         """Returns an n x k matrix of probabilities for each label of task t"""

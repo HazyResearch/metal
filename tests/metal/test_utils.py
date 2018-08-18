@@ -1,53 +1,41 @@
-from collections import Counter
 import unittest
+from collections import Counter
 
 import numpy as np
 import scipy.sparse as sparse
 import torch
 
-from metal.utils import (
-    rargmax,
-    hard_to_soft,
-    recursive_merge_dicts,
-    split_data
-)
+from metal.utils import hard_to_soft, rargmax, recursive_merge_dicts, split_data
+
 
 class UtilsTest(unittest.TestCase):
     def test_rargmax(self):
         x = np.array([2, 1, 2])
         np.random.seed(1)
-        self.assertEqual(sorted(list(set(rargmax(x) for _ in range(10)))), [0, 2])
+        self.assertEqual(
+            sorted(list(set(rargmax(x) for _ in range(10)))), [0, 2]
+        )
 
     def test_hard_to_soft(self):
-        x = torch.tensor([1,2,2,1])
-        target = torch.tensor([
-            [1, 0],
-            [0, 1],
-            [0, 1],
-            [1, 0],
-        ], dtype=torch.float)
-        self.assertTrue((hard_to_soft(x, 2) == target).sum() 
-            == torch.prod(torch.tensor(target.shape)))
+        x = torch.tensor([1, 2, 2, 1])
+        target = torch.tensor(
+            [[1, 0], [0, 1], [0, 1], [1, 0]], dtype=torch.float
+        )
+        self.assertTrue(
+            (hard_to_soft(x, 2) == target).sum()
+            == torch.prod(torch.tensor(target.shape))
+        )
 
     def test_recursive_merge_dicts(self):
-        x = {
-            'foo': {'Foo': {'FOO': 1}},
-            'bar': 2,
-            'baz': 3,
-        }
-        y = {
-            'FOO': 4,
-            'bar': 5,
-        }
-        z = {
-            'foo': 6
-        }
+        x = {"foo": {"Foo": {"FOO": 1}}, "bar": 2, "baz": 3}
+        y = {"FOO": 4, "bar": 5}
+        z = {"foo": 6}
         w = recursive_merge_dicts(x, y, verbose=False)
-        self.assertEqual(w['bar'], 5)
-        self.assertEqual(w['foo']['Foo']['FOO'], 4)
+        self.assertEqual(w["bar"], 5)
+        self.assertEqual(w["foo"]["Foo"]["FOO"], 4)
         with self.assertRaises(ValueError):
             recursive_merge_dicts(x, z, verbose=False)
-        
+
     def test_split_data(self):
         N = 1000
         K = 4
@@ -84,23 +72,27 @@ class UtilsTest(unittest.TestCase):
         Ys = split_data(Y, splits=splits, stratify_by=Y, seed=123)
         counts = [Counter(Y) for Y in Ys]
         for y in np.unique(Y):
-            ratio0 = counts[0][y]/len(Ys[0])
-            ratio1 = counts[1][y]/len(Ys[1])
-            ratio2 = counts[2][y]/len(Ys[2])
+            ratio0 = counts[0][y] / len(Ys[0])
+            ratio1 = counts[1][y] / len(Ys[1])
+            ratio2 = counts[2][y] / len(Ys[2])
             self.assertLess(abs(ratio0 - ratio1), 0.05)
 
         # Handles scipy.sparse matrices
-        Z = sparse.csr_matrix([[1,0,1,2], [0,3,0,3], [1,2,3,4], [5,4,3,2]])
+        Z = sparse.csr_matrix(
+            [[1, 0, 1, 2], [0, 3, 0, 3], [1, 2, 3, 4], [5, 4, 3, 2]]
+        )
         splits = [0.75, 0.25]
         Zs = split_data(Z, splits=splits, shuffle=True, seed=123)
-        self.assertEqual(Zs[0].shape, (3,4))
+        self.assertEqual(Zs[0].shape, (3, 4))
 
         # Handles torch.Tensors
-        W = torch.Tensor([[1,0,1,2], [0,3,0,3], [1,2,3,4], [5,4,3,2]])
+        W = torch.Tensor(
+            [[1, 0, 1, 2], [0, 3, 0, 3], [1, 2, 3, 4], [5, 4, 3, 2]]
+        )
         splits = [0.75, 0.25]
         Ws = split_data(W, splits=splits, shuffle=True, seed=123)
-        self.assertEqual(Ws[0].shape, (3,4))
+        self.assertEqual(Ws[0].shape, (3, 4))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

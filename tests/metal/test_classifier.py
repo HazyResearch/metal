@@ -1,9 +1,9 @@
 import unittest
 
-from metal import LabelModel, EndModel
+from metal import EndModel, LabelModel
+
 
 class ClassifierTest(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         # Load synthetic dataset?

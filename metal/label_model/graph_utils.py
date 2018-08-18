@@ -8,7 +8,7 @@ def get_clique_tree(nodes, edges):
             maximal clique
         - G[i][j]['members'] contains the set of original nodes in the seperator
             set between maximal cliques i and j
-    
+
     Note: This method is currently only implemented for chordal graphs; TODO:
     add a step to triangulate non-chordal graphs.
     """
@@ -21,7 +21,7 @@ def get_clique_tree(nodes, edges):
     # TODO: Add step to triangulate graph if not
     if not nx.is_chordal(G1):
         raise NotImplementedError("Graph triangulation not implemented.")
-    
+
     # Create maximal clique graph G2
     # Each node is a maximal clique C_i
     # Let w = |C_i \cap C_j|; C_i, C_j have an edge with weight w if w > 0
@@ -30,10 +30,10 @@ def get_clique_tree(nodes, edges):
         G2.add_node(i, members=c)
     for i in G2.nodes:
         for j in G2.nodes:
-            S = G2.node[i]['members'].intersection(G2.node[j]['members'])
+            S = G2.node[i]["members"].intersection(G2.node[j]["members"])
             w = len(S)
             if w > 0:
                 G2.add_edge(i, j, weight=w, members=S)
-    
+
     # Return a minimum spanning tree of G2
     return nx.minimum_spanning_tree(G2)
