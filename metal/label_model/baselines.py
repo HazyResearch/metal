@@ -1,16 +1,13 @@
-from collections import Counter
-
 import numpy as np
-from scipy.sparse import csc_matrix
-import torch
 
-from metal.utils import rargmax
 from metal.label_model.label_model import LabelModel
+
 
 class RandomVoter(LabelModel):
     """
     A class that votes randomly among the available labels
     """
+
     def train(self, L, **kwargs):
         pass
 
@@ -29,11 +26,12 @@ class RandomVoter(LabelModel):
 
 class MajorityClassVoter(RandomVoter):
     """
-    A class that places all probability on the majority class based on class 
+    A class that places all probability on the majority class based on class
     balance (and ignoring the label matrix).
 
     Note that in the case of ties, non-integer probabilities are possible.
     """
+
     def train(self, L, balance, **kwargs):
         """
         Args:
@@ -41,7 +39,7 @@ class MajorityClassVoter(RandomVoter):
                 (possibly estimated) class balance.
         """
         self.balance = np.array(balance)
-        
+
     def predict_proba(self, L):
         n = L.shape[0]
         Y_p = np.zeros((n, self.k))
@@ -54,11 +52,12 @@ class MajorityClassVoter(RandomVoter):
 
 class MajorityLabelVoter(RandomVoter):
     """
-    A class that places all probability on the majority label from all 
+    A class that places all probability on the majority label from all
     non-abstaining LFs for that task.
 
     Note that in the case of ties, non-integer probabilities are possible.
     """
+
     def train(self, L, **kwargs):
         pass
 
@@ -69,8 +68,8 @@ class MajorityLabelVoter(RandomVoter):
         for i in range(n):
             counts = np.zeros(self.k)
             for j in range(m):
-                if L[i,j]:
-                    counts[L[i,j] - 1] += 1
+                if L[i, j]:
+                    counts[L[i, j] - 1] += 1
             Y_p[i, :] = np.where(counts == max(counts), 1, 0)
         Y_p /= Y_p.sum(axis=1).reshape(-1, 1)
         return Y_p

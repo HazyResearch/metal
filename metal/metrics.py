@@ -1,24 +1,25 @@
 import numpy as np
-import torch
 
 from metal.utils import arraylike_to_numpy
 
+
 def metric_score(gold, pred, metric, **kwargs):
-    if metric == 'accuracy':
+    if metric == "accuracy":
         return accuracy_score(gold, pred, **kwargs)
-    elif metric == 'coverage':
+    elif metric == "coverage":
         return coverage_score(gold, pred, **kwargs)
-    elif metric == 'precision':
+    elif metric == "precision":
         return precision_score(gold, pred, **kwargs)
-    elif metric == 'recall':
+    elif metric == "recall":
         return recall_score(gold, pred, **kwargs)
-    elif metric == 'f1':
+    elif metric == "f1":
         return f1_score(gold, pred, **kwargs)
-    elif metric == 'fbeta':
+    elif metric == "fbeta":
         return fbeta_score(gold, pred, **kwargs)
     else:
         msg = f"The metric you provided ({metric}) is not supported."
         raise ValueError(msg)
+
 
 def accuracy_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
     """
@@ -43,6 +44,7 @@ def accuracy_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
 
     return acc
 
+
 def coverage_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
     """
     Calculate (global) coverage.
@@ -61,8 +63,10 @@ def coverage_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
 
     return np.sum(pred != 0) / len(pred)
 
-def precision_score(gold, pred, pos_label=1, ignore_in_gold=[], 
-    ignore_in_pred=[]):
+
+def precision_score(
+    gold, pred, pos_label=1, ignore_in_gold=[], ignore_in_pred=[]
+):
     """
     Calculate precision for a single class.
     Args:
@@ -91,8 +95,8 @@ def precision_score(gold, pred, pos_label=1, ignore_in_gold=[],
 
     return pre
 
-def recall_score(gold, pred, pos_label=1, ignore_in_gold=[], 
-    ignore_in_pred=[]):
+
+def recall_score(gold, pred, pos_label=1, ignore_in_gold=[], ignore_in_pred=[]):
     """
     Calculate recall for a single class.
     Args:
@@ -121,8 +125,10 @@ def recall_score(gold, pred, pos_label=1, ignore_in_gold=[],
 
     return rec
 
-def fbeta_score(gold, pred, pos_label=1, beta=1.0, ignore_in_gold=[], 
-    ignore_in_pred=[]):
+
+def fbeta_score(
+    gold, pred, pos_label=1, beta=1.0, ignore_in_gold=[], ignore_in_pred=[]
+):
     """
     Calculate recall for a single class.
     Args:
@@ -143,14 +149,16 @@ def fbeta_score(gold, pred, pos_label=1, beta=1.0, ignore_in_gold=[],
     rec = recall_score(gold, pred, pos_label=pos_label)
 
     if pre or rec:
-        fbeta = (1 + beta**2) * (pre * rec)/((beta**2 * pre) + rec)
+        fbeta = (1 + beta ** 2) * (pre * rec) / ((beta ** 2 * pre) + rec)
     else:
         fbeta = 0
 
     return fbeta
 
+
 def f1_score(gold, pred, **kwargs):
     return fbeta_score(gold, pred, beta=1.0, **kwargs)
+
 
 def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
     """Remove from gold and pred all items with labels designated to ignore."""
@@ -163,7 +171,8 @@ def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
     gold = gold[keepers]
     pred = pred[keepers]
     return gold, pred
-    
+
+
 def _preprocess(gold, pred, ignore_in_gold, ignore_in_pred):
     gold = arraylike_to_numpy(gold)
     pred = arraylike_to_numpy(pred)

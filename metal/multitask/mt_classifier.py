@@ -1,35 +1,34 @@
 
-import random
-
 import numpy as np
 
 from metal.classifier import Classifier
 from metal.metrics import metric_score
 
+
 class MTClassifier(Classifier):
     """Simple abstract base class for a *multi-class* probabilistic classifier.
-    
+
     The main contribution of children classes will be an implementation of the
     predict_proba() method. The relationships between the six predict/score
     functions are as follows:
     score 		    	score_task
-	    |			         |
-	predict 	     	predict_task
-	    |	    (default)    |
-	*predict_proba  <- 	predict_task_proba
-    
+            |			         |
+        predict 	     	predict_task
+            |	    (default)    |
+        *predict_proba  <- 	predict_task_proba
+
     Methods on the left return a list of results for all tasks (including
-    a singleton list if there is only one task). 
-    Methods on the right return what would be a single element in the list 
+    a singleton list if there is only one task).
+    Methods on the right return what would be a single element in the list
     returned by their counterpart on the left.
     The method predict_proba() method calculates the probabilistic labels,
-    the predict() method handles tie-breaking, and the score() method 
+    the predict() method handles tie-breaking, and the score() method
     calculates metrics based on predictions.
-    Children classes must implement predict_proba so that interactions between 
-    tasks are handled correctly in applicable multi-task settings. 
-    If it is possible to calculate task probabilities independently, they may 
-    also override predict_task_proba for efficiency. 
-    Otherwise, predict_task_proba() will default to calling predict_proba and 
+    Children classes must implement predict_proba so that interactions between
+    tasks are handled correctly in applicable multi-task settings.
+    If it is possible to calculate task probabilities independently, they may
+    also override predict_task_proba for efficiency.
+    Otherwise, predict_task_proba() will default to calling predict_proba and
     accessing element t.
 
     Args:
@@ -41,12 +40,20 @@ class MTClassifier(Classifier):
         self.multitask = True
         self.K = K
 
-    def score(self, X, Y, metric='accuracy', reduce='mean', break_ties='random',
-        verbose=True, **kwargs):
+    def score(
+        self,
+        X,
+        Y,
+        metric="accuracy",
+        reduce="mean",
+        break_ties="random",
+        verbose=True,
+        **kwargs,
+    ):
         """Scores the predictive performance of the Classifier on all tasks
         Args:
             X: The input for the predict method
-            Y: A t-length list of [n] or [n, 1] np.ndarrays or torch.Tensors of 
+            Y: A t-length list of [n] or [n, 1] np.ndarrays or torch.Tensors of
                 gold labels in {1,...,K_t}
             metric: The metric with which to score performance on each task
             reduce: How to reduce the scores of multiple tasks:
@@ -54,7 +61,7 @@ class MTClassifier(Classifier):
                 'mean': return the mean score across tasks
             break_ties: How to break ties when making predictions
         Returns:
-            scores: A (float) score or a t-length list of such scores if 
+            scores: A (float) score or a t-length list of such scores if
                 reduce=None
         """
         self._check(Y, typ=list)
@@ -72,7 +79,7 @@ class MTClassifier(Classifier):
         # primary tasks, and converting to end labels using TaskGraph...
         if reduce is None:
             score = task_scores
-        elif reduce == 'mean':
+        elif reduce == "mean":
             score = np.mean(task_scores)
         else:
             raise Exception(f"Keyword reduce='{reduce}' not recognized.")
@@ -86,9 +93,9 @@ class MTClassifier(Classifier):
 
         return score
 
-    def predict(self, X, break_ties='random', **kwargs):
+    def predict(self, X, break_ties="random", **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
-        
+
         Args:
             X: The input for the predict_proba method
             break_ties: A tie-breaking policy
@@ -115,17 +122,17 @@ class MTClassifier(Classifier):
         """
         raise NotImplementedError
 
-    def score_task(self, X, Y, t=0, metric='accuracy', verbose=True, **kwargs):
+    def score_task(self, X, Y, t=0, metric="accuracy", verbose=True, **kwargs):
         """Scores the predictive performance of the Classifier on task t
-        
+
         Args:
             X: The input for the predict_task method
-            Y: A [n] or [n, 1] np.ndarray or torch.Tensor of gold labels in 
+            Y: A [n] or [n, 1] np.ndarray or torch.Tensor of gold labels in
                 {1,...,K_t}
             t: The task index to score
             metric: The metric with which to score performance on this task
         Returns:
-            The (float) score of the Classifier for the specified task and 
+            The (float) score of the Classifier for the specified task and
             metric
         """
         Y = self._to_numpy(Y)
@@ -135,9 +142,9 @@ class MTClassifier(Classifier):
             print(f"[t={t}] {metric.capitalize()}: {score:.3f}")
         return score
 
-    def predict_task(self, X, t=0, break_ties='random', **kwargs):
+    def predict_task(self, X, t=0, break_ties="random", **kwargs):
         """Predicts hard (int) labels for an input X on task t
-        
+
         Args:
             X: The input for the predict_task_proba method
             t: The task index to predict
@@ -150,7 +157,7 @@ class MTClassifier(Classifier):
 
     def predict_task_proba(self, X, t=0, **kwargs):
         """Predicts soft probabilistic labels for an input X on task t
-        
+
         Args:
             X: The input for the predict_proba method
             t: The task index to predict for which to predict probabilities

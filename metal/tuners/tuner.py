@@ -1,10 +1,8 @@
-from itertools import cycle, product, islice
-import math
 import random
-import time
+from itertools import cycle, product
 
-from pprint import pprint
 import numpy as np
+
 
 class ModelTuner(object):
     """A tuner for models
@@ -15,6 +13,7 @@ class ModelTuner(object):
             If no log_dir is given, the model tuner will attempt to keep
             all trained models in memory.
     """
+
     def __init__(self, model_class, log_dir=None, seed=None):
         self.model_class = model_class
 
@@ -30,8 +29,18 @@ class ModelTuner(object):
 
         self.run_stats = []
 
-    def search(self, init_args, train_args, X_dev, Y_dev, search_space, 
-        max_search=None, shuffle=True, verbose=True, **score_kwargs):
+    def search(
+        self,
+        init_args,
+        train_args,
+        X_dev,
+        Y_dev,
+        search_space,
+        max_search=None,
+        shuffle=True,
+        verbose=True,
+        **score_kwargs,
+    ):
         """
         Args:
             init_args: (list) positional args for initializing the model
@@ -64,7 +73,7 @@ class ModelTuner(object):
           }
         """
         return self.run_stats
-        
+
     @staticmethod
     def config_generator(search_space, max_search, shuffle=True):
         """Generates config dicts from the given search space
@@ -74,7 +83,7 @@ class ModelTuner(object):
                 See note below for more details.
             max_search: (int) The maximum number of configurations to search.
                 If max_search is None, do a full grid search of all discrete
-                    parameters, filling in range parameters as needed. 
+                    parameters, filling in range parameters as needed.
                 Otherwise, do a full grid search of all discrete
                     parameters and then cycle through again filling in new
                     range parameters values; if there are no range parameters,
@@ -95,7 +104,7 @@ class ModelTuner(object):
                 where <min> and <max> are the min/max values to search between
                 and scale is one of ['linear', 'log'] (defaulting to 'linear')
                 representing the scale to use when searching the given range
-        
+
         Example:
             search_space = {
                 'verbose': True,                              # discrete
@@ -108,27 +117,29 @@ class ModelTuner(object):
                 just cover the full cross-product of discrete values, filled
                 in with sampled range values)
             Otherewise, this will return max_search configurations
-                (cycling through the discrete value combinations multiple 
+                (cycling through the discrete value combinations multiple
                 time if necessary)
         """
+
         def dict_product(d):
             keys = d.keys()
             for element in product(*d.values()):
                 yield dict(zip(keys, element))
-        
+
         def range_param_func(v):
-            scale = v.get('scale', 'linear')
-            mini = min(v['range'])
-            maxi = max(v['range'])
-            if scale == 'linear':
+            scale = v.get("scale", "linear")
+            mini = min(v["range"])
+            maxi = max(v["range"])
+            if scale == "linear":
                 func = lambda rand: mini + (maxi - mini) * rand
-            elif scale == 'log':
+            elif scale == "log":
                 mini = np.log(mini)
                 maxi = np.log(maxi)
                 func = lambda rand: np.exp(mini + (maxi - mini) * rand)
             else:
-                raise ValueError(f"Unrecognized scale '{scale}' for "
-                    "parameter {k}")
+                raise ValueError(
+                    f"Unrecognized scale '{scale}' for " "parameter {k}"
+                )
             return func
 
         discretes = {}
@@ -146,15 +157,15 @@ class ModelTuner(object):
         if shuffle:
             random.shuffle(discrete_configs)
 
-        # If there are range parameters and a non-None max_search, cycle 
-        # through the discrete_configs (with new range values) until 
+        # If there are range parameters and a non-None max_search, cycle
+        # through the discrete_configs (with new range values) until
         # max_search is met
         if ranges and max_search:
             discrete_configs = cycle(discrete_configs)
 
         for i, config in enumerate(discrete_configs):
             # We may see the same config twice due to cycle
-            config = config.copy()  
+            config = config.copy()
             if max_search and i == max_search:
                 break
             for k, v in ranges.items():

@@ -1,24 +1,26 @@
-from collections import defaultdict
 import copy
 import random
+from collections import defaultdict
 
 import numpy as np
-from scipy.sparse import issparse, csr_matrix, hstack
 import torch
+from scipy.sparse import issparse
 from torch.utils.data import Dataset
+
 
 class MetalDataset(Dataset):
     """A dataset that group each item in X with it label from Y
-    
+
     Args:
         X: an n-dim iterable of items
         Y: a torch.Tensor of labels
             This may be hard labels [n] or soft labels [n, k]
     """
+
     def __init__(self, X, Y):
         self.X = X
         self.Y = Y
-        assert(len(X) == len(Y))
+        assert len(X) == len(Y)
 
     def __getitem__(self, index):
         return tuple([self.X[index], self.Y[index]])
@@ -28,8 +30,9 @@ class MetalDataset(Dataset):
 
 
 class Checkpointer(object):
-    def __init__(self, model_class, checkpoint_min=-1, checkpoint_runway=0,
-        verbose=True):
+    def __init__(
+        self, model_class, checkpoint_min=-1, checkpoint_runway=0, verbose=True
+    ):
         """Saves checkpoints as applicable based on a reported metric.
 
         Args:
@@ -44,33 +47,42 @@ class Checkpointer(object):
         self.checkpoint_runway = checkpoint_runway
         self.verbose = verbose
         if checkpoint_runway and verbose:
-            print(f"No checkpoints will be saved in the first "
-                f"checkpoint_runway={checkpoint_runway} iterations.")
-  
+            print(
+                f"No checkpoints will be saved in the first "
+                f"checkpoint_runway={checkpoint_runway} iterations."
+            )
+
     def checkpoint(self, model, iteration, score):
         if iteration >= self.checkpoint_runway:
             is_best = score > self.best_score
             if is_best:
                 if self.verbose:
-                    print(f"Saving model at iteration {iteration} with best "
-                        f"score {score:.3f}")
+                    print(
+                        f"Saving model at iteration {iteration} with best "
+                        f"score {score:.3f}"
+                    )
                 self.best_model = copy.deepcopy(model.state_dict())
                 self.best_iteration = iteration
                 self.best_score = score
 
     def restore(self, model):
         if self.best_model is None:
-            raise Exception(f"Best model was never found. Best score = "
-                f"{self.best_score}")
+            raise Exception(
+                f"Best model was never found. Best score = "
+                f"{self.best_score}"
+            )
         if self.verbose:
-            print(f"Restoring best model from iteration {self.best_iteration} "
-                f"with score {self.best_score:.3f}")
+            print(
+                f"Restoring best model from iteration {self.best_iteration} "
+                f"with score {self.best_score:.3f}"
+            )
             model.load_state_dict(self.best_model)
-            return model 
+            return model
+
 
 def rargmax(x, eps=1e-8):
     """Argmax with random tie-breaking
-    
+
     Args:
         x: a 1-dim numpy array
     Returns:
@@ -78,6 +90,7 @@ def rargmax(x, eps=1e-8):
     """
     idxs = np.where(abs(x - np.max(x, axis=0)) < eps)[0]
     return np.random.choice(idxs)
+
 
 def hard_to_soft(Y_h, k):
     """Converts a 1D tensor of hard labels into a 2D tensor of soft labels
@@ -91,20 +104,21 @@ def hard_to_soft(Y_h, k):
     """
     Y_h = Y_h.clone()
     Y_h = Y_h.squeeze()
-    assert(Y_h.dim() == 1)
-    assert((Y_h >= 1).all())
-    assert((Y_h <= k).all())
+    assert Y_h.dim() == 1
+    assert (Y_h >= 1).all()
+    assert (Y_h <= k).all()
     n = Y_h.shape[0]
     Y_s = torch.zeros((n, k))
     for i, j in enumerate(Y_h):
-        Y_s[i, j-1] = 1.0
+        Y_s[i, j - 1] = 1.0
     return Y_s
+
 
 def arraylike_to_numpy(array_like):
     """Convert a 1d array-like (e.g,. list, tensor, etc.) to an np.ndarray"""
 
     orig_type = type(array_like)
-    
+
     # Convert to np.ndarray
     if isinstance(array_like, np.ndarray):
         pass
@@ -117,10 +131,12 @@ def arraylike_to_numpy(array_like):
     elif not isinstance(array_like, np.ndarray):
         array_like = np.array(array_like)
     else:
-        msg = (f"Input of type {orig_type} could not be converted to 1d "
-            "np.ndarray")
+        msg = (
+            f"Input of type {orig_type} could not be converted to 1d "
+            "np.ndarray"
+        )
         raise ValueError(msg)
-        
+
     # Correct shape
     if (array_like.ndim > 1) and (1 in array_like.shape):
         array_like = array_like.flatten()
@@ -134,9 +150,10 @@ def arraylike_to_numpy(array_like):
 
     return array_like
 
+
 def convert_labels(Y, source, dest):
     """Convert a matrix from one label type to another
-    
+
     Args:
         X: A np.ndarray or torch.Tensor of labels (ints)
         source: The convention the labels are currently expressed in
@@ -149,21 +166,25 @@ def convert_labels(Y, source, dest):
 
     Note that converting to 'onezero' will combine abstain and negative labels.
     """
-    if Y is None: return Y
+    if Y is None:
+        return Y
     Y = Y.copy()
-    negative_map = {'categorical': 2, 'plusminus': -1, 'onezero': 0}
+    negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}
     Y[Y == negative_map[source]] = negative_map[dest]
     return Y
 
+
 def plusminus_to_categorical(Y):
-    return convert_labels(Y, 'plusminus', 'categorical')
+    return convert_labels(Y, "plusminus", "categorical")
+
 
 def categorical_to_plusminus(Y):
-    return convert_labels(Y, 'categorical', 'plusminus')
+    return convert_labels(Y, "categorical", "plusminus")
 
-def recursive_merge_dicts(x, y, misses='report', verbose=None):
+
+def recursive_merge_dicts(x, y, misses="report", verbose=None):
     """
-    Merge dictionary y into a copy of x, overwriting elements of x when there 
+    Merge dictionary y into a copy of x, overwriting elements of x when there
     is a conflict, except if the element is a dictionary, in which case recurse.
 
     misses: what to do if a key in y is not in x
@@ -174,7 +195,8 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
 
     TODO: give example here (pull from tests)
     """
-    def recurse(x, y, misses='report', verbose=1):
+
+    def recurse(x, y, misses="report", verbose=1):
         found = True
         for k, v in y.items():
             found = False
@@ -182,8 +204,10 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
                 found = True
                 if isinstance(x[k], dict):
                     if not isinstance(v, dict):
-                        msg = (f"Attempted to overwrite dict {k} with "
-                            f"non-dict: {v}")
+                        msg = (
+                            f"Attempted to overwrite dict {k} with "
+                            f"non-dict: {v}"
+                        )
                         raise ValueError(msg)
                     recurse(x[k], v, misses, verbose)
                 else:
@@ -192,51 +216,59 @@ def recursive_merge_dicts(x, y, misses='report', verbose=None):
                     else:
                         msg = f"Overwriting {k}={x[k]} to {k}={v}"
                         x[k] = v
-                    if verbose > 1 and k != 'verbose':
+                    if verbose > 1 and k != "verbose":
                         print(msg)
             else:
                 for kx, vx in x.items():
                     if isinstance(vx, dict):
-                        found = recurse(vx, {k: v}, 
-                            misses='ignore', verbose=verbose)
+                        found = recurse(
+                            vx, {k: v}, misses="ignore", verbose=verbose
+                        )
                     if found:
                         break
             if not found:
                 msg = f'Could not find kwarg "{k}" in default config.'
-                if misses == 'insert':
+                if misses == "insert":
                     x[k] = v
-                    if verbose > 1: 
+                    if verbose > 1:
                         print(f"Added {k}={v} from second dict to first")
-                elif misses == 'exception':
+                elif misses == "exception":
                     raise ValueError(msg)
-                elif misses == 'report':
+                elif misses == "report":
                     print(msg)
                 else:
                     pass
         return found
-    
+
     # If verbose is not provided, look for an value in y first, then x
     # (Do this because 'verbose' kwarg is often inside one or both of x and y)
     if verbose is None:
-        verbose = y.get('verbose', x.get('verbose', 1))
+        verbose = y.get("verbose", x.get("verbose", 1))
 
     z = x.copy()
     recurse(z, y, misses, verbose)
     return z
 
-def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None, 
-    index_only=False, seed=None):
+
+def split_data(
+    *inputs,
+    splits=[0.5, 0.5],
+    shuffle=True,
+    stratify_by=None,
+    index_only=False,
+    seed=None,
+):
     """Splits inputs into multiple splits of defined sizes
 
     Args:
         inputs: correlated tuples/lists/arrays/matrices/tensors to split
         splits: list containing split sizes (fractions or counts);
         shuffle: if True, shuffle the data before splitting
-        stratify_by: (None or an input) if not None, use these labels to 
-            stratify the splits (separating the data into groups by these 
-            labels and sampling from those, rather than from the population at 
+        stratify_by: (None or an input) if not None, use these labels to
+            stratify the splits (separating the data into groups by these
+            labels and sampling from those, rather than from the population at
             large); overrides shuffle
-        index_only: if True, return only the indices of the new splits, not the 
+        index_only: if True, return only the indices of the new splits, not the
             split data itself
         seed: (int) random seed
 
@@ -248,6 +280,7 @@ def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None,
     Note: This is very similar to scikit-learn's train_test_split() method,
         but with support for more than two splits.
     """
+
     def fractions_to_counts(fracs, n):
         """Converts a list of fractions to a list of counts that sum to n"""
         counts = [int(np.round(n * frac)) for frac in fracs]
@@ -262,10 +295,12 @@ def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None,
             try:
                 # Works for np.ndarray, scipy.sparse, torch.Tensor
                 return data[indices]
-            except:
-                raise Exception(f"split_data() currently only accepts inputs "
+            except TypeError:
+                raise Exception(
+                    f"split_data() currently only accepts inputs "
                     f"of type tuple, list, np.ndarray, scipy.sparse, or "
-                    f"torch.Tensor; not {type(data)}")
+                    f"torch.Tensor; not {type(data)}"
+                )
 
     # Setting random seed
     if seed is not None:
@@ -273,21 +308,23 @@ def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None,
 
     try:
         n = len(inputs[0])
-    except:
+    except TypeError:
         n = inputs[0].shape[0]
     num_splits = len(splits)
-    
+
     # Check splits for validity and convert to fractions
     if all(isinstance(x, int) for x in splits):
         if not sum(splits) == n:
             raise ValueError(
-                f"Provided split counts must sum to n ({n}), not {sum(splits)}.")
-        fracs = [count/n for count in splits]
+                f"Provided split counts must sum to n ({n}), not {sum(splits)}."
+            )
+        fracs = [count / n for count in splits]
 
     elif all(isinstance(x, float) for x in splits):
         if not sum(splits) == 1.0:
             raise ValueError(
-                f'Split fractions must sum to 1.0, not {sum(splits)}.')
+                f"Split fractions must sum to 1.0, not {sum(splits)}."
+            )
         fracs = splits
 
     else:
@@ -312,8 +349,8 @@ def split_data(*inputs, splits=[0.5, 0.5], shuffle=True, stratify_by=None,
         counts.insert(0, 0)
         cum_counts = np.cumsum(counts)
         for i in range(num_splits):
-            assignments[i].extend(pool[cum_counts[i]:cum_counts[i+1]])
-    
+            assignments[i].extend(pool[cum_counts[i] : cum_counts[i + 1]])
+
     if index_only:
         return assignments
     else:
