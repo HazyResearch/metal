@@ -35,7 +35,7 @@ class MajorityClassVoter(RandomVoter):
     def train(self, L, balance, **kwargs):
         """
         Args:
-            balance: An np.arrays that sums to 1, corresponding to the
+            balance: A 1d arraylike that sums to 1, corresponding to the
                 (possibly estimated) class balance.
         """
         self.balance = np.array(balance)
