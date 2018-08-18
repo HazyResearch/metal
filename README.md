@@ -15,12 +15,12 @@ _[8/5/18] Expect frequent changes, not all backwards-compatible, through mid-Aug
 * View the [developer guide](#developer-guidelines)
 
 ## Motivation
-**This project builds on [Snorkel](snorkel.stanford.edu) in an attempt to understand how _massively multi-task supervision and learning_ changes the way people program.
+This project builds on [Snorkel](snorkel.stanford.edu) in an attempt to understand how _massively multi-task supervision and learning_ changes the way people program.
 _Multitask learning (MTL)_ is an established technique that effectively pools samples by sharing representations across related _tasks_, leading to better performance with less training data (for a great primer of recent advances, see [this survey](https://arxiv.org/abs/1706.05098)).
 However, most existing multi-task systems rely on two or three fixed, hand-labeled training sets.
 Instead, weak supervision opens the floodgates, allowing users to add arbitrarily many _weakly-supervised_ tasks.
 We call this setting _massively multitask learning_, and envision models with tens or hundreds of tasks with supervision of widely varying quality.
-Our goal with the Snorkel MeTaL project is to understand this new regime, and the new way of interacting with models it entails.**
+Our goal with the Snorkel MeTaL project is to understand this new regime, and the programming model it entails.
 
 More concretely, Snorkel MeTaL is a framework for using multi-task weak supervision (MTS), provided by users in the form of _labeling functions_ applied over unlabeled data, to train multi-task models.
 Snorkel MeTaL can use the output of labeling functions developed and executed in [Snorkel](snorkel.stanford.edu), or take in arbitrary _label matrices_ representing weak supervision from multiple sources of unknown quality, and then use this to train auto-compiled MTL networks.
