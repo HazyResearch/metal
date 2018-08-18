@@ -9,6 +9,12 @@
 **NOTE:**
 _[8/5/18] Expect frequent changes, not all backwards-compatible, through mid-August when v0.1.0 is solidified and bundled as a pip/conda package. It will be released with additional documentation and tutorials._
 
+## Getting Started
+* Quickly [set up](#setup) your environment
+* Try out the [tutorials](tutorials/)
+* View the [developer guide](#developer-guidelines)
+
+## Motivation
 **This project builds on [Snorkel](snorkel.stanford.edu) in an attempt to understand how _massively multi-task supervision and learning_ changes the way people program.
 _Multitask learning (MTL)_ is an established technique that effectively pools samples by sharing representations across related _tasks_, leading to better performance with less training data (for a great primer of recent advances, see [this survey](https://arxiv.org/abs/1706.05098)).
 However, most existing multi-task systems rely on two or three fixed, hand-labeled training sets.
@@ -19,15 +25,13 @@ Our goal with the Snorkel MeTaL project is to understand this new regime, and th
 More concretely, Snorkel MeTaL is a framework for using multi-task weak supervision (MTS), provided by users in the form of _labeling functions_ applied over unlabeled data, to train multi-task models.
 Snorkel MeTaL can use the output of labeling functions developed and executed in [Snorkel](snorkel.stanford.edu), or take in arbitrary _label matrices_ representing weak supervision from multiple sources of unknown quality, and then use this to train auto-compiled MTL networks.
 
-**Check out the basics tutorial: https://github.com/HazyResearch/metal/blob/master/tutorials/Basics.ipynb**
-
 Snorkel MeTaL uses a new matrix approximation approach to learn the accuracies of diverse sources with unknown accuracies, arbitrary dependency structures, and structured multi-task outputs.
 This makes it significantly more scalable than our previous approaches.
 For more detail, see the **working draft of our technical report on MeTaL: [_Training Complex Models with Multi-Task Weak Supervision_](https://ajratner.github.io/assets/papers/mts-draft.pdf)**
 
 ## Sample Usage
 This sample is for a single-task problem. 
-For a multi-task example, see tutorials/Multi-task.ipynb.
+For a multi-task example, see tutorials/Multitask.ipynb.
 
 ```
 """
@@ -57,30 +61,35 @@ score = end_model.score(X_test, Y_test)
 ```
 
 ## Setup
-[1] Install anaconda3 (https://www.anaconda.com/download/#macos)
+[1] Install anaconda:  
+Instructions here: https://www.anaconda.com/download/
 
-[2] Clone repository:
+[2] Clone the repository:
 ```
 git clone https://github.com/HazyResearch/metal.git
 cd metal
 ```
 
-[3] Create environment:
+[3] Create virtual environment:
 ```
-source set_env.sh
 conda env create -f environment.yml
 source activate metal
 ```
 
-[4] Test functionality:
+[4] Run unit tests:
 ```
 nosetests
 ```
+If the tests run successfully, you should see 50+ dots followed by "OK".  
+Check out the [tutorials](tutorials/) to get familiar with the Snorkel MeTaL codebase!
 
-[5] Run the Basics Tutorial:
+
+## Developer Guidelines
+For those interested in contributing to Snorkel MeTaL, follow the [setup](#setup) guidelines above, then run the following additional command:
 ```
-jupyter notebook 
+make dev
 ```
-Open ```tutorials/Basics.ipynb```  
-Select Kernel > Change kernel > Python [conda env:metal]  
-Restart and run all
+This will install a few additional tools that help to ensure that any commits or pull requests you submit conform with our established standards. We use the following packages:
+* [isort](https://github.com/timothycrosley/isort): import standardization
+* [black](https://github.com/ambv/black): automatic code formatting
+* [flake8](http://flake8.pycqa.org/en/latest/): PEP8 linting
