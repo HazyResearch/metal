@@ -217,7 +217,11 @@ class LabelModel(Classifier):
             return c_probs
 
     def predict_proba(self, L):
-        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)"""
+        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
+
+        Args:
+            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
+        """
         self._set_constants(L)
 
         L_aug = self._get_augmented_label_matrix(L)
