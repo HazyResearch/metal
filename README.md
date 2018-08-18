@@ -85,7 +85,9 @@ Check out the [tutorials](tutorials/) to get familiar with the Snorkel MeTaL cod
 
 
 ## Developer Guidelines
-For those interested in contributing to Snorkel MeTaL, follow the [setup](#setup) guidelines above, then run the following additional command:
+First, read the [Snorkel MeTaL Commandments](https://docs.google.com/document/d/12nTUIkOu7vDJob6zK8W5dPhkrkcd9tYbO-kx9fglBEg/edit?usp=sharing) (a design doc).
+
+If you are interested in contributing to Snorkel MeTaL (and we welcome whole-heartedly contributions via pull requests!), follow the [setup](#setup) guidelines above, then run the following additional command:
 ```
 make dev
 ```
