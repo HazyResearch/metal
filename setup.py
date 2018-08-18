@@ -3,6 +3,22 @@ import re
 
 import setuptools
 
+
+class CleanCommand(setuptools.Command):
+    """Custom clean command to tidy up the project root."""
+
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        os.system("rm -vrf ./build ./dist ./*.pyc ./*.tgz ./*.egg-info")
+
+
 directory = os.path.dirname(os.path.abspath(__file__))
 
 # Extract version information
@@ -40,4 +56,5 @@ setuptools.setup(
         "Bug Reports": "https://github.com/HazyResearch/metal/issues",
         "Citation": "https://ajratner.github.io/assets/papers/mts-draft.pdf",
     },
+    cmdclass={"clean": CleanCommand},
 )
