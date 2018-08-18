@@ -4,7 +4,6 @@ em_default_config = {
     "verbose": True,
     "show_plots": True,
     # Network
-    "layer_out_dims": [10, 2],
     # The first value is the output dim of the input module (or the sum of
     # the output dims of all the input modules if multitask=True and
     # multiple input modules are provided). The last value is the
@@ -12,6 +11,7 @@ em_default_config = {
     # classification task). The remaining values are the output dims of
     # middle layers (if any). The number of middle layers will be inferred
     # from this list.
+    "layer_out_dims": [10, 2],
     "batchnorm": False,
     "dropout": 0.0,
     # TRAINING
@@ -25,9 +25,6 @@ em_default_config = {
         # Train Loop
         "n_epochs": 10,
         # 'grad_clip': 0.0,
-        # 'converged': 20,  # if not 0, stop early if this many epochs pass without improvement in training metric
-        # 'early_stopping': False, # if true, save any model with best score so far
-        # 'checkpoint_runway': 0, # if early stopping, don't save checkpoints until after at least this many epochs
         "l2": 0.0,
         "validation_metric": "accuracy",
         "validation_freq": 1,
@@ -45,8 +42,8 @@ em_default_config = {
         "scheduler_config": {
             "scheduler": "reduce_on_plateau",
             # ['constant', 'exponential', 'reduce_on_plateu']
-            "lr_freeze": 0,
             # Freeze learning rate initially this many epochs
+            "lr_freeze": 0,
             # Scheduler - exponential
             "exponential_config": {"gamma": 0.9},  # decay rate
             # Scheduler - reduce_on_plateau

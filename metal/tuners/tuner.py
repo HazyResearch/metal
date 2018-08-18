@@ -1,8 +1,5 @@
-import math
 import random
-import time
-from itertools import cycle, islice, product
-from pprint import pprint
+from itertools import cycle, product
 
 import numpy as np
 
@@ -86,7 +83,7 @@ class ModelTuner(object):
                 See note below for more details.
             max_search: (int) The maximum number of configurations to search.
                 If max_search is None, do a full grid search of all discrete
-                    parameters, filling in range parameters as needed. 
+                    parameters, filling in range parameters as needed.
                 Otherwise, do a full grid search of all discrete
                     parameters and then cycle through again filling in new
                     range parameters values; if there are no range parameters,
@@ -120,7 +117,7 @@ class ModelTuner(object):
                 just cover the full cross-product of discrete values, filled
                 in with sampled range values)
             Otherewise, this will return max_search configurations
-                (cycling through the discrete value combinations multiple 
+                (cycling through the discrete value combinations multiple
                 time if necessary)
         """
 

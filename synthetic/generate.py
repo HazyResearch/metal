@@ -3,9 +3,8 @@ from collections import defaultdict
 import numpy as np
 import torch
 from numpy.random import choice, random
-from scipy.sparse import csc_matrix, csr_matrix, lil_matrix
+from scipy.sparse import csr_matrix
 
-from metal.metrics import accuracy_score, coverage_score
 from metal.multitask.task_graph import TaskHierarchy
 from synthetic.words1k import vocab1k
 
@@ -220,7 +219,9 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
         self.L = list(map(csr_matrix, L_mt))
 
 
-############################# Generating Xs and Ds #############################
+################################################################################
+# Generating Xs and Ds
+################################################################################
 
 
 def gaussian_bags_of_words(

@@ -28,10 +28,10 @@ class LSTMModule(InputModule):
             vocab_size: The size of the vocabulary of the embeddings
                 If embeddings=None, this helps to set the size of the randomly
                     initilialized embeddings
-                If embeddings!=None, this is used to double check that the 
+                If embeddings!=None, this is used to double check that the
                     provided embeddings have the intended size
             embeddings: An optional embedding Tensor
-            lstm_reduction: One of ['mean', 'max', 'last', 'attention'] 
+            lstm_reduction: One of ['mean', 'max', 'last', 'attention']
                 denoting what to return as the output of the LSTMLayer
             freeze: If False, allow the embeddings to be updated
         """
@@ -71,7 +71,8 @@ class LSTMModule(InputModule):
         )
         if lstm_reduction == "attention":
             raise NotImplementedError
-            # self.attention = Attention(hidden_size * (self.lstm.bidirectional + 1))
+            # self.attention = Attention(hidden_size *
+            #   (self.lstm.bidirectional + 1))
 
     def _load_pretrained(self, pretrained):
         if not pretrained.dim() == 2:
@@ -95,7 +96,7 @@ class LSTMModule(InputModule):
         """Reduces the output of an LSTM step
 
         Args:
-            outputs: (torch.FloatTensor) the hidden state outputs from the 
+            outputs: (torch.FloatTensor) the hidden state outputs from the
                 lstm, with shape [batch_size, max_seq_length, hidden_size]
         """
         batch_size = outputs.shape[0]
@@ -172,8 +173,8 @@ class LSTMModule(InputModule):
 #         An attention layer
 
 #         Args:
-#             attention_size: scalar that should match the LSTM hidden/output size
-#                 or 2x that size if the lstm is bidirectional
+#             attention_size: scalar that should match the LSTM hidden/output
+#                 size or 2x that size if the lstm is bidirectional
 #         """
 #         super(Attention, self).__init__()
 #         self.attention = nn.Parameter(torch.FloatTensor(attention_size, 1))
@@ -181,7 +182,8 @@ class LSTMModule(InputModule):
 
 #     def forward(self, x_in):
 #         attention_score = torch.matmul(x_in, self.attention).squeeze()
-#         attention_score = F.softmax(attention_score).view(x_in.size(0), x_in.size(1), 1)
+#         attention_score = F.softmax(attention_score).view(
+#             x_in.size(0), x_in.size(1), 1)
 #         scored_x = x_in * attention_score
 #         x_out = torch.sum(scored_x, dim=1)
 #         return x_out

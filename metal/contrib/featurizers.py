@@ -1,7 +1,6 @@
 import itertools
 from collections import Counter
 
-import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from torchtext.vocab import Vocab
@@ -11,7 +10,7 @@ class Featurizer(object):
     def fit(self, input):
         """
         Args:
-            input: An iterable of raw data of the appropriate type to be 
+            input: An iterable of raw data of the appropriate type to be
                 featurized, where input[i] corresponds to item i.
         """
         raise NotImplementedError
@@ -19,7 +18,7 @@ class Featurizer(object):
     def transform(self, input):
         """
         Args:
-            input: An iterable of raw data of the appropriate type to be 
+            input: An iterable of raw data of the appropriate type to be
                 featurized, where input[i] corresponds to item i.
         Returns:
             X: A Tensor of features of shape (num_items, ...)

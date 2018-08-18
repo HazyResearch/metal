@@ -6,6 +6,7 @@ dev:
 check:
 	isort -rc -c .
 	black . --line-length 80 --check
+	flake8 .
 
 fix:
 	isort -rc .

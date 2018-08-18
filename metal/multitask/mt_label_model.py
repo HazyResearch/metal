@@ -35,7 +35,7 @@ class MTLabelModel(MTClassifier, LabelModel):
     def _create_L_ind(self, L):
         """Convert T label matrices with labels in 0...K_t to a one-hot format
 
-        Here we can view e.g. the $(i,j)$ entries of the $T$ label matrices as 
+        Here we can view e.g. the $(i,j)$ entries of the $T$ label matrices as
         a _label vector_ emitted by LF j for data point i.
 
         Args:

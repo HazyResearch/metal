@@ -2,20 +2,14 @@ import sys
 import unittest
 
 import numpy as np
-import torch
 
-from metal.label_model.baselines import (
-    MajorityClassVoter,
-    MajorityLabelVoter,
-    RandomVoter,
-)
 from metal.label_model.label_model import LabelModel
 from synthetic.generate import SingleTaskTreeDepsGenerator
 
 sys.path.append("../synthetic")
 
 
-# TODO: Put in tests for LabelModel baseline again!
+# TODO: Put in tests for LabelModel baselines again!
 class LabelModelTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

@@ -1,11 +1,6 @@
-from collections import Counter
-
 import numpy as np
-import torch
-from scipy.sparse import csc_matrix
 
 from metal.label_model.label_model import LabelModel
-from metal.utils import rargmax
 
 
 class RandomVoter(LabelModel):
@@ -31,7 +26,7 @@ class RandomVoter(LabelModel):
 
 class MajorityClassVoter(RandomVoter):
     """
-    A class that places all probability on the majority class based on class 
+    A class that places all probability on the majority class based on class
     balance (and ignoring the label matrix).
 
     Note that in the case of ties, non-integer probabilities are possible.
@@ -57,7 +52,7 @@ class MajorityClassVoter(RandomVoter):
 
 class MajorityLabelVoter(RandomVoter):
     """
-    A class that places all probability on the majority label from all 
+    A class that places all probability on the majority label from all
     non-abstaining LFs for that task.
 
     Note that in the case of ties, non-integer probabilities are possible.

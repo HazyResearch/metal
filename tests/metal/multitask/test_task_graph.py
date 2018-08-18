@@ -1,7 +1,7 @@
 
 import unittest
 
-from metal.multitask.task_graph import TaskGraph, TaskHierarchy
+from metal.multitask.task_graph import TaskGraph
 
 
 class TaskGraphTest(unittest.TestCase):

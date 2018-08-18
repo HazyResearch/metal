@@ -1,6 +1,4 @@
 
-import random
-
 import numpy as np
 
 from metal.classifier import Classifier
@@ -20,17 +18,17 @@ class MTClassifier(Classifier):
         *predict_proba  <- 	predict_task_proba
 
     Methods on the left return a list of results for all tasks (including
-    a singleton list if there is only one task). 
-    Methods on the right return what would be a single element in the list 
+    a singleton list if there is only one task).
+    Methods on the right return what would be a single element in the list
     returned by their counterpart on the left.
     The method predict_proba() method calculates the probabilistic labels,
-    the predict() method handles tie-breaking, and the score() method 
+    the predict() method handles tie-breaking, and the score() method
     calculates metrics based on predictions.
-    Children classes must implement predict_proba so that interactions between 
-    tasks are handled correctly in applicable multi-task settings. 
-    If it is possible to calculate task probabilities independently, they may 
-    also override predict_task_proba for efficiency. 
-    Otherwise, predict_task_proba() will default to calling predict_proba and 
+    Children classes must implement predict_proba so that interactions between
+    tasks are handled correctly in applicable multi-task settings.
+    If it is possible to calculate task probabilities independently, they may
+    also override predict_task_proba for efficiency.
+    Otherwise, predict_task_proba() will default to calling predict_proba and
     accessing element t.
 
     Args:
@@ -55,7 +53,7 @@ class MTClassifier(Classifier):
         """Scores the predictive performance of the Classifier on all tasks
         Args:
             X: The input for the predict method
-            Y: A t-length list of [n] or [n, 1] np.ndarrays or torch.Tensors of 
+            Y: A t-length list of [n] or [n, 1] np.ndarrays or torch.Tensors of
                 gold labels in {1,...,K_t}
             metric: The metric with which to score performance on each task
             reduce: How to reduce the scores of multiple tasks:
@@ -63,7 +61,7 @@ class MTClassifier(Classifier):
                 'mean': return the mean score across tasks
             break_ties: How to break ties when making predictions
         Returns:
-            scores: A (float) score or a t-length list of such scores if 
+            scores: A (float) score or a t-length list of such scores if
                 reduce=None
         """
         self._check(Y, typ=list)
@@ -129,12 +127,12 @@ class MTClassifier(Classifier):
 
         Args:
             X: The input for the predict_task method
-            Y: A [n] or [n, 1] np.ndarray or torch.Tensor of gold labels in 
+            Y: A [n] or [n, 1] np.ndarray or torch.Tensor of gold labels in
                 {1,...,K_t}
             t: The task index to score
             metric: The metric with which to score performance on this task
         Returns:
-            The (float) score of the Classifier for the specified task and 
+            The (float) score of the Classifier for the specified task and
             metric
         """
         Y = self._to_numpy(Y)

@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 from torch.utils.data import Dataset
 
 
@@ -8,7 +7,8 @@ class MultiYDataset(Dataset):
 
     Args:
         X: an n-dim iterable of inputs
-        Y: a t-length list of n-dim iterables corresponding to labels for t tasks
+        Y: a t-length list of n-dim iterables corresponding to labels for t
+            tasks
     """
 
     def __init__(self, X, Y):
@@ -29,8 +29,10 @@ class MultiXYDataset(Dataset):
     """A dataset that groups each item's t inputs from X and t labels from Y
 
     Args:
-        X: a t-length list of n-dim iterables corresponding to inputs for t tasks
-        Y: a t-length list of n-dim iterables corresponding to labels for t tasks
+        X: a t-length list of n-dim iterables corresponding to inputs for t
+            tasks
+        Y: a t-length list of n-dim iterables corresponding to labels for t
+            tasks
     """
 
     def __init__(self, X, Y):

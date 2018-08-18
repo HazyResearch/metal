@@ -1,7 +1,5 @@
 import unittest
 
-import numpy as np
-
 from metal.tuners.hyperband_tuner import HyperbandTuner
 
 

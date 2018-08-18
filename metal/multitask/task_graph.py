@@ -1,5 +1,4 @@
 import itertools
-from collections import defaultdict
 
 import networkx as nx
 import numpy as np
@@ -8,8 +7,8 @@ import numpy as np
 class TaskGraph(object):
     """A directed graph defining dependencies between tasks
 
-    In the MTLabelModel, the TaskGraph is used to define a feasible subset of 
-    all t-dimensional label vectors Y = [Y_1,...,Y_t]; for example, in a 
+    In the MTLabelModel, the TaskGraph is used to define a feasible subset of
+    all t-dimensional label vectors Y = [Y_1,...,Y_t]; for example, in a
     mutually exclusive hierarchy, an example cannot have multiple non-zero leaf
     labels.
 

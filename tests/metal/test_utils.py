@@ -76,6 +76,7 @@ class UtilsTest(unittest.TestCase):
             ratio1 = counts[1][y] / len(Ys[1])
             ratio2 = counts[2][y] / len(Ys[2])
             self.assertLess(abs(ratio0 - ratio1), 0.05)
+            self.assertLess(abs(ratio0 - ratio2), 0.05)
 
         # Handles scipy.sparse matrices
         Z = sparse.csr_matrix(

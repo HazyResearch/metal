@@ -1,24 +1,21 @@
-import numpy as np
-
-
 def mark_entities(tokens, positions, markers=[]):
     """Adds special markers around tokens at specific positions (e.g., entities)
 
     Args:
         tokens: A list of tokens (the sentence)
-        positions: 
-            1) A list of inclusive ranges (tuples) corresponding to the 
+        positions:
+            1) A list of inclusive ranges (tuples) corresponding to the
             token ranges of the entities in order. (Assumes each entity
             has only one corresponding mention.)
             OR
-            2) A dict of lists with keys corresponding to mention indices and 
+            2) A dict of lists with keys corresponding to mention indices and
             values corresponding to one or more inclusive ranges corresponding
-            to that mention. (Allows entities to potentially have multiple 
+            to that mention. (Allows entities to potentially have multiple
             mentions)
     Returns:
         toks: An extended list of tokens with markers around the mentions
 
-    WARNING: if the marked token set will be used with pretrained embeddings, 
+    WARNING: if the marked token set will be used with pretrained embeddings,
         provide markers that will not result in UNK embeddings!
 
     Example:
@@ -33,7 +30,6 @@ def mark_entities(tokens, positions, markers=[]):
         raise ValueError(msg)
 
     toks = list(tokens)
-    positions_out = []
 
     # markings will be of the form:
     # [(position, entity_idx), (position, entity_idx), ...]

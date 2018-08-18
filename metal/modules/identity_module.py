@@ -1,6 +1,3 @@
-import torch
-import torch.nn as nn
-
 from metal.modules.base_module import InputModule
 
 

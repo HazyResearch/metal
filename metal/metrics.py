@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 
 from metal.utils import arraylike_to_numpy
 

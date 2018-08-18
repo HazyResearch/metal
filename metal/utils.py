@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 import torch
-from scipy.sparse import csr_matrix, hstack, issparse
+from scipy.sparse import issparse
 from torch.utils.data import Dataset
 
 
@@ -131,7 +131,10 @@ def arraylike_to_numpy(array_like):
     elif not isinstance(array_like, np.ndarray):
         array_like = np.array(array_like)
     else:
-        msg = f"Input of type {orig_type} could not be converted to 1d " "np.ndarray"
+        msg = (
+            f"Input of type {orig_type} could not be converted to 1d "
+            "np.ndarray"
+        )
         raise ValueError(msg)
 
     # Correct shape
@@ -181,7 +184,7 @@ def categorical_to_plusminus(Y):
 
 def recursive_merge_dicts(x, y, misses="report", verbose=None):
     """
-    Merge dictionary y into a copy of x, overwriting elements of x when there 
+    Merge dictionary y into a copy of x, overwriting elements of x when there
     is a conflict, except if the element is a dictionary, in which case recurse.
 
     misses: what to do if a key in y is not in x
@@ -201,7 +204,10 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
                 found = True
                 if isinstance(x[k], dict):
                     if not isinstance(v, dict):
-                        msg = f"Attempted to overwrite dict {k} with " f"non-dict: {v}"
+                        msg = (
+                            f"Attempted to overwrite dict {k} with "
+                            f"non-dict: {v}"
+                        )
                         raise ValueError(msg)
                     recurse(x[k], v, misses, verbose)
                 else:
@@ -258,11 +264,11 @@ def split_data(
         inputs: correlated tuples/lists/arrays/matrices/tensors to split
         splits: list containing split sizes (fractions or counts);
         shuffle: if True, shuffle the data before splitting
-        stratify_by: (None or an input) if not None, use these labels to 
-            stratify the splits (separating the data into groups by these 
-            labels and sampling from those, rather than from the population at 
+        stratify_by: (None or an input) if not None, use these labels to
+            stratify the splits (separating the data into groups by these
+            labels and sampling from those, rather than from the population at
             large); overrides shuffle
-        index_only: if True, return only the indices of the new splits, not the 
+        index_only: if True, return only the indices of the new splits, not the
             split data itself
         seed: (int) random seed
 
@@ -289,7 +295,7 @@ def split_data(
             try:
                 # Works for np.ndarray, scipy.sparse, torch.Tensor
                 return data[indices]
-            except:
+            except TypeError:
                 raise Exception(
                     f"split_data() currently only accepts inputs "
                     f"of type tuple, list, np.ndarray, scipy.sparse, or "
@@ -302,7 +308,7 @@ def split_data(
 
     try:
         n = len(inputs[0])
-    except:
+    except TypeError:
         n = inputs[0].shape[0]
     num_splits = len(splits)
 

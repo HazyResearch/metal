@@ -1,8 +1,5 @@
 import math
-import random
 import time
-from itertools import cycle, islice, product
-from pprint import pprint
 
 import numpy as np
 
@@ -10,20 +7,20 @@ from metal.tuners.tuner import ModelTuner
 
 
 class HyperbandTuner(ModelTuner):
-    """Performs hyperparameter search according to the Hyperband algorithm 
+    """Performs hyperparameter search according to the Hyperband algorithm
 
     Reference: (https://arxiv.org/pdf/1603.06560.pdf)
 
     Args:
         model: (nn.Module) The model class to train (uninitiated)
-        hyperband_epochs_budget: Number of total epochs of training to perform 
-            in search. 
-        hyperband_proportion_discard: proportion of configurations to discard 
+        hyperband_epochs_budget: Number of total epochs of training to perform
+            in search.
+        hyperband_proportion_discard: proportion of configurations to discard
             in each round of Hyperband's SuccessiveHalving. An integer.
         log_dir: The directory in which to save intermediate results
             If no log_dir is given, the model tuner will attempt to keep
             all trained models in memory.
-        seed: Random seed        
+        seed: Random seed
     """
 
     def __init__(
@@ -46,7 +43,7 @@ class HyperbandTuner(ModelTuner):
 
         # Given the budget, generate the largest hyperband schedule
         # within budget
-        self.hyperband_schedule = self.get_largest_hyperband_schedule_within_budget(
+        self.hyperband_schedule = self.get_largest_schedule_within_budget(
             self.hyperband_epochs_budget, self.hyperband_proportion_discard
         )
 
@@ -87,18 +84,16 @@ class HyperbandTuner(ModelTuner):
             print(bracket_string)
         print("-----------------------------------------")
 
-    def get_largest_hyperband_schedule_within_budget(
-        self, budget, proportion_discard
-    ):
+    def get_largest_schedule_within_budget(self, budget, proportion_discard):
         """
         Gets the largest hyperband schedule within target_budget.
-        This is required since the original hyperband algorithm uses R, 
+        This is required since the original hyperband algorithm uses R,
         the maximum number of resources per configuration.
         TODO(maxlam): Possibly binary search it if this becomes a bottleneck.
 
         Args:
             budget: total budget of the schedule.
-            proportion_discard: hyperband parameter that specifies 
+            proportion_discard: hyperband parameter that specifies
                 the proportion of configurations to discard per iteration.
         """
 
@@ -126,27 +121,25 @@ class HyperbandTuner(ModelTuner):
 
         Args:
             R: maximum resources per config.
-            eta: proportion of configruations to discard per 
-                iteration of successive halving.        
+            eta: proportion of configruations to discard per
+                iteration of successive halving.
 
-        Returns: hyperband schedule, which is represented 
+        Returns: hyperband schedule, which is represented
             as a list of brackets, where each bracket
-            contains a list of (num configurations, 
-            num resources to use per configuration). 
+            contains a list of (num configurations,
+            num resources to use per configuration).
             See the paper for more details.
         """
         schedule = []
         s_max = int(math.floor(math.log(R, eta)))
-        B = (s_max + 1) * R
+        # B = (s_max + 1) * R
         for s in range(0, s_max + 1):
             n = math.ceil(int((s_max + 1) / (s + 1)) * eta ** s)
             r = R * eta ** (-s)
-            num_hyperparameters = n
             bracket = []
             for i in range(0, s + 1):
                 n_i = int(math.floor(n * eta ** (-i)))
                 r_i = int(r * eta ** i)
-                num_hyperparameters = math.floor(n_i / eta)
                 bracket.append((n_i, r_i))
             schedule = [bracket] + schedule
         return schedule
@@ -164,10 +157,10 @@ class HyperbandTuner(ModelTuner):
         """
         Performs hyperband search according to the generated schedule.
 
-        At the beginning of each bracket, we generate a 
-        list of random configurations and perform 
-        successive halving on it; we repeat this process 
-        for the number of brackets in the schedule.        
+        At the beginning of each bracket, we generate a
+        list of random configurations and perform
+        successive halving on it; we repeat this process
+        for the number of brackets in the schedule.
 
         Args:
             init_args: (list) positional args for initializing the model
@@ -249,19 +242,16 @@ class HyperbandTuner(ModelTuner):
                         print(f"[{cur_model_index} Testing {print_config}")
                         print("=" * 60)
 
-                    try:
-                        model.train(
-                            *train_args,
-                            X_dev=X_dev,
-                            Y_dev=Y_dev,
-                            **configuration,
-                            verbose=verbose,
-                        )
-                        score = model.score(
-                            X_dev, Y_dev, verbose=verbose, **score_kwargs
-                        )
-                    except:
-                        score = float("nan")
+                    model.train(
+                        *train_args,
+                        X_dev=X_dev,
+                        Y_dev=Y_dev,
+                        **configuration,
+                        verbose=verbose,
+                    )
+                    score = model.score(
+                        X_dev, Y_dev, verbose=verbose, **score_kwargs
+                    )
 
                     # Add score and model to list
                     scored_configurations.append(
