@@ -1,12 +1,12 @@
 # Use a docker image for access to Ubuntu 16.04 (more details below)
-sudo: required 
+sudo: required
 dist: trusty
 services:
   - docker
 
 language: python
-python: 
-  - "3.6"  # This value may be referred to as $TRAVIS_PYTHON_VERSION 
+python:
+  - "3.6"  # This value may be referred to as $TRAVIS_PYTHON_VERSION
 
 before_install:
   # Use Ubuntu 16.04 instead of 14.04 to avoid the error:
@@ -31,12 +31,13 @@ install:
   # Create conda environment
   - conda env create -f environment.yml
   - source activate metal
-  
+
   # Run linter/style checks
-  - make dev 
+  - make dev
   - make check
 
 script:
+  - runipy tutorials/Basics.ipynb
   - nosetests
 
 notifications:
