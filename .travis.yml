@@ -37,8 +37,8 @@ install:
   - make check
 
 script:
-  - runipy tutorials/Basics.ipynb
   - nosetests
+  - runipy tutorials/Basics.ipynb
 
 notifications:
   email:
