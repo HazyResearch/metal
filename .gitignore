@@ -12,6 +12,10 @@ docs/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Build artifacts
+dist/
+build/
+
 # mypy
 .mypy_cache/
 
