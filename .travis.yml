@@ -42,6 +42,7 @@ install:
 script:
   - nosetests
   - runipy tutorials/Basics.ipynb
+  - runipy tutorials/Multitask.ipynb
 
 notifications:
   email:
