@@ -33,8 +33,7 @@ class MTLabelModelTest(unittest.TestCase):
 
         # Test label prediction accuracy
         if test_acc:
-            Y_pred = label_model.predict_proba(data.L).argmax(axis=1) + 1
-            acc = np.where(data.Y == Y_pred, 1, 0).sum() / data.n
+            acc = label_model.score(data.L, data.Y)
             self.assertGreater(acc, 0.95)
 
     def test_multitask(self):
@@ -43,7 +42,7 @@ class MTLabelModelTest(unittest.TestCase):
             data = HierarchicalMultiTaskTreeDepsGenerator(
                 self.n, self.m, edge_prob=0.0
             )
-            self._test_label_model(data, test_acc=False)
+            self._test_label_model(data, test_acc=True)
 
 
 if __name__ == "__main__":
