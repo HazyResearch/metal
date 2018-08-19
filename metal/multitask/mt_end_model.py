@@ -27,27 +27,36 @@ class MTEndModel(MTClassifier, EndModel):
     MTClassifier, followed by EndModel.
 
     Args:
-        K: A t-length list of task cardinalities (overrided by task_graph
-            if task_graph is not None)
-        task_graph: TaskGraph: A TaskGraph which defines a feasible set of
-            task label vectors; overrides K
+        layer_out_dims: a list of integers corresponding to the output sizes
+            of the layers of your network. The first element is the
+            dimensionality of the input layer, and all other elements dictate
+            the sizes of middle layers. The number of middle layers will be
+            inferred from this list. The output dimensions of the task heads
+            will be inferred from the cardinalities pulled from K or the
+            task_graph.
         input_module: (nn.Module) a module that converts the user-provided
             model inputs to torch.Tensors. Defaults to IdentityModule.
         middle_modules: (nn.Module) a list of modules to execute between the
             input_module and task head. Defaults to nn.Linear.
         head_module: (nn.Module) a module to execute right before the final
             softmax that outputs a prediction for the task.
+        K: A t-length list of task cardinalities (overrided by task_graph
+            if task_graph is not None)
+        task_graph: TaskGraph: A TaskGraph which defines a feasible set of
+            task label vectors; overrides K
     """
 
     def __init__(
         self,
-        K=[],
-        task_graph=None,
+        layer_out_dims,
         input_modules=None,
         middle_modules=None,
         head_modules=None,
+        K=[],
+        task_graph=None,
         **kwargs,
     ):
+        kwargs["layer_out_dims"] = layer_out_dims
         config = recursive_merge_dicts(
             em_default_config, mt_em_default_config, misses="insert"
         )
@@ -162,8 +171,6 @@ class MTEndModel(MTClassifier, EndModel):
             task_head_layers = head_layers
         elif head_layers == "top":
             task_head_layers = [num_layers - 1] * self.t
-        elif head_layers == "auto":
-            raise NotImplementedError
         else:
             msg = f"Invalid option to 'head_layers' parameter: '{head_layers}'"
             raise ValueError(msg)

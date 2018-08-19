@@ -194,22 +194,22 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
         theta_range=(0, 1.5),
         edge_prob=0.0,
         theta_edge_range=(-1, 1),
+        cardinalities=[2, 3, 3],
+        edges=[(0, 1), (0, 2)]
     ):
+        self.task_graph = TaskHierarchy(cardinalities, edges)
+        fs = list(self.task_graph.feasible_set())
+
         super().__init__(
             n,
             m,
-            k=4,
+            k=len(fs),
             theta_range=theta_range,
             edge_prob=edge_prob,
             theta_edge_range=theta_edge_range,
         )
 
-        # Convert label matrix to tree task graph
-        self.task_graph = TaskHierarchy(
-            cardinalities=[2, 2, 2], edges=[(0, 1), (0, 2)]
-        )
         L_mt = [np.zeros((self.n, self.m)) for _ in range(self.task_graph.t)]
-        fs = list(self.task_graph.feasible_set())
         for i in range(self.n):
             for j in range(self.m):
                 if self.L[i, j] > 0:
@@ -217,6 +217,10 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
                     for s in range(self.task_graph.t):
                         L_mt[s][i, j] = y[s]
         self.L = list(map(csr_matrix, L_mt))
+
+        # Convert Y to a t-length list of n-length vectors
+        self.Y = [np.array([fs[y-1] 
+            for y in self.Y]).T[t] for t in range(self.task_graph.t)]
 
 
 ################################################################################

@@ -25,7 +25,7 @@ class TaskGraph(object):
     """
 
     def __init__(self, cardinalities=[2], edges=[]):
-        self.K = cardinalities  # Max cardinality
+        self.K = cardinalities  # Cardinalities for each task
         self.t = len(cardinalities)  # Total number of tasks
         self.edges = edges
 
@@ -80,16 +80,19 @@ class TaskHierarchy(TaskGraph):
         return y in list(self.feasible_set())
 
     def feasible_set(self):
-        for i in self.leaf_nodes:
-            for yi in range(1, max(self.K) + 1):
-                # Set all values to default of -1 = not applicable, except leaf
-                y = -1 * np.ones(self.t)
-                y[i] = yi
+        # Every feasible vector corresponds to a leaf node value in 
+        # {1, ..., K[t]-1}, with the K[t] value reserved for special "N/A" val
+        for t in self.leaf_nodes:
+            for yt in range(1, self.K[t]):
+                # By default set all task labels to "N/A" value to start
+                # The default "N/A" value for each task is the last value
+                y = np.array(self.K)
 
                 # Traverse up the tree
-                pi = i
-                while pi > 0:
-                    ci = pi
-                    pi = list(self.G.predecessors(pi))[0]
-                    y[pi] = list(self.G.successors(pi)).index(ci) + 1
+                y[t] = yt
+                pt = t
+                while pt > 0:
+                    ct = pt
+                    pt = list(self.G.predecessors(pt))[0]
+                    y[pt] = list(self.G.successors(pt)).index(ct) + 1
                 yield y

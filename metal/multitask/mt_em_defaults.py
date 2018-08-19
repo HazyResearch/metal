@@ -3,9 +3,6 @@ mt_em_default_config = {
     # Optionally specify the layers that each head should attach to
     # For single-task settings, this is always 'top'
     #   'top': connect all heads to the final (top) layer
-    #   'auto': connect heads at layers corresponding to placement in the
-    #       task graph; the deepest leaf attaches to the top layer, then
-    #       work backward
     #   [list]: specify explicitly the layer for each head
     "pass_predictions": False,
     # If True, pass output of parent tasks as additional input to children tasks
