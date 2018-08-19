@@ -109,7 +109,7 @@ class MTClassifier(Classifier):
         Y_ph = []
         for Y_tp in Y_p:
             Y_tph = self._break_ties(Y_tp, break_ties)
-            Y_ph.append(Y_tph)
+            Y_ph.append(Y_tph.astype(np.int))
 
         return Y_ph
 

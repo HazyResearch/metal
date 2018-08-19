@@ -215,8 +215,9 @@ class Classifier(nn.Module):
             if evaluate_dev:
                 Y_p_dev = self.predict(X_dev)
 
-                print("Confusion Matrix (Dev)")
-                confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)
+                if not self.multitask:
+                    print("Confusion Matrix (Dev)")
+                    confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)
 
     def _set_optimizer(self, optimizer_config):
         opt = optimizer_config["optimizer"]
