@@ -85,6 +85,10 @@ nosetests
 If the tests run successfully, you should see 50+ dots followed by "OK".  
 Check out the [tutorials](tutorials/) to get familiar with the Snorkel MeTaL codebase!
 
+Or, to use Snorkel Metal in another project, install it with pip (conda coming soon):
+```
+pip install snorkel-metal
+```
 
 ## Developer Guidelines
 First, read the [Snorkel MeTaL Commandments](https://docs.google.com/document/d/12nTUIkOu7vDJob6zK8W5dPhkrkcd9tYbO-kx9fglBEg/edit?usp=sharing) (a design doc).
