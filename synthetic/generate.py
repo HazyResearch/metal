@@ -218,8 +218,9 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
                         L_mt[s][i, j] = y[s]
         self.L = list(map(csr_matrix, L_mt))
 
-        # Convert Y to vector form
-        self.Y = [fs[y-1] for y in self.Y]
+        # Convert Y to a t-length list of n-length vectors
+        self.Y = [np.array([fs[y-1] 
+            for y in self.Y]).T[t] for t in range(self.task_graph.t)]
 
 
 ################################################################################
