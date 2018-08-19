@@ -4,10 +4,7 @@
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
-**_v0.1.0-alpha_** 
-
-**NOTE:**
-_[8/5/18] Expect frequent changes, not all backwards-compatible, through mid-August when v0.1.0 is solidified and bundled as a pip/conda package. It will be released with additional documentation and tutorials._
+**_v0.1.0_**
 
 ## Getting Started
 * Quickly [set up](#setup) your environment
