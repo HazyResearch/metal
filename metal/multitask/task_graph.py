@@ -80,7 +80,7 @@ class TaskHierarchy(TaskGraph):
         return y in list(self.feasible_set())
 
     def feasible_set(self):
-        # Every feasible vector corresponds to a leaf node value in 
+        # Every feasible vector corresponds to a leaf node value in
         # {1, ..., K[t]-1}, with the K[t] value reserved for special "N/A" val
         for t in self.leaf_nodes:
             for yt in range(1, self.K[t]):

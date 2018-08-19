@@ -195,7 +195,7 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
         edge_prob=0.0,
         theta_edge_range=(-1, 1),
         cardinalities=[2, 3, 3],
-        edges=[(0, 1), (0, 2)]
+        edges=[(0, 1), (0, 2)],
     ):
         self.task_graph = TaskHierarchy(cardinalities, edges)
         fs = list(self.task_graph.feasible_set())
@@ -219,8 +219,10 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
         self.L = list(map(csr_matrix, L_mt))
 
         # Convert Y to a t-length list of n-length vectors
-        self.Y = [np.array([fs[y-1] 
-            for y in self.Y]).T[t] for t in range(self.task_graph.t)]
+        self.Y = [
+            np.array([fs[y - 1] for y in self.Y]).T[t]
+            for t in range(self.task_graph.t)
+        ]
 
 
 ################################################################################
