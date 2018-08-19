@@ -32,6 +32,7 @@ class MTLabelModel(MTClassifier, LabelModel):
         self.n, self.m = L[0].shape
         self.t = len(L)
 
+<<<<<<< HEAD
     def _create_L_ind(self, L):
         """Convert T label matrices with labels in 0...K_t to a one-hot format
 
@@ -80,12 +81,31 @@ class MTLabelModel(MTClassifier, LabelModel):
         # This is an [n,k] array, where k = |(feasible set)|
         Y_pf = LabelModel.predict_proba(self, L)
         n, k = Y_pf.shape
+=======
+    def _create_L_ind(self, L, km, offset):
+        L_ind = np.ones((self.n, self.m * km))
+>>>>>>> de5fa490f5e6ee3e10290ae887a7479bb3b90ec4
 
         # Now get the per-task marginals
         # TODO: Make this optional, versus just returning the above
         Y_p = [np.zeros((n, k_t)) for k_t in self.task_graph.K]
         for yi, y in enumerate(self.task_graph.feasible_set()):
+<<<<<<< HEAD
             for t in range(self.t):
                 k_t = int(y[t])
                 Y_p[t][:, k_t - 1] += Y_pf[:, yi]
         return Y_p
+=======
+            for s in range(self.t):
+                # Note that we cast to dense here, and are creating a dense
+                # matrix; can change to fully sparse operations if needed
+                L_s = L[s].todense()
+                L_ind[:, yi::km] *= np.where(
+                    np.logical_or(L_s == y[s], L_s == 0), 1, 0)
+            
+            # Handle abstains- if all elements of the task label are 0
+            L_ind[:, yi::km] *= np.where(
+                sum(map(abs, L)).todense() != 0, 1, 0)     
+
+        return L_ind   
+>>>>>>> de5fa490f5e6ee3e10290ae887a7479bb3b90ec4
