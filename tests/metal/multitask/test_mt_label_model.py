@@ -15,7 +15,6 @@ class MTLabelModelTest(unittest.TestCase):
         cls.n_iters = 1
         cls.n = 10000
         cls.m = 10
-        cls.k = 2
 
     def _test_label_model(self, data, test_acc=True):
         label_model = MTLabelModel(task_graph=data.task_graph, verbose=False)

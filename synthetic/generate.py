@@ -206,7 +206,7 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
 
         # Convert label matrix to tree task graph
         self.task_graph = TaskHierarchy(
-            cardinalities=[2, 2, 2], edges=[(0, 1), (0, 2)]
+            cardinalities=[2, 3, 3], edges=[(0, 1), (0, 2)]
         )
         L_mt = [np.zeros((self.n, self.m)) for _ in range(self.task_graph.t)]
         fs = list(self.task_graph.feasible_set())
@@ -217,6 +217,9 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
                     for s in range(self.task_graph.t):
                         L_mt[s][i, j] = y[s]
         self.L = list(map(csr_matrix, L_mt))
+
+        # Convert Y to vector form
+        self.Y = [fs[y-1] for y in self.Y]
 
 
 ################################################################################
