@@ -247,6 +247,7 @@ class SingleTaskTreeDepsGenerator(object):
                     for val1 in range(self.k+1):
                         for val2 in range(self.k+1):
                             self.p_joints[(i,val1,j,val2,y)] = self.naive_SPA(i,y,j=j,jval=val2)[val1] / Z
+                            self.p_joints[(j,val2,i,val1,y)] = self.p_joints[(i,val1,j,val2,y)]
                             print("P(L_", i, "=", val1, ", L_", j, "=", val2, " | Y = ", y, ") = ", self.p_joints[(i,val1,j,val2,y)])
 
     def P_conditional(self, i, li, j, lj, y):
