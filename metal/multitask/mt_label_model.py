@@ -65,17 +65,17 @@ class MTLabelModel(MTClassifier, LabelModel):
             L_ind[:, yi :: self.k] *= np.where(sum(L) != 0, 1, 0)
 
         return L_ind
-    
+
     def predict_proba(self, L):
         """Returns the task marginals estimated by the model: a t-length list of
         [n,k_t] matrices where the (i,j) entry of the sth matrix represents the
-        estimated P((Y_i)_s | \lambda_j(x_i)) 
+        estimated P((Y_i)_s | \lambda_j(x_i))
 
         Args:
             L: A t-length list of [n,m] scipy.sparse label matrices with values
                 in {0,1,...,k}
         """
-        # First, get the estimated probability distribution over the feasible 
+        # First, get the estimated probability distribution over the feasible
         # set defined by the TaskGraph
         # This is an [n,k] array, where k = |(feasible set)|
         Y_pf = LabelModel.predict_proba(self, L)
@@ -87,5 +87,5 @@ class MTLabelModel(MTClassifier, LabelModel):
         for yi, y in enumerate(self.task_graph.feasible_set()):
             for t in range(self.t):
                 k_t = int(y[t])
-                Y_p[t][:, k_t-1] += Y_pf[:, yi]
+                Y_p[t][:, k_t - 1] += Y_pf[:, yi]
         return Y_p
