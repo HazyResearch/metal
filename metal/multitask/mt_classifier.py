@@ -11,7 +11,7 @@ class MTClassifier(Classifier):
     The main contribution of children classes will be an implementation of the
     predict_proba() method. The relationships between the six predict/score
     functions are as follows:
-    score 		    	score_task
+        score 		    	score_task
             |			         |
         predict 	     	predict_task
             |	    (default)    |

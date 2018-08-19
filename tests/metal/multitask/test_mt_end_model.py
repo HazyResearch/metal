@@ -39,13 +39,15 @@ class MTEndModelTest(unittest.TestCase):
         cards = [2, 2]
         tg = TaskGraph(cards, edges)
         em = MTEndModel(
+            layer_out_dims=[2, 8, 4],
             task_graph=tg,
             seed=1,
             verbose=False,
             dropout=0.0,
-            layer_out_dims=[2, 8, 4],
             task_head_layers="top",
         )
+        top_layer = len(em.config["layer_out_dims"]) - 1
+        self.assertEqual(len(em.task_map[top_layer]), em.t)
         em.train(
             self.Xs[0],
             self.Ys[0],
@@ -63,13 +65,15 @@ class MTEndModelTest(unittest.TestCase):
         cards = [2, 2]
         tg = TaskHierarchy(cards, edges)
         em = MTEndModel(
+            layer_out_dims=[2, 8, 4],
             task_graph=tg,
             seed=1,
             verbose=False,
             dropout=0.0,
-            layer_out_dims=[2, 8, 4],
             task_head_layers=[1, 2],
         )
+        self.assertEqual(em.task_map[1][0], 0)
+        self.assertEqual(em.task_map[2][0], 1)
         em.train(
             self.Xs[0],
             self.Ys[0],
@@ -87,11 +91,11 @@ class MTEndModelTest(unittest.TestCase):
         cards = [2, 2]
         tg = TaskGraph(cards, edges)
         em = MTEndModel(
+            layer_out_dims=[2, 8, 4],
             task_graph=tg,
             seed=1,
             verbose=False,
             dropout=0.0,
-            layer_out_dims=[2, 8, 4],
             input_modules=[IdentityModule(), IdentityModule()],
             task_head_layers="top",
         )
@@ -110,11 +114,11 @@ class MTEndModelTest(unittest.TestCase):
         cards = [2, 2]
         tg = TaskGraph(cards, edges)
         em = MTEndModel(
+            layer_out_dims=[2, 8, 4],
             task_graph=tg,
             seed=1,
             verbose=False,
             dropout=0.0,
-            layer_out_dims=[2, 8, 4],
             head_modules=[nn.Linear(8, 2), nn.Linear(4, 2)],
             task_head_layers=[1, 2],
         )
