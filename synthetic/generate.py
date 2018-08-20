@@ -126,7 +126,7 @@ class SingleTaskTreeDepsGenerator(object):
 
         return np.sum(self.naive_SPA(0,y))
 
-    def naive_SPA(self, i, y, j=None, jval=None, verbose=False):
+    def naive_SPA(self, i, y, other_nodes=None, verbose=False):
         # this contains our nodes:
         G_i_set = nx.node_connected_component(self.G, i)
         G_i     = self.G.subgraph(G_i_set)
@@ -169,8 +169,8 @@ class SingleTaskTreeDepsGenerator(object):
                     if verbose: print("For val_p = ", val_p)
                     mess = 0
 
-                    if node == j:
-                        val_range = [jval]
+                    if other_nodes is not None and node in other_nodes:
+                        val_range = [other_nodes[node]]
                     else:
                         val_range = range(0, self.k+1)
 
@@ -246,7 +246,9 @@ class SingleTaskTreeDepsGenerator(object):
 
                     for val1 in range(self.k+1):
                         for val2 in range(self.k+1):
-                            self.p_joints[(i,val1,j,val2,y)] = self.naive_SPA(i,y,j=j,jval=val2)[val1] / Z
+                            other_nodes = dict()
+                            other_nodes[j] = val2
+                            self.p_joints[(i,val1,j,val2,y)] = self.naive_SPA(i,y,other_nodes=other_nodes)[val1] / Z
                             self.p_joints[(j,val2,i,val1,y)] = self.p_joints[(i,val1,j,val2,y)]
                             print("P(L_", i, "=", val1, ", L_", j, "=", val2, " | Y = ", y, ") = ", self.p_joints[(i,val1,j,val2,y)])
 
