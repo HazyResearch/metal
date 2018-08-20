@@ -352,7 +352,7 @@ class LabelModel(Classifier):
         self.deps = deps
         self.c_tree = get_clique_tree(nodes, deps)
 
-    def train(self, L, deps=[], O_inv=None, **kwargs):
+    def train(self, L, deps=[], O=None, O_inv=None, c_data=None, **kwargs):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
         whether source dependencies are provided or not:
         
@@ -387,7 +387,10 @@ class LabelModel(Classifier):
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
             if O_inv is not None:
+                self.O = torch.from_numpy(O).float()
                 self.O_inv = torch.from_numpy(O_inv).float()
+                self.d = self.O_inv.shape[0]
+                self.c_data = c_data
             else:
                 self._generate_O_inv(L)
             self._init_params()
