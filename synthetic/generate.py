@@ -264,7 +264,33 @@ class SingleTaskTreeDepsGenerator(object):
             - a symmetric LF correlation paramter \theta_{i,j}
         """
         return self.p_joints[(i,li,j,lj,y)] / self.p_solo[(j,lj,y)]
-    
+
+    def _generate_true_O(self):
+        sz = self.m * (self.k)
+        self.O_true = np.zeros([sz, sz])
+        for i in range(self.m):
+            for j in range(self.m):
+                for val1 in range(1,self.k+1):
+                    for val2 in range(1,self.k+1):
+                        sm = 0
+                        for y in range(1,self.k+1):
+                            if i == j:
+                                if val1 == val2:
+                                    sm += self.p_solo[(i, val1, y)] * self.p[y-1]
+                            else:
+                                sm += self.p_joints[(i,val1,j,val2,y)] * self.p[y-1]
+                        
+                        self.O_true[i*(self.k)+val1-1, j*(self.k)+val2-1] = sm
+
+    def _generate_true_mu(self):
+        sz = self.m * (self.k)
+        self.mu_true = np.zeros([sz, self.k])
+        
+        for i in range(self.m): 
+            for val1 in range(1,self.k+1):
+                for y in range(1, self.k+1):
+                    self.mu_true[i*(self.k)+val1-1, y-1] = self.p_solo[(i,val1,y)]
+        
     def _generate_label_matrix(self):
         """Generate an n x m label matrix with entries in {0,...,k}"""
         self.L = np.zeros((self.n, self.m))
@@ -272,6 +298,23 @@ class SingleTaskTreeDepsGenerator(object):
 
         self.P_vals_true()
         self.P_joints_true()
+
+        self._generate_true_mu()
+        self._generate_true_O()
+
+        print(self.O_true)
+        print("\nCondition number = ", np.linalg.cond(self.O_true), "\n")
+        print(self.mu_true)
+
+        print(self.p)
+
+        sig = self.O_true - self.mu_true @ np.diag(self.p) @ self.mu_true.T
+        print("sig\n", sig)       
+        print("\nCondition number = ", np.linalg.cond(sig), "\n")
+
+        print("moment of truth!!!")
+        self.sig_inv = np.linalg.inv(sig)
+        print(self.sig_inv)
 
         for i in range(self.n):
             y = choice(self.k, p=self.p) + 1  # Note that y \in {1,...,k}
