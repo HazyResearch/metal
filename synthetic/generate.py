@@ -252,6 +252,14 @@ class SingleTaskTreeDepsGenerator(object):
                             self.p_joints[(j,val2,i,val1,y)] = self.p_joints[(i,val1,j,val2,y)]
                             print("P(L_", i, "=", val1, ", L_", j, "=", val2, " | Y = ", y, ") = ", self.p_joints[(i,val1,j,val2,y)])
 
+    def P_fours_true(self,a,b,c,d,val1,val2,val3,val4,y):
+        Z = self.get_Z(y)
+        other_nodes = dict()
+        other_nodes[b] = val2
+        other_nodes[c] = val3
+        other_nodes[d] = val4
+        return self.naive_SPA(a,y,other_nodes=other_nodes)[val1] / Z
+
     def P_conditional(self, i, li, j, lj, y):
         """Compute the conditional probability 
             P_\theta(li | lj, y) 
@@ -300,6 +308,7 @@ class SingleTaskTreeDepsGenerator(object):
 
         self.P_vals_true()
         self.P_joints_true()
+        print("test = ", self.P_fours_true(1,2,3,4,1,1,1,1,1))
 
         self._generate_true_mu()
         self._generate_true_O()
