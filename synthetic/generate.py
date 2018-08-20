@@ -50,13 +50,16 @@ class SingleTaskTreeDepsGenerator(object):
     because they include abstains.
     """
     def __init__(self, n, m, k=2, class_balance='random', theta_range=(0.1, 1), 
-        edge_prob=0.0, theta_edge_range=(0.1,1), **kwargs):
+        edge_prob=0.0, theta_edge_range=(0.1,1), edges_list=None, **kwargs):
         self.n = n
         self.m = m
         self.k = k
 
         # Generate correlation structure: edges self.E, parents dict self.parent
-        self._generate_edges(edge_prob)
+        if edges_list is not None:
+            self._generate_edges_from_list(edges_list)    
+        else:
+            self._generate_edges(edge_prob)
 
         # Generate class-conditional LF & edge parameters, stored in self.theta
         self._generate_params(theta_range, theta_edge_range)
@@ -98,6 +101,25 @@ class SingleTaskTreeDepsGenerator(object):
                 self.parent[i] = p_i
                 self.G.add_edge(i,p_i)
         
+        self.n_edges = len(self.E)
+
+    def _generate_edges_from_list(self, edges_list):
+        """Generate a dependency graph from a list of edges
+        """
+        self.G = nx.Graph()
+        self.E, self.parent = [], {}
+        self.E_order = dict()
+        idx = 0
+        for edge in edges_list:
+            p_i = edge[0]
+            i = edge[1]
+            self.E.append((p_i,i))
+            self.E_order[idx] = (p_i,i)
+            idx += 1
+            self.parent[i] = p_i
+            self.G.add_edge(i,p_i)
+        print(self.G)
+
         self.n_edges = len(self.E)
 
     def _generate_params(self, theta_range, theta_edge_range):
@@ -234,6 +256,7 @@ class SingleTaskTreeDepsGenerator(object):
             for i in range(self.m):
                 print("Labeler = ", i)
                 for val in range(self.k+1):
+                    print("i: ", i, " y: ", y, " val: ", val)
                     self.p_solo[(i,val,y)] = self.naive_SPA(i,y)[val] / Z
                     print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
                     
