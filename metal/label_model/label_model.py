@@ -46,7 +46,7 @@ class CliqueTree(object):
 
         # Add all the unary cliques
         for i in range(self.m):
-            self.c_data[i] = {
+            self.c_data[(i,)] = {
                 'start_index': i * self.k,
                 'end_index': (i+1) * self.k,
                 'max_cliques': set([j for j in self.c_tree.nodes() 
@@ -73,7 +73,7 @@ class CliqueTree(object):
                 # Important to sort here!!
                 members = sorted(list(C['members']))
                 nc = len(members)
-                id = tuple(members) if len(members) > 1 else members[0]
+                id = tuple(members)
 
                 # Check if already added
                 if id in self.c_data:
@@ -259,7 +259,7 @@ class LabelModel(Classifier):
             si, ei = ci['start_index'], ci['end_index']
 
             # Unary cliques
-            if isinstance(members_i, int) or len(members_i) == 1:
+            if ci.size == 1:
                 self.mu_init[si:ei, :] = torch.eye(self.k) * np.random.random()
 
             # Higher-order cliques
