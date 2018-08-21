@@ -46,13 +46,13 @@ class CliqueTree(object):
 
         # Add all the unary cliques
         for i in range(self.m):
-            self.c_data[(i,)] = {
+            self.c_data[{i}] = {
                 'start_index': i * self.k,
                 'end_index': (i+1) * self.k,
                 'max_cliques': set([j for j in self.c_tree.nodes() 
                     if i in self.c_tree.node[j]['members']]),
                 'size': 1,
-                'members': [i]
+                'members': {i}
             }
         
         # Get the higher-order clique statistics based on the clique tree
@@ -69,19 +69,16 @@ class CliqueTree(object):
                     C_type = 'edge'
                 else:
                     raise ValueError(item)
-                
-                # Important to sort here!!
-                members = sorted(list(C['members']))
+                members = set(C['members'])
                 nc = len(members)
-                id = tuple(members)
 
                 # Check if already added
-                if id in self.c_data:
+                if members in self.c_data:
                     continue
 
                 if nc > 1:
                     w = self.k ** nc
-                    self.c_data[id] = {
+                    self.c_data[members] = {
                         'start_index': start_index,
                         'end_index': start_index + w,
                         'max_cliques': set([item]) if C_type == 'node' 
@@ -90,11 +87,6 @@ class CliqueTree(object):
                         'members': members
                     }
                     start_index += w
-
-                    # Make sure to add all permutations!
-                    if isinstance(id, tuple):
-                        for id_perm in permutations(id):
-                            self.c_data[id_perm] = self.c_data[id]
         self.d = start_index
     
     def iter_index(self):
