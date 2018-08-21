@@ -18,6 +18,81 @@ from metal.label_model.lm_defaults import lm_default_config
 from metal.label_model.graph_utils import get_clique_tree
 from metal.utils import recursive_merge_dicts
 
+
+class CliqueTree(object):
+    """A data structure for representing a set of m labeling functions with
+    cardinality k, and their dependencies, as a clique tree.
+
+    Args:
+        m: (int) Number of labeling functions
+        k: (int) Cardinality of the classification problem
+        edges: (list of tuples of ints) Edges (i,j) between labeling functions 
+            indicating a conditional dependency between LF i and LF j
+    """
+    def __init__(self, m, k, edges):
+        self.m = m
+        self.k = k
+        self.edges = edges
+        self.c_tree = get_clique_tree(range(self.m), self.edges)
+        self._build_c_data()
+
+    def _build_c_data(self, higher_order_cliques=True):
+        """Create a helper data structure which maps cliques (as tuples of 
+        member sources) --> {start_index, end_index, maximal_cliques}, where
+        the last value is a set of indices in this data structure.
+        """
+        self.c_data = {}
+
+        # Add all the unary cliques
+        for i in range(self.m):
+            self.c_data[i] = {
+                'start_index': i * self.k,
+                'end_index': (i+1) * self.k,
+                'max_cliques': set([j for j in self.c_tree.nodes() 
+                    if i in self.c_tree.node[j]['members']])
+            }
+        
+        # Get the higher-order clique statistics based on the clique tree
+        # First, iterate over the maximal cliques (nodes of c_tree) and
+        # separator sets (edges of c_tree)
+        start_index = self.m * self.k
+        if higher_order_cliques:
+            for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
+                if isinstance(item, int):
+                    C = self.c_tree.node[item]
+                    C_type = 'node'
+                elif isinstance(item, tuple):
+                    C = self.c_tree[item[0]][item[1]]
+                    C_type = 'edge'
+                else:
+                    raise ValueError(item)
+                
+                # Important to sort here!!
+                members = sorted(list(C['members']))
+                nc = len(members)
+                id = tuple(members) if len(members) > 1 else members[0]
+
+                # Check if already added
+                if id in self.c_data:
+                    continue
+
+                if nc > 1:
+                    w = self.k ** nc
+                    self.c_data[id] = {
+                        'start_index': start_index,
+                        'end_index': start_index + w,
+                        'max_cliques': set([item]) if C_type == 'node' 
+                            else set(item)
+                    }
+                    start_index += w
+
+                    # Make sure to add all permutations!
+                    if isinstance(id, tuple):
+                        for id_perm in permutations(id):
+                            self.c_data[id_perm] = self.c_data[id]
+        self.d = start_index
+
+
 class LabelModel(Classifier):
     """A LabelModel...TBD
 
