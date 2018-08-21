@@ -7,9 +7,11 @@ from numpy.random import random, choice
 from scipy.sparse import csr_matrix, csc_matrix, lil_matrix
 import torch
 import networkx as nx
+import mpmath
 
 from metal.metrics import accuracy_score, coverage_score
 from metal.multitask.task_graph import TaskHierarchy
+from metal.label_model import CliqueTree
 
 from synthetic.words1k import vocab1k
 
@@ -58,8 +60,19 @@ class SingleTaskTreeDepsGenerator(object):
         self.k = k
 
         # Generate correlation structure: edges self.E, parents dict self.parent
-        self._generate_edges(edge_prob)
-
+        #self._generate_edges(edge_prob)
+        self.E, self.parent = [], {}
+        self.G = nx.Graph()
+        self.E_order = dict()
+        self.E = [(0,1), (1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,9)]
+        
+        for i in range(9):
+            self.E_order[i] = (i,i+1)
+            self.G.add_edge(i,i+1)
+            self.parent[i+1] = i
+        self.n_edges = len(self.E)
+        self.c_tree = CliqueTree(m, k, self.E)
+        
         # Generate class-conditional LF & edge parameters, stored in self.theta
         self._generate_params(theta_range, theta_edge_range)
 
@@ -101,6 +114,7 @@ class SingleTaskTreeDepsGenerator(object):
                 self.G.add_edge(i,p_i)
         
         self.n_edges = len(self.E)
+
 
     def _generate_params(self, theta_range, theta_edge_range):
         self.theta = defaultdict(float)
@@ -284,19 +298,22 @@ class SingleTaskTreeDepsGenerator(object):
     def _get_node_index(self, idx1):
         nodes_1 = dict()
 
-        if idx1 < self.m * (self.k):
+        if idx1 < self.m * (self.k): # node indices:
             i = int(idx1 / 2)
             nodes_1[i] = (idx1 - 2 * i) + 1
-        else:
+        elif idx1 < self.m * (self.k) + self.n_edges * (self.k ** 2): # edge indices
             e_idx = int((idx1 - self.m * (self.k))/4)
             e = self.E_order[e_idx]
             rem = (idx1 - self.m*(self.k)) - 4*e_idx
             nodes_1[e[0]] = int(rem / 2) + 1
             nodes_1[e[1]] = rem % 2 + 1
+        else: # Y indices
+            nodes_1[-1] = idx1 - (self.m * (self.k) + self.n_edges * (self.k ** 2)) + 1
+            print("we added a row for Y with val = ", nodes_1[-1])
 
         return nodes_1
 
-    def _generate_true_O(self, higher_order=False):
+    def _gen_true_O(self, higher_order=False, include_Y=False, joint_form=False):
         Z_vals = dict()
         for y in range(1, self.k+1):
             Z_vals[y] = self.get_Z(y)
@@ -305,6 +322,79 @@ class SingleTaskTreeDepsGenerator(object):
             sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
         else:
             sz = self.m * (self.k)
+        
+        if include_Y:
+            sz += self.k-1
+
+        self.O_true = np.zeros([sz, sz])
+        idx1 = 0
+
+        for clique1 in self.c_tree.iter_index():
+            idx2 = 0
+            for clique2 in self.c_tree.iter_index():
+                #print("indices ", idx1, idx2)
+                #print("clique2 = ", clique2)
+                nodes_1 = dict()
+                nodes_2 = dict()
+
+                for idx in range(len(clique1[0])):
+                    nodes_1[ clique1[0][idx] ] = clique1[1][idx]
+
+                for idx in range(len(clique2[0])):
+                    nodes_2[ clique2[0][idx] ] = clique2[1][idx]
+
+                sm = 0
+                # check for overlaps between the two node sets:
+                inter = list(set(nodes_1.keys()) & set(nodes_2.keys()))
+                consistent = True
+                for node in inter:
+                    if nodes_1[node] != nodes_2[node]:
+                        consistent = False
+
+                if consistent:
+                    # union:
+                    nodes = {**nodes_1, **nodes_2}
+
+                    # remove any items corresponding to Y:
+                    if -1 in nodes:
+                        y_val = nodes.pop(-1)
+                        #print(y_val)
+
+                    # if nodes is empty, this is the lower right corner:
+                    if len(nodes) == 0:
+                        sm = self.p[y_val-1]
+                    else:
+                        # first node:
+                        nv = nodes.popitem()
+                        
+                        for y in range(1,self.k+1):
+                            if len(nodes) == 0:
+                                if joint_form:
+                                    sm += self.p_solo[(nv[0], nv[1], y)] 
+                                else:
+                                    sm += self.p_solo[(nv[0], nv[1], y)] * self.p[y-1]                                    
+                            else:
+                                if joint_form:
+                                    sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) 
+                                else:
+                                    sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) * self.p[y-1]
+                        
+                self.O_true[idx1, idx2] = sm
+                idx2 += 1
+            idx1 += 1
+
+    def _generate_true_O(self, higher_order=False, include_Y=False):
+        Z_vals = dict()
+        for y in range(1, self.k+1):
+            Z_vals[y] = self.get_Z(y)
+
+        if higher_order:
+            sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
+        else:
+            sz = self.m * (self.k)
+        
+        if include_Y:
+            sz += self.k-1
 
         self.O_true = np.zeros([sz, sz])
         for idx1 in range(sz):
@@ -328,24 +418,85 @@ class SingleTaskTreeDepsGenerator(object):
                 if consistent:
                     # union:
                     nodes = {**nodes_1, **nodes_2}
-                    # first node:
-                    nv = nodes.popitem()
-                    
-                    for y in range(1,self.k+1):
-                        if len(nodes) == 0:
-                            sm += self.p_solo[(nv[0], nv[1], y)] * self.p[y-1]
-                        else:
-                            sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) * self.p[y-1]
+
+                    # remove any items corresponding to Y:
+                    if -1 in nodes:
+                        y_val = nodes.pop(-1)
+                        print(y_val)
+
+                    # if nodes is empty, this is the lower right corner:
+                    if len(nodes) == 0:
+                        sm = self.p[y_val-1]
+                    else:
+                        # first node:
+                        nv = nodes.popitem()
+                        
+                        for y in range(1,self.k+1):
+                            if len(nodes) == 0:
+                                sm += self.p_solo[(nv[0], nv[1], y)] * self.p[y-1]
+                            else:
+                                sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) * self.p[y-1]
                         
                 self.O_true[idx1, idx2] = sm
                 idx2 += 1
             idx1 += 1
-
-    def _generate_true_mu(self, higher_order=False):
+    
+    # y value is currently broken
+    def _gen_true_mu(self, higher_order=False, include_Y=False):
         if higher_order:
             sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
         else:
             sz = self.m * (self.k)
+
+        if include_Y:
+            sz += self.k-1
+
+        self.mu_true = np.zeros([sz, self.k])
+        idx = 0
+
+        for clique1 in self.c_tree.iter_index():
+            nodes_1 = dict()
+            #print("indices ", idx)
+            #print("clique1 = ", clique1)            
+
+            if len(clique1[0]) == 1:
+                for y in range(1, self.k+1):
+                    self.mu_true[idx, y-1] = self.p_solo[(clique1[0][0], clique1[1][0], y)]
+                #print("clique vals: ", clique1[0][0], clique1[1][0])
+                idx += 1
+            else:
+                for y in range(1, self.k+1):
+                    self.mu_true[idx, y-1] = self.p_joints[(clique1[0][0],clique1[1][0],clique1[0][1],clique1[1][1],y)]
+                #print("clique vals: ", clique1[0][0], clique1[1][0], clique1[0][1], clique1[1][1])
+                idx += 1    
+
+        '''if higher_order:
+            for e in self.E:
+                for val1 in range(1, self.k+1):
+                    for val2 in range(1, self.k+1):
+                        for y in range(1, self.k+1):
+                            self.mu_true[idx, y-1] = self.p_joints[(e[0],val1,e[1],val2,y)]
+                        idx += 1'''
+
+        # finally, add a few rows for Y:
+        if include_Y:
+            for y_row_val in range(1,self.k):
+                for y in range(1, self.k+1):
+                    sm = 0
+                    if y_row_val == y:
+                        sm = self.p[y-1]
+                    self.mu_true[idx, y-1] = sm
+                idx += 1
+
+    # y value is currently broken, TODO: refactor to deal with clique structure correctly
+    def _generate_true_mu(self, higher_order=False, include_Y=False):
+        if higher_order:
+            sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
+        else:
+            sz = self.m * (self.k)
+
+        if include_Y:
+            sz += self.k-1
 
         self.mu_true = np.zeros([sz, self.k])
         
@@ -354,8 +505,9 @@ class SingleTaskTreeDepsGenerator(object):
                 for y in range(1, self.k+1):
                     self.mu_true[i*(self.k)+val1-1, y-1] = self.p_solo[(i,val1,y)]
 
+        idx = self.m * (self.k)
+
         if higher_order:
-            idx = self.m * (self.k)
             for e in self.E:
                 for val1 in range(1, self.k+1):
                     for val2 in range(1, self.k+1):
@@ -363,6 +515,15 @@ class SingleTaskTreeDepsGenerator(object):
                             self.mu_true[idx, y-1] = self.p_joints[(e[0],val1,e[1],val2,y)]
                         idx += 1
 
+        # finally, add a few rows for Y:
+        if include_Y:
+            for y_row_val in range(1,self.k):
+                for y in range(1, self.k+1):
+                    sm = 0
+                    if y_row_val == y:
+                        sm = self.p[y-1]
+                    self.mu_true[idx, y-1] = sm
+                idx += 1
         
     def _generate_label_matrix(self):
         """Generate an n x m label matrix with entries in {0,...,k}"""
@@ -371,10 +532,43 @@ class SingleTaskTreeDepsGenerator(object):
 
         self.P_vals_true()
         self.P_joints_true()
-        print("test = ", self.P_fours_true(1,2,3,4,1,1,1,1,1))
 
-        self._generate_true_mu(higher_order = True)
-        self._generate_true_O(higher_order = True)
+        # Here we'll do a simple, stupid experiment.
+        # Let's verify that P(1,2|0) = P(1|0) P(2|0)
+        y = 2
+        a = 0
+        Zy = self.get_Z(y)
+
+        on_joint = dict()
+        on_joint[0] = a
+        on_joint[9] = a
+        p_012 = self.naive_SPA(5,a,on_joint)[y-1] / Zy
+        p_0 = self.naive_SPA(5,a)[y-1] / Zy
+        p_joint_cond = p_012/p_0
+
+        o_n_1 = dict()
+        o_n_1[0] = a
+        o_n_2 = dict()
+        o_n_2[9] = a
+
+        p_01 = self.naive_SPA(5,a,o_n_1)[y-1] / Zy
+        p_02 = self.naive_SPA(5,a,o_n_2)[y-1] / Zy
+        p_1_cond_0 = p_01 / p_0
+        p_2_cond_0 = p_02 / p_0
+
+        print("\n\nP(L_1 = 1, L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_joint_cond)
+        print("P(L_1 = 1, Y=1 | L_0 = 1, Y=1) = ", p_1_cond_0)
+        print("P(L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_2_cond_0)
+        print("their product = ", p_1_cond_0 * p_2_cond_0)
+        print("the error: ", p_joint_cond - p_1_cond_0*p_2_cond_0, "\n\n")
+
+        #self._generate_true_mu(higher_order = True, include_Y=False)
+        #self._generate_true_O(higher_order = True, include_Y=False)
+
+        joint_form = True
+        self._gen_true_mu(higher_order = True, include_Y=False)
+        self._gen_true_O(higher_order = True, include_Y=False, joint_form=joint_form)
+
 
         print(self.O_true)
         print("\nCondition number = ", np.linalg.cond(self.O_true), "\n")
@@ -382,13 +576,25 @@ class SingleTaskTreeDepsGenerator(object):
 
         print(self.p)
 
-        sig = self.O_true - self.mu_true @ np.diag(self.p) @ self.mu_true.T
+        if joint_form:
+            sig = self.O_true - self.mu_true @ self.mu_true.T
+        else:
+            sig = self.O_true - self.mu_true @ np.diag(self.p) @ self.mu_true.T
+
+        with mpmath.workdps(1024):
+            sig_hp = mpmath.matrix(sig)
+            self.sig_inv_hp = (sig_hp) ** -1
+
+
         print("sig\n", sig)       
         print("\nCondition number = ", np.linalg.cond(sig), "\n")
 
         print("moment of truth!!!")
-        self.sig_inv = np.linalg.inv(sig)
-        print(self.sig_inv)
+        print("note this is with the joint form!")
+        #self.sig_inv = np.linalg.inv(sig)
+        #self.sig_inv_hp = self.sig_inv
+        self.sig_inv = np.array(self.sig_inv_hp.tolist(), dtype=float)        
+        #print(self.sig_inv_hp)
 
         for i in range(self.n):
             y = choice(self.k, p=self.p) + 1  # Note that y \in {1,...,k}

@@ -254,7 +254,7 @@ class LabelModel(Classifier):
             si, ei = ci['start_index'], ci['end_index']
 
             # Unary cliques
-            if ci.size == 1:
+            if ci['size'] == 1:
                 self.mu_init[si:ei, :] = torch.eye(self.k) * np.random.random()
 
             # Higher-order cliques
@@ -318,16 +318,21 @@ class LabelModel(Classifier):
         return O @ Z @ np.linalg.inv(I_k + Z.T @ O @ Z) @ Z.T @ O
 
     def loss_inv_mu(self, l2=0.0):
-        loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t())**2
+        #loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t())**2
+        loss_1 = torch.norm(self.Q - self.mu @ self.mu.t())**2
+        #loss_2 = torch.norm(
+        #    torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
         loss_2 = torch.norm(
-            torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
+            torch.sum(self.mu, 1) - torch.diag(self.O))**2     
         return loss_1 + loss_2
     
     def loss_mu(self, l2=0.0):
         loss_1 = torch.norm(
-            (self.O - self.mu @ self.P @ self.mu.t())[self.mask])**2
+        #    (self.O - self.mu @ self.P @ self.mu.t())[self.mask])**2
+            (self.O - self.mu @ self.mu.t())[self.mask])**2
         loss_2 = torch.norm(
-            torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
+        #    torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
+            torch.sum(self.mu, 1) - torch.diag(self.O))**2
         # loss_l2 = torch.norm( self.mu - self.mu_init )**2
         loss_l2 = 0
         return loss_1 + loss_2 + l2 * loss_l2
@@ -368,7 +373,7 @@ class LabelModel(Classifier):
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
         # This flag allows us to eg test the latter even with no deps present
-        self.inv_form = (len(self.deps) > 0)
+        self.inv_form = (len(self.c_tree.edges) > 0)
 
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
