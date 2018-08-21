@@ -49,7 +49,9 @@ class CliqueTree(object):
                 'start_index': i * self.k,
                 'end_index': (i+1) * self.k,
                 'max_cliques': set([j for j in self.c_tree.nodes() 
-                    if i in self.c_tree.node[j]['members']])
+                    if i in self.c_tree.node[j]['members']]),
+                'size': 1,
+                'members': [i]
             }
         
         # Get the higher-order clique statistics based on the clique tree
@@ -82,7 +84,9 @@ class CliqueTree(object):
                         'start_index': start_index,
                         'end_index': start_index + w,
                         'max_cliques': set([item]) if C_type == 'node' 
-                            else set(item)
+                            else set(item),
+                        'size': nc,
+                        'members': members
                     }
                     start_index += w
 
@@ -114,13 +118,13 @@ class LabelModel(Classifier):
             self.p = class_balance
         self.P = torch.diag(torch.from_numpy(self.p)).float()
     
-    def _create_L_ind(self, L, km, offset):
-        L_ind = np.zeros((self.n, self.m * km))
-        for y in range(offset, self.k+1):
-            L_ind[:, y-offset::km] = np.where(L == y, 1, 0)     
+    def _create_L_ind(self, L):
+        L_ind = np.zeros((self.n, self.m * self.k))
+        for y in range(1, self.k+1):
+            L_ind[:, y-1::self.k] = np.where(L == y, 1, 0)     
         return L_ind   
 
-    def _get_augmented_label_matrix(self, L, offset=1):
+    def _get_augmented_label_matrix(self, L):
         """Returns an augmented version of L where each column is an indicator
         for whether a certain source or clique of sources voted in a certain
         pattern.
@@ -128,91 +132,30 @@ class LabelModel(Classifier):
         Args:
             - L: A dense n x m numpy array, where n is the number of data points
                 and m is the number of sources, with values in {0,1,...,k}
-            - offset: Create indicators for values {offset,...,k}
         """
-        km = self.k + 1 - offset
+        # TODO: Be clear how to pass in the higher-order and all-cliques opts!
+        L_aug = np.zeros((self.n, self.c_tree.d))
 
-        # Create a helper data structure which maps cliques (as tuples of member
-        # sources) --> {start_index, end_index, maximal_cliques}, where
-        # the last value is a set of indices in this data structure
-        self.c_data = {}
-        
         # Create the basic indicator version of the source label matrix
-        L_ind = self._create_L_ind(L, km, offset)
+        L_ind = self._create_L_ind(L)
 
         if self.config['all_unary_cliques']:
-            # Add all unary cliques
-            for i in range(self.m):
-                self.c_data[i] = {
-                    'start_index': i*km,
-                    'end_index': (i+1)*km,
-                    'max_cliques': set([j for j in self.c_tree.nodes() 
-                        if i in self.c_tree.node[j]['members']])
-                }
-            L_aug = np.copy(L_ind)
-        else:
-            L_aug = None
+            L_aug[:, :self.m * self.k] = np.copy(L_ind)
         
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
         if self.config['higher_order_cliques']:
-            for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
-                if isinstance(item, int):
-                    C = self.c_tree.node[item]
-                    C_type = 'node'
-                elif isinstance(item, tuple):
-                    C = self.c_tree[item[0]][item[1]]
-                    C_type = 'edge'
-                else:
-                    raise ValueError(item)
-                # Important to sort here!!
-                members = sorted(list(C['members']))
-                nc = len(members)
-                id = tuple(members) if len(members) > 1 else members[0]
-
-                # Check if already added
-                if id in self.c_data:
-                    continue
-
-                # If a unary maximal clique, just store its existing index
-                if nc == 1 and self.config['all_unary_cliques']:
-                    C['start_index'] = members[0] * km
-                    C['end_index'] = (members[0]+1) * km
-
-                # Else add one column for each possible value
-                else:
-                    L_C = np.ones((self.n, km ** nc))
-                    for i, vals in enumerate(product(range(km), repeat=nc)):
+            for c, c_data in self.c_data.items():
+                si, ei = c_data['start_index'], c_data['end_index']
+                nc = c_data['size']
+                if nc > 1:
+                    L_C = np.ones((self.n, self.k ** nc))
+                    for i, vals in enumerate(product(range(self.k), repeat=nc)):
                         for j, v in enumerate(vals):
-                            L_C[:,i] *= L_ind[:, members[j]*km + v]
-
-                    # Add to L_aug and store the indices
-                    if L_aug is not None:
-                        C['start_index'] = L_aug.shape[1]
-                        C['end_index'] = L_aug.shape[1] + L_C.shape[1]
-                        L_aug = np.hstack([L_aug, L_C])
-                    else:
-                        C['start_index'] = 0
-                        C['end_index'] = L_C.shape[1]
-                        L_aug = L_C
-                    
-                    # Add to self.c_data as well
-                    self.c_data[id] = {
-                        'start_index': C['start_index'],
-                        'end_index': C['end_index'],
-                        'max_cliques': set([item]) if C_type == 'node' 
-                            else set(item)
-                    }
-
-                    # Make sure to add all permutations!
-                    if isinstance(id, tuple):
-                        for id_perm in permutations(id):
-                            self.c_data[id_perm] = self.c_data[id]
-
-            return L_aug
-        else:
-            return L_ind
+                            L_C[:,i] *= L_ind[:,c_data['members'][j]*self.k + v]
+                    L_aug[:, si:ei] = L_C
+        return L_aug
     
     def _generate_O(self, L):
         """Form the overlaps matrix, which is just all the different observed
@@ -271,9 +214,9 @@ class LabelModel(Classifier):
     def _build_mask(self):
         """Build mask applied to O^{-1}, O for the matrix approx constraint"""
         self.mask = torch.ones(self.d, self.d).byte()
-        for members_i, ci in self.c_data.items():
+        for members_i, ci in self.c_tree.c_data.items():
             si, ei = ci['start_index'], ci['end_index']
-            for members_j, cj in self.c_data.items():
+            for members_j, cj in self.c_tree.c_data.items():
                 sj, ej = cj['start_index'], cj['end_index']
 
                 # Check if ci and cj are part of the same maximal clique
@@ -305,7 +248,7 @@ class LabelModel(Classifier):
         """
         # Initialize mu so as to break basic reflective symmetry
         self.mu_init = torch.randn(self.d, self.k)
-        for members_i, ci in self.c_data.items():
+        for members_i, ci in self.c_tree.c_data.items():
             si, ei = ci['start_index'], ci['end_index']
 
             # Unary cliques
@@ -323,39 +266,6 @@ class LabelModel(Classifier):
         # Build the mask over O^{-1}
         # TODO: Put this elsewhere?
         self._build_mask()
-    
-    def get_conditional_probs(self, source=None):
-        """Returns the full conditional probabilities table as a numpy array,
-        where row i*(k+1) + ly is the conditional probabilities of source i 
-        emmiting label ly (including abstains 0), conditioned on different 
-        values of Y, i.e.:
-        
-            c_probs[i*(k+1) + ly, y] = P(\lambda_i = ly | Y = y)
-        
-        Note that this simply involves inferring the kth row by law of total
-        probability and adding in to mu.
-        
-        If `source` is not None, returns only the corresponding block.
-        """
-        c_probs = np.zeros((self.m * (self.k+1), self.k))
-        mu = self.mu.detach().clone().numpy()
-        
-        for i in range(self.m):
-            # si = self.c_data[(i,)]['start_index']
-            # ei = self.c_data[(i,)]['end_index']
-            # mu_i = mu[si:ei, :]
-            mu_i = mu[i*self.k:(i+1)*self.k, :]
-            c_probs[i*(self.k+1) + 1:(i+1)*(self.k+1), :] = mu_i 
-            
-            # The 0th row (corresponding to abstains) is the difference between
-            # the sums of the other rows and one, by law of total prob
-            c_probs[i*(self.k+1), :] = 1 - mu_i.sum(axis=0)
-        c_probs = np.clip(c_probs, 0.01, 0.99)
-    
-        if source is not None:
-            return c_probs[source*(self.k+1):(source+1)*(self.k+1)]
-        else:
-            return c_probs
 
     def predict_proba(self, L):
         """Returns the [n,k] matrix of label probabilities P(Y | \lambda)"""
@@ -373,13 +283,13 @@ class LabelModel(Classifier):
             jtm = np.zeros(L_aug.shape[1])
 
             # All maximal cliques are +1
-            for i in self.c_tree.nodes():
-                node = self.c_tree.node[i]
+            for i in self.c_tree.c_tree.nodes():
+                node = self.c_tree.c_tree.node[i]
                 jtm[node['start_index']:node['end_index']] = 1
 
             # All separator sets are -1
-            for i, j in self.c_tree.edges():
-                edge = self.c_tree[i][j]
+            for i, j in self.c_tree.c_tree.edges():
+                edge = self.c_tree.c_tree[i][j]
                 jtm[edge['start_index']:edge['end_index']] = 1
         else:
             jtm = np.ones(L_aug.shape[1])
@@ -424,12 +334,7 @@ class LabelModel(Classifier):
         self.n, self.m = L.shape
         self.t = 1
 
-    def _set_dependencies(self, deps):
-        nodes = range(self.m)
-        self.deps = deps
-        self.c_tree = get_clique_tree(nodes, deps)
-
-    def train(self, L, deps=[], O=None, O_inv=None, c_data=None, **kwargs):
+    def train(self, L, deps=[], O=None, c_tree=None, **kwargs):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
         whether source dependencies are provided or not:
         
@@ -454,7 +359,9 @@ class LabelModel(Classifier):
             L = L.todense()
 
         self._set_constants(L)
-        self._set_dependencies(deps)
+        self.c_tree = CliqueTree(self.m, self.k, deps) if c_tree is None else \
+            c_tree
+        self.d = self.c_tree.d
 
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
@@ -463,11 +370,10 @@ class LabelModel(Classifier):
 
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
-            if O_inv is not None:
+            if O is not None:
                 self.O = torch.from_numpy(O).float()
-                self.O_inv = torch.from_numpy(O_inv).float()
+                self.O_inv = torch.from_numpy(np.linalg.inv(O)).float()
                 self.d = self.O_inv.shape[0]
-                self.c_data = c_data
             else:
                 self._generate_O_inv(L)
             self._init_params()
