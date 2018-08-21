@@ -30,12 +30,12 @@ class CliqueTree(object):
         edges: (list of tuples of ints) Edges (i,j) between labeling functions 
             indicating a conditional dependency between LF i and LF j
     """
-    def __init__(self, m, k, edges):
+    def __init__(self, m, k, edges, higher_order_cliques=True):
         self.m = m
         self.k = k
         self.edges = edges
         self.c_tree = get_clique_tree(range(self.m), self.edges)
-        self._build_c_data()
+        self._build_c_data(higher_order_cliques=higher_order_cliques)
 
     def _build_c_data(self, higher_order_cliques=True):
         """Create a helper data structure which maps cliques (as tuples of 
