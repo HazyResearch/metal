@@ -46,7 +46,7 @@ class CliqueTree(object):
 
         # Add all the unary cliques
         for i in range(self.m):
-            self.c_data[{i}] = {
+            self.c_data[(i,)] = {
                 'start_index': i * self.k,
                 'end_index': (i+1) * self.k,
                 'max_cliques': set([j for j in self.c_tree.nodes() 
@@ -69,22 +69,25 @@ class CliqueTree(object):
                     C_type = 'edge'
                 else:
                     raise ValueError(item)
-                members = set(C['members'])
+                
+                # Important to sort here!!
+                members = sorted(list(C['members']))
                 nc = len(members)
+                id = tuple(members)
 
                 # Check if already added
-                if members in self.c_data:
+                if id in self.c_data:
                     continue
 
                 if nc > 1:
                     w = self.k ** nc
-                    self.c_data[members] = {
+                    self.c_data[id] = {
                         'start_index': start_index,
                         'end_index': start_index + w,
                         'max_cliques': set([item]) if C_type == 'node' 
                             else set(item),
                         'size': nc,
-                        'members': members
+                        'members': set(members)
                     }
                     start_index += w
         self.d = start_index
