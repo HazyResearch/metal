@@ -1,6 +1,7 @@
 from collections import defaultdict, Counter
 from itertools import chain, product
 import os
+import copy
 
 import numpy as np
 from numpy.random import random, choice
@@ -83,6 +84,8 @@ class SingleTaskTreeDepsGenerator(object):
 
         # Correct output type
         self.L = csr_matrix(self.L, dtype=np.int)
+        self._generate_rank_one_O()
+        self._generate_rank_one_mu()
     
     def _generate_edges(self, edge_prob):
         """Generate a random tree-structured dependency graph based on a
@@ -317,6 +320,36 @@ class SingleTaskTreeDepsGenerator(object):
                     print("i: ", i, " y: ", y, " val: ", val)
                     self.p_solo[(i,val,y)] = self.naive_SPA(i,y)[val] / Z
                     print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
+
+    def _generate_rank_one_O(self):
+        # k = 2 in this case
+        O = np.zeros((self.m,self.m),dtype=float)
+        for i in range(self.m):
+            for j in range(self.m):
+                # p no abstain = 1 - p both abstain
+                p_no_abstain_1 = 1 - (self.p_joints[(i,0,j,0,1)] + self.p_joints[(i,1,j,0,1)] + self.p_joints[(i,0,j,1,1)] + self.p_joints[(i,0,j,2,1)] + self.p_joints[(i,2,j,0,1)])
+                p_no_abstain_2 = 1 - (self.p_joints[(i,0,j,0,2)] + self.p_joints[(i,1,j,0,2)] + self.p_joints[(i,0,j,1,2)] + self.p_joints[(i,0,j,2,2)] + self.p_joints[(i,2,j,0,2)])
+                O[i,j] += self.p_joints[(i,1,j,1,1)]*p_no_abstain_1*0.5 
+                O[i,j] += self.p_joints[(i,1,j,1,2)]*p_no_abstain_2*0.5 
+                O[i,j] += self.p_joints[(i,2,j,2,2)]*p_no_abstain_2*0.5 
+                O[i,j] += self.p_joints[(i,2,j,2,1)]*p_no_abstain_1*0.5
+                O[i,j] -= self.p_joints[(i,1,j,2,1)]*p_no_abstain_1*0.5
+                O[i,j] -= self.p_joints[(i,2,j,1,1)]*p_no_abstain_1*0.5
+                O[i,j] -= self.p_joints[(i,1,j,2,2)]*p_no_abstain_2*0.5
+                O[i,j] -= self.p_joints[(i,2,j,1,2)]*p_no_abstain_2*0.5
+        self.rank_one_O = copy.deepcopy(O)
+
+    def _generate_rank_one_mu(self):
+        mu = np.zeros((self.m,),dtype=float)
+        for i in range(self.m):
+            p_no_abstain_1 = 1 - self.p_solo[(i,0,1)]
+            p_no_abstain_2 = 1 - self.p_solo[(i,0,2)]
+            mu[i] += p_no_abstain_1*self.p_solo[i,1,1]*0.5
+            mu[i] += p_no_abstain_2*self.p_solo[i,2,2]*0.5
+            mu[i] -= p_no_abstain_1*self.p_solo[i,2,1]*0.5
+            mu[i] -= p_no_abstain_2*self.p_solo[i,1,2]*0.5
+        self.rank_one_mu = copy.deepcopy(mu)
+
                     
     # these are the real joint probabilities for each pair of nodes:
     def P_joints_true(self):

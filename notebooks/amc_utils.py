@@ -40,7 +40,7 @@ def find_largest(O,mu,dim,mask,thresh):
     try:
         J = np.linalg.pinv(C)
     except:
-        print("Failed to invert K in find largest")
+        print("Failed to invert C in find largest")
         #print("C: ", C)
         #print("O: ", O)
         #print("mu mu^T: ", prod)
