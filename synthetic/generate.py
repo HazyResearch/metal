@@ -50,14 +50,16 @@ class SingleTaskTreeDepsGenerator(object):
     because they include abstains.
     """
     def __init__(self, n, m, k=2, class_balance='random', theta_range=(0.1, 1), 
-        edge_prob=0.0, theta_edge_range=(0.1,1), edges_list=None, **kwargs):
+        edge_prob=0.0, theta_edge_range=(0.1,0.3), special_edge_range=(0.6,1), edges_list=None, higher_order=False, **kwargs):
         self.n = n
         self.m = m
         self.k = k
 
         # Generate correlation structure: edges self.E, parents dict self.parent
         if edges_list is not None:
-            self._generate_edges_from_list(edges_list)    
+            #self._generate_edges_from_list(edges_list)    
+            #_generate_edges_and_params_from_list(self, edges_list, theta_range, theta_edge_range, special_edge_range)
+            self._generate_edges_and_params_from_list(edges_list, edge_prob, theta_range, theta_edge_range, special_edge_range)
         else:
             self._generate_edges(edge_prob)
 
@@ -74,7 +76,7 @@ class SingleTaskTreeDepsGenerator(object):
             self.p = class_balance
 
         # Generate the true labels self.Y and label matrix self.L
-        self._generate_label_matrix()
+        self._generate_label_matrix(higher_order)
 
         # Compute the conditional clique probabilities
         self._get_conditional_probs()
@@ -118,7 +120,63 @@ class SingleTaskTreeDepsGenerator(object):
             idx += 1
             self.parent[i] = p_i
             self.G.add_edge(i,p_i)
-        print(self.G)
+        #print(self.G)
+
+        self.n_edges = len(self.E)
+
+    def _generate_edges_and_params_from_list(self, edges_list, edge_prob, theta_range, theta_edge_range, special_edge_range):
+        """Generate a dependency graph from a list of edges
+        """
+        self.G = nx.Graph()
+        self.E, self.parent = [], {}
+        self.E_order = dict()
+        idx = 0
+
+        #generate thetas for single variables
+        self.theta = defaultdict(float)
+        for i in range(self.m):
+            for y in range(1, self.k+1):
+                t_min, t_max = min(theta_range), max(theta_range)
+                self.theta[(i,y)] = (t_max - t_min) * random(self.k) + t_min
+
+        te_min, te_max = min(theta_edge_range), max(theta_edge_range)
+
+        for i in range(self.m):
+            if random() < edge_prob and i > 0:
+                p_i = choice(i)
+                if (p_i, i) in edges_list: continue
+                self.E.append((p_i, i))
+                self.E_order[idx] = (p_i,i)
+                idx += 1
+                self.parent[i] = p_i
+                self.G.add_edge(i,p_i)
+
+                # set theta for this pair
+                for y1 in range(1, self.k+1):
+                    for y2 in range(1, self.k+1):
+                        #w_ij = (te_max - te_min) * random() + te_min
+                        w_ij = (te_max - te_min) * random(self.k) + te_min
+                        self.theta[((p_i, i), y1, y2)] = w_ij
+                        #self.theta[((j, i), y1, y2)] = w_ij
+
+        te_min_sp, te_max_sp = min(theta_edge_range), max(theta_edge_range)
+
+        for edge in edges_list:
+            p_i = edge[0]
+            i = edge[1]
+            self.E.append((p_i,i))
+            self.E_order[idx] = (p_i,i)
+            idx += 1
+            self.parent[i] = p_i
+            self.G.add_edge(i,p_i)
+
+            # set theta for this pair
+            for y1 in range(1, self.k+1):
+                for y2 in range(1, self.k+1):
+                    #w_ij = (te_max - te_min) * random() + te_min
+                    w_ij = (te_max_sp - te_min_sp) * random(self.k) + te_min_sp
+                    self.theta[((edge[0], edge[1]), y1, y2)] = w_ij
+                    #self.theta[((j, i), y1, y2)] = w_ij
 
         self.n_edges = len(self.E)
 
@@ -385,7 +443,7 @@ class SingleTaskTreeDepsGenerator(object):
                         idx += 1
 
         
-    def _generate_label_matrix(self):
+    def _generate_label_matrix(self, higher_order):
         """Generate an n x m label matrix with entries in {0,...,k}"""
         self.L = np.zeros((self.n, self.m))
         self.Y = np.zeros(self.n, dtype=np.int64)
@@ -394,8 +452,8 @@ class SingleTaskTreeDepsGenerator(object):
         self.P_joints_true()
         print("test = ", self.P_fours_true(1,2,3,4,1,1,1,1,1))
 
-        self._generate_true_mu(higher_order = True)
-        self._generate_true_O(higher_order = True)
+        self._generate_true_mu(higher_order = higher_order)
+        self._generate_true_O(higher_order = higher_order)
 
         print(self.O_true)
         print("\nCondition number = ", np.linalg.cond(self.O_true), "\n")
