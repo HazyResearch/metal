@@ -1,4 +1,5 @@
 from itertools import product, chain, permutations
+from collections import OrderedDict
 
 import numpy as np
 from scipy.sparse import issparse, csc_matrix
@@ -41,7 +42,7 @@ class CliqueTree(object):
         member sources) --> {start_index, end_index, maximal_cliques}, where
         the last value is a set of indices in this data structure.
         """
-        self.c_data = {}
+        self.c_data = OrderedDict()
 
         # Add all the unary cliques
         for i in range(self.m):
@@ -95,6 +96,12 @@ class CliqueTree(object):
                         for id_perm in permutations(id):
                             self.c_data[id_perm] = self.c_data[id]
         self.d = start_index
+    
+    def iter_index(self):
+        """Iterates over the (clique_members, values) indices"""
+        for c, c_data in self.c_data.items():
+            for vals in product(range(1, self.k+1), repeat=c_data['size']):
+                yield (c, vals)
 
 
 class LabelModel(Classifier):
