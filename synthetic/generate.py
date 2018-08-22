@@ -535,32 +535,32 @@ class SingleTaskTreeDepsGenerator(object):
 
         # Here we'll do a simple, stupid experiment.
         # Let's verify that P(1,2|0) = P(1|0) P(2|0)
-        y = 2
-        a = 0
-        Zy = self.get_Z(y)
+        #y = 2
+        # a = 0
+        # Zy = self.get_Z(y)
 
-        on_joint = dict()
-        on_joint[0] = a
-        on_joint[9] = a
-        p_012 = self.naive_SPA(5,a,on_joint)[y-1] / Zy
-        p_0 = self.naive_SPA(5,a)[y-1] / Zy
-        p_joint_cond = p_012/p_0
+        # on_joint = dict()
+        # on_joint[0] = a
+        # on_joint[9] = a
+        # p_012 = self.naive_SPA(5,a,on_joint)[y-1] / Zy
+        # p_0 = self.naive_SPA(5,a)[y-1] / Zy
+        # p_joint_cond = p_012/p_0
 
-        o_n_1 = dict()
-        o_n_1[0] = a
-        o_n_2 = dict()
-        o_n_2[9] = a
+        # o_n_1 = dict()
+        # o_n_1[0] = a
+        # o_n_2 = dict()
+        # o_n_2[9] = a
 
-        p_01 = self.naive_SPA(5,a,o_n_1)[y-1] / Zy
-        p_02 = self.naive_SPA(5,a,o_n_2)[y-1] / Zy
-        p_1_cond_0 = p_01 / p_0
-        p_2_cond_0 = p_02 / p_0
+        # p_01 = self.naive_SPA(5,a,o_n_1)[y-1] / Zy
+        # p_02 = self.naive_SPA(5,a,o_n_2)[y-1] / Zy
+        # p_1_cond_0 = p_01 / p_0
+        # p_2_cond_0 = p_02 / p_0
 
-        print("\n\nP(L_1 = 1, L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_joint_cond)
-        print("P(L_1 = 1, Y=1 | L_0 = 1, Y=1) = ", p_1_cond_0)
-        print("P(L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_2_cond_0)
-        print("their product = ", p_1_cond_0 * p_2_cond_0)
-        print("the error: ", p_joint_cond - p_1_cond_0*p_2_cond_0, "\n\n")
+        # print("\n\nP(L_1 = 1, L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_joint_cond)
+        # print("P(L_1 = 1, Y=1 | L_0 = 1, Y=1) = ", p_1_cond_0)
+        # print("P(L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_2_cond_0)
+        # print("their product = ", p_1_cond_0 * p_2_cond_0)
+        # print("the error: ", p_joint_cond - p_1_cond_0*p_2_cond_0, "\n\n")
 
         #self._generate_true_mu(higher_order = True, include_Y=False)
         #self._generate_true_O(higher_order = True, include_Y=False)

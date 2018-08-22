@@ -148,7 +148,7 @@ class LabelModel(Classifier):
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
         if self.config['higher_order_cliques']:
-            for c, c_data in self.c_data.items():
+            for c, c_data in self.c_tree.c_data.items():
                 si, ei = c_data['start_index'], c_data['end_index']
                 nc = c_data['size']
                 if nc > 1:
@@ -166,7 +166,8 @@ class LabelModel(Classifier):
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
         """
-        L_aug = self._get_augmented_label_matrix(L, offset=1)
+        L_aug = self._get_augmented_label_matrix(L)
+        #L_aug = self._get_augmented_label_matrix(L, offset=1)
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
@@ -195,7 +196,8 @@ class LabelModel(Classifier):
         if self.O_inv is None:
             if self.config['verbose']:
                 print("Computing O^{-1}...")
-            L_aug = self._get_augmented_label_matrix(L, offset=1)
+            #L_aug = self._get_augmented_label_matrix(L, offset=1)
+            L_aug = self._get_augmented_label_matrix(L)
             with mpmath.workdps(self.config['O_inv_prec']):
                 O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
                 n = mpmath.mpf(self.n)
