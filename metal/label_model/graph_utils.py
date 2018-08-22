@@ -13,9 +13,12 @@ def get_clique_tree(nodes, edges):
     add a step to triangulate non-chordal graphs.
     """
     # Form the original graph G1
+    print("GET CLIQUE TREE 1")
     G1 = nx.Graph()
     G1.add_nodes_from(nodes)
+    print("GET CLIQUE TREE 2")
     G1.add_edges_from(edges)
+    print("GET CLIQUE TREE 3")
 
     # Check if graph is chordal
     # TODO: Add step to triangulate graph if not
@@ -26,6 +29,7 @@ def get_clique_tree(nodes, edges):
     # Each node is a maximal clique C_i
     # Let w = |C_i \cap C_j|; C_i, C_j have an edge with weight w if w > 0
     G2 = nx.Graph()
+    print("GET CLIQUE TREE 4")
     for i, c in enumerate(nx.chordal_graph_cliques(G1)):
         G2.add_node(i, members=c)
     for i in G2.nodes:
@@ -34,6 +38,6 @@ def get_clique_tree(nodes, edges):
             w = len(S)
             if w > 0:
                 G2.add_edge(i, j, weight=w, members=S)
-    
+    print("GET CLIQUE TREE 5")
     # Return a minimum spanning tree of G2
     return nx.minimum_spanning_tree(G2)

@@ -34,7 +34,9 @@ class CliqueTree(object):
         self.m = m
         self.k = k
         self.edges = edges
+        print("INIT 1")
         self.c_tree = get_clique_tree(range(self.m), self.edges)
+        print("INIT 2")
         self._build_c_data(higher_order_cliques=higher_order_cliques)
 
     def _build_c_data(self, higher_order_cliques=True):
@@ -43,6 +45,7 @@ class CliqueTree(object):
         the last value is a set of indices in this data structure.
         """
         self.c_data = OrderedDict()
+        print("CLIQUE TREE 1")
 
         # Add all the unary cliques
         for i in range(self.m):
@@ -360,17 +363,21 @@ class LabelModel(Classifier):
             - Then, compute Q = mu P mu.T
             - Finally, estimate mu subject to mu P mu.T = Q and (1b)
         """
+        print("I GOT HERE")
         self.config = recursive_merge_dicts(self.config, kwargs, 
             misses='ignore')
 
         # TODO: Change internals to use sparse throughout and delete this:
         if issparse(L):
             L = L.todense()
+        print("I GOT HERE 2")
 
         self._set_constants(L)
+        print("I GOT HERE 3")
         self.c_tree = CliqueTree(self.m, self.k, deps) if c_tree is None else \
             c_tree
         self.d = self.c_tree.d
+        print("I GOT HERE 4")
 
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
