@@ -50,7 +50,7 @@ class SingleTaskTreeDepsGenerator(object):
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains.
     """
-    def __init__(self, n, m, k=2, class_balance='random', theta_range=(0.1, 1), 
+    def __init__(self, n, m, k=2, class_balance=None, theta_range=(0.1, 1), 
         edge_prob=0.0, theta_edge_range=(0.1,0.3), special_edge_range=(0.6,1), edges_list=None, higher_order=False, **kwargs):
         self.n = n
         self.m = m
@@ -84,8 +84,14 @@ class SingleTaskTreeDepsGenerator(object):
 
         # Correct output type
         self.L = csr_matrix(self.L, dtype=np.int)
-        self._generate_rank_one_O()
-        self._generate_rank_one_mu()
+        # self.P_vals_true()
+        # print("LENGTH OF P SOLO: ", len(self.p_solo))
+        # self.P_joints_true()
+        # print("LENGTH OF P SOLO: ", len(self.p_solo))
+        # self._generate_rank_one_O_k_1()
+        # print("LENGTH OF P SOLO: ", len(self.p_solo))
+        # self._generate_rank_one_mu_k_1()
+        # print("LENGTH OF P SOLO: ", len(self.p_solo))
     
     def _generate_edges(self, edge_prob):
         """Generate a random tree-structured dependency graph based on a
@@ -317,6 +323,7 @@ class SingleTaskTreeDepsGenerator(object):
             for i in range(self.m):
                 print("Labeler = ", i)
                 for val in range(self.k+1):
+                    print("val: ", val)
                     print("i: ", i, " y: ", y, " val: ", val)
                     self.p_solo[(i,val,y)] = self.naive_SPA(i,y)[val] / Z
                     print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
@@ -348,6 +355,42 @@ class SingleTaskTreeDepsGenerator(object):
             mu[i] += p_no_abstain_2*self.p_solo[i,2,2]*0.5
             mu[i] -= p_no_abstain_1*self.p_solo[i,2,1]*0.5
             mu[i] -= p_no_abstain_2*self.p_solo[i,1,2]*0.5
+        self.rank_one_mu = copy.deepcopy(mu)
+
+    def _generate_rank_one_O_k_1(self):
+        # k = 2 in this case
+        print("LENGTH OF P SOLO O: ", len(self.p_solo))
+        O = np.zeros((self.m,self.m),dtype=float)
+        for i in range(self.m):
+            for j in range(self.m):
+                O[i,j] += self.p_joints[(i,1,j,1,1)]*0.5 
+                O[i,j] += self.p_joints[(i,1,j,1,2)]*0.5
+                O[i,j] += self.p_joints[(i,2,j,2,2)]*0.5
+                O[i,j] += self.p_joints[(i,2,j,2,1)]*0.5
+                O[i,j] -= self.p_joints[(i,1,j,2,1)]*0.5
+                O[i,j] -= self.p_joints[(i,2,j,1,1)]*0.5
+                O[i,j] -= self.p_joints[(i,1,j,2,2)]*0.5
+                O[i,j] -= self.p_joints[(i,2,j,1,2)]*0.5
+        self.rank_one_O = copy.deepcopy(O)
+
+    def _generate_rank_one_mu_k_1(self):
+        print("LENGTH OF P SOLO mu: ", len(self.p_solo))
+        mu = np.zeros((self.m,),dtype=float)
+        #import pdb; pdb.set_trace()
+        for i in range(self.m):
+            mu[i] += self.p_solo[i,0,1]*0.5
+            mu[i] += self.p_solo[i,1,2]*0.5
+            mu[i] -= self.p_solo[i,1,1]*0.5
+            mu[i] -= self.p_solo[i,0,2]*0.5
+        self.rank_one_mu = copy.deepcopy(mu)
+
+    def _generate_rank_one_mu_k_1_alpha(self):
+        print("LENGTH OF P SOLO mu: ", len(self.p_solo))
+        alpha = np.zeros((self.m,),dtype=float)
+        for i in range(self.m):
+            alpha[i] += self.p_solo[i,1,1]*0.5
+            alpha[i] += self.p_solo[i,2,2]*0.5
+        mu = 2*alpha - 1
         self.rank_one_mu = copy.deepcopy(mu)
 
                     
@@ -425,9 +468,9 @@ class SingleTaskTreeDepsGenerator(object):
                 nodes_1 = self._get_node_index(idx1)
                 nodes_2 = self._get_node_index(idx2)
                 
-                #print("idx1 , idx2 = ", idx1, idx2)
-                #print("nodes_1 = ", nodes_1)
-                #print("nodes_2 = ", nodes_2)
+                print("idx1 , idx2 = ", idx1, idx2)
+                print("nodes_1 = ", nodes_1)
+                print("nodes_2 = ", nodes_2)
 
                 sm = 0
                 # check for overlaps between the two node sets:
@@ -447,6 +490,7 @@ class SingleTaskTreeDepsGenerator(object):
                         if len(nodes) == 0:
                             sm += self.p_solo[(nv[0], nv[1], y)] * self.p[y-1]
                         else:
+                            #import pdb; pdb.set_trace()
                             sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) * self.p[y-1]
                         
                 self.O_true[idx1, idx2] = sm
@@ -487,7 +531,7 @@ class SingleTaskTreeDepsGenerator(object):
 
         self._generate_true_mu(higher_order = higher_order)
         self._generate_true_O(higher_order = higher_order)
-
+        #import pdb; pdb.set_trace()
         print(self.O_true)
         print("\nCondition number = ", np.linalg.cond(self.O_true), "\n")
         print(self.mu_true)
