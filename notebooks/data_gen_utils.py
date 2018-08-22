@@ -30,6 +30,7 @@ class DataGenerator(object):
         self.Oinv = None
         self.sig = None
         self.L = None
+        self.Y = None
 
     def generate_O(self, k=0):
         """
@@ -76,6 +77,7 @@ class DataGenerator(object):
         self.O = copy.deepcopy(O)
         self.Oinv = copy.deepcopy(Oinv)
         self.sig = copy.deepcopy(sig)
+        self.Y = copy.deepcopy(Y)
 
     def generate_independent(self):
         self.mu = np.array(self.accs)
@@ -145,11 +147,12 @@ class DataGenerator(object):
         # k lfs
         # 0,2,4,6 --> LFs
         # 1,3,5,7 --> features
-        deps = [(i,i) for i in range(self.m)]
+        #deps = [(i,i) for i in range(self.m)]
+        deps = []
         L = np.zeros(( self.m,self.n))
         for i in range(k):
             deps.append((2*i,2*i+1))
-            deps.append((2*i+1,2*i))
+            #deps.append((2*i+1,2*i))
             for j in range(self.n):
                 L[2*i,j] = Y[j] if random() < accs[i] else -Y[j]
                 if ((random() < 0.75) and (L[2*i,j] == Y[j]) and (Y[j] == 1)) or ((random() < 0.25) and (L[2*i,j] != Y[j])  and (Y[j] == 1)):

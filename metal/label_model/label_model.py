@@ -90,9 +90,11 @@ class CliqueTree(object):
                         'max_cliques': set([item]) if C_type == 'node' 
                             else set(item),
                         'size': nc,
-                        'members': set(members)
+                        'members': members,
+                        #'members': set(members)
                     }
                     start_index += w
+        print("START INDEX: ", start_index)
         self.d = start_index
     
     def iter_index(self):
@@ -140,17 +142,20 @@ class LabelModel(Classifier):
         """
         # TODO: Be clear how to pass in the higher-order and all-cliques opts!
         L_aug = np.zeros((self.n, self.c_tree.d))
+        print("L AUG SAHPE: ", L_aug.shape)
 
         # Create the basic indicator version of the source label matrix
         L_ind = self._create_L_ind(L)
 
         if self.config['all_unary_cliques']:
+            print("ALL UNARY CLIQUES")
             L_aug[:, :self.m * self.k] = np.copy(L_ind)
         
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
         if self.config['higher_order_cliques']:
+            print("HIGHER ORDER CLIQUES")
             for c, c_data in self.c_tree.c_data.items():
                 si, ei = c_data['start_index'], c_data['end_index']
                 nc = c_data['size']
@@ -158,6 +163,7 @@ class LabelModel(Classifier):
                     L_C = np.ones((self.n, self.k ** nc))
                     for i, vals in enumerate(product(range(self.k), repeat=nc)):
                         for j, v in enumerate(vals):
+                            #import pdb; pdb.set_trace()
                             L_C[:,i] *= L_ind[:,c_data['members'][j]*self.k + v]
                     L_aug[:, si:ei] = L_C
         return L_aug
@@ -190,6 +196,8 @@ class LabelModel(Classifier):
         else:
             self.O_inv = None
 
+        print(self.O.numpy().shape)
+        print(self.O.numpy())
         # Print warning if O is poorly conditioned
         kappa_O = np.linalg.cond(self.O.numpy())
         if kappa_O > self.config['kappa_warning_thresh']:
@@ -203,7 +211,12 @@ class LabelModel(Classifier):
             L_aug = self._get_augmented_label_matrix(L)
             with mpmath.workdps(self.config['O_inv_prec']):
                 O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
+                print("O unnorm  ", O_unnorm)
                 n = mpmath.mpf(self.n)
+                print("n: ", n)
+                # TRYING SOMETHING
+                #O_unnorm = O_unnorm[:6,:6]
+                #print("New O unnorm ", O_unnorm)
                 O_inv = (O_unnorm / n) ** -1
                 self.O_inv = torch.from_numpy(
                     np.array(O_inv.tolist(), dtype=float)).float()
@@ -268,6 +281,8 @@ class LabelModel(Classifier):
         self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
+            # Trying something
+            #self.Z = nn.Parameter(torch.randn(self.m, self.k)).float()
             self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
 
         # Build the mask over O^{-1}
@@ -307,6 +322,8 @@ class LabelModel(Classifier):
         return X / Z
 
     def loss_inv_Z(self, l2=0.0):
+        #print("O inv size: ", self.O_inv.shape)
+        #print("Z size: ", self.Z.shape)
         loss_1 = torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask])**2
         loss_l2 = torch.norm(self.Z)**2
         return loss_1 + l2 * loss_l2
@@ -444,8 +461,9 @@ class LabelModel(Classifier):
             optimizer.step()
             
             # Print loss every print_every steps
-            if (self.config['verbose'] and 
-                (epoch % train_config['print_every'] == 0 
-                or epoch == train_config['n_epochs'] - 1)):
+            #if (self.config['verbose'] and 
+                #(epoch % train_config['print_every'] == 0 
+                #or epoch == train_config['n_epochs'] - 1)):
+            if epoch % 1000 == 0:
                 msg = f"[Epoch {epoch}] Loss: {loss.item():0.6f}"
                 print(msg)
