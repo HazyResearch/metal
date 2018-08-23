@@ -5,7 +5,7 @@ import torch.nn as nn
 
 
 class SparseLinearModule(nn.Module):
-    def __init__(self, embed_size, vocab_size, padding_idx=None):
+    def __init__(self, embed_size, vocab_size, padding_idx=0):
         super().__init__()
         self.vocab_size = vocab_size
         self.padding_idx = padding_idx
