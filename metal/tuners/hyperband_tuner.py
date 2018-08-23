@@ -146,11 +146,15 @@ class HyperbandTuner(ModelTuner):
 
     def search(
         self,
-        init_args,
-        train_args,
+        search_space,
         X_dev,
         Y_dev,
-        search_space,
+        init_args=[],
+        train_args=[],
+        init_kwargs={},
+        train_kwargs={},
+        max_search=None,
+        shuffle=True,
         verbose=True,
         **score_kwargs,
     ):
