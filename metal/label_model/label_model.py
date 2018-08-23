@@ -43,6 +43,7 @@ class CliqueTree(object):
         the last value is a set of indices in this data structure.
         """
         self.c_data = OrderedDict()
+        self.c_data_1 = OrderedDict()
 
         # Add all the unary cliques
         for i in range(self.m):
@@ -54,11 +55,21 @@ class CliqueTree(object):
                 'size': 1,
                 'members': {i}
             }
+
+            self.c_data_1[(i,)] = {
+                'start_index': i ,
+                'end_index': (i+1),
+                'max_cliques': set([j for j in self.c_tree.nodes() 
+                    if i in self.c_tree.node[j]['members']]),
+                'size': 1,
+                'members': {i}
+            }
         
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
         start_index = self.m * self.k
+        start_index_1 = self.m
         if higher_order_cliques:
             for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
                 if isinstance(item, int):
@@ -89,7 +100,16 @@ class CliqueTree(object):
                         'size': nc,
                         'members': set(members)
                     }
+                    self.c_data_1[id] = {
+                        'start_index': start_index_1,
+                        'end_index': start_index_1 + 1,
+                        'max_cliques': set([item]) if C_type == 'node' 
+                            else set(item),
+                        'size': nc,
+                        'members': set(members)
+                    }
                     start_index += w
+                    start_index_1 += 1
         self.d = start_index
     
     def iter_index(self):
@@ -107,6 +127,7 @@ class LabelModel(Classifier):
         class_balance: (np.array) each class's percentage of the population
     """
     def __init__(self, k=2, class_balance=None, **kwargs):
+        print(k)
         config = recursive_merge_dicts(lm_default_config, kwargs)
         super().__init__(k, config)
 
@@ -216,9 +237,9 @@ class LabelModel(Classifier):
     def _build_mask(self):
         """Build mask applied to O^{-1}, O for the matrix approx constraint"""
         self.mask = torch.ones(self.d, self.d).byte()
-        for members_i, ci in self.c_tree.c_data.items():
+        for members_i, ci in self.c_data.items():
             si, ei = ci['start_index'], ci['end_index']
-            for members_j, cj in self.c_tree.c_data.items():
+            for members_j, cj in self.c_data.items():
                 sj, ej = cj['start_index'], cj['end_index']
 
                 # Check if ci and cj are part of the same maximal clique
@@ -250,7 +271,9 @@ class LabelModel(Classifier):
         """
         # Initialize mu so as to break basic reflective symmetry
         self.mu_init = torch.randn(self.d, self.k)
-        for members_i, ci in self.c_tree.c_data.items():
+        print("our k is", self.k)
+        #self.mu_init = torch.randn(self.d, 1)
+        '''for members_i, ci in self.c_data.items():
             si, ei = ci['start_index'], ci['end_index']
 
             # Unary cliques
@@ -259,7 +282,7 @@ class LabelModel(Classifier):
 
             # Higher-order cliques
             # TODO
-        
+        '''
         self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
@@ -324,8 +347,9 @@ class LabelModel(Classifier):
         #    torch.sum(self.mu @ self.P, 1) - torch.diag(self.O))**2
         loss_2 = torch.norm(
             torch.sum(self.mu, 1) - torch.diag(self.O))**2     
-        return loss_1 + loss_2
-    
+        #return loss_1 + loss_2
+        return loss_1
+
     def loss_mu(self, l2=0.0):
         loss_1 = torch.norm(
         #    (self.O - self.mu @ self.P @ self.mu.t())[self.mask])**2
@@ -341,7 +365,7 @@ class LabelModel(Classifier):
         self.n, self.m = L.shape
         self.t = 1
 
-    def train(self, L, deps=[], O=None, c_tree=None, **kwargs):
+    def train(self, L, deps=[], O=None, c_data=None, **kwargs):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
         whether source dependencies are provided or not:
         
@@ -366,8 +390,8 @@ class LabelModel(Classifier):
             L = L.todense()
 
         self._set_constants(L)
-        self.c_tree = CliqueTree(self.m, self.k, deps) if c_tree is None else \
-            c_tree
+        self.c_tree = CliqueTree(self.m, self.k, deps)
+        self.c_data =  self.c_tree.c_data if c_data is None else c_data
         self.d = self.c_tree.d
 
         # Whether to take the simple conditionally independent approach, or the

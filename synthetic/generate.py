@@ -64,14 +64,14 @@ class SingleTaskTreeDepsGenerator(object):
         self.E, self.parent = [], {}
         self.G = nx.Graph()
         self.E_order = dict()
-        self.E = [(0,1), (1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,9)]
+        self.E = [(0,1), (1,2), (2,3), (3,4)]#, (4,5), (5,6), (6,7), (7,8), (8,9)]
         
-        for i in range(9):
+        self.n_edges = len(self.E)        
+        for i in range(self.n_edges):
             self.E_order[i] = (i,i+1)
             self.G.add_edge(i,i+1)
             self.parent[i+1] = i
-        self.n_edges = len(self.E)
-        self.c_tree = CliqueTree(m, k, self.E)
+        self.c_tree = CliqueTree(m, k, self.E, higher_order_cliques=True)
         
         # Generate class-conditional LF & edge parameters, stored in self.theta
         self._generate_params(theta_range, theta_edge_range)
@@ -128,8 +128,8 @@ class SingleTaskTreeDepsGenerator(object):
         #       formulation from the arxiv paper
         te_min, te_max = min(theta_edge_range), max(theta_edge_range)
         for (i,j) in self.E:
-            for y1 in range(1, self.k+1):
-                for y2 in range(1, self.k+1):
+            for y1 in range(0, self.k+1):
+                for y2 in range(0, self.k+1):
                     #w_ij = (te_max - te_min) * random() + te_min
                     w_ij = (te_max - te_min) * random(self.k) + te_min
                     self.theta[((i, j), y1, y2)] = w_ij
@@ -251,7 +251,7 @@ class SingleTaskTreeDepsGenerator(object):
                 print("Labeler = ", i)
                 for val in range(self.k+1):
                     self.p_solo[(i,val,y)] = self.naive_SPA(i,y)[val] / Z
-                    print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
+                    #print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
                     
     # these are the real joint probabilities for each pair of nodes:
     def P_joints_true(self):
@@ -262,7 +262,7 @@ class SingleTaskTreeDepsGenerator(object):
 
             for i in range(self.m):
                 for j in range(i+1, self.m):
-                    print("Labelers = ", (i,j))
+                    #print("Labelers = ", (i,j))
 
                     for val1 in range(self.k+1):
                         for val2 in range(self.k+1):
@@ -270,7 +270,7 @@ class SingleTaskTreeDepsGenerator(object):
                             other_nodes[j] = val2
                             self.p_joints[(i,val1,j,val2,y)] = self.naive_SPA(i,y,other_nodes=other_nodes)[val1] / Z
                             self.p_joints[(j,val2,i,val1,y)] = self.p_joints[(i,val1,j,val2,y)]
-                            print("P(L_", i, "=", val1, ", L_", j, "=", val2, " | Y = ", y, ") = ", self.p_joints[(i,val1,j,val2,y)])
+                            #print("P(L_", i, "=", val1, ", L_", j, "=", val2, " | Y = ", y, ") = ", self.p_joints[(i,val1,j,val2,y)])
 
     def P_fours_true(self,a,b,c,d,val1,val2,val3,val4,y):
         Z = self.get_Z(y)
@@ -313,10 +313,15 @@ class SingleTaskTreeDepsGenerator(object):
 
         return nodes_1
 
-    def _gen_true_O(self, higher_order=False, include_Y=False, joint_form=False):
+    def _gen_true_O(self, higher_order=False, include_Y=False, joint_form=False, fix_Y=-1):
         Z_vals = dict()
         for y in range(1, self.k+1):
             Z_vals[y] = self.get_Z(y)
+
+        if fix_Y == -1:
+            y_range = range(1,self.k+1)
+        else:
+            y_range = [fix_Y]
 
         if higher_order:
             sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
@@ -366,8 +371,8 @@ class SingleTaskTreeDepsGenerator(object):
                     else:
                         # first node:
                         nv = nodes.popitem()
-                        
-                        for y in range(1,self.k+1):
+                         
+                        for y in y_range:
                             if len(nodes) == 0:
                                 if joint_form:
                                     sm += self.p_solo[(nv[0], nv[1], y)] 
@@ -383,10 +388,15 @@ class SingleTaskTreeDepsGenerator(object):
                 idx2 += 1
             idx1 += 1
 
-    def _generate_true_O(self, higher_order=False, include_Y=False):
+    def _generate_true_O(self, higher_order=False, include_Y=False, fix_Y=-1):
         Z_vals = dict()
         for y in range(1, self.k+1):
             Z_vals[y] = self.get_Z(y)
+
+        if fix_Y == -1:
+            y_range = range(1,self.k+1)
+        else:
+            y_range = [fix_Y]
 
         if higher_order:
             sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
@@ -431,7 +441,7 @@ class SingleTaskTreeDepsGenerator(object):
                         # first node:
                         nv = nodes.popitem()
                         
-                        for y in range(1,self.k+1):
+                        for y in y_range:
                             if len(nodes) == 0:
                                 sm += self.p_solo[(nv[0], nv[1], y)] * self.p[y-1]
                             else:
@@ -442,7 +452,7 @@ class SingleTaskTreeDepsGenerator(object):
             idx1 += 1
     
     # y value is currently broken
-    def _gen_true_mu(self, higher_order=False, include_Y=False):
+    def _gen_true_mu(self, higher_order=False, include_Y=False, fix_Y=-1):
         if higher_order:
             sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
         else:
@@ -451,7 +461,14 @@ class SingleTaskTreeDepsGenerator(object):
         if include_Y:
             sz += self.k-1
 
-        self.mu_true = np.zeros([sz, self.k])
+        if fix_Y == -1:
+            y_range = range(1,self.k+1)
+            width = self.k
+        else:
+            y_range = [fix_Y]
+            width = 1
+
+        self.mu_true = np.zeros([sz, width])
         idx = 0
 
         for clique1 in self.c_tree.iter_index():
@@ -460,13 +477,21 @@ class SingleTaskTreeDepsGenerator(object):
             #print("clique1 = ", clique1)            
 
             if len(clique1[0]) == 1:
-                for y in range(1, self.k+1):
-                    self.mu_true[idx, y-1] = self.p_solo[(clique1[0][0], clique1[1][0], y)]
+                for y in y_range:
+                    if fix_Y == -1:
+                        self.mu_true[idx, y-1] = self.p_solo[(clique1[0][0], clique1[1][0], y)]
+                    else:
+                        self.mu_true[idx, 0] = self.p_solo[(clique1[0][0], clique1[1][0], y)]
+
                 #print("clique vals: ", clique1[0][0], clique1[1][0])
                 idx += 1
             else:
-                for y in range(1, self.k+1):
-                    self.mu_true[idx, y-1] = self.p_joints[(clique1[0][0],clique1[1][0],clique1[0][1],clique1[1][1],y)]
+                for y in y_range:
+                    if fix_Y == -1:
+                        self.mu_true[idx, y-1] = self.p_joints[(clique1[0][0],clique1[1][0],clique1[0][1],clique1[1][1],y)]
+                    else:
+                        self.mu_true[idx, 0] = self.p_joints[(clique1[0][0],clique1[1][0],clique1[0][1],clique1[1][1],y)]
+
                 #print("clique vals: ", clique1[0][0], clique1[1][0], clique1[0][1], clique1[1][1])
                 idx += 1    
 
@@ -481,7 +506,7 @@ class SingleTaskTreeDepsGenerator(object):
         # finally, add a few rows for Y:
         if include_Y:
             for y_row_val in range(1,self.k):
-                for y in range(1, self.k+1):
+                for y in y_range:
                     sm = 0
                     if y_row_val == y:
                         sm = self.p[y-1]
@@ -535,24 +560,30 @@ class SingleTaskTreeDepsGenerator(object):
 
         # Here we'll do a simple, stupid experiment.
         # Let's verify that P(1,2|0) = P(1|0) P(2|0)
-        y = 2
-        a = 0
+        '''y = 2
+        a = 2
         Zy = self.get_Z(y)
+        Zy1 = self.get_Z(1)
+
+        print(self.p)
+        self.p[0] = Zy / (Zy + Zy1)
+        self.p[1] = Zy1 / (Zy + Zy1)
+        print(self.p)
 
         on_joint = dict()
         on_joint[0] = a
-        on_joint[9] = a
-        p_012 = self.naive_SPA(5,a,on_joint)[y-1] / Zy
-        p_0 = self.naive_SPA(5,a)[y-1] / Zy
+        on_joint[2] = a
+        p_012 = self.naive_SPA(1,a,on_joint)[y-1] / Zy
+        p_0 = self.naive_SPA(1,a)[y-1] / Zy
         p_joint_cond = p_012/p_0
 
         o_n_1 = dict()
         o_n_1[0] = a
         o_n_2 = dict()
-        o_n_2[9] = a
+        o_n_2[2] = a
 
-        p_01 = self.naive_SPA(5,a,o_n_1)[y-1] / Zy
-        p_02 = self.naive_SPA(5,a,o_n_2)[y-1] / Zy
+        p_01 = self.naive_SPA(1,a,o_n_1)[y-1] / Zy
+        p_02 = self.naive_SPA(1,a,o_n_2)[y-1] / Zy
         p_1_cond_0 = p_01 / p_0
         p_2_cond_0 = p_02 / p_0
 
@@ -561,14 +592,32 @@ class SingleTaskTreeDepsGenerator(object):
         print("P(L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_2_cond_0)
         print("their product = ", p_1_cond_0 * p_2_cond_0)
         print("the error: ", p_joint_cond - p_1_cond_0*p_2_cond_0, "\n\n")
-
+        '''
         #self._generate_true_mu(higher_order = True, include_Y=False)
         #self._generate_true_O(higher_order = True, include_Y=False)
 
-        joint_form = True
-        self._gen_true_mu(higher_order = True, include_Y=False)
-        self._gen_true_O(higher_order = True, include_Y=False, joint_form=joint_form)
+        sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
+        sz_unrolled = 2 * sz + 1
+        self.unrolled_O = np.zeros([sz_unrolled, sz_unrolled])
+        self.unrolled_mu = np.zeros([sz_unrolled, 1])
+        #self.unrolled_mu = self.unrolled_mu.reshape((sz_unrolled, 1))
 
+        joint_form = True
+        self._gen_true_mu(higher_order = True, include_Y=False, fix_Y=1)
+        self._gen_true_O(higher_order = True, include_Y=False, joint_form=joint_form, fix_Y=1)
+        self.unrolled_O[0:sz, 0:sz] = self.O_true
+        print("shape ", np.shape(self.unrolled_mu))
+        self.unrolled_mu[0:sz,0:1] = self.mu_true
+
+        self._gen_true_mu(higher_order = True, include_Y=False, fix_Y=2)
+        self._gen_true_O(higher_order = True, include_Y=False, joint_form=joint_form, fix_Y=2)
+        self.unrolled_O[sz:2*sz, sz:2*sz] = self.O_true
+        self.unrolled_mu[sz:2*sz,0:1] = self.mu_true
+        
+        self.unrolled_O[2*sz : 2 * sz + 1, sz:2*sz] = self.mu_true.T
+        self.unrolled_O[sz:2*sz, 2*sz:2*sz+1] = self.mu_true
+        self.unrolled_O[2*sz, 2*sz] = self.p[1] 
+        self.unrolled_mu[sz_unrolled-1, 0] = self.p[1]
 
         print(self.O_true)
         print("\nCondition number = ", np.linalg.cond(self.O_true), "\n")
@@ -578,12 +627,16 @@ class SingleTaskTreeDepsGenerator(object):
 
         if joint_form:
             sig = self.O_true - self.mu_true @ self.mu_true.T
+            self.sig_this = sig
+            self.big_sig = self.unrolled_O - self.unrolled_mu @ self.unrolled_mu.T
         else:
             sig = self.O_true - self.mu_true @ np.diag(self.p) @ self.mu_true.T
 
-        with mpmath.workdps(1024):
+        with mpmath.workdps(256):
             sig_hp = mpmath.matrix(sig)
+            sig_big = mpmath.matrix(self.big_sig)
             self.sig_inv_hp = (sig_hp) ** -1
+            self.big_sig_inv_hp = (sig_big) ** -1
 
 
         print("sig\n", sig)       
@@ -594,8 +647,10 @@ class SingleTaskTreeDepsGenerator(object):
         #self.sig_inv = np.linalg.inv(sig)
         #self.sig_inv_hp = self.sig_inv
         self.sig_inv = np.array(self.sig_inv_hp.tolist(), dtype=float)        
-        #print(self.sig_inv_hp)
+        self.big_sig_inv = np.array(self.big_sig_inv_hp.tolist(), dtype=float)        
 
+        #print(self.sig_inv_hp)
+        
         for i in range(self.n):
             y = choice(self.k, p=self.p) + 1  # Note that y \in {1,...,k}
             self.Y[i] = y
