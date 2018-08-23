@@ -64,7 +64,8 @@ class SingleTaskTreeDepsGenerator(object):
         self.E, self.parent = [], {}
         self.G = nx.Graph()
         self.E_order = dict()
-        self.E = [(0,1), (1,2), (2,3), (3,4)]#, (4,5), (5,6), (6,7), (7,8), (8,9)]
+        for i in range(m-1):
+            self.E.append((i,i+1))
         
         self.n_edges = len(self.E)        
         for i in range(self.n_edges):
@@ -135,8 +136,8 @@ class SingleTaskTreeDepsGenerator(object):
                     self.theta[((i, j), y1, y2)] = w_ij
                     #self.theta[((j, i), y1, y2)] = w_ij
 
-        for key in self.theta:
-            print(key, " ", self.theta[key])
+        #for key in self.theta:
+        #    print(key, " ", self.theta[key])
     
 
     def get_Z(self, y):
@@ -248,7 +249,7 @@ class SingleTaskTreeDepsGenerator(object):
             Z = self.get_Z(y)
 
             for i in range(self.m):
-                print("Labeler = ", i)
+                #print("Labeler = ", i)
                 for val in range(self.k+1):
                     self.p_solo[(i,val,y)] = self.naive_SPA(i,y)[val] / Z
                     #print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
@@ -606,7 +607,6 @@ class SingleTaskTreeDepsGenerator(object):
         self._gen_true_mu(higher_order = True, include_Y=False, fix_Y=1)
         self._gen_true_O(higher_order = True, include_Y=False, joint_form=joint_form, fix_Y=1)
         self.unrolled_O[0:sz, 0:sz] = self.O_true
-        print("shape ", np.shape(self.unrolled_mu))
         self.unrolled_mu[0:sz,0:1] = self.mu_true
 
         self._gen_true_mu(higher_order = True, include_Y=False, fix_Y=2)
@@ -619,11 +619,11 @@ class SingleTaskTreeDepsGenerator(object):
         self.unrolled_O[2*sz, 2*sz] = self.p[1] 
         self.unrolled_mu[sz_unrolled-1, 0] = self.p[1]
 
-        print(self.O_true)
+        '''print(self.O_true)
         print("\nCondition number = ", np.linalg.cond(self.O_true), "\n")
         print(self.mu_true)
 
-        print(self.p)
+        print(self.p)'''
 
         if joint_form:
             sig = self.O_true - self.mu_true @ self.mu_true.T
@@ -639,11 +639,11 @@ class SingleTaskTreeDepsGenerator(object):
             self.big_sig_inv_hp = (sig_big) ** -1
 
 
-        print("sig\n", sig)       
+        '''print("sig\n", sig)       
         print("\nCondition number = ", np.linalg.cond(sig), "\n")
 
         print("moment of truth!!!")
-        print("note this is with the joint form!")
+        print("note this is with the joint form!")'''
         #self.sig_inv = np.linalg.inv(sig)
         #self.sig_inv_hp = self.sig_inv
         self.sig_inv = np.array(self.sig_inv_hp.tolist(), dtype=float)        
