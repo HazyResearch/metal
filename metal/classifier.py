@@ -135,7 +135,7 @@ class Classifier(nn.Module):
         lr_scheduler = self._set_scheduler(scheduler_config, optimizer)
 
         # Create the checkpointer if applicable
-        if train_config["checkpoint"]:
+        if evaluate_dev and train_config["checkpoint"]:
             checkpoint_config = train_config["checkpoint_config"]
             model_class = type(self).__name__
             checkpointer = Checkpointer(
@@ -206,7 +206,7 @@ class Classifier(nn.Module):
                 print(msg)
 
         # Restore best model if applicable
-        if train_config["checkpoint"]:
+        if evaluate_dev and train_config["checkpoint"]:
             checkpointer.restore(model=self)
 
         if self.config["verbose"]:
