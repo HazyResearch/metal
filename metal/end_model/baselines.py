@@ -26,7 +26,7 @@ class SparseLogisticRegression(EndModel):
             will pass through it.
     """
 
-    def __init__(self, input_dim, output_dim=2, padding_idx=None, **kwargs):
+    def __init__(self, input_dim, output_dim=2, padding_idx=0, **kwargs):
         layer_out_dims = [input_dim, output_dim]
         sparse_linear = SparseLinearModule(
             vocab_size=input_dim, embed_size=output_dim, padding_idx=padding_idx
