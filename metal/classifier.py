@@ -155,6 +155,22 @@ class Classifier(nn.Module):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
 
+                # Add L1/L2 penalties
+                l1_penalty = train_config.get("l1", 0)
+                l2_penalty = train_config.get("l2", 0)
+                if l1_penalty or l2_penalty:
+                    l1_loss = 0.0
+                    l2_loss = 0.0
+                    for param in self.parameters():
+                        if l1_penalty:
+                            l1_loss += torch.norm(param, 1)
+                        if l2_penalty:
+                            l2_loss += torch.norm(param, 2)
+                    if l1_penalty:
+                        loss += l1_loss * train_config["l1"]
+                    if l2_penalty:
+                        loss += l2_loss * train_config["l2"]
+
                 # Backward pass to calculate gradients
                 loss.backward()
 
