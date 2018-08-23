@@ -31,11 +31,13 @@ class ModelTuner(object):
 
     def search(
         self,
-        init_args,
-        train_args,
+        search_space,
         X_dev,
         Y_dev,
-        search_space,
+        init_args=[],
+        train_args=[],
+        init_kwargs={},
+        train_kwargs={},
         max_search=None,
         shuffle=True,
         verbose=True,
@@ -43,15 +45,16 @@ class ModelTuner(object):
     ):
         """
         Args:
+            search_space: see config_generator() documentation
+            X_dev: The appropriate input for evaluating the given model
+            Y_dev: An [n] or [n, 1] tensor of gold labels in {0,...,K_t} or a
+                t-length list of such tensors if model.multitask=True.
             init_args: (list) positional args for initializing the model
             train_args: (list) positional args for training the model
-            X_dev: The appropriate input for evaluating the given model
-            Y_dev: n [n] or [n, 1] tensor of gold labels in {0,...,K_t} or a
-                t-length list of such tensors if model.multitask=True.
-            search_space: see config_generator() documentation
+            init_kwargs: (dict) keyword args for initializing the model
+            train_kwargs: (dict) keyword args for training the model
             max_search: see config_generator() documentation
             shuffle: see config_generator() documentation
-
         Returns:
             best_model: the highest performing trained model
 
