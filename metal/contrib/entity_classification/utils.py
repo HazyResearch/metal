@@ -1,4 +1,4 @@
-def mark_entities(tokens, positions, markers=[]):
+def mark_entities(tokens, positions, markers=[], style="insert"):
     """Adds special markers around tokens at specific positions (e.g., entities)
 
     Args:
@@ -12,6 +12,16 @@ def mark_entities(tokens, positions, markers=[]):
             values corresponding to one or more inclusive ranges corresponding
             to that mention. (Allows entities to potentially have multiple
             mentions)
+        markers: A list of strings (length of 2 * the number of entities) to
+            use as markers of the entities.
+        style: Where to apply the markers:
+            'insert': Insert the markers as new tokens before/after each entity
+            'concatenate': Prepend/append the markers to the first/last token
+                of each entity
+            If the tokens are going to be input to an LSTM, then it is usually
+            best to use the 'insert' option; 'concatenate' may be better for
+            viewing.
+
     Returns:
         toks: An extended list of tokens with markers around the mentions
 
@@ -55,6 +65,12 @@ def mark_entities(tokens, positions, markers=[]):
         else:
             start_marker = f"[[BEGIN{idx}]]"
             end_marker = f"[[END{idx}]]"
-        toks.insert(si + 2 * i, start_marker)
-        toks.insert(ei + 2 * (i + 1), end_marker)
+        if style == "insert":
+            toks.insert(si + 2 * i, start_marker)
+            toks.insert(ei + 2 * (i + 1), end_marker)
+        elif style == "concatenate":
+            toks[si] = start_marker + toks[si]
+            toks[ei] = toks[ei] + end_marker
+        else:
+            raise NotImplementedError
     return toks
