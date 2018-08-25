@@ -20,9 +20,10 @@ class RelationNgramFeaturizer(Featurizer):
         stem: if True, stem all tokens
         ngram_range: a tuple corresponding to the smallest sized ngrams and
             largest sized ngrams to be included in the feature set
-        max_features: the maximum number of features to use (keeping the most
-            frequent)
-
+        kwargs: keyword arguments to pass on to the CountVectorizer.
+            (See http://scikit-learn.org/stable/modules/generated/sklearn.
+            feature_extraction.text.CountVectorizer.html for full details)
+            Options include max_features, min_df, max_df, etc.
     """
 
     def __init__(
@@ -33,7 +34,7 @@ class RelationNgramFeaturizer(Featurizer):
         drop_stopwords=True,
         stem=True,
         ngram_range=(1, 3),
-        max_features=None,
+        **vectorizer_kwargs,
     ):
         self.anonymize = anonymize
         self.lowercase = lowercase
@@ -47,10 +48,7 @@ class RelationNgramFeaturizer(Featurizer):
             self.porter = nltk.PorterStemmer()
 
         self.vectorizer = CountVectorizer(
-            analyzer="word",
-            binary=True,
-            ngram_range=ngram_range,
-            max_features=max_features,
+            ngram_range=ngram_range, binary=True, **vectorizer_kwargs
         )
 
     def preprocess(self, mentions):
