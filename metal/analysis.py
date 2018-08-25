@@ -1,11 +1,16 @@
 from collections import Counter, defaultdict
 
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import scipy.sparse as sparse
 from pandas import DataFrame, Series
 
 from metal.utils import arraylike_to_numpy
+
+# Avoids a potential error when using matplotlib in virtual envrionments
+# https://stackoverflow.com/questions/34977388/matplotlib-runtimeerror-python-
+# is-not-installed-as-a-framework
+matplotlib.use("TkAgg")
 
 
 ############################################################
@@ -195,12 +200,12 @@ def single_lf_summary(Y_p, Y=None):
 def view_label_matrix(L, colorbar=True):
     """Display an [n, m] matrix of labels"""
     L = L.todense() if sparse.issparse(L) else L
-    plt.imshow(L, aspect="auto")
-    plt.title("Label Matrix")
+    matplotlib.pyplot.imshow(L, aspect="auto")
+    matplotlib.pyplot.title("Label Matrix")
     if colorbar:
         labels = sorted(np.unique(np.asarray(L).reshape(-1, 1).squeeze()))
         boundaries = np.array(labels + [max(labels) + 1]) - 0.5
-        plt.colorbar(boundaries=boundaries, ticks=labels)
+        matplotlib.pyplot.colorbar(boundaries=boundaries, ticks=labels)
 
 
 def view_overlaps(L, self_overlaps=False, normalize=True, colorbar=True):
@@ -209,20 +214,20 @@ def view_overlaps(L, self_overlaps=False, normalize=True, colorbar=True):
     G = _get_overlaps_matrix(L, normalize=normalize)
     if not self_overlaps:
         np.fill_diagonal(G, 0)  # Zero out self-overlaps
-    plt.imshow(G, aspect="auto")
-    plt.title("Overlaps")
+    matplotlib.pyplot.imshow(G, aspect="auto")
+    matplotlib.pyplot.title("Overlaps")
     if colorbar:
-        plt.colorbar()
+        matplotlib.pyplot.colorbar()
 
 
 def view_conflicts(L, normalize=True, colorbar=True):
     """Display an [m, m] matrix of conflicts"""
     L = L.todense() if sparse.issparse(L) else L
     C = _get_conflicts_matrix(L, normalize=normalize)
-    plt.imshow(C, aspect="auto")
-    plt.title("Conflicts")
+    matplotlib.pyplot.imshow(C, aspect="auto")
+    matplotlib.pyplot.title("Conflicts")
     if colorbar:
-        plt.colorbar()
+        matplotlib.pyplot.colorbar()
 
 
 def _get_overlaps_matrix(L, normalize=True):
@@ -272,13 +277,13 @@ def plot_probabilities_histogram(Y_p, title=None):
             f"{Y_p.shape}."
         )
         raise ValueError(msg)
-    plt.hist(Y_p, bins=20)
-    plt.xlim((0, 1.025))
-    plt.xlabel("Probability")
-    plt.ylabel("# Predictions")
+    matplotlib.pyplot.hist(Y_p, bins=20)
+    matplotlib.pyplot.xlim((0, 1.025))
+    matplotlib.pyplot.xlabel("Probability")
+    matplotlib.pyplot.ylabel("# Predictions")
     if isinstance(title, str):
-        plt.title(title)
-    plt.show()
+        matplotlib.pyplot.title(title)
+    matplotlib.pyplot.show()
 
 
 def plot_predictions_histogram(Y_ph, Y, title=None):
@@ -291,15 +296,15 @@ def plot_predictions_histogram(Y_ph, Y, title=None):
     labels = list(set(Y).union(set(Y_ph)))
     edges = [x - 0.5 for x in range(min(labels), max(labels) + 2)]
 
-    plt.hist([Y_ph, Y], bins=edges, label=["Predicted", "Gold"])
-    ax = plt.gca()
+    matplotlib.pyplot.hist([Y_ph, Y], bins=edges, label=["Predicted", "Gold"])
+    ax = matplotlib.pyplot.gca()
     ax.set_xticks(labels)
-    plt.xlabel("Label")
-    plt.ylabel("# Predictions")
-    plt.legend(loc="upper right")
+    matplotlib.pyplot.xlabel("Label")
+    matplotlib.pyplot.ylabel("# Predictions")
+    matplotlib.pyplot.legend(loc="upper right")
     if isinstance(title, str):
-        plt.title(title)
-    plt.show()
+        matplotlib.pyplot.title(title)
+    matplotlib.pyplot.show()
 
 
 def error_buckets(gold, pred, X=None):
