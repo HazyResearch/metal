@@ -43,10 +43,10 @@ setuptools.setup(
     license="Apache License 2.0",
     packages=setuptools.find_packages(),
     install_requires=[
-        "networkx=2",
+        "networkx>=2",
         "numpy",
         "pandas",
-        "pytorch=0.4.1",
+        "pytorch>=0.4.1",
         "scipy",
     ],
     include_package_data=True,
