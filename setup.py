@@ -42,6 +42,13 @@ setuptools.setup(
     long_description=long_description,
     license="Apache License 2.0",
     packages=setuptools.find_packages(),
+    install_requires=[
+        "networkx=2",
+        "numpy",
+        "pandas",
+        "pytorch=0.4.1",
+        "scipy",
+    ],
     include_package_data=True,
     keywords="machine-learning ai information-extraction weak-supervision mtl multitask multi-task-learning",
     classifiers=[
