@@ -5,6 +5,7 @@ import numpy as np
 # https://stackoverflow.com/questions/34977388/matplotlib-runtimeerror-python-
 # is-not-installed-as-a-framework
 matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt  # noqa: E402 # isort:skip
 
 
 def compute_mu(L_aug, Y, k, p):
@@ -59,6 +60,6 @@ def print_matrix(X, decimals=1):
 
 
 def visualize_matrix(X, fig_size=(10, 10)):
-    matplotlib.pyplot.rcParams["figure.figsize"] = fig_size
-    matplotlib.pyplot.imshow(X)
-    matplotlib.pyplot.colorbar()
+    plt.rcParams["figure.figsize"] = fig_size
+    plt.imshow(X)
+    plt.colorbar()
