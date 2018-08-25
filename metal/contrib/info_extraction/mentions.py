@@ -90,8 +90,8 @@ class EntityMention(object):
 
     def __repr__(self):
         return (
-            f"""EntityMention("{self.doc_id}-{self.char_start}:"""
-            f"""{self.char_end}, '{self.entity}'")"""
+            f"EntityMention(doc_id={self.doc_id}: '{self.entity}'"
+            f"({self.char_start}:{self.char_end})"
         )
 
     def __hash__(self):
