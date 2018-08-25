@@ -1,5 +1,10 @@
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
+
+# Avoids a potential error when using matplotlib in virtual envrionments
+# https://stackoverflow.com/questions/34977388/matplotlib-runtimeerror-python-
+# is-not-installed-as-a-framework
+matplotlib.use("TkAgg")
 
 
 def compute_mu(L_aug, Y, k, p):
@@ -54,6 +59,6 @@ def print_matrix(X, decimals=1):
 
 
 def visualize_matrix(X, fig_size=(10, 10)):
-    plt.rcParams["figure.figsize"] = fig_size
-    plt.imshow(X)
-    plt.colorbar()
+    matplotlib.pyplot.rcParams["figure.figsize"] = fig_size
+    matplotlib.pyplot.imshow(X)
+    matplotlib.pyplot.colorbar()
