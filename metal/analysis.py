@@ -11,6 +11,7 @@ from metal.utils import arraylike_to_numpy
 # https://stackoverflow.com/questions/34977388/matplotlib-runtimeerror-python-
 # is-not-installed-as-a-framework
 matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt  # noqa: E402 # isort:skip
 
 
 ############################################################
@@ -200,12 +201,12 @@ def single_lf_summary(Y_p, Y=None):
 def view_label_matrix(L, colorbar=True):
     """Display an [n, m] matrix of labels"""
     L = L.todense() if sparse.issparse(L) else L
-    matplotlib.pyplot.imshow(L, aspect="auto")
-    matplotlib.pyplot.title("Label Matrix")
+    plt.imshow(L, aspect="auto")
+    plt.title("Label Matrix")
     if colorbar:
         labels = sorted(np.unique(np.asarray(L).reshape(-1, 1).squeeze()))
         boundaries = np.array(labels + [max(labels) + 1]) - 0.5
-        matplotlib.pyplot.colorbar(boundaries=boundaries, ticks=labels)
+        plt.colorbar(boundaries=boundaries, ticks=labels)
 
 
 def view_overlaps(L, self_overlaps=False, normalize=True, colorbar=True):
@@ -214,20 +215,20 @@ def view_overlaps(L, self_overlaps=False, normalize=True, colorbar=True):
     G = _get_overlaps_matrix(L, normalize=normalize)
     if not self_overlaps:
         np.fill_diagonal(G, 0)  # Zero out self-overlaps
-    matplotlib.pyplot.imshow(G, aspect="auto")
-    matplotlib.pyplot.title("Overlaps")
+    plt.imshow(G, aspect="auto")
+    plt.title("Overlaps")
     if colorbar:
-        matplotlib.pyplot.colorbar()
+        plt.colorbar()
 
 
 def view_conflicts(L, normalize=True, colorbar=True):
     """Display an [m, m] matrix of conflicts"""
     L = L.todense() if sparse.issparse(L) else L
     C = _get_conflicts_matrix(L, normalize=normalize)
-    matplotlib.pyplot.imshow(C, aspect="auto")
-    matplotlib.pyplot.title("Conflicts")
+    plt.imshow(C, aspect="auto")
+    plt.title("Conflicts")
     if colorbar:
-        matplotlib.pyplot.colorbar()
+        plt.colorbar()
 
 
 def _get_overlaps_matrix(L, normalize=True):
@@ -277,13 +278,13 @@ def plot_probabilities_histogram(Y_p, title=None):
             f"{Y_p.shape}."
         )
         raise ValueError(msg)
-    matplotlib.pyplot.hist(Y_p, bins=20)
-    matplotlib.pyplot.xlim((0, 1.025))
-    matplotlib.pyplot.xlabel("Probability")
-    matplotlib.pyplot.ylabel("# Predictions")
+    plt.hist(Y_p, bins=20)
+    plt.xlim((0, 1.025))
+    plt.xlabel("Probability")
+    plt.ylabel("# Predictions")
     if isinstance(title, str):
-        matplotlib.pyplot.title(title)
-    matplotlib.pyplot.show()
+        plt.title(title)
+    plt.show()
 
 
 def plot_predictions_histogram(Y_ph, Y, title=None):
@@ -296,15 +297,15 @@ def plot_predictions_histogram(Y_ph, Y, title=None):
     labels = list(set(Y).union(set(Y_ph)))
     edges = [x - 0.5 for x in range(min(labels), max(labels) + 2)]
 
-    matplotlib.pyplot.hist([Y_ph, Y], bins=edges, label=["Predicted", "Gold"])
-    ax = matplotlib.pyplot.gca()
+    plt.hist([Y_ph, Y], bins=edges, label=["Predicted", "Gold"])
+    ax = plt.gca()
     ax.set_xticks(labels)
-    matplotlib.pyplot.xlabel("Label")
-    matplotlib.pyplot.ylabel("# Predictions")
-    matplotlib.pyplot.legend(loc="upper right")
+    plt.xlabel("Label")
+    plt.ylabel("# Predictions")
+    plt.legend(loc="upper right")
     if isinstance(title, str):
-        matplotlib.pyplot.title(title)
-    matplotlib.pyplot.show()
+        plt.title(title)
+    plt.show()
 
 
 def error_buckets(gold, pred, X=None):
