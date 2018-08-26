@@ -14,5 +14,3 @@ dependencies:
   - pytorch=0.4.1
   - runipy
   - scipy
-  - pip:
-    - torchtext==0.2.3  # contrib only

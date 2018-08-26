@@ -42,6 +42,15 @@ setuptools.setup(
     long_description=long_description,
     license="Apache License 2.0",
     packages=setuptools.find_packages(),
+    python_requires=">=3.6",
+    install_requires=[
+        "matplotlib",
+        "networkx>=2",
+        "numpy",
+        "pandas",
+        "torch>=0.4.1",
+        "scipy",
+    ],
     include_package_data=True,
     keywords="machine-learning ai information-extraction weak-supervision mtl multitask multi-task-learning",
     classifiers=[
@@ -49,6 +58,8 @@ setuptools.setup(
         "Topic :: Scientific/Engineering :: Information Analysis",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
     ],
     project_urls={  # Optional
         "Homepage": "https://hazyresearch.github.io/snorkel/",
