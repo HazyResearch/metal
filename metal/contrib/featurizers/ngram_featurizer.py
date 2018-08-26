@@ -1,7 +1,7 @@
 import nltk
 from sklearn.feature_extraction.text import CountVectorizer
 
-from metal.contrib.featurizers import Featurizer
+from metal.contrib.featurizers.featurizer import Featurizer
 
 
 class RelationNgramFeaturizer(Featurizer):
