@@ -72,7 +72,7 @@ class EndModel(Classifier):
             self.network = nn.Sequential(input_layer, *middle_layers, head)
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduction="sum")
+        self.criteria = SoftCrossEntropyLoss(reduction="sum", use_cuda=self.config['train_config']['use_cuda'])
 
     def _build_input_layer(self, input_module):
         if input_module is None:
@@ -164,7 +164,13 @@ class EndModel(Classifier):
         return data_loader
 
     def _get_loss_fn(self):
-        loss_fn = lambda X, Y: self.criteria(self.forward(X), Y)
+        if hasattr(self.config, 'use_cuda'):
+            if self.config['use_cuda']:
+                criteria = self.criteria.cuda()
+        else:
+            criteria = self.criteria
+        loss_fn = lambda X, Y: criteria(self.forward(X), Y)
+        
         return loss_fn
 
     def train(self, X_train, Y_train, X_dev=None, Y_dev=None, **kwargs):

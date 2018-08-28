@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from tqdm import tqdm
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
@@ -141,11 +142,29 @@ class Classifier(nn.Module):
             checkpointer = Checkpointer(
                 model_class, **checkpoint_config, verbose=self.config["verbose"]
             )
+            
+        # Moving model and dev data to GPU
+        if train_config['use_cuda']:
+            if evaluate_dev:
+                X_dev = X_dev.cuda()
+                Y_dev = Y_dev.cuda()
+            
+            if self.config['verbose']:
+                print('Using GPU...')
+            
+            self.cuda()
 
         # Train the model
         for epoch in range(train_config["n_epochs"]):
             epoch_loss = 0.0
-            for data in train_loader:
+            if self.config['verbose']:
+                print(f'Training epoch {epoch}...')
+            for batch, data in tqdm(enumerate(train_loader), total=len(train_loader)):
+
+                # moving data to GPU
+                if train_config['use_cuda']:
+                    data = [d.cuda() for d in data]
+                    
                 # Zero the parameter gradients
                 optimizer.zero_grad()
 

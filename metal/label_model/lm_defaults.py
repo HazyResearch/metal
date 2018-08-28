@@ -26,5 +26,7 @@ lm_default_config = {
         # Train loop
         "n_epochs": 100,
         "print_every": 10,
+        # GPU
+        "use_cuda": False,
     },
 }

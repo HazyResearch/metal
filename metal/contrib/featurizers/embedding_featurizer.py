@@ -5,7 +5,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torchtext.vocab import Vocab
 
-from metal.contrib.featurizers import Featurizer
+from metal.contrib.featurizers.featurizer import Featurizer
 
 
 class EmbeddingFeaturizer(Featurizer):
