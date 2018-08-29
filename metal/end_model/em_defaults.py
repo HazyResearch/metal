@@ -18,6 +18,7 @@ em_default_config = {
     "train_config": {
         # Display
         "print_every": 1,  # Print after this many epochs
+        "disable_prog_bar": False,  # Disable progress bar each epoch
         # GPU
         "use_cuda": False,
         # Dataloader

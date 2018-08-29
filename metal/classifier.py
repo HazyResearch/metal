@@ -157,10 +157,10 @@ class Classifier(nn.Module):
         # Train the model
         for epoch in range(train_config["n_epochs"]):
             epoch_loss = 0.0
-            if self.config["verbose"]:
-                print(f"Training epoch {epoch}...")
             for batch, data in tqdm(
-                enumerate(train_loader), total=len(train_loader)
+                enumerate(train_loader),
+                total=len(train_loader),
+                disable=train_config["disable_prog_bar"],
             ):
 
                 # moving data to GPU
