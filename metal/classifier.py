@@ -142,29 +142,31 @@ class Classifier(nn.Module):
             checkpointer = Checkpointer(
                 model_class, **checkpoint_config, verbose=self.config["verbose"]
             )
-            
+
         # Moving model and dev data to GPU
-        if train_config['use_cuda']:
+        if train_config["use_cuda"]:
             if evaluate_dev:
                 X_dev = X_dev.cuda()
                 Y_dev = Y_dev.cuda()
-            
-            if self.config['verbose']:
-                print('Using GPU...')
-            
+
+            if self.config["verbose"]:
+                print("Using GPU...")
+
             self.cuda()
 
         # Train the model
         for epoch in range(train_config["n_epochs"]):
             epoch_loss = 0.0
-            if self.config['verbose']:
-                print(f'Training epoch {epoch}...')
-            for batch, data in tqdm(enumerate(train_loader), total=len(train_loader)):
+            if self.config["verbose"]:
+                print(f"Training epoch {epoch}...")
+            for batch, data in tqdm(
+                enumerate(train_loader), total=len(train_loader)
+            ):
 
                 # moving data to GPU
-                if train_config['use_cuda']:
+                if train_config["use_cuda"]:
                     data = [d.cuda() for d in data]
-                    
+
                 # Zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -252,7 +254,9 @@ class Classifier(nn.Module):
 
                 if not self.multitask:
                     print("Confusion Matrix (Dev)")
-                    confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)
+                    confusion_matrix(
+                        Y_p_dev, self._to_numpy(Y_dev), pretty_print=True
+                    )
 
     def _set_optimizer(self, optimizer_config):
         opt = optimizer_config["optimizer"]
@@ -314,6 +318,10 @@ class Classifier(nn.Module):
         Returns:
             scores: A (float) score
         """
+
+        if self.config["train_config"]["use_cuda"]:
+            X = X.cuda()
+
         Y = self._to_numpy(Y)
         Y_p = self.predict(X, break_ties=break_ties, **kwargs)
 
@@ -392,7 +400,7 @@ class Classifier(nn.Module):
         elif isinstance(Z, list):
             return np.array(Z)
         elif isinstance(Z, torch.Tensor):
-            return Z.numpy()
+            return Z.cpu().numpy()
         else:
             msg = (
                 f"Expected None, list, numpy.ndarray or torch.Tensor, "
