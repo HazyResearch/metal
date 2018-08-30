@@ -82,17 +82,24 @@ class TaskHierarchy(TaskGraph):
     def feasible_set(self):
         # Every feasible vector corresponds to a leaf node value in
         # {1, ..., K[t]-1}, with the K[t] value reserved for special "N/A" val
-        for t in self.leaf_nodes:
-            for yt in range(1, self.K[t]):
-                # By default set all task labels to "N/A" value to start
-                # The default "N/A" value for each task is the last value
-                y = np.array(self.K)
+        if self.t > 1:
+            for t in self.leaf_nodes:
+                for yt in range(1, self.K[t]):
+                    # By default set all task labels to "N/A" value to start
+                    # The default "N/A" value for each task is the last value
+                    y = np.array(self.K)
 
-                # Traverse up the tree
-                y[t] = yt
-                pt = t
-                while pt > 0:
-                    ct = pt
-                    pt = list(self.G.predecessors(pt))[0]
-                    y[pt] = list(self.G.successors(pt)).index(ct) + 1
-                yield y
+                    # Traverse up the tree
+                    y[t] = yt
+                    pt = t
+                    while pt > 0:
+                        ct = pt
+                        pt = list(self.G.predecessors(pt))[0]
+                        y[pt] = list(self.G.successors(pt)).index(ct) + 1
+                    yield y
+        
+        # Handle the trivial single-node setting, since technically this is a
+        # hierarchy still...
+        else:
+            for yt in range(self.K[0]):
+                yield np.array([yt])
