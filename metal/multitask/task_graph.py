@@ -59,7 +59,7 @@ class TaskGraph(object):
 
     def feasible_set(self):
         """Iterator over values in feasible set"""
-        for y in itertools.product(*[range(1,k+1) for k in self.K]):
+        for y in itertools.product(*[range(1, k + 1) for k in self.K]):
             yield np.array(y)
 
 
@@ -97,7 +97,7 @@ class TaskHierarchy(TaskGraph):
                         pt = list(self.G.predecessors(pt))[0]
                         y[pt] = list(self.G.successors(pt)).index(ct) + 1
                     yield y
-        
+
         # Handle the trivial single-node setting, since technically this is a
         # hierarchy still...
         else:
