@@ -102,4 +102,4 @@ class TaskHierarchy(TaskGraph):
         # hierarchy still...
         else:
             for yt in range(self.K[0]):
-                yield np.array([yt])
+                yield np.array([yt + 1])
