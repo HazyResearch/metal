@@ -168,12 +168,15 @@ class LabelModel(Classifier):
         and similarly for higher-order cliques.
         - Z is the inverse form version of \mu.
         """
+        train_config = self.config["train_config"]
         # Initialize mu so as to break basic reflective symmetry
         # TODO: Update for higher-order cliques!
         self.mu_init = torch.zeros(self.d, self.k)
         for i in range(self.m):
             for y in range(self.k):
-                self.mu_init[i * self.k + y, y] += np.random.random()
+                self.mu_init[i * self.k + y, y] += (
+                    train_config["mu_init"] * np.random.random()
+                )
         self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
