@@ -59,8 +59,8 @@ class TaskGraph(object):
 
     def feasible_set(self):
         """Iterator over values in feasible set"""
-        for y in itertools.product(*[range(k) for k in self.K]):
-            yield y
+        for y in itertools.product(*[range(1,k+1) for k in self.K]):
+            yield np.array(y)
 
 
 class TaskHierarchy(TaskGraph):
