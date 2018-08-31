@@ -24,6 +24,16 @@ class LabelModel(Classifier):
         config = recursive_merge_dicts(lm_default_config, kwargs)
         super().__init__(k, config)
 
+    def _check_L(self, L):
+        """Run some basic checks on L."""
+        # TODO: Take this out?
+        if issparse(L):
+            L = L.todense()
+
+        # Check for correct values, e.g. warning if in {-1,0,1}
+        if np.any(L < 0):
+            raise ValueError("L must have values in {0,1,...,k}.")
+
     def _create_L_ind(self, L):
         """Convert a label matrix with labels in 0...k to a one-hot format
 
@@ -168,12 +178,15 @@ class LabelModel(Classifier):
         and similarly for higher-order cliques.
         - Z is the inverse form version of \mu.
         """
+        train_config = self.config["train_config"]
         # Initialize mu so as to break basic reflective symmetry
         # TODO: Update for higher-order cliques!
         self.mu_init = torch.zeros(self.d, self.k)
         for i in range(self.m):
             for y in range(self.k):
-                self.mu_init[i * self.k + y, y] += np.random.random()
+                self.mu_init[i * self.k + y, y] += (
+                    train_config["mu_init"] * np.random.random()
+                )
         self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
@@ -347,6 +360,7 @@ class LabelModel(Classifier):
         self._set_class_balance(class_balance, Y_dev)
         self._set_constants(L_train)
         self._set_dependencies(deps)
+        self._check_L(L_train)
 
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies

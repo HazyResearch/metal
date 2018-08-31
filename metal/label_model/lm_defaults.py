@@ -11,7 +11,7 @@ lm_default_config = {
         # Class balance initialization / prior
         "class_balance_init": None,  # (array) If None, assume uniform
         # Model params initialization / priors
-        "mu_init": 0.4,
+        "mu_init": 0.5,
         # Optimizer
         "optimizer_config": {
             "optimizer": "sgd",

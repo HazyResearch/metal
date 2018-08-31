@@ -32,6 +32,17 @@ class MTLabelModel(MTClassifier, LabelModel):
         self.n, self.m = L[0].shape
         self.t = len(L)
 
+    def _check_L(self, L):
+        """Run some basic checks on L."""
+        # TODO: Take this out?
+        if issparse(L[0]):
+            L = [L_t.todense() for L_t in L]
+
+        # Check for correct values, e.g. warning if in {-1,0,1}
+        for L_t in L:
+            if np.any(L_t < 0):
+                raise ValueError("L must have values in {0,1,...,k}.")
+
     def _create_L_ind(self, L):
         """Convert T label matrices with labels in 0...K_t to a one-hot format
 
