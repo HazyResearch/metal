@@ -111,12 +111,48 @@ class CliqueTree(object):
                     start_index += w
                     start_index_1 += 1
         self.d = start_index
+        self.c = start_index_1
     
     def iter_index(self):
         """Iterates over the (clique_members, values) indices"""
         for c, c_data in self.c_data.items():
             for vals in product(range(1, self.k+1), repeat=c_data['size']):
                 yield (c, vals)
+    
+    def _R(self, rs):
+        """The matrix that reduces O to its observable form ROR^T.
+        
+        Args:
+            rs: A list of numpy arrays where the kth such array is the block
+                of R corresponding to k-ary cliques. 
+        """
+        R = np.zeros((self.c, self.d))
+        for i, (c, c_data) in enumerate(self.c_data.items()):
+            si, ei = c_data['start_index'], c_data['end_index']
+            if c_data['size'] <= len(rs):
+                R[i, si:ei] = rs[c_data['size']-1]
+            else:
+                raise NotImplementedError(f"Cliques of size > {len(rs)}.")
+        return R
+    
+    @property
+    def R(self):
+        return self._R([np.array([1, -1]), np.array([1, 1, -1, -1])])
+    
+    @property
+    def R2(self):
+        return self._R([np.array([1, -1]), np.array([1, -1, 1, -1])])
+    
+    @property
+    def R_sum(self):
+        return self._R([np.array([1, 1]), np.array([1, 1, 1, 1])])
+    
+    def recover_mu(self, R_mu, R2_mu, mu_lp):
+        """Given R_mu = R @ mu for R and R2, and the observed labeling
+        (non-abstain) rates of mu, mu_lp, recover mu."""
+        R_mu_full = (R_mu.T @ self.R).T
+        mu_lp_full = (mu_lp.T @ self.R_sum).T
+        return 0.5 * (R_mu_full + mu_lp_full)
 
 
 class LabelModel(Classifier):
