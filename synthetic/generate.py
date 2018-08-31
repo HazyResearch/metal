@@ -59,6 +59,9 @@ class SingleTaskTreeDepsGenerator(object):
         self.m = m
         self.k = k
 
+        # Create a dictionary of cached probabilities
+        self.probs_cached = {}
+
         # Generate correlation structure: edges self.E, parents dict self.parent
         #self._generate_edges(edge_prob)
         self.E, self.parent = [], {}
@@ -90,10 +93,10 @@ class SingleTaskTreeDepsGenerator(object):
         self._generate_label_matrix()
 
         # Compute the conditional clique probabilities
-        self._get_conditional_probs()
+        # self._get_conditional_probs()
 
         # Correct output type
-        self.L = csr_matrix(self.L, dtype=np.int)
+        # self.L = csr_matrix(self.L, dtype=np.int)
     
     def _generate_edges(self, edge_prob):
         """Generate a random tree-structured dependency graph based on a
@@ -240,52 +243,13 @@ class SingleTaskTreeDepsGenerator(object):
         if verbose: print("Final marginal: ", message_i)
         if verbose: print("\n\n")
         return message_i
-
-    # these are the real probabilities for each node:
-    def P_vals_true(self):
-        self.p_solo = defaultdict(float)
-
-        for y in range(1, self.k+1):
-            Z = self.get_Z(y)
-
-            for i in range(self.m):
-                #print("Labeler = ", i)
-                for val in range(self.k+1):
-                    self.p_solo[(i,val,y)] = self.naive_SPA(i,y)[val] / Z
-                    print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
-                    
-    # these are the real joint probabilities for each pair of nodes:
-    def P_joints_true(self):
-        self.p_joints = defaultdict(float)
-        
-        for y in range(1,self.k+1):
-            Z = self.get_Z(y)
-
-            for i in range(self.m):
-                for j in range(i+1, self.m):
-                    #print("Labelers = ", (i,j))
-
-                    for val1 in range(self.k+1):
-                        for val2 in range(self.k+1):
-                            other_nodes = dict()
-                            other_nodes[j] = val2
-                            self.p_joints[(i,val1,j,val2,y)] = self.naive_SPA(i,y,other_nodes=other_nodes)[val1] / Z
-                            self.p_joints[(j,val2,i,val1,y)] = self.p_joints[(i,val1,j,val2,y)]
-                            #print("P(L_", i, "=", val1, ", L_", j, "=", val2, " | Y = ", y, ") = ", self.p_joints[(i,val1,j,val2,y)])
-
-    def P_fours_true(self,a,b,c,d,val1,val2,val3,val4,y):
-        Z = self.get_Z(y)
-        other_nodes = dict()
-        other_nodes[b] = val2
-        other_nodes[c] = val3
-        other_nodes[d] = val4
-        return self.naive_SPA(a,y,other_nodes=other_nodes)[val1] / Z
     
     def P_cond(self, lf_idxs, lf_vals, Y=None):
         """Returns the marginal probability of a set of LFs taking on a set of
         values, conditioned on a value of the true label Y.
-
-        Note: this is (temporarily?) just a wrapper function for convenience.
+        
+        Computes lazily: If value has not yet been computed, computes using 
+        naive SPA and caches the value.
 
         Args:
             - lf_idxs: An int or tuple of ints corresponding to LF indices, i.e.
@@ -295,26 +259,41 @@ class SingleTaskTreeDepsGenerator(object):
             - Y: An int in {1,...,k}, or None; if none, returns the 
                 unconditional marginal probability of the LFs taking on lf_vals.
         """
+        # TODO: Maybe expand this fn to take in two dicts, one for args, the 
+        # other for conditioned on?s
+        # import pdb; pdb.set_trace()
+
         # Convert all inputs to a tuple of values
         if isinstance(lf_idxs, int):
             lf_idxs = (lf_idxs,)
         if isinstance(lf_vals, int):
             lf_vals = (lf_vals,)
         
-        # Look the conditional probability
-        if len(lf_idxs) == 1:
-            probs = self.p_solo
-        elif len(lf_idxs) == 2:
-            probs = self.p_solo
-        else:
-            raise NotImplementedError("Marginal cond. probs > 2.")
+        # TODO: Make sure lf_idxs are sorted
+        sort_order = list(np.argsort(lf_idxs))
+        lf_idxs = tuple(np.array(lf_idxs)[sort_order])
+        lf_vals = tuple(np.array(lf_vals)[sort_order])
         
-        # Return the conditional probability if Y is not None
-        if Y is not None:
-            return probs[lf_idxs + lf_vals + (Y,)]
-        else:
-            return np.sum([ self.p[y-1] * probs[lf_idxs + lf_vals + (y,)] 
+        # If Y = None, marginalize recursively
+        if Y is None:
+            return np.sum([ self.p[y-1] * self.P_cond(lf_idxs, lf_vals, Y=y) 
                 for y in range(1, self.k + 1)])
+
+        # Get or compute the probability
+        vals = lf_idxs + lf_vals + (Y,)
+        if vals in self.probs_cached:
+            return self.probs_cached[vals]
+        else:
+            if len(lf_idxs) > 1:
+                other_nodes = {i:li for i,li in zip(lf_idxs[1:], lf_vals[1:])}
+            else:
+                other_nodes = None
+            # TODO: Cache this?
+            Z = self.get_Z(Y)
+            i, li = lf_idxs[0], lf_vals[0]
+            p = self.naive_SPA(i, Y, other_nodes=other_nodes)[li] / Z
+            self.probs_cached[vals] = p
+            return p
 
     def P_conditional(self, i, li, j, lj, y):
         """Compute the conditional probability 
@@ -329,7 +308,7 @@ class SingleTaskTreeDepsGenerator(object):
             - a class-conditional LF accuracy parameter \theta_{i|y}
             - a symmetric LF correlation paramter \theta_{i,j}
         """
-        return self.p_joints[(i,li,j,lj,y)] / self.p_solo[(j,lj,y)]
+        return self.P_cond((i,j), (li,lj), y) / self.P_cond(j, lj, y)
 
     def _get_node_index(self, idx1):
         nodes_1 = dict()
@@ -411,9 +390,9 @@ class SingleTaskTreeDepsGenerator(object):
                         for y in y_range:
                             if len(nodes) == 0:
                                 if joint_form:
-                                    sm += self.p_solo[(nv[0], nv[1], y)] 
+                                    sm += self.P_cond(nv[0], nv[1], y)
                                 else:
-                                    sm += self.p_solo[(nv[0], nv[1], y)] * self.p[y-1]                                    
+                                    sm += self.P_cond(nv[0], nv[1], y) * self.p[y-1]                                    
                             else:
                                 if joint_form:
                                     sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) 
@@ -479,7 +458,7 @@ class SingleTaskTreeDepsGenerator(object):
                         
                         for y in y_range:
                             if len(nodes) == 0:
-                                sm += self.p_solo[(nv[0], nv[1], y)] * self.p[y-1]
+                                sm += self.P_cond(nv[0], nv[1], y) * self.p[y-1]
                             else:
                                 sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) * self.p[y-1]
                         
@@ -515,18 +494,18 @@ class SingleTaskTreeDepsGenerator(object):
             if len(clique1[0]) == 1:
                 for y in y_range:
                     if fix_Y == -1:
-                        self.mu_true[idx, y-1] = self.p_solo[(clique1[0][0], clique1[1][0], y)]
+                        self.mu_true[idx, y-1] = self.P_cond(clique1[0][0], clique1[1][0], y)
                     else:
-                        self.mu_true[idx, 0] = self.p_solo[(clique1[0][0], clique1[1][0], y)]
+                        self.mu_true[idx, 0] = self.P_cond(clique1[0][0], clique1[1][0], y)
 
                 #print("clique vals: ", clique1[0][0], clique1[1][0])
                 idx += 1
             else:
                 for y in y_range:
                     if fix_Y == -1:
-                        self.mu_true[idx, y-1] = self.p_joints[(clique1[0][0],clique1[1][0],clique1[0][1],clique1[1][1],y)]
+                        self.mu_true[idx, y-1] = self.P_cond(clique1[0], clique1[1], y)
                     else:
-                        self.mu_true[idx, 0] = self.p_joints[(clique1[0][0],clique1[1][0],clique1[0][1],clique1[1][1],y)]
+                        self.mu_true[idx, 0] = self.P_cond(clique1[0], clique1[1], y)
 
                 #print("clique vals: ", clique1[0][0], clique1[1][0], clique1[0][1], clique1[1][1])
                 idx += 1    
@@ -536,7 +515,7 @@ class SingleTaskTreeDepsGenerator(object):
                 for val1 in range(1, self.k+1):
                     for val2 in range(1, self.k+1):
                         for y in range(1, self.k+1):
-                            self.mu_true[idx, y-1] = self.p_joints[(e[0],val1,e[1],val2,y)]
+                            self.mu_true[idx, y-1] = self.P_cond(e, (val1,val2), y)
                         idx += 1'''
 
         # finally, add a few rows for Y:
@@ -564,7 +543,7 @@ class SingleTaskTreeDepsGenerator(object):
         for i in range(self.m): 
             for val1 in range(1, self.k+1):
                 for y in range(1, self.k+1):
-                    self.mu_true[i*(self.k)+val1-1, y-1] = self.p_solo[(i,val1,y)]
+                    self.mu_true[i*(self.k)+val1-1, y-1] = self.P_cond(i,val1,y)
 
         idx = self.m * (self.k)
 
@@ -573,7 +552,7 @@ class SingleTaskTreeDepsGenerator(object):
                 for val1 in range(1, self.k+1):
                     for val2 in range(1, self.k+1):
                         for y in range(1, self.k+1):
-                            self.mu_true[idx, y-1] = self.p_joints[(e[0],val1,e[1],val2,y)]
+                            self.mu_true[idx, y-1] = self.P_cond(e, (val1,val2), y)
                         idx += 1
 
         # finally, add a few rows for Y:
@@ -591,8 +570,8 @@ class SingleTaskTreeDepsGenerator(object):
         self.L = np.zeros((self.n, self.m))
         self.Y = np.zeros(self.n, dtype=np.int64)
 
-        self.P_vals_true()
-        self.P_joints_true()
+        # self.P_vals_true()
+        # self.P_joints_true()
 
         # Here we'll do a simple, stupid experiment.
         # Let's verify that P(1,2|0) = P(1|0) P(2|0)
@@ -695,8 +674,8 @@ class SingleTaskTreeDepsGenerator(object):
                     prob_y = self.P_conditional(j, y, p_j, int(self.L[i, p_j]), y)
                     prob_0 = self.P_conditional(j, 0, p_j, int(self.L[i, p_j]), y)
                 else:
-                    prob_y = self.p_solo[(j, y, y)]
-                    prob_0 = self.p_solo[(j, 0, y)]
+                    prob_y = self.P_cond(j, y, y)
+                    prob_0 = self.P_cond(j, 0, y)
                 p = np.ones(self.k+1) * (1 - prob_y - prob_0) / (self.k - 1)
                 p[0] = prob_0
                 p[y] = prob_y
