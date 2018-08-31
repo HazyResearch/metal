@@ -252,7 +252,7 @@ class SingleTaskTreeDepsGenerator(object):
                 #print("Labeler = ", i)
                 for val in range(self.k+1):
                     self.p_solo[(i,val,y)] = self.naive_SPA(i,y)[val] / Z
-                    #print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
+                    print("P(L=", val, ", Y=",y,") = ", self.p_solo[(i,val,y)])
                     
     # these are the real joint probabilities for each pair of nodes:
     def P_joints_true(self):
@@ -280,6 +280,41 @@ class SingleTaskTreeDepsGenerator(object):
         other_nodes[c] = val3
         other_nodes[d] = val4
         return self.naive_SPA(a,y,other_nodes=other_nodes)[val1] / Z
+    
+    def P_cond(self, lf_idxs, lf_vals, Y=None):
+        """Returns the marginal probability of a set of LFs taking on a set of
+        values, conditioned on a value of the true label Y.
+
+        Note: this is (temporarily?) just a wrapper function for convenience.
+
+        Args:
+            - lf_idxs: An int or tuple of ints corresponding to LF indices, i.e.
+                in {0,...,m-1}
+            - lf_vals: An int or tuple of ints corresponding to LF values, i.e.
+                in {0,1,...,k}
+            - Y: An int in {1,...,k}, or None; if none, returns the 
+                unconditional marginal probability of the LFs taking on lf_vals.
+        """
+        # Convert all inputs to a tuple of values
+        if isinstance(lf_idxs, int):
+            lf_idxs = (lf_idxs,)
+        if isinstance(lf_vals, int):
+            lf_vals = (lf_vals,)
+        
+        # Look the conditional probability
+        if len(lf_idxs) == 1:
+            probs = self.p_solo
+        elif len(lf_idxs) == 2:
+            probs = self.p_solo
+        else:
+            raise NotImplementedError("Marginal cond. probs > 2.")
+        
+        # Return the conditional probability if Y is not None
+        if Y is not None:
+            return probs[lf_idxs + lf_vals + (Y,)]
+        else:
+            return np.sum([ self.p[y-1] * probs[lf_idxs + lf_vals + (y,)] 
+                for y in range(1, self.k + 1)])
 
     def P_conditional(self, i, li, j, lj, y):
         """Compute the conditional probability 
