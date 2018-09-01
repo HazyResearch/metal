@@ -308,26 +308,15 @@ class SingleTaskTreeDepsGenerator(object):
             - a symmetric LF correlation paramter \theta_{i,j}
         """
         return self.P_cond((i,j), (li,lj), y) / self.P_cond(j, lj, y)
-
-    def _get_node_index(self, idx1):
-        nodes_1 = dict()
-
-        if idx1 < self.m * (self.k): # node indices:
-            i = int(idx1 / 2)
-            nodes_1[i] = (idx1 - 2 * i) + 1
-        elif idx1 < self.m * (self.k) + self.n_edges * (self.k ** 2): # edge indices
-            e_idx = int((idx1 - self.m * (self.k))/4)
-            e = self.E_order[e_idx]
-            rem = (idx1 - self.m*(self.k)) - 4*e_idx
-            nodes_1[e[0]] = int(rem / 2) + 1
-            nodes_1[e[1]] = rem % 2 + 1
-        else: # Y indices
-            nodes_1[-1] = idx1 - (self.m * (self.k) + self.n_edges * (self.k ** 2)) + 1
-            print("we added a row for Y with val = ", nodes_1[-1])
-
-        return nodes_1
     
     def _generate_O_true(self, include_Y=False, Y=None):
+        """Generates the matrix O = E[\psi \psi^T | Y], where \psi is the set of
+        generalized clique indicator statistics set by self.c_tree.
+
+        Args:
+            - include_Y: Include indicators for Y in \psi (not implemented here)
+            - Y: If Y is None, marginalizes out Y
+        """
         if include_Y:
             raise NotImplementedError("Addition of Y not implemented here.")
         O = np.zeros([self.c_tree.d, self.c_tree.d])
@@ -347,104 +336,22 @@ class SingleTaskTreeDepsGenerator(object):
                 O[i,j] = self.P_cond(tuple(u.keys()), tuple(u.values()), Y=Y)
         return O
     
-    # y value is currently broken
-    def _gen_true_mu(self, higher_order=False, include_Y=False, fix_Y=-1):
-        if higher_order:
-            sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
-        else:
-            sz = self.m * (self.k)
+    def _generate_mu_true(self, include_Y=False, Y=None):
+        """Generates the vector \mu = E[\psi | Y], where \psi is the set of
+        generalized clique indicator statistics set by self.c_tree.
 
+        Args:
+            - include_Y: Include indicators for Y in \psi (not implemented here)
+            - Y: If Y is None, marginalizes out Y
+        """
         if include_Y:
-            sz += self.k-1
+            raise NotImplementedError("Addition of Y not implemented here.")
+        mu = np.zeros((self.c_tree.d, 1))
+        for i, c1 in enumerate(self.c_tree.iter_index()):
+            mu[i, 0] = self.P_cond(tuple(c1.keys()), tuple(c1.values()), Y=Y)
+        return mu
 
-        if fix_Y == -1:
-            y_range = range(1,self.k+1)
-            width = self.k
-        else:
-            y_range = [fix_Y]
-            width = 1
-
-        self.mu_true = np.zeros([sz, width])
-        idx = 0
-
-        for clique1 in self.c_tree.iter_index():
-            nodes_1 = dict()
-            #print("indices ", idx)
-            #print("clique1 = ", clique1)            
-
-            if len(clique1[0]) == 1:
-                for y in y_range:
-                    if fix_Y == -1:
-                        self.mu_true[idx, y-1] = self.P_cond(clique1[0][0], clique1[1][0], y)
-                    else:
-                        self.mu_true[idx, 0] = self.P_cond(clique1[0][0], clique1[1][0], y)
-
-                #print("clique vals: ", clique1[0][0], clique1[1][0])
-                idx += 1
-            else:
-                for y in y_range:
-                    if fix_Y == -1:
-                        self.mu_true[idx, y-1] = self.P_cond(clique1[0], clique1[1], y)
-                    else:
-                        self.mu_true[idx, 0] = self.P_cond(clique1[0], clique1[1], y)
-
-                #print("clique vals: ", clique1[0][0], clique1[1][0], clique1[0][1], clique1[1][1])
-                idx += 1    
-
-        '''if higher_order:
-            for e in self.E:
-                for val1 in range(1, self.k+1):
-                    for val2 in range(1, self.k+1):
-                        for y in range(1, self.k+1):
-                            self.mu_true[idx, y-1] = self.P_cond(e, (val1,val2), y)
-                        idx += 1'''
-
-        # finally, add a few rows for Y:
-        if include_Y:
-            for y_row_val in range(1,self.k):
-                for y in y_range:
-                    sm = 0
-                    if y_row_val == y:
-                        sm = self.p[y-1]
-                    self.mu_true[idx, y-1] = sm
-                idx += 1
-
-    # y value is currently broken, TODO: refactor to deal with clique structure correctly
-    def _generate_true_mu(self, higher_order=False, include_Y=False):
-        if higher_order:
-            sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
-        else:
-            sz = self.m * (self.k)
-
-        if include_Y:
-            sz += self.k-1
-
-        self.mu_true = np.zeros([sz, self.k])
-        
-        for i in range(self.m): 
-            for val1 in range(1, self.k+1):
-                for y in range(1, self.k+1):
-                    self.mu_true[i*(self.k)+val1-1, y-1] = self.P_cond(i,val1,y)
-
-        idx = self.m * (self.k)
-
-        if higher_order:
-            for e in self.E:
-                for val1 in range(1, self.k+1):
-                    for val2 in range(1, self.k+1):
-                        for y in range(1, self.k+1):
-                            self.mu_true[idx, y-1] = self.P_cond(e, (val1,val2), y)
-                        idx += 1
-
-        # finally, add a few rows for Y:
-        if include_Y:
-            for y_row_val in range(1,self.k):
-                for y in range(1, self.k+1):
-                    sm = 0
-                    if y_row_val == y:
-                        sm = self.p[y-1]
-                    self.mu_true[idx, y-1] = sm
-                idx += 1
+    # TODO: Add unrolling directly in the above two fns!
         
     def _generate_label_matrix(self):
         """Generate an n x m label matrix with entries in {0,...,k}"""
