@@ -33,6 +33,8 @@ def indpm(x, y):
     """Plus-minus indicator function"""
     return 1 if x == y else -1
 
+# TODO: Separate generation of deps graph & rest!
+
 class SingleTaskTreeDepsGenerator(object):
     """Generates a synthetic single-task L and Y matrix with dependencies
     
@@ -89,15 +91,15 @@ class SingleTaskTreeDepsGenerator(object):
             self.p /= self.p.sum()
         else:
             self.p = class_balance
+        
+        # Generate O, mu, Sigma, Sigma_inv
+        Y = 1 # Note: we pick an arbitrary Y here, since assuming doesn't matter
+        self.O = self._generate_O_Y(Y=Y)
+        self.mu = self._generate_mu_Y(Y=Y)
+        self.sig, self.sig_inv = self._generate_sigma(self.O, self.mu)
 
         # Generate the true labels self.Y and label matrix self.L
         # self._generate_label_matrix()
-
-        # Compute the conditional clique probabilities
-        # self._get_conditional_probs()
-
-        # Correct output type
-        # self.L = csr_matrix(self.L, dtype=np.int)
     
     def _generate_edges(self, edge_prob):
         """Generate a random tree-structured dependency graph based on a
@@ -120,7 +122,6 @@ class SingleTaskTreeDepsGenerator(object):
         
         self.n_edges = len(self.E)
 
-
     def _generate_params(self, theta_range, theta_edge_range):
         self.theta = defaultdict(float)
         for i in range(self.m):
@@ -139,15 +140,6 @@ class SingleTaskTreeDepsGenerator(object):
                     w_ij = (te_max - te_min) * random(self.k) + te_min
                     self.theta[((i, j), y1, y2)] = w_ij
                     #self.theta[((j, i), y1, y2)] = w_ij
-
-    def get_Z(self, y):
-        """Get or compute the partition function"""
-        if y in self.Z_cached:
-            return self.Z_cached[y]
-        else:
-            Z = np.sum(self.naive_SPA(0,y))
-            self.Z_cached[y] = Z
-            return Z
 
     def naive_SPA(self, i, y, other_nodes=None, verbose=False):
         # this contains our nodes:
@@ -243,6 +235,15 @@ class SingleTaskTreeDepsGenerator(object):
         if verbose: print("\n\n")
         return message_i
     
+    def get_Z(self, y):
+        """Get or compute the partition function"""
+        if y in self.Z_cached:
+            return self.Z_cached[y]
+        else:
+            Z = np.sum(self.naive_SPA(0,y))
+            self.Z_cached[y] = Z
+            return Z
+    
     def P_cond(self, lf_idxs, lf_vals, Y=None):
         """Returns the marginal probability of a set of LFs taking on a set of
         values, conditioned on a value of the true label Y.
@@ -260,7 +261,6 @@ class SingleTaskTreeDepsGenerator(object):
         """
         # TODO: Maybe expand this fn to take in two dicts, one for args, the 
         # other for conditioned on?s
-        # import pdb; pdb.set_trace()
 
         # Convert all inputs to a tuple of values
         if isinstance(lf_idxs, int):
@@ -293,32 +293,30 @@ class SingleTaskTreeDepsGenerator(object):
             p = self.naive_SPA(i, Y, other_nodes=other_nodes)[li] / Z
             self.probs_cached[vals] = p
             return p
-
-    def P_conditional(self, i, li, j, lj, y):
-        """Compute the conditional probability 
-            P_\theta(li | lj, y) 
-            = 
-            Z^{-1} exp( 
-                theta_{i|y} \indpm{ \lambda_i = Y }
-                + \theta_{i,j} \indpm{ \lambda_i = \lambda_j }
-            )
-        In other words, compute the conditional probability that LF i outputs
-        li given that LF j output lj, and Y = y, parameterized by
-            - a class-conditional LF accuracy parameter \theta_{i|y}
-            - a symmetric LF correlation paramter \theta_{i,j}
-        """
-        return self.P_cond((i,j), (li,lj), y) / self.P_cond(j, lj, y)
     
-    def _generate_O_true(self, include_Y=False, Y=None):
+    def P(self, lf_idxs, lf_vals, Y):
+        """Returns the marginal probability of a set of LFs taking on a set of
+        values *and* a value of the true label Y.
+        
+        Computes lazily: If value has not yet been computed, computes using 
+        naive SPA and caches the value.
+
+        Args:
+            - lf_idxs: An int or tuple of ints corresponding to LF indices, i.e.
+                in {0,...,m-1}
+            - lf_vals: An int or tuple of ints corresponding to LF values, i.e.
+                in {0,1,...,k}
+            - Y: An int in {1,...,k}
+        """
+        return self.P_cond(lf_idxs, lf_vals, Y=Y) * self.p[Y-1]
+    
+    def _generate_O_Y(self, Y=None):
         """Generates the matrix O = E[\psi \psi^T | Y], where \psi is the set of
         generalized clique indicator statistics set by self.c_tree.
 
         Args:
-            - include_Y: Include indicators for Y in \psi (not implemented here)
             - Y: If Y is None, marginalizes out Y
         """
-        if include_Y:
-            raise NotImplementedError("Addition of Y not implemented here.")
         O = np.zeros([self.c_tree.d, self.c_tree.d])
         for i, c1 in enumerate(self.c_tree.iter_index()):
             for j, c2 in enumerate(self.c_tree.iter_index()):
@@ -336,122 +334,35 @@ class SingleTaskTreeDepsGenerator(object):
                 O[i,j] = self.P_cond(tuple(u.keys()), tuple(u.values()), Y=Y)
         return O
     
-    def _generate_mu_true(self, include_Y=False, Y=None):
+    def _generate_O(self):
+        """Generates the matrix O = E[\psi \psi^T], where \psi is the set of
+        generalized clique indicator statistics set by self.c_tree, and now
+        includes Y- i.e. these are the joint marginals as entries.
+        """
+        # TODO!
+        raise NotImplementedError()
+    
+    def _generate_mu_Y(self, Y=None):
         """Generates the vector \mu = E[\psi | Y], where \psi is the set of
         generalized clique indicator statistics set by self.c_tree.
 
         Args:
-            - include_Y: Include indicators for Y in \psi (not implemented here)
             - Y: If Y is None, marginalizes out Y
         """
-        if include_Y:
-            raise NotImplementedError("Addition of Y not implemented here.")
         mu = np.zeros((self.c_tree.d, 1))
         for i, c1 in enumerate(self.c_tree.iter_index()):
             mu[i, 0] = self.P_cond(tuple(c1.keys()), tuple(c1.values()), Y=Y)
         return mu
-
-    # TODO: Add unrolling directly in the above two fns!
+    
+    def _generate_sigma(self, O, mu):
+        sigma = O - mu @ mu.T
+        sigma_inv = np.linalg.inv(sigma)
+        return sigma, sigma_inv
         
     def _generate_label_matrix(self):
         """Generate an n x m label matrix with entries in {0,...,k}"""
         self.L = np.zeros((self.n, self.m))
         self.Y = np.zeros(self.n, dtype=np.int64)
-
-        # self.P_vals_true()
-        # self.P_joints_true()
-
-        # Here we'll do a simple, stupid experiment.
-        # Let's verify that P(1,2|0) = P(1|0) P(2|0)
-        '''y = 2
-        a = 2
-        Zy = self.get_Z(y)
-        Zy1 = self.get_Z(1)
-
-        print(self.p)
-        self.p[0] = Zy / (Zy + Zy1)
-        self.p[1] = Zy1 / (Zy + Zy1)
-        print(self.p)
-
-        on_joint = dict()
-        on_joint[0] = a
-        on_joint[2] = a
-        p_012 = self.naive_SPA(1,a,on_joint)[y-1] / Zy
-        p_0 = self.naive_SPA(1,a)[y-1] / Zy
-        p_joint_cond = p_012/p_0
-
-        o_n_1 = dict()
-        o_n_1[0] = a
-        o_n_2 = dict()
-        o_n_2[2] = a
-
-        p_01 = self.naive_SPA(1,a,o_n_1)[y-1] / Zy
-        p_02 = self.naive_SPA(1,a,o_n_2)[y-1] / Zy
-        p_1_cond_0 = p_01 / p_0
-        p_2_cond_0 = p_02 / p_0
-
-        print("\n\nP(L_1 = 1, L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_joint_cond)
-        print("P(L_1 = 1, Y=1 | L_0 = 1, Y=1) = ", p_1_cond_0)
-        print("P(L_2 = 1, Y=1 | L_0 = 1, Y=1) = ", p_2_cond_0)
-        print("their product = ", p_1_cond_0 * p_2_cond_0)
-        print("the error: ", p_joint_cond - p_1_cond_0*p_2_cond_0, "\n\n")
-        '''
-        #self._generate_true_mu(higher_order = True, include_Y=False)
-        #self._generate_true_O(higher_order = True, include_Y=False)
-
-        sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
-        sz_unrolled = 2 * sz + 1
-        self.unrolled_O = np.zeros([sz_unrolled, sz_unrolled])
-        self.unrolled_mu = np.zeros([sz_unrolled, 1])
-        #self.unrolled_mu = self.unrolled_mu.reshape((sz_unrolled, 1))
-
-        joint_form = True
-        self._gen_true_mu(higher_order = True, include_Y=False, fix_Y=1)
-        self._gen_true_O(higher_order = True, include_Y=False, joint_form=joint_form, fix_Y=1)
-        self.unrolled_O[0:sz, 0:sz] = self.O_true
-        self.unrolled_mu[0:sz,0:1] = self.mu_true
-
-        self._gen_true_mu(higher_order = True, include_Y=False, fix_Y=2)
-        self._gen_true_O(higher_order = True, include_Y=False, joint_form=joint_form, fix_Y=2)
-        self.unrolled_O[sz:2*sz, sz:2*sz] = self.O_true
-        self.unrolled_mu[sz:2*sz,0:1] = self.mu_true
-        
-        self.unrolled_O[2*sz : 2 * sz + 1, sz:2*sz] = self.mu_true.T
-        self.unrolled_O[sz:2*sz, 2*sz:2*sz+1] = self.mu_true
-        self.unrolled_O[2*sz, 2*sz] = self.p[1] 
-        self.unrolled_mu[sz_unrolled-1, 0] = self.p[1]
-
-        '''print(self.O_true)
-        print("\nCondition number = ", np.linalg.cond(self.O_true), "\n")
-        print(self.mu_true)
-
-        print(self.p)'''
-
-        if joint_form:
-            sig = self.O_true - self.mu_true @ self.mu_true.T
-            self.sig_this = sig
-            self.big_sig = self.unrolled_O - self.unrolled_mu @ self.unrolled_mu.T
-        else:
-            sig = self.O_true - self.mu_true @ np.diag(self.p) @ self.mu_true.T
-
-        with mpmath.workdps(256):
-            sig_hp = mpmath.matrix(sig)
-            sig_big = mpmath.matrix(self.big_sig)
-            self.sig_inv_hp = (sig_hp) ** -1
-            self.big_sig_inv_hp = (sig_big) ** -1
-
-
-        '''print("sig\n", sig)       
-        print("\nCondition number = ", np.linalg.cond(sig), "\n")
-
-        print("moment of truth!!!")
-        print("note this is with the joint form!")'''
-        #self.sig_inv = np.linalg.inv(sig)
-        #self.sig_inv_hp = self.sig_inv
-        self.sig_inv = np.array(self.sig_inv_hp.tolist(), dtype=float)        
-        self.big_sig_inv = np.array(self.big_sig_inv_hp.tolist(), dtype=float)        
-
-        #print(self.sig_inv_hp)
         
         for i in range(self.n):
             y = choice(self.k, p=self.p) + 1  # Note that y \in {1,...,k}
@@ -459,8 +370,11 @@ class SingleTaskTreeDepsGenerator(object):
             for j in range(self.m):
                 if j in self.parent:
                     p_j = self.parent[j]
-                    prob_y = self.P_conditional(j, y, p_j, int(self.L[i, p_j]), y)
-                    prob_0 = self.P_conditional(j, 0, p_j, int(self.L[i, p_j]), y)
+                    l_p_j = int(self.L[i,p_j])
+                    prob_y = self.P_cond((j, p_j), (y, l_p_j), y) \
+                        / self.P_cond(p_j, l_p_j)
+                    prob_0 = self.P_cond((j, p_j), (0, l_p_j), y) \
+                        / self.P_cond(p_j, l_p_j)
                 else:
                     prob_y = self.P_cond(j, y, y)
                     prob_0 = self.P_cond(j, 0, y)
@@ -468,23 +382,9 @@ class SingleTaskTreeDepsGenerator(object):
                 p[0] = prob_0
                 p[y] = prob_y
                 self.L[i,j] = choice(self.k+1, p=p)
-
-    def _get_conditional_probs(self):
-        """Compute the true clique conditional probabilities P(\lC | Y) by
-        counting given L, Y; we'll use this as ground truth to compare to.
-
-        Note that this generates an attribute, self.c_probs, that has the same
-        definition as returned by `LabelModel.get_conditional_probs`.
-
-        TODO: Can compute these exactly if we want to implement that.
-        """
-        # TODO: Extend to higher-order cliques again
-        self.c_probs = np.zeros((self.m * (self.k+1), self.k))
-        for y in range(1,self.k+1):
-            Ly = self.L[self.Y == y]
-            for ly in range(self.k+1):
-                self.c_probs[ly::(self.k+1), y-1] = \
-                    np.where(Ly == ly, 1, 0).sum(axis=0) / Ly.shape[0]
+        
+        # Correct output type
+        self.L = csr_matrix(self.L, dtype=np.int)
 
 
 class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
