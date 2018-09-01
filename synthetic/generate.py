@@ -33,6 +33,9 @@ def indpm(x, y):
     """Plus-minus indicator function"""
     return 1 if x == y else -1
 
+###
+### Dependencies Graphs
+###
 class DependenciesGraph(object):
     """Helper data structures for source dependencies graph"""
     def __init__(self, m):
@@ -67,6 +70,59 @@ class ChainDependencies(DependenciesGraph):
             self.parent[i] = p_i
             self.G.add_edge(i, p_i)
 
+###
+### Model Params
+###
+class ModelParameters(object):
+    """Helper data structures for the source parameters; note that this object
+    essentially defines our model.
+    
+    This model is the most general form, where each marginal conditional 
+    probability for each clique C, P(\lf_C | Y), is generated randomly.
+
+    Args:
+        - m: (int) Number of sources
+        - k: (int) Cardinality of the problem
+        - theta_range: (tuple) The min and max possible values for theta, the
+            class conditional accuracy for each labeling source
+        - edges: (list) List of tuples of ints representing dependency edges
+            between the sources
+        - theta_edge_range: The min and max possible values for theta_edge, the
+            strength of correlation between correlated sources
+    """
+    def __init__(self, m, k, theta_range=(0.1, 1), edges=[], 
+        theta_edge_range=(0.1,1)):
+        self.theta = defaultdict(float)
+        for i in range(m):
+            for y in range(1, k+1):
+                t_min, t_max = min(theta_range), max(theta_range)
+                self.theta[(i,y)] = (t_max - t_min) * random(k) + t_min
+
+        # Choose random weights for the edges
+        # Note: modifications to get the correct exponential model family
+        #       formulation from the arxiv paper
+        te_min, te_max = min(theta_edge_range), max(theta_edge_range)
+        for (i,j) in edges:
+            for y1 in range(0, k+1):
+                for y2 in range(0, k+1):
+                    w_ij = (te_max - te_min) * random(k) + te_min
+                    self.theta[((i, j), y1, y2)] = w_ij
+
+class SimpleModelParameters(object):
+    """Helper data structures for the source parameters; note that this object
+    essentially defines our model.
+    
+    This is the simplified model, where:
+        - P(\lf_i=y | Y=y) is the same for all y
+        - P(\lf_i=y' | Y=y) is the same for all y, y' != y
+        - ...
+    """
+    # TODO
+    pass
+
+###
+### DATA GENERATORS
+###
 class DataGenerator(object):
     """Generates a synthetic single-task L and Y matrix with dependencies
     
@@ -75,21 +131,18 @@ class DataGenerator(object):
         m: (int) The number of labeling sources
         k: (int) The cardinality of the classification task
         class_balance: (np.array) each class's percentage of the population
-        theta_range: (tuple) The min and max possible values for theta, the
-            class conditional accuracy for each labeling source
+        model_params: (ModelParameters) A ModelParameters object
         deps_graph: (DependenciesGraph) A DependenciesGraph object
             specifying the dependencies structure of the sources
-        theta_edge_range: The min and max possible values for theta_edge, the
-            strength of correlation between correlated sources
-
+    
     The labeling functions have class-conditional accuracies, and 
     class-unconditional pairwise correlations forming a tree-structured graph.
 
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains.
     """
-    def __init__(self, n, m, k=2, class_balance='random', theta_range=(0.1, 1), 
-        deps_graph=None, theta_edge_range=(0.1,1), **kwargs):
+    def __init__(self, n, m, k=2, class_balance='random', model_params=None, 
+        deps_graph=None, **kwargs):
         self.n = n
         self.m = m
         self.k = k
@@ -107,7 +160,9 @@ class DataGenerator(object):
         self.c_tree = CliqueTree(m, k, self.edges, higher_order_cliques=True)
         
         # Generate class-conditional LF & edge parameters, stored in self.theta
-        self._generate_params(theta_range, theta_edge_range)
+        self.model_params = ModelParameters(m, k, edges=self.edges) \
+            if model_params is None else model_params
+        self.theta = self.model_params.theta
 
         # Generate class balance self.p
         if class_balance is None:
@@ -126,25 +181,6 @@ class DataGenerator(object):
 
         # Generate the true labels self.Y and label matrix self.L
         self._generate_label_matrix()
-
-    def _generate_params(self, theta_range, theta_edge_range):
-        self.theta = defaultdict(float)
-        for i in range(self.m):
-            for y in range(1, self.k+1):
-                t_min, t_max = min(theta_range), max(theta_range)
-                self.theta[(i,y)] = (t_max - t_min) * random(self.k) + t_min
-
-        # Choose random weights for the edges
-        # Note: modifications to get the correct exponential model family
-        #       formulation from the arxiv paper
-        te_min, te_max = min(theta_edge_range), max(theta_edge_range)
-        for (i,j) in self.edges:
-            for y1 in range(0, self.k+1):
-                for y2 in range(0, self.k+1):
-                    #w_ij = (te_max - te_min) * random() + te_min
-                    w_ij = (te_max - te_min) * random(self.k) + te_min
-                    self.theta[((i, j), y1, y2)] = w_ij
-                    #self.theta[((j, i), y1, y2)] = w_ij
 
     def naive_SPA(self, i, y, other_nodes=None, verbose=False):
         # this contains our nodes:
@@ -377,9 +413,9 @@ class DataGenerator(object):
                     p_j = self.parent[j]
                     l_p_j = int(self.L[i,p_j])
                     prob_y = self.P_cond((j, p_j), (y, l_p_j), y) \
-                        / self.P_cond(p_j, l_p_j)
+                        / self.P_cond(p_j, l_p_j, y)
                     prob_0 = self.P_cond((j, p_j), (0, l_p_j), y) \
-                        / self.P_cond(p_j, l_p_j)
+                        / self.P_cond(p_j, l_p_j, y)
                 else:
                     prob_y = self.P_cond(j, y, y)
                     prob_0 = self.P_cond(j, 0, y)
