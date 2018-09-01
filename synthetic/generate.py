@@ -51,11 +51,13 @@ class TreeDependencies(DependenciesGraph):
         self.G = nx.Graph()
         self.edges = []
         self.parent = {}
+        self.children = defaultdict(set)
         for i in range(1, m):
             if random() < edge_prob:
                 p_i = choice(i)
                 self.edges.append((p_i, i))
                 self.parent[i] = p_i
+                self.children[p_i].add(i)
                 self.G.add_edge(i, p_i)
 
 class ChainDependencies(DependenciesGraph):
@@ -64,10 +66,12 @@ class ChainDependencies(DependenciesGraph):
         self.G = nx.Graph()
         self.edges = []
         self.parent = {}
+        self.children = defaultdict(set)
         for i in range(1, m):
             p_i = i - 1
             self.edges.append((p_i, i))
             self.parent[i] = p_i
+            self.children[p_i].add(i)
             self.G.add_edge(i, p_i)
 
 ###
@@ -107,6 +111,7 @@ class ModelParameters(object):
                 for y2 in range(0, k+1):
                     w_ij = (te_max - te_min) * random(k) + te_min
                     self.theta[((i, j), y1, y2)] = w_ij
+                    self.theta[((j, i), y2, y1)] = w_ij
 
 class SimpleModelParameters(object):
     """Helper data structures for the source parameters; note that this object
@@ -150,12 +155,14 @@ class DataGenerator(object):
         # Create a dictionary of cached probabilities and partition function
         self.probs_cached = {}
         self.Z_cached = {}
+        self.SPA_msg_cache = {}
 
         # Dependencies graph
         self.deps_graph = DependenciesGraph(m) if deps_graph is None \
             else deps_graph
         self.edges = self.deps_graph.edges
         self.parent = self.deps_graph.parent
+        self.children = self.deps_graph.children
         self.G = self.deps_graph.G
         self.c_tree = CliqueTree(m, k, self.edges, higher_order_cliques=True)
         
@@ -181,109 +188,67 @@ class DataGenerator(object):
 
         # Generate the true labels self.Y and label matrix self.L
         self._generate_label_matrix()
-
-    def naive_SPA(self, i, y, other_nodes=None, verbose=False):
-        # this contains our nodes:
-        G_i_set = nx.node_connected_component(self.G, i)
-        G_i     = self.G.subgraph(G_i_set)
-        G_i_bfs = nx.bfs_tree(G_i, i)
-
-        if verbose: print("\n\nDoing a naive SPA for node ", i)
-        if verbose: print("our graph ", G_i_bfs.edges())
-
-        # build nodes at each depth of our tree
-        # defines our elimination ordering
-        dist_list = nx.shortest_path_length(G_i_bfs, source=i)
-        depths = dict()
-        max_depth = 0
-        messages = dict()
-
-        for node in dist_list:
-            messages[node] = np.zeros(self.k+1)
-
-            if dist_list[node] not in depths:
-                depths[dist_list[node]] = [node]
-                if dist_list[node] > max_depth:
-                    max_depth = dist_list[node]
-            else:
-                depths[dist_list[node]].append(node)
-
-        parents = nx.predecessor(G_i_bfs, i)
-
-        if verbose: print("depths = ", depths)
-        if verbose: print("parents = ", parents)
-
-        # now we do sum product
-        while max_depth > 0:
-            for node in depths[max_depth]:
-                # compute the message node->parent:
-                # this is a function m(parent=val)
-
-                if verbose: print("working on node ", node, " with parent ", parents[node][0])
-
-                for val_p in range(self.k+1):
-                    if verbose: print("For val_p = ", val_p)
-                    mess = 0
-
-                    if other_nodes is not None and node in other_nodes:
-                        val_range = [other_nodes[node]]
-                    else:
-                        val_range = range(0, self.k+1)
-
-                    for val in val_range:
-                        mess_local = 1 # local unary term
-                        if val > 0:
-                            mess_local = np.exp(self.theta[(node, val)][y-1]) 
-
-                        mess_edge = 1 # local edge term (node, parent)    
-                        if val > 0 and val_p > 0:
-                            # we need to figure out the exact order of these things, in the original graph:
-                            if (parents[node][0], node) in self.edges:
-                                mess_edge  = np.exp(self.theta[((parents[node][0], node), val_p, val)][y-1])
-                            else:
-                                mess_edge  = np.exp(self.theta[((node, parents[node][0]), val, val_p)][y-1])
-
-                        mess_prod  = 1 # product of all incoming messages at node
-                        for edge in nx.edges(G_i_bfs, node):
-                            if edge[1] != parents[node][0]:
-                                if verbose: print("incoming message along edge ", edge[1], " val = ", val, " mess =", messages[edge[1]][val])
-                                mess_prod *= messages[edge[1]][val]
-
-                        mess += mess_local * mess_edge * mess_prod # sum
-                        if verbose: print("we added ", mess_local * mess_edge * mess_prod, "\n")
-                                   
-                    messages[node][val_p] = mess
-
-                if verbose: print("finished message at node ", node)
-                if verbose: print("message was ", messages[node], "\n")
-            max_depth -= 1
-
-        # now we're left with the messages just to i:
-        if verbose: print("now at top, getting the final marginal for i = ", i)
-
-        message_i = np.zeros(self.k+1)
-        for val in range(0, self.k+1):
-            mess_local = 1
-            if val > 0:
-                mess_local = np.exp(self.theta[(i, val)][y-1])
-            mess_prod = 1
-            for edge in nx.edges(G_i_bfs, i):
-                mess_prod *= messages[edge[1]][val]
-                if verbose: print("incoming message along edge ", edge[1], " val = ", val, " mess =", messages[edge[1]][val])
-            message_i[val] = mess_local * mess_prod
-            
-        if verbose: print("Final marginal: ", message_i)
-        if verbose: print("\n\n")
-        return message_i
     
-    def get_Z(self, y):
-        """Get or compute the partition function"""
-        if y in self.Z_cached:
-            return self.Z_cached[y]
-        else:
-            Z = np.sum(self.naive_SPA(0,y))
-            self.Z_cached[y] = Z
-            return Z
+    def SPA(self, targets, y):
+        """Returns the marginal probability of source labels in targets,
+        conditioned on Y=y. Computes recursively and caches intermediates, using
+        a tree structure, with the source indices being topologically ordered.
+
+        NOTE: This function only works for trees / forests, i.e. triangulated
+        graphs with largest maximal clique size = 2!
+        TODO: Extend to use the CliqueTree for arbitrary graphs...
+
+        Args:
+            - targets: (dict) A dictionary of (source index, value) to return
+                the marginal probability for
+            - y: (int) Value of Y to condition on
+        """
+        Z = sum([self._SPA_unnormalized({0:l}, y) for l in range(self.k+1)])
+        return self._SPA_unnormalized(targets, y) / Z
+
+    def _SPA_unnormalized(self, targets, y):
+        # Pick the first value in targets as the root
+        i = sorted(list(targets.keys()))[0]
+        val_i = targets[i]
+
+        # Compute the local messages (unnormalized potential) recursively
+        msg = 1
+        if val_i > 0:
+            msg *= np.exp(self.theta[(i, val_i)][y-1])
+        for c in self.G.neighbors(i):
+            msg *= self._SPA_message(targets, y, c, i, val_i)
+        return msg
+
+    def _SPA_message(self, targets, y, i, j, val_j):
+        """Computes the sum-product message from node i --> j"""
+        cache_key = (
+            tuple(targets.keys()), tuple(targets.values()), y, i, j, val_j
+        )
+        if cache_key in self.SPA_msg_cache:
+            return self.SPA_msg_cache[cache_key]
+        
+        # Sum over the values of node i
+        msg = 0
+        vals_i = [targets[i]] if i in targets else range(self.k+1)
+        for val_i in vals_i:
+            msg_val_i = 1
+        
+            # Compute the local message for current node i
+            if val_i > 0:
+                msg_val_i *= np.exp(self.theta[(i, val_i)][y-1])
+
+            # Multiply the message from i --> j
+            if val_i > 0 and val_j > 0:
+                msg_val_i *= np.exp(self.theta[((i, j), val_i, val_j)][y-1])
+
+            # Recursively compute the messages from children
+            for c in set(self.G.neighbors(i)) - {j}:
+                msg_val_i *= self._SPA_message(targets, y, c, i, val_i)
+            msg += msg_val_i
+        
+        # Cache result then return it
+        self.SPA_msg_cache[cache_key] = msg
+        return msg
     
     def P_cond(self, lf_idxs, lf_vals, Y=None):
         """Returns the marginal probability of a set of LFs taking on a set of
@@ -321,19 +286,10 @@ class DataGenerator(object):
 
         # Get or compute the probability
         vals = lf_idxs + lf_vals + (Y,)
-        if vals in self.probs_cached:
-            return self.probs_cached[vals]
-        else:
-            if len(lf_idxs) > 1:
-                other_nodes = {i:li for i,li in zip(lf_idxs[1:], lf_vals[1:])}
-            else:
-                other_nodes = None
-            # TODO: Cache this?
-            Z = self.get_Z(Y)
-            i, li = lf_idxs[0], lf_vals[0]
-            p = self.naive_SPA(i, Y, other_nodes=other_nodes)[li] / Z
-            self.probs_cached[vals] = p
-            return p
+        if vals not in self.probs_cached:
+            targets = {i:li for i,li in zip(lf_idxs, lf_vals)}
+            self.probs_cached[vals] = self.SPA(targets, Y)
+        return self.probs_cached[vals]
     
     def P(self, lf_idxs, lf_vals, Y):
         """Returns the marginal probability of a set of LFs taking on a set of
