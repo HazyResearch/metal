@@ -144,7 +144,7 @@ class CliqueTree(object):
     def R_sum(self):
         return self._R([np.array([1, 1]), np.array([1, 1, 1, 1])])
     
-    def recover_mu(self, R_mu, R2_mu, mu_lp):
+    def recover_mu(self, R_mu, mu_lp):
         """Given R_mu = R @ mu for R and R2, and the observed labeling
         (non-abstain) rates of mu, mu_lp, recover mu."""
         R_mu_full = (R_mu.T @ self.R).T
@@ -303,8 +303,7 @@ class LabelModel(Classifier):
         - Z is the inverse form version of \mu.
         """
         # Initialize mu so as to break basic reflective symmetry
-        self.mu_init = torch.randn(self.d, self.k)
-        print("our k is", self.k)
+        self.mu_init = 0.5 * torch.randn(self.d, self.k) - 0.25
         #self.mu_init = torch.randn(self.d, 1)
         '''for members_i, ci in self.c_data.items():
             si, ei = ci['start_index'], ci['end_index']
