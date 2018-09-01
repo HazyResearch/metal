@@ -33,9 +33,41 @@ def indpm(x, y):
     """Plus-minus indicator function"""
     return 1 if x == y else -1
 
-# TODO: Separate generation of deps graph & rest!
+class DependenciesGraph(object):
+    """Helper data structures for source dependencies graph"""
+    def __init__(self, m):
+        self.G = nx.Graph()
+        self.edges = []
+        self.parent = {}
 
-class SingleTaskTreeDepsGenerator(object):
+class TreeDependencies(DependenciesGraph):
+    """Generate a random tree-structured dependency graph based on a
+    specified edge probability.
+    """
+    def __init__(self, m, edge_prob=1.0):
+        self.G = nx.Graph()
+        self.edges = []
+        self.parent = {}
+        for i in range(1, m):
+            if random() < edge_prob:
+                p_i = choice(i)
+                self.edges.append((p_i, i))
+                self.parent[i] = p_i
+                self.G.add_edge(i, p_i)
+
+class ChainDependencies(DependenciesGraph):
+    """Generate a chain-structured dependency graph."""
+    def __init__(self, m, edge_prob=1.0):
+        self.G = nx.Graph()
+        self.edges = []
+        self.parent = {}
+        for i in range(1, m):
+            p_i = i - 1
+            self.edges.append((p_i, i))
+            self.parent[i] = p_i
+            self.G.add_edge(i, p_i)
+
+class DataGenerator(object):
     """Generates a synthetic single-task L and Y matrix with dependencies
     
     Args:
@@ -45,7 +77,8 @@ class SingleTaskTreeDepsGenerator(object):
         class_balance: (np.array) each class's percentage of the population
         theta_range: (tuple) The min and max possible values for theta, the
             class conditional accuracy for each labeling source
-        edge_prob: edge density in the graph of correlations between sources
+        deps_graph: (DependenciesGraph) A DependenciesGraph object
+            specifying the dependencies structure of the sources
         theta_edge_range: The min and max possible values for theta_edge, the
             strength of correlation between correlated sources
 
@@ -56,7 +89,7 @@ class SingleTaskTreeDepsGenerator(object):
     because they include abstains.
     """
     def __init__(self, n, m, k=2, class_balance='random', theta_range=(0.1, 1), 
-        edge_prob=0.0, theta_edge_range=(0.1,1), **kwargs):
+        deps_graph=None, theta_edge_range=(0.1,1), **kwargs):
         self.n = n
         self.m = m
         self.k = k
@@ -65,20 +98,13 @@ class SingleTaskTreeDepsGenerator(object):
         self.probs_cached = {}
         self.Z_cached = {}
 
-        # Generate correlation structure: edges self.E, parents dict self.parent
-        #self._generate_edges(edge_prob)
-        self.E, self.parent = [], {}
-        self.G = nx.Graph()
-        self.E_order = dict()
-        for i in range(m-1):
-            self.E.append((i,i+1))
-        
-        self.n_edges = len(self.E)        
-        for i in range(self.n_edges):
-            self.E_order[i] = (i,i+1)
-            self.G.add_edge(i,i+1)
-            self.parent[i+1] = i
-        self.c_tree = CliqueTree(m, k, self.E, higher_order_cliques=True)
+        # Dependencies graph
+        self.deps_graph = DependenciesGraph(m) if deps_graph is None \
+            else deps_graph
+        self.edges = self.deps_graph.edges
+        self.parent = self.deps_graph.parent
+        self.G = self.deps_graph.G
+        self.c_tree = CliqueTree(m, k, self.edges, higher_order_cliques=True)
         
         # Generate class-conditional LF & edge parameters, stored in self.theta
         self._generate_params(theta_range, theta_edge_range)
@@ -99,28 +125,7 @@ class SingleTaskTreeDepsGenerator(object):
         self.sig, self.sig_inv = self._generate_sigma(self.O, self.mu)
 
         # Generate the true labels self.Y and label matrix self.L
-        # self._generate_label_matrix()
-    
-    def _generate_edges(self, edge_prob):
-        """Generate a random tree-structured dependency graph based on a
-        specified edge probability.
-    
-        Also create helper data struct mapping child -> parent.
-        """
-        self.G = nx.Graph()
-        self.E, self.parent = [], {}
-        self.E_order = dict()
-        idx = 0
-        for i in range(self.m):
-            if random() < edge_prob and i > 0:
-                p_i = choice(i)
-                self.E.append((p_i, i))
-                self.E_order[idx] = (p_i,i)
-                idx += 1
-                self.parent[i] = p_i
-                self.G.add_edge(i,p_i)
-        
-        self.n_edges = len(self.E)
+        self._generate_label_matrix()
 
     def _generate_params(self, theta_range, theta_edge_range):
         self.theta = defaultdict(float)
@@ -133,7 +138,7 @@ class SingleTaskTreeDepsGenerator(object):
         # Note: modifications to get the correct exponential model family
         #       formulation from the arxiv paper
         te_min, te_max = min(theta_edge_range), max(theta_edge_range)
-        for (i,j) in self.E:
+        for (i,j) in self.edges:
             for y1 in range(0, self.k+1):
                 for y2 in range(0, self.k+1):
                     #w_ij = (te_max - te_min) * random() + te_min
@@ -197,7 +202,7 @@ class SingleTaskTreeDepsGenerator(object):
                         mess_edge = 1 # local edge term (node, parent)    
                         if val > 0 and val_p > 0:
                             # we need to figure out the exact order of these things, in the original graph:
-                            if (parents[node][0], node) in self.E:
+                            if (parents[node][0], node) in self.edges:
                                 mess_edge  = np.exp(self.theta[((parents[node][0], node), val_p, val)][y-1])
                             else:
                                 mess_edge  = np.exp(self.theta[((node, parents[node][0]), val, val_p)][y-1])
@@ -386,12 +391,11 @@ class SingleTaskTreeDepsGenerator(object):
         # Correct output type
         self.L = csr_matrix(self.L, dtype=np.int)
 
-
-class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
-    def __init__(self, n, m, theta_range=(0, 1.5), edge_prob=0.0, 
-        theta_edge_range=(-1,1)):
+class HierarchicalMultiTaskDataGenerator(DataGenerator):
+    def __init__(self, n, m, theta_range=(0.1, 1), 
+        deps_graph=None, theta_edge_range=(0.1,1), **kwargs):
         super().__init__(n, m, k=4, theta_range=theta_range, 
-            edge_prob=edge_prob, theta_edge_range=theta_edge_range)
+            deps_graph=deps_graph, theta_edge_range=theta_edge_range)
 
         # Convert label matrix to tree task graph
         self.task_graph = TaskHierarchy(

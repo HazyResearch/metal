@@ -1,6 +1,8 @@
 from .generate import (
-    SingleTaskTreeDepsGenerator,
-    HierarchicalMultiTaskTreeDepsGenerator,
+    ChainDependencies,
+    TreeDependencies,
+    DataGenerator,
+    HierarchicalMultiTaskDataGenerator,
     gaussian_bags_of_words
 )   
 from .words1k import vocab1k
