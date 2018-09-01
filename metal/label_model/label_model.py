@@ -138,11 +138,7 @@ class CliqueTree(object):
     
     @property
     def R(self):
-        return self._R([np.array([1, -1]), np.array([1, 1, -1, -1])])
-    
-    @property
-    def R2(self):
-        return self._R([np.array([1, -1]), np.array([1, -1, 1, -1])])
+        return self._R([np.array([1, -1]), np.array([1, -1, -1, 1])])
     
     @property
     def R_sum(self):
