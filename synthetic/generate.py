@@ -59,8 +59,9 @@ class SingleTaskTreeDepsGenerator(object):
         self.m = m
         self.k = k
 
-        # Create a dictionary of cached probabilities
+        # Create a dictionary of cached probabilities and partition function
         self.probs_cached = {}
+        self.Z_cached = {}
 
         # Generate correlation structure: edges self.E, parents dict self.parent
         #self._generate_edges(edge_prob)
@@ -90,7 +91,7 @@ class SingleTaskTreeDepsGenerator(object):
             self.p = class_balance
 
         # Generate the true labels self.Y and label matrix self.L
-        self._generate_label_matrix()
+        # self._generate_label_matrix()
 
         # Compute the conditional clique probabilities
         # self._get_conditional_probs()
@@ -139,16 +140,14 @@ class SingleTaskTreeDepsGenerator(object):
                     self.theta[((i, j), y1, y2)] = w_ij
                     #self.theta[((j, i), y1, y2)] = w_ij
 
-        #for key in self.theta:
-        #    print(key, " ", self.theta[key])
-    
-
     def get_Z(self, y):
-        # verify all partition functions the same:
-        '''for i in range(self.m):
-            print(np.sum(self.naive_SPA(i,y)))'''
-
-        return np.sum(self.naive_SPA(0,y))
+        """Get or compute the partition function"""
+        if y in self.Z_cached:
+            return self.Z_cached[y]
+        else:
+            Z = np.sum(self.naive_SPA(0,y))
+            self.Z_cached[y] = Z
+            return Z
 
     def naive_SPA(self, i, y, other_nodes=None, verbose=False):
         # this contains our nodes:
@@ -327,144 +326,26 @@ class SingleTaskTreeDepsGenerator(object):
             print("we added a row for Y with val = ", nodes_1[-1])
 
         return nodes_1
-
-    def _gen_true_O(self, higher_order=False, include_Y=False, joint_form=False, fix_Y=-1):
-        Z_vals = dict()
-        for y in range(1, self.k+1):
-            Z_vals[y] = self.get_Z(y)
-
-        if fix_Y == -1:
-            y_range = range(1,self.k+1)
-        else:
-            y_range = [fix_Y]
-
-        if higher_order:
-            sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
-        else:
-            sz = self.m * (self.k)
-        
+    
+    def _generate_O_true(self, include_Y=False, Y=None):
         if include_Y:
-            sz += self.k-1
+            raise NotImplementedError("Addition of Y not implemented here.")
+        O = np.zeros([self.c_tree.d, self.c_tree.d])
+        for i, c1 in enumerate(self.c_tree.iter_index()):
+            for j, c2 in enumerate(self.c_tree.iter_index()):
 
-        self.O_true = np.zeros([sz, sz])
-        idx1 = 0
-
-        for clique1 in self.c_tree.iter_index():
-            idx2 = 0
-            for clique2 in self.c_tree.iter_index():
-                #print("indices ", idx1, idx2)
-                #print("clique2 = ", clique2)
-                nodes_1 = dict()
-                nodes_2 = dict()
-
-                for idx in range(len(clique1[0])):
-                    nodes_1[ clique1[0][idx] ] = clique1[1][idx]
-
-                for idx in range(len(clique2[0])):
-                    nodes_2[ clique2[0][idx] ] = clique2[1][idx]
-
-                sm = 0
-                # check for overlaps between the two node sets:
-                inter = list(set(nodes_1.keys()) & set(nodes_2.keys()))
+                # Check for inconsistent values of the same source
                 consistent = True
-                for node in inter:
-                    if nodes_1[node] != nodes_2[node]:
+                for idx in set(c1.keys()) & set(c2.keys()):
+                    if c1[idx] != c2[idx]:
                         consistent = False
+                if not consistent:
+                    continue
 
-                if consistent:
-                    # union:
-                    nodes = {**nodes_1, **nodes_2}
-
-                    # remove any items corresponding to Y:
-                    if -1 in nodes:
-                        y_val = nodes.pop(-1)
-                        #print(y_val)
-
-                    # if nodes is empty, this is the lower right corner:
-                    if len(nodes) == 0:
-                        sm = self.p[y_val-1]
-                    else:
-                        # first node:
-                        nv = nodes.popitem()
-                         
-                        for y in y_range:
-                            if len(nodes) == 0:
-                                if joint_form:
-                                    sm += self.P_cond(nv[0], nv[1], y)
-                                else:
-                                    sm += self.P_cond(nv[0], nv[1], y) * self.p[y-1]                                    
-                            else:
-                                if joint_form:
-                                    sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) 
-                                else:
-                                    sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) * self.p[y-1]
-                        
-                self.O_true[idx1, idx2] = sm
-                idx2 += 1
-            idx1 += 1
-
-    def _generate_true_O(self, higher_order=False, include_Y=False, fix_Y=-1):
-        Z_vals = dict()
-        for y in range(1, self.k+1):
-            Z_vals[y] = self.get_Z(y)
-
-        if fix_Y == -1:
-            y_range = range(1,self.k+1)
-        else:
-            y_range = [fix_Y]
-
-        if higher_order:
-            sz = self.m * (self.k) + self.n_edges * (self.k ** 2)
-        else:
-            sz = self.m * (self.k)
-        
-        if include_Y:
-            sz += self.k-1
-
-        self.O_true = np.zeros([sz, sz])
-        for idx1 in range(sz):
-            for idx2 in range(sz):
-
-                nodes_1 = self._get_node_index(idx1)
-                nodes_2 = self._get_node_index(idx2)
-                
-                #print("idx1 , idx2 = ", idx1, idx2)
-                #print("nodes_1 = ", nodes_1)
-                #print("nodes_2 = ", nodes_2)
-
-                sm = 0
-                # check for overlaps between the two node sets:
-                inter = list(set(nodes_1.keys()) & set(nodes_2.keys()))
-                consistent = True
-                for node in inter:
-                    if nodes_1[node] != nodes_2[node]:
-                        consistent = False
-
-                if consistent:
-                    # union:
-                    nodes = {**nodes_1, **nodes_2}
-
-                    # remove any items corresponding to Y:
-                    if -1 in nodes:
-                        y_val = nodes.pop(-1)
-                        print(y_val)
-
-                    # if nodes is empty, this is the lower right corner:
-                    if len(nodes) == 0:
-                        sm = self.p[y_val-1]
-                    else:
-                        # first node:
-                        nv = nodes.popitem()
-                        
-                        for y in y_range:
-                            if len(nodes) == 0:
-                                sm += self.P_cond(nv[0], nv[1], y) * self.p[y-1]
-                            else:
-                                sm += (self.naive_SPA(nv[0], y, other_nodes=nodes)[nv[1]] / Z_vals[y]) * self.p[y-1]
-                        
-                self.O_true[idx1, idx2] = sm
-                idx2 += 1
-            idx1 += 1
+                # Get the probability of the union of the clique values
+                u = {**c1, **c2}
+                O[i,j] = self.P_cond(tuple(u.keys()), tuple(u.values()), Y=Y)
+        return O
     
     # y value is currently broken
     def _gen_true_mu(self, higher_order=False, include_Y=False, fix_Y=-1):

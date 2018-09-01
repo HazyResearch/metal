@@ -114,10 +114,11 @@ class CliqueTree(object):
         self.c = start_index_1
     
     def iter_index(self):
-        """Iterates over the (clique_members, values) indices"""
+        """Iterates over the (clique_members, values) indices, returning them
+        as a dictionary {lf_idx : val, ...}."""
         for c, c_data in self.c_data.items():
             for vals in product(range(1, self.k+1), repeat=c_data['size']):
-                yield (c, vals)
+                yield {li : v for li, v in zip(c, vals)}
     
     def _R(self, rs):
         """The matrix that reduces O to its observable form ROR^T.
