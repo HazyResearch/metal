@@ -75,57 +75,6 @@ class ChainDependencies(DependenciesGraph):
             self.G.add_edge(i, p_i)
 
 ###
-### Model Params
-###
-class ModelParameters(object):
-    """Helper data structures for the source parameters; note that this object
-    essentially defines our model.
-    
-    This model is the most general form, where each marginal conditional 
-    probability for each clique C, P(\lf_C | Y), is generated randomly.
-
-    Args:
-        - m: (int) Number of sources
-        - k: (int) Cardinality of the problem
-        - theta_range: (tuple) The min and max possible values for theta, the
-            class conditional accuracy for each labeling source
-        - edges: (list) List of tuples of ints representing dependency edges
-            between the sources
-        - theta_edge_range: The min and max possible values for theta_edge, the
-            strength of correlation between correlated sources
-    """
-    def __init__(self, m, k, theta_range=(0.1, 1), edges=[], 
-        theta_edge_range=(0.1,1)):
-        self.theta = defaultdict(float)
-        for i in range(m):
-            for y in range(1, k+1):
-                t_min, t_max = min(theta_range), max(theta_range)
-                self.theta[(i,y)] = (t_max - t_min) * random(k) + t_min
-
-        # Choose random weights for the edges
-        # Note: modifications to get the correct exponential model family
-        #       formulation from the arxiv paper
-        te_min, te_max = min(theta_edge_range), max(theta_edge_range)
-        for (i,j) in edges:
-            for y1 in range(0, k+1):
-                for y2 in range(0, k+1):
-                    w_ij = (te_max - te_min) * random(k) + te_min
-                    self.theta[((i, j), y1, y2)] = w_ij
-                    self.theta[((j, i), y2, y1)] = w_ij
-
-class SimpleModelParameters(object):
-    """Helper data structures for the source parameters; note that this object
-    essentially defines our model.
-    
-    This is the simplified model, where:
-        - P(\lf_i=y | Y=y) is the same for all y
-        - P(\lf_i=y' | Y=y) is the same for all y, y' != y
-        - ...
-    """
-    # TODO
-    pass
-
-###
 ### DATA GENERATORS
 ###
 class DataGenerator(object):
@@ -136,9 +85,12 @@ class DataGenerator(object):
         m: (int) The number of labeling sources
         k: (int) The cardinality of the classification task
         class_balance: (np.array) each class's percentage of the population
-        model_params: (ModelParameters) A ModelParameters object
         deps_graph: (DependenciesGraph) A DependenciesGraph object
             specifying the dependencies structure of the sources
+        theta_range: (tuple) The min and max possible values for theta, the
+            class conditional accuracy for each labeling source
+        theta_edge_range: The min and max possible values for theta_edge, the
+            strength of correlation between correlated sources
     
     The labeling functions have class-conditional accuracies, and 
     class-unconditional pairwise correlations forming a tree-structured graph.
@@ -146,8 +98,8 @@ class DataGenerator(object):
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains.
     """
-    def __init__(self, n, m, k=2, class_balance='random', model_params=None, 
-        deps_graph=None, **kwargs):
+    def __init__(self, n, m, k=2, class_balance='random', deps_graph=None,
+        theta_range=(0.1,1), theta_edge_range=(0.1,1), **kwargs):
         self.n = n
         self.m = m
         self.k = k
@@ -167,9 +119,8 @@ class DataGenerator(object):
         self.c_tree = CliqueTree(m, k, self.edges, higher_order_cliques=True)
         
         # Generate class-conditional LF & edge parameters, stored in self.theta
-        self.model_params = ModelParameters(m, k, edges=self.edges) \
-            if model_params is None else model_params
-        self.theta = self.model_params.theta
+        self.theta = self._generate_params(theta_range=theta_range,
+            theta_edge_range=theta_edge_range)
 
         # Generate class balance self.p
         if class_balance is None:
@@ -188,6 +139,41 @@ class DataGenerator(object):
 
         # Generate the true labels self.Y and label matrix self.L
         self._generate_label_matrix()
+    
+    def _generate_params(self, theta_range=(0.1,1), theta_edge_range=(0.1,1)):
+        """This function generates the parameters of the data generating model
+
+        Note that along with the potential functions of the SPA algorithm, this
+        essentially defines our model. This model is the most general form,
+        where each marginal conditional probability for each clique C, 
+        P(\lf_C | Y), is generated randomly.
+        """
+        theta = defaultdict(float)
+        for i in range(self.m):
+            for y in range(1, self.k+1):
+                t_min, t_max = min(theta_range), max(theta_range)
+                theta[(i,y)] = (t_max - t_min) * random(self.k) + t_min
+
+        # Choose random weights for the edges
+        # Note: modifications to get the correct exponential model family
+        #       formulation from the arxiv paper
+        te_min, te_max = min(theta_edge_range), max(theta_edge_range)
+        for (i,j) in self.edges:
+            for y1 in range(0, self.k+1):
+                for y2 in range(0, self.k+1):
+                    w_ij = (te_max - te_min) * random(self.k) + te_min
+                    theta[((i, j), y1, y2)] = w_ij
+                    theta[((j, i), y2, y1)] = w_ij
+        return theta
+    
+    def _node_factor(self, i, val_i, y):
+        return np.exp(self.theta[(i, val_i)][y-1]) if val_i > 0 else 1
+    
+    def _edge_factor(self, i, j, val_i, val_j, y):
+        if val_i > 0 and val_j > 0:
+            return np.exp(self.theta[((i, j), val_i, val_j)][y-1])
+        else:
+            return 1
     
     def SPA(self, targets, y):
         """Returns the marginal probability of source labels in targets,
@@ -213,14 +199,15 @@ class DataGenerator(object):
 
         # Compute the local messages (unnormalized potential) recursively
         msg = 1
-        if val_i > 0:
-            msg *= np.exp(self.theta[(i, val_i)][y-1])
+        msg *= self._node_factor(i, val_i, y)
         for c in self.G.neighbors(i):
             msg *= self._SPA_message(targets, y, c, i, val_i)
         return msg
 
     def _SPA_message(self, targets, y, i, j, val_j):
         """Computes the sum-product message from node i --> j"""
+        # Form cache key and check cache
+        # TODO: This is a bit clunky, clean up?
         cache_key = (
             tuple(targets.keys()), tuple(targets.values()), y, i, j, val_j
         )
@@ -234,12 +221,10 @@ class DataGenerator(object):
             msg_val_i = 1
         
             # Compute the local message for current node i
-            if val_i > 0:
-                msg_val_i *= np.exp(self.theta[(i, val_i)][y-1])
+            msg_val_i *= self._node_factor(i, val_i, y)
 
             # Multiply the message from i --> j
-            if val_i > 0 and val_j > 0:
-                msg_val_i *= np.exp(self.theta[((i, j), val_i, val_j)][y-1])
+            msg_val_i *= self._edge_factor(i, j, val_i, val_j, y)
 
             # Recursively compute the messages from children
             for c in set(self.G.neighbors(i)) - {j}:
