@@ -18,7 +18,9 @@ class SoftCrossEntropyLoss(nn.Module):
         target: An [n, k] float tensor of target probabilities
     """
 
-    def __init__(self, weight=None, reduction="elementwise_mean", use_cuda=False):
+    def __init__(
+        self, weight=None, reduction="elementwise_mean", use_cuda=False
+    ):
         super().__init__()
         assert weight is None or isinstance(weight, torch.FloatTensor)
         self.weight = weight

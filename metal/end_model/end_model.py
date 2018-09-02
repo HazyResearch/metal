@@ -71,7 +71,9 @@ class EndModel(Classifier):
             self.network = nn.Sequential(input_layer, *middle_layers, head)
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduction="sum", use_cuda=self.config['train_config']['use_cuda'])
+        self.criteria = SoftCrossEntropyLoss(
+            reduction="sum", use_cuda=self.config["train_config"]["use_cuda"]
+        )
 
     def _build_input_layer(self, input_module):
         if input_module is None:
@@ -154,32 +156,32 @@ class EndModel(Classifier):
         return data_loader
 
     def _get_loss_fn(self):
-        if hasattr(self.config, 'use_cuda'):
-            if self.config['use_cuda']:
+        if hasattr(self.config, "use_cuda"):
+            if self.config["use_cuda"]:
                 criteria = self.criteria.cuda()
         else:
             criteria = self.criteria
         loss_fn = lambda X, Y: criteria(self.forward(X), Y)
-        
+
         return loss_fn
-    
+
     def _convert_input_data(self, data):
         if type(data) is tuple:
-            X,Y = data
+            X, Y = data
             Y = self._to_torch(Y, dtype=torch.FloatTensor)
-            loader_config = self.config['train_config']['data_loader_config']
+            loader_config = self.config["train_config"]["data_loader_config"]
             loader = self._make_data_loader(X, Y, loader_config)
         elif type(data) is DataLoader:
             loader = data
         else:
             raise ValueError(
-                'Unrecognized input data structure, use tuple or DataLoader!')
+                "Unrecognized input data structure, use tuple or DataLoader!"
+            )
         return loader
 
     def train(self, train_data, dev_data=None, **kwargs):
-        
+
         self.config = recursive_merge_dicts(self.config, kwargs)
-        train_config = self.config["train_config"]
 
         # Convert input data to data loaders
         train_loader = self._convert_input_data(train_data)

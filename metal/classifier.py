@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
-from metal.utils import Checkpointer, recursive_merge_dicts, hard_to_soft
+from metal.utils import Checkpointer, hard_to_soft, recursive_merge_dicts
 
 
 class Classifier(nn.Module):
@@ -119,7 +119,7 @@ class Classifier(nn.Module):
             train_loader: a torch DataLoader of X (data) and Y (labels) for
                 the train split
             loss_fn: the loss function to minimize (maps *data -> loss)
-            dev_loader: a torch DataLoader of X (data) and Y (labels) for 
+            dev_loader: a torch DataLoader of X (data) and Y (labels) for
                 the dev split
 
         If dev_loader is not provided, then no checkpointing or
@@ -163,7 +163,7 @@ class Classifier(nn.Module):
 
                 # converting hard to soft labels for training
                 data[1] = self._preprocess_Y(data[1], self.k)
-                
+
                 # moving data to GPU
                 if train_config["use_cuda"]:
                     data = [d.cuda() for d in data]
@@ -219,7 +219,7 @@ class Classifier(nn.Module):
                 dev_score = self.score(
                     dev_loader, metric=val_metric, verbose=False
                 )
-                
+
                 if train_config["checkpoint"]:
                     checkpointer.checkpoint(self, epoch, dev_score)
 
@@ -254,13 +254,11 @@ class Classifier(nn.Module):
             if evaluate_dev:
                 # Currently use default random break ties in evaluate
                 Y_p_dev, Y_dev = self.evaluate(dev_loader)
-                     
+
                 if not self.multitask:
                     print("Confusion Matrix (Dev)")
-                    confusion_matrix(
-                        Y_p_dev, Y_dev, pretty_print=True
-                    )
-        
+                    confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)
+
     def _set_optimizer(self, optimizer_config):
         opt = optimizer_config["optimizer"]
         if opt == "sgd":
@@ -305,15 +303,15 @@ class Classifier(nn.Module):
         if Y.dim() == 1 or Y.shape[1] == 1:
             Y = hard_to_soft(Y.long(), k=k)
         return Y
-    
-    def _batch_evaluate(self, loader, break_ties='random', **kwargs):
+
+    def _batch_evaluate(self, loader, break_ties="random", **kwargs):
         """Evaluates the model using minibatches
 
         Args:
-            loader: Pytorch DataLoader supplying (X,Y): 
+            loader: Pytorch DataLoader supplying (X,Y):
                 X: The input for the predict method
-                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels in
-                    {1,...,k}; can be None for cases with no ground truth
+                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
+                    in {1,...,k}; can be None for cases with no ground truth
 
         Returns:
             Y_p: an np.ndarray of predictions
@@ -328,45 +326,49 @@ class Classifier(nn.Module):
                 X_batch = X_batch.cuda()
 
             Y.append(self._to_numpy(Y_batch))
-            Y_p.append(self._to_numpy(
-                self.predict(X_batch, break_ties=break_ties, **kwargs)))
-        
+            Y_p.append(
+                self._to_numpy(
+                    self.predict(X_batch, break_ties=break_ties, **kwargs)
+                )
+            )
+
         Y = np.hstack(Y)
         Y_p = np.hstack(Y_p)
 
         return Y_p, Y
-        
-    def evaluate(self, data, break_ties='random', **kwargs):
+
+    def evaluate(self, data, break_ties="random", **kwargs):
         """Evaluates the model
 
         Args:
             data: either a Pytorch DataLoader or tuple supplying (X,Y):
                 X: The input for the predict method
-                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels in
-                    {1,...,k}
+                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
+                    in {1,...,k}
 
         Returns:
             Y_p: an np.ndarray of predictions
             Y: an np.ndarray of ground truth labels
-        """        
-        
+        """
+
         if type(data) is tuple:
-            X,Y = data
+            X, Y = data
             if self.config["train_config"]["use_cuda"]:
                 X = X.cuda()
 
             Y = self._to_numpy(Y)
             Y_p = self.predict(X, break_ties=break_ties, **kwargs)
-            
+
         elif type(data) is DataLoader:
             Y_p, Y = self._batch_evaluate(data, break_ties=break_ties)
-                
+
         else:
             raise ValueError(
-                'Unrecognized input data structure, use tuple or DataLoader!')
-            
+                "Unrecognized input data structure, use tuple or DataLoader!"
+            )
+
         return Y_p, Y
-                
+
     def score(
         self,
         data,
@@ -380,8 +382,8 @@ class Classifier(nn.Module):
         Args:
             data: either a Pytorch DataLoader or tuple supplying (X,Y):
                 X: The input for the predict method
-                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels in
-                    {1,...,k}
+                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
+                    in {1,...,k}
             metric: A metric (string) with which to score performance or a
                 list of such metrics
             break_ties: How to break ties when making predictions
