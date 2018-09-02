@@ -98,10 +98,12 @@ class DataGenerator(object):
         class_balance: (np.array) each class's percentage of the population
         deps_graph: (DependenciesGraph) A DependenciesGraph object
             specifying the dependencies structure of the sources
-        theta_range: (tuple) The min and max possible values for theta, the
-            class conditional accuracy for each labeling source
-        theta_edge_range: The min and max possible values for theta_edge, the
-            strength of correlation between correlated sources
+        param_ranges: (dict) A dictionary of ranges to draw the model parameters
+            from:
+            - theta_range: (tuple) The min and max possible values for theta, 
+                the class conditional accuracy for each labeling source
+            - theta_edge_range: The min and max possible values for theta_edge, 
+                the strength of correlation between correlated sources
     
     The labeling functions have class-conditional accuracies, and 
     class-unconditional pairwise correlations forming a tree-structured graph.
@@ -110,7 +112,8 @@ class DataGenerator(object):
     because they include abstains.
     """
     def __init__(self, n, m, k=2, class_balance='random', deps_graph=None,
-        theta_range=(0.1,1), theta_edge_range=(0.1,1), **kwargs):
+        param_ranges={'theta_range': (0.1,1), 'theta_edge_range': (0.1,1)}, 
+        **kwargs):
         self.n = n
         self.m = m
         self.k = k
@@ -130,8 +133,7 @@ class DataGenerator(object):
         self.c_tree = CliqueTree(m, k, self.edges, higher_order_cliques=True)
         
         # Generate class-conditional LF & edge parameters, stored in self.theta
-        self.theta = self._generate_params(theta_range=theta_range,
-            theta_edge_range=theta_edge_range)
+        self.theta = self._generate_params(param_ranges)
 
         # Generate class balance self.p
         if class_balance is None:
@@ -151,7 +153,7 @@ class DataGenerator(object):
         # Generate the true labels self.Y and label matrix self.L
         self._generate_label_matrix()
     
-    def _generate_params(self, theta_range=(0.1,1), theta_edge_range=(0.1,1)):
+    def _generate_params(self, param_ranges):
         """This function generates the parameters of the data generating model
 
         Note that along with the potential functions of the SPA algorithm, this
@@ -162,14 +164,14 @@ class DataGenerator(object):
         theta = defaultdict(float)
 
         # Unary parameters
+        theta_range = param_ranges['theta_range']
         t_min, t_max = min(theta_range), max(theta_range)
         for i in range(self.m):
             for y in range(1, self.k+1):
                 theta[(i,y)] = (t_max - t_min) * random(self.k) + t_min
 
         # Choose random weights for the edges
-        # Note: modifications to get the correct exponential model family
-        #       formulation from the arxiv paper
+        theta_edge_range = param_ranges['theta_edge_range']
         te_min, te_max = min(theta_edge_range), max(theta_edge_range)
         for (i,j) in self.edges:
             for y1 in range(0, self.k+1):
@@ -396,15 +398,25 @@ class SimpleDataGenerator(DataGenerator):
         class_balance: (np.array) each class's percentage of the population
         deps_graph: (DependenciesGraph) A DependenciesGraph object
             specifying the dependencies structure of the sources
-        theta_range: (tuple) The min and max possible values for theta, the
-            for each labeling source
-        theta_edge_range: The min and max possible values for theta_edge, the
-            strength of correlation between correlated sources
+        param_ranges: (dict) A dictionary of ranges to draw the model parameters
+            from:
+            - theta_lp_range: (tuple) The min and max possible values for 
+                theta_lp, which controls the labeling propensity of each LF
+            - theta_acc_range: (tuple) The min and max possible values for 
+                theta_acc, which controls the accuracy of each LF
+            - theta_edge_range: The min and max possible values for theta_edge, 
+                the strength of correlation between correlated sources
     
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains.
     """
-    def _generate_params(self, theta_range=(0.1,1), theta_edge_range=(0.1,1)):
+    def __init__(self, n, m, k=2, class_balance='random', deps_graph=None,
+        param_ranges={'theta_lp_range': (0.1,0.5), 'theta_acc_range': (0.1,1), 
+        'theta_edge_range': (0.1,1)}, **kwargs):
+        super().__init__(n, m, k=k, class_balance=class_balance,
+            deps_graph=deps_graph, param_ranges=param_ranges, **kwargs)
+
+    def _generate_params(self, param_ranges):
         """This function generates the parameters of the data generating model
 
         Note that along with the potential functions of the SPA algorithm, this
@@ -414,13 +426,19 @@ class SimpleDataGenerator(DataGenerator):
         theta = defaultdict(float)
 
         # Unary parameters
-        # Each entry is [labeling propensity, accuracy]
-        t_min, t_max = min(theta_range), max(theta_range)
+        # Each entry is (labeling propensity, accuracy)
+        theta_lp_range = param_ranges['theta_lp_range']
+        t_lp_min, t_lp_max = min(theta_lp_range), max(theta_lp_range)
+        theta_acc_range = param_ranges['theta_acc_range']
+        t_acc_min, t_acc_max = min(theta_acc_range), max(theta_acc_range)
         for i in range(self.m):
-            # TODO: Better separate out labeling propensity vs. accuracy!
-            theta[i] = (t_max - t_min) * random(2) + t_min
+            theta[i] = (
+                (t_lp_max - t_lp_min) * random() + t_lp_min,
+                (t_acc_max - t_acc_min) * random() + t_acc_min
+            )
 
         # Choose random weights for the edges
+        theta_edge_range = param_ranges['theta_edge_range']
         te_min, te_max = min(theta_edge_range), max(theta_edge_range)
         for (i,j) in self.edges:
             w_ij = (te_max - te_min) * random() + te_min
@@ -430,8 +448,7 @@ class SimpleDataGenerator(DataGenerator):
     
     def _node_factor(self, i, val_i, y):
         theta_lp, theta_acc = self.theta[i]
-        return np.exp(
-            -theta_lp * indpm(val_i, 0) + theta_acc * indpm_0(val_i, y))
+        return np.exp(theta_lp * (val_i != 0) + theta_acc * (val_i == y))
     
     def _edge_factor(self, i, j, val_i, val_j, y):
         return np.exp(self.theta[(i,j)] * indpm(val_i, val_j))
