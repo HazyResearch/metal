@@ -147,9 +147,32 @@ class CliqueTree(object):
     def recover_mu(self, R_mu, mu_lp):
         """Given R_mu = R @ mu for R and R2, and the observed labeling
         (non-abstain) rates of mu, mu_lp, recover mu."""
+        mu = np.zeros((self.d, 1))
+
+        # Recover mu for unary cliques
         R_mu_full = (R_mu.T @ self.R).T
         mu_lp_full = (mu_lp.T @ self.R_sum).T
-        return 0.5 * (R_mu_full + mu_lp_full)
+        # Note: we assume the first m*k indices are for unary statistics!
+        mu[:self.m*self.k] = (0.5 * (R_mu_full + mu_lp_full))[:self.m*self.k]
+        
+        # Recover mu for binary cliques
+        M = np.array([
+            [1, -1, -1, 1],
+            [1, 1, 1, 1],
+            [1, 1, 0, 0],
+            [1, 0, 1, 0]
+        ])
+        M_inv = np.linalg.inv(M)
+        for i, (c, c_data) in enumerate(self.c_data.items()):
+            if len(c) == 2:
+                si, ei = c_data['start_index'], c_data['end_index']
+                mu[si:ei] = M_inv @ np.array([
+                    R_mu[i],
+                    mu_lp[i],
+                    mu[self.k * c[0]] * mu_lp[c[1]],
+                    mu[self.k * c[1]] * mu_lp[c[0]]
+                ])
+        return mu
 
 class LabelModel(Classifier):
     """A LabelModel...TBD

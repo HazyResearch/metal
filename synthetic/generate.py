@@ -411,7 +411,7 @@ class SimpleDataGenerator(DataGenerator):
     because they include abstains.
     """
     def __init__(self, n, m, k=2, class_balance='random', deps_graph=None,
-        param_ranges={'theta_lp_range': (0.1,0.5), 'theta_acc_range': (0.1,1), 
+        param_ranges={'theta_lp_range': (0.5,0.75), 'theta_acc_range': (0.1,1), 
         'theta_edge_range': (0.1,1)}, **kwargs):
         super().__init__(n, m, k=k, class_balance=class_balance,
             deps_graph=deps_graph, param_ranges=param_ranges, **kwargs)
@@ -447,11 +447,40 @@ class SimpleDataGenerator(DataGenerator):
         return theta
     
     def _node_factor(self, i, val_i, y):
+        # return np.exp(theta_lp * (val_i != 0) + theta_acc * (val_i == y))
+        # Handle abstains in P_cond
         theta_lp, theta_acc = self.theta[i]
-        return np.exp(theta_lp * (val_i != 0) + theta_acc * (val_i == y))
-    
+        return (val_i != 0) * np.exp(theta_acc * (val_i == y))
+
     def _edge_factor(self, i, j, val_i, val_j, y):
-        return np.exp(self.theta[(i,j)] * indpm(val_i, val_j))
+        # return np.exp(self.theta[(i,j)] * (val_i == val_j))
+        return (val_i != 0 and val_j != 0) * \
+            np.exp(self.theta[(i,j)] * (val_i == val_j))
+    
+    def P_cond(self, lf_idxs, lf_vals, Y=None):
+        # Convert all inputs to a tuple of values
+        if isinstance(lf_idxs, int):
+            lf_idxs = (lf_idxs,)
+        if isinstance(lf_vals, int):
+            lf_vals = (lf_vals,)
+
+        # Get the probabilities of the *non-zero* values
+        lf_idxs_nnz = []
+        lf_vals_nnz = []
+        for i, val_i in zip(lf_idxs, lf_vals):
+            if val_i != 0:
+                lf_idxs_nnz.append(i)
+                lf_vals_nnz.append(val_i)
+        
+        if len(lf_idxs_nnz) > 0:
+            p = super().P_cond(lf_idxs_nnz, lf_vals_nnz, Y=Y)
+        else:
+            p = 1.0
+        
+        # Independent probabilities of labeling
+        for i, val_i in zip(lf_idxs, lf_vals):
+            p *= self.theta[i][0] if val_i != 0 else 1 - self.theta[i][0]
+        return p
 
 class HierarchicalMultiTaskDataGenerator(DataGenerator):
     def __init__(self, n, m, theta_range=(0.1, 1), 
