@@ -7,13 +7,12 @@ from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.modules import IdentityModule
-from metal.utils import MetalDataset, hard_to_soft, recursive_merge_dicts
+from metal.utils import MetalDataset, recursive_merge_dicts
 
 
 class EndModel(Classifier):
     """A dynamically constructed discriminative classifier
 
-    Args:
         layer_out_dims: a list of integers corresponding to the output sizes
             of the layers of your network. The first element is the
             dimensionality of the input layer, the last element is the
@@ -149,17 +148,8 @@ class EndModel(Classifier):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
 
-    def _preprocess_Y(self, Y, k):
-        """Convert Y to soft labels if necessary"""
-        Y = Y.clone()
-
-        # If hard labels, convert to soft labels
-        if Y.dim() == 1 or Y.shape[1] == 1:
-            Y = hard_to_soft(Y.long(), k=k)
-        return Y
-
     def _make_data_loader(self, X, Y, data_loader_config):
-        dataset = MetalDataset(X, self._preprocess_Y(Y, self.k))
+        dataset = MetalDataset(X, Y)
         data_loader = DataLoader(dataset, shuffle=True, **data_loader_config)
         return data_loader
 
@@ -172,17 +162,31 @@ class EndModel(Classifier):
         loss_fn = lambda X, Y: criteria(self.forward(X), Y)
         
         return loss_fn
+    
+    def _convert_input_data(self, data):
+        if type(data) is tuple:
+            X,Y = data
+            Y = self._to_torch(Y, dtype=torch.FloatTensor)
+            loader_config = self.config['train_config']['data_loader_config']
+            loader = self._make_data_loader(X, Y, loader_config)
+        elif type(data) is DataLoader:
+            loader = data
+        else:
+            raise ValueError(
+                'Unrecognized input data structure, use tuple or DataLoader!')
+        return loader
 
-    def train(self, X_train, Y_train, X_dev=None, Y_dev=None, **kwargs):
+    def train(self, train_data, dev_data=None, **kwargs):
+        
         self.config = recursive_merge_dicts(self.config, kwargs)
         train_config = self.config["train_config"]
 
-        Y_train = self._to_torch(Y_train, dtype=torch.FloatTensor)
-        Y_dev = self._to_torch(Y_dev)
-
-        # Make data loaders
-        loader_config = train_config["data_loader_config"]
-        train_loader = self._make_data_loader(X_train, Y_train, loader_config)
+        # Convert input data to data loaders
+        train_loader = self._convert_input_data(train_data)
+        if dev_data is not None:
+            dev_loader = self._convert_input_data(dev_data)
+        else:
+            dev_loader = None
 
         # Initialize the model
         self.reset()
@@ -191,7 +195,7 @@ class EndModel(Classifier):
         loss_fn = self._get_loss_fn()
 
         # Execute training procedure
-        self._train(train_loader, loss_fn, X_dev=X_dev, Y_dev=Y_dev)
+        self._train(train_loader, loss_fn, dev_loader=dev_loader)
 
     def predict_proba(self, X):
         """Returns a [n, k] tensor of soft (float) predictions."""
