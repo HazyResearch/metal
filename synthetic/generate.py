@@ -40,6 +40,10 @@ def indpm_0(x, y):
     else:
         return 1 if x == y else -1
 
+def ind_0(x, y):
+    """Indicator function, special handling of zero values"""
+    return 1 if x == y and x != 0 and y != 0 else 0
+
 ###
 ### Dependencies Graphs
 ###
@@ -427,11 +431,10 @@ class SimpleDataGenerator(DataGenerator):
     def _node_factor(self, i, val_i, y):
         theta_lp, theta_acc = self.theta[i]
         return np.exp(
-            theta_lp * indpm(val_i, 0) + theta_acc * indpm_0(val_i, y))
+            -theta_lp * indpm(val_i, 0) + theta_acc * indpm_0(val_i, y))
     
     def _edge_factor(self, i, j, val_i, val_j, y):
-        return np.exp(
-            self.theta[(i,j)] * indpm_0(val_i, val_j))
+        return np.exp(self.theta[(i,j)] * indpm(val_i, val_j))
 
 class HierarchicalMultiTaskDataGenerator(DataGenerator):
     def __init__(self, n, m, theta_range=(0.1, 1), 
