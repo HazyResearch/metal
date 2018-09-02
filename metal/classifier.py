@@ -120,7 +120,7 @@ class Classifier(nn.Module):
                 the train split
             loss_fn: the loss function to minimize (maps *data -> loss)
             dev_loader: a torch DataLoader of X (data) and Y (labels) for 
-                the dev splot
+                the dev split
 
         If dev_loader is not provided, then no checkpointing or
         evaluation on the dev set will occur.
