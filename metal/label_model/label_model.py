@@ -151,7 +151,6 @@ class CliqueTree(object):
         mu_lp_full = (mu_lp.T @ self.R_sum).T
         return 0.5 * (R_mu_full + mu_lp_full)
 
-
 class LabelModel(Classifier):
     """A LabelModel...TBD
 

@@ -33,6 +33,13 @@ def indpm(x, y):
     """Plus-minus indicator function"""
     return 1 if x == y else -1
 
+def indpm_0(x, y):
+    """Plus-minus indicator function, special handling of zero values"""
+    if x == 0 or y == 0:
+        return 0
+    else:
+        return 1 if x == y else -1
+
 ###
 ### Dependencies Graphs
 ###
@@ -149,9 +156,11 @@ class DataGenerator(object):
         P(\lf_C | Y), is generated randomly.
         """
         theta = defaultdict(float)
+
+        # Unary parameters
+        t_min, t_max = min(theta_range), max(theta_range)
         for i in range(self.m):
             for y in range(1, self.k+1):
-                t_min, t_max = min(theta_range), max(theta_range)
                 theta[(i,y)] = (t_max - t_min) * random(self.k) + t_min
 
         # Choose random weights for the edges
@@ -367,6 +376,62 @@ class DataGenerator(object):
         
         # Correct output type
         self.L = csr_matrix(self.L, dtype=np.int)
+
+class SimpleDataGenerator(DataGenerator):
+    """Generates a synthetic single-task L and Y matrix with dependencies, using
+    the simplified model of the Data Programming (NIPS 2016) paper, where:
+        - Each LF chooses to label or abstain *independently*, determined by a
+            single labeling propensity factor
+        - Each LF has a singe accuracy parameter
+        - Each (LF, LF) dependency has a single edge parameter
+    
+    Args:
+        n: (int) The number of data points
+        m: (int) The number of labeling sources
+        k: (int) The cardinality of the classification task
+        class_balance: (np.array) each class's percentage of the population
+        deps_graph: (DependenciesGraph) A DependenciesGraph object
+            specifying the dependencies structure of the sources
+        theta_range: (tuple) The min and max possible values for theta, the
+            for each labeling source
+        theta_edge_range: The min and max possible values for theta_edge, the
+            strength of correlation between correlated sources
+    
+    Note that k = the # of true classes; thus source labels are in {0,1,...,k}
+    because they include abstains.
+    """
+    def _generate_params(self, theta_range=(0.1,1), theta_edge_range=(0.1,1)):
+        """This function generates the parameters of the data generating model
+
+        Note that along with the potential functions of the SPA algorithm, this
+        essentially defines our model. This model is the simple form from the DP
+        paper.
+        """
+        theta = defaultdict(float)
+
+        # Unary parameters
+        # Each entry is [labeling propensity, accuracy]
+        t_min, t_max = min(theta_range), max(theta_range)
+        for i in range(self.m):
+            # TODO: Better separate out labeling propensity vs. accuracy!
+            theta[i] = (t_max - t_min) * random(2) + t_min
+
+        # Choose random weights for the edges
+        te_min, te_max = min(theta_edge_range), max(theta_edge_range)
+        for (i,j) in self.edges:
+            w_ij = (te_max - te_min) * random() + te_min
+            theta[(i, j)] = w_ij
+            theta[(j, i)] = w_ij
+        return theta
+    
+    def _node_factor(self, i, val_i, y):
+        theta_lp, theta_acc = self.theta[i]
+        return np.exp(
+            theta_lp * indpm(val_i, 0) + theta_acc * indpm_0(val_i, y))
+    
+    def _edge_factor(self, i, j, val_i, val_j, y):
+        return np.exp(
+            self.theta[(i,j)] * indpm_0(val_i, val_j))
 
 class HierarchicalMultiTaskDataGenerator(DataGenerator):
     def __init__(self, n, m, theta_range=(0.1, 1), 
