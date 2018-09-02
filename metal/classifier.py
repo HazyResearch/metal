@@ -252,7 +252,7 @@ class Classifier(nn.Module):
             print("Finished Training")
 
             if evaluate_dev:
-                # Currently using default random break ties in evaluate
+                # Currently use default random break ties in evaluate
                 Y_p_dev, Y_dev = self.evaluate(dev_loader)
                      
                 if not self.multitask:
