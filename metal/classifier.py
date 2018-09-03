@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
-from metal.utils import Checkpointer, hard_to_soft, recursive_merge_dicts
+from metal.utils import Checkpointer, recursive_merge_dicts
 
 
 class Classifier(nn.Module):
@@ -161,9 +161,6 @@ class Classifier(nn.Module):
                 disable=train_config["disable_prog_bar"],
             ):
 
-                # converting hard to soft labels for training
-                data[1] = self._preprocess_Y(data[1], self.k)
-
                 # moving data to GPU
                 if train_config["use_cuda"]:
                     data = [d.cuda() for d in data]
@@ -295,15 +292,6 @@ class Classifier(nn.Module):
             )
         return lr_scheduler
 
-    def _preprocess_Y(self, Y, k):
-        """Convert Y to soft labels if necessary"""
-        Y = Y.clone()
-
-        # If hard labels, convert to soft labels
-        if Y.dim() == 1 or Y.shape[1] == 1:
-            Y = hard_to_soft(Y.long(), k=k)
-        return Y
-
     def _batch_evaluate(self, loader, break_ties="random", **kwargs):
         """Evaluates the model using minibatches
 
@@ -325,7 +313,12 @@ class Classifier(nn.Module):
             if self.config["train_config"]["use_cuda"]:
                 X_batch = X_batch.cuda()
 
-            Y.append(self._to_numpy(Y_batch))
+            Y_batch = self._to_numpy(Y_batch)
+
+            if Y_batch.ndim > 1:
+                Y_batch = self._break_ties(Y_batch, break_ties)
+
+            Y.append(Y_batch)
             Y_p.append(
                 self._to_numpy(
                     self.predict(X_batch, break_ties=break_ties, **kwargs)
@@ -353,10 +346,15 @@ class Classifier(nn.Module):
 
         if type(data) is tuple:
             X, Y = data
+
             if self.config["train_config"]["use_cuda"]:
                 X = X.cuda()
 
             Y = self._to_numpy(Y)
+
+            if Y.ndim > 1:
+                Y = self._break_ties(Y, break_ties)
+
             Y_p = self.predict(X, break_ties=break_ties, **kwargs)
 
         elif type(data) is DataLoader:
