@@ -98,7 +98,7 @@ class CliqueTree(object):
                         'max_cliques': set([item]) if C_type == 'node' 
                             else set(item),
                         'size': nc,
-                        'members': set(members)
+                        'members': members
                     }
                     self.c_data_1[id] = {
                         'start_index': start_index_1,
@@ -106,7 +106,7 @@ class CliqueTree(object):
                         'max_cliques': set([item]) if C_type == 'node' 
                             else set(item),
                         'size': nc,
-                        'members': set(members)
+                        'members': members
                     }
                     start_index += w
                     start_index_1 += 1
@@ -219,11 +219,13 @@ class LabelModel(Classifier):
 
         if self.config['all_unary_cliques']:
             L_aug[:, :self.m * self.k] = np.copy(L_ind)
+        print(L_aug.shape)
         
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
         if self.config['higher_order_cliques']:
+            print("HIGHER ORDER CLIQUES IS SET ON")
             for c, c_data in self.c_data.items():
                 si, ei = c_data['start_index'], c_data['end_index']
                 nc = c_data['size']
@@ -231,6 +233,7 @@ class LabelModel(Classifier):
                     L_C = np.ones((self.n, self.k ** nc))
                     for i, vals in enumerate(product(range(self.k), repeat=nc)):
                         for j, v in enumerate(vals):
+                            #import pdb; pdb.set_trace()
                             L_C[:,i] *= L_ind[:,c_data['members'][j]*self.k + v]
                     L_aug[:, si:ei] = L_C
         return L_aug
@@ -242,7 +245,8 @@ class LabelModel(Classifier):
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
         """
-        L_aug = self._get_augmented_label_matrix(L, offset=1)
+        #L_aug = self._get_augmented_label_matrix(L)
+        L_aug = L
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy( L_aug.T @ L_aug / self.n ).float()
     
@@ -271,11 +275,15 @@ class LabelModel(Classifier):
         if self.O_inv is None:
             if self.config['verbose']:
                 print("Computing O^{-1}...")
-            L_aug = self._get_augmented_label_matrix(L, offset=1)
+            #L_aug = self._get_augmented_label_matrix(L)
+            L_aug = L
             with mpmath.workdps(self.config['O_inv_prec']):
                 O_unnorm = mpmath.matrix(L_aug.T @ L_aug)
                 n = mpmath.mpf(self.n)
+                import pdb; pdb.set_trace()
                 O_inv = (O_unnorm / n) ** -1
+                tmp = L_aug.T @ L_aug
+                print("O INV SHAPE: ", tmp.shape)
                 self.O_inv = torch.from_numpy(
                     np.array(O_inv.tolist(), dtype=float)).float()
         
@@ -291,11 +299,12 @@ class LabelModel(Classifier):
         
     def _build_mask(self):
         """Build mask applied to O^{-1}, O for the matrix approx constraint"""
-        self.mask = torch.ones(self.d, self.d).byte()
+        self.mask = torch.ones(self.m, self.m).byte()
         for members_i, ci in self.c_data.items():
             si, ei = ci['start_index'], ci['end_index']
             for members_j, cj in self.c_data.items():
                 sj, ej = cj['start_index'], cj['end_index']
+                print("ci max cliques ", ci['max_cliques'])
 
                 # Check if ci and cj are part of the same maximal clique
                 # If so, mask out their corresponding blocks in O^{-1}
@@ -311,6 +320,7 @@ class LabelModel(Classifier):
                 # if len(mi.intersection(mj)) > 0:
                 #     self.mask[si:ei, sj:ej] = 0
                 #     self.mask[sj:ej, si:ei] = 0
+        print(self.mask)
         
     def _init_params(self):
         """Initialize the learned params
@@ -340,7 +350,8 @@ class LabelModel(Classifier):
         self.mu = nn.Parameter(self.mu_init.clone()).float()
 
         if self.inv_form:
-            self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
+            #self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
+            self.Z = nn.Parameter(torch.randn(self.m, self.k)).float()
 
         # Build the mask over O^{-1}
         # TODO: Put this elsewhere?
@@ -354,7 +365,7 @@ class LabelModel(Classifier):
 
         self._set_constants(L)               
         
-        L_aug = self._get_augmented_label_matrix(L, offset=1)     
+        L_aug = self._get_augmented_label_matrix(L)     
         mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
 
         # Create a "junction tree mask" over the columns of L_aug / mu
@@ -392,6 +403,7 @@ class LabelModel(Classifier):
         Z = self.Z.detach().clone().numpy()
         O = self.O.numpy()
         I_k = np.eye(self.k)
+        #import pdb; pdb.set_trace()
         return O @ Z @ np.linalg.inv(I_k + Z.T @ O @ Z) @ Z.T @ O
 
     def loss_inv_mu(self, l2=0.0):
@@ -445,6 +457,7 @@ class LabelModel(Classifier):
 
         self._set_constants(L)
         self.c_tree = CliqueTree(self.m, self.k, deps)
+        #import pdb; pdb.set_trace()
         self.c_data =  self.c_tree.c_data if c_data is None else c_data
         self.d = self.c_tree.d
 
