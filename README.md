@@ -62,6 +62,8 @@ end_model.train(X_train, Y_train_pred, X_dev, Y_dev)
 score = end_model.score(X_test, Y_test)
 ```
 
+**_Note for Snorkel users: Snorkel MeTaL, even in the single-task case, learns a slightly different label model than Snorkel does (e.g. here we learn class-conditional accuracies for each LF, etc.)---so expect slightly different (hopefully better!) results._**
+
 ## Setup
 [1] Install anaconda:  
 Instructions here: https://www.anaconda.com/download/
