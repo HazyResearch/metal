@@ -25,7 +25,6 @@ em_default_config = {
         # Train Loop
         "n_epochs": 10,
         # 'grad_clip': 0.0,
-        "l1": 0.0,
         "l2": 0.0,
         "validation_metric": "accuracy",
         "validation_freq": 1,

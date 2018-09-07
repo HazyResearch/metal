@@ -112,7 +112,7 @@ class ModelTuner(object):
             search_space = {
                 'verbose': True,                              # discrete
                 'n_epochs': 100,                              # discrete
-                'l1': [0.0, 0.01, 0.1],                       # discrete
+                'momentum': [0.0, 0.9, 0.99],                       # discrete
                 'l2': {'range': [0.0001, 10]}                 # linear range
                 'lr': {'range': [0.001, 1], 'scale': 'log'},  # log range
             }
