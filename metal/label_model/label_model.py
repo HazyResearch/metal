@@ -1,4 +1,5 @@
 from collections import Counter
+from functools import partial
 from itertools import chain, product
 
 import numpy as np
@@ -19,6 +20,8 @@ class LabelModel(Classifier):
     Args:
         k: (int) the cardinality of the classifier
     """
+
+    implements_l2 = True
 
     def __init__(self, k=2, **kwargs):
         config = recursive_merge_dicts(lm_default_config, kwargs)
@@ -275,19 +278,19 @@ class LabelModel(Classifier):
     # These loss functions get all their data directly from the LabelModel
     # (for better or worse). The unused *args make these compatible with the
     # Classifer._train() method which expect loss functions to accept an input.
-    # TODO: Add l2 regularization to all three of these loss functions
 
     def loss_inv_Z(self, *args):
         return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
 
-    def loss_inv_mu(self, *args):
+    def loss_inv_mu(self, *args, l2=0):
         loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t()) ** 2
         loss_2 = (
             torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         )
-        return loss_1 + loss_2
+        loss_l2 = torch.norm(self.mu - self.mu_init) ** 2
+        return loss_1 + loss_2 + l2 * loss_l2
 
-    def loss_mu(self, *args):
+    def loss_mu(self, *args, l2=0):
         loss_1 = (
             torch.norm((self.O - self.mu @ self.P @ self.mu.t())[self.mask])
             ** 2
@@ -295,7 +298,8 @@ class LabelModel(Classifier):
         loss_2 = (
             torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         )
-        return loss_1 + loss_2
+        loss_l2 = torch.norm(self.mu - self.mu_init) ** 2
+        return loss_1 + loss_2 + l2 * loss_l2
 
     def _set_class_balance(self, class_balance, Y_dev):
         """Set a prior for the class balance
@@ -356,6 +360,10 @@ class LabelModel(Classifier):
         self.config = recursive_merge_dicts(
             self.config, kwargs, misses="ignore"
         )
+        train_config = self.config["train_config"]
+
+        # Note that the LabelModel class implements its own (centered) L2 reg.
+        l2 = train_config.get("l2", 0)
 
         self._set_class_balance(class_balance, Y_dev)
         self._set_constants(L_train)
@@ -388,7 +396,7 @@ class LabelModel(Classifier):
             # Estimate \mu
             if self.config["verbose"]:
                 print("Estimating \mu...")
-            self._train(train_loader, self.loss_inv_mu)
+            self._train(train_loader, partial(self.loss_inv_mu, l2=l2))
         else:
             # Compute O and initialize params
             if self.config["verbose"]:
@@ -399,4 +407,4 @@ class LabelModel(Classifier):
             # Estimate \mu
             if self.config["verbose"]:
                 print("Estimating \mu...")
-            self._train(train_loader, self.loss_mu)
+            self._train(train_loader, partial(self.loss_mu, l2=l2))

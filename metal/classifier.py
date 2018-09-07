@@ -33,6 +33,11 @@ class Classifier(nn.Module):
         seed: (int) A random seed to set
     """
 
+    # A class variable indicating whether the class implements its own custom L2
+    # regularization (True) or not (False); in the latter case, generic L2 in
+    # the optimizer is used
+    implements_l2 = False
+
     def __init__(self, k, config):
         super().__init__()
         self.config = config
@@ -127,8 +132,7 @@ class Classifier(nn.Module):
         evaluate_dev = X_dev is not None and Y_dev is not None
 
         # Set the optimizer
-        optimizer_config = train_config["optimizer_config"]
-        optimizer = self._set_optimizer(optimizer_config)
+        optimizer = self._set_optimizer(train_config)
 
         # Set the lr scheduler
         scheduler_config = train_config["scheduler_config"]
@@ -154,22 +158,6 @@ class Classifier(nn.Module):
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
-
-                # Add L1/L2 penalties
-                l1_penalty = train_config.get("l1", 0)
-                l2_penalty = train_config.get("l2", 0)
-                if l1_penalty or l2_penalty:
-                    l1_loss = 0.0
-                    l2_loss = 0.0
-                    for param in self.parameters():
-                        if l1_penalty:
-                            l1_loss += torch.norm(param, 1)
-                        if l2_penalty:
-                            l2_loss += torch.norm(param, 2)
-                    if l1_penalty:
-                        loss += l1_loss * train_config["l1"]
-                    if l2_penalty:
-                        loss += l2_loss * train_config["l2"]
 
                 # Backward pass to calculate gradients
                 loss.backward()
@@ -235,19 +223,26 @@ class Classifier(nn.Module):
                     print("Confusion Matrix (Dev)")
                     confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)
 
-    def _set_optimizer(self, optimizer_config):
+    def _set_optimizer(self, train_config):
+        optimizer_config = train_config["optimizer_config"]
         opt = optimizer_config["optimizer"]
+
+        # We set L2 here if the class does not implement its own L2 reg
+        l2 = 0 if self.implements_l2 else train_config.get("l2", 0)
+
         if opt == "sgd":
             optimizer = optim.SGD(
                 self.parameters(),
                 **optimizer_config["optimizer_common"],
                 **optimizer_config["sgd_config"],
+                weight_decay=l2,
             )
         elif opt == "adam":
             optimizer = optim.Adam(
                 self.parameters(),
                 **optimizer_config["optimizer_common"],
                 **optimizer_config["adam_config"],
+                weight_decay=l2,
             )
         else:
             raise ValueError(f"Did not recognize optimizer option '{opt}''")
