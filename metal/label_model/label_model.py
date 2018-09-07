@@ -21,6 +21,7 @@ class LabelModel(Classifier):
         k: (int) the cardinality of the classifier
     """
 
+    # This class variable is explained in the Classifier class
     implements_l2 = True
 
     def __init__(self, k=2, **kwargs):
