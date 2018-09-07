@@ -33,7 +33,7 @@ em_default_config = {
         # Optimizer
         "optimizer_config": {
             "optimizer": "adam",
-            "optimizer_common": {"lr": 0.0},
+            "optimizer_common": {"lr": 0.01},
             # Optimizer - SGD
             "sgd_config": {"momentum": 0.9},
             # Optimizer - Adam
