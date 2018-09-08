@@ -280,6 +280,25 @@ class LabelModel(Classifier):
     # (for better or worse). The unused *args make these compatible with the
     # Classifer._train() method which expect loss functions to accept an input.
 
+    def loss_l2(self, l2=0):
+        """L2 loss centered around mu_init, scaled optionally per-source.
+
+        In other words, diagonal Tikhonov regularization,
+            ||D(\mu-\mu_{init})||_2^2
+        where D is diagonal.
+
+        Args:
+            - l2: A float or np.array representing the per-source regularization
+                strengths to use
+        """
+        if isinstance(l2, (int, float)):
+            D = l2 * torch.eye(self.d)
+        else:
+            D = torch.diag(torch.from_numpy(l2))
+
+        # Note that mu is a matrix and this is the *Frobenius norm*
+        return torch.norm(D @ (self.mu - self.mu_init)) ** 2
+
     def loss_inv_Z(self, *args):
         return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
 
@@ -288,8 +307,7 @@ class LabelModel(Classifier):
         loss_2 = (
             torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         )
-        loss_l2 = torch.norm(self.mu - self.mu_init) ** 2
-        return loss_1 + loss_2 + l2 * loss_l2
+        return loss_1 + loss_2 + self.loss_l2(l2=l2)
 
     def loss_mu(self, *args, l2=0):
         loss_1 = (
@@ -299,8 +317,7 @@ class LabelModel(Classifier):
         loss_2 = (
             torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         )
-        loss_l2 = torch.norm(self.mu - self.mu_init) ** 2
-        return loss_1 + loss_2 + l2 * loss_l2
+        return loss_1 + loss_2 + self.loss_l2(l2=l2)
 
     def _set_class_balance(self, class_balance, Y_dev):
         """Set a prior for the class balance

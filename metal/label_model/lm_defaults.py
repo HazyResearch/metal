@@ -12,7 +12,7 @@ lm_default_config = {
         "class_balance_init": None,  # (array) If None, assume uniform
         # Model params initialization / priors
         "mu_init": 0.5,
-        # Centered L2 regularization
+        # Centered L2 regularization strength (int, float, or np.array)
         "l2": 0.0,
         # Optimizer
         "optimizer_config": {
