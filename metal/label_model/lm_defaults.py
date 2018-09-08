@@ -8,10 +8,8 @@ lm_default_config = {
         # Classifier
         # Class balance (if learn_class_balance=False, fix to class_balance)
         "learn_class_balance": False,
-        # Class balance initialization / prior
-        "class_balance_init": None,  # (array) If None, assume uniform
-        # Model params initialization / priors
-        "mu_init": 0.5,
+        # LF precision initializations / priors (float or np.array)
+        "prec_init": 0.7,
         # Centered L2 regularization strength (int, float, or np.array)
         "l2": 0.0,
         # Optimizer
