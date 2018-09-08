@@ -71,6 +71,28 @@ class TreeDependencies(DependenciesGraph):
                 self.children[p_i].add(i)
                 self.G.add_edge(i, p_i)
 
+class YPlusTreeDependencies(DependenciesGraph):
+    """Generate a random tree-structured dependency graph based on a
+    specified edge probability, but include Y and an edge between
+    every node and Y
+    """
+    def __init__(self, m, edge_prob=1.0):
+        self.G = nx.Graph()
+        self.edges = []
+        self.parent = {}
+        self.children = defaultdict(set)
+
+        # node m is Y:
+        for i in range(1, m):
+            if random() < edge_prob:
+                p_i = choice(i)
+                self.edges.append((p_i, i))
+                self.edges.append((m, i))
+                self.parent[i] = p_i
+                self.children[p_i].add(i)
+                self.G.add_edge(i, p_i)
+                self.G.add_edge(m, i)
+
 class ChainDependencies(DependenciesGraph):
     """Generate a chain-structured dependency graph."""
     def __init__(self, m, edge_prob=1.0):
