@@ -93,6 +93,10 @@ class YPlusTreeDependencies(DependenciesGraph):
                 self.G.add_edge(i, p_i)
                 self.G.add_edge(m, i)
 
+        # also add the initial node and Y edge:
+        self.G.add_edge(m, 0)
+        self.edges.append((m, 0))
+
 class ChainDependencies(DependenciesGraph):
     """Generate a chain-structured dependency graph."""
     def __init__(self, m, edge_prob=1.0):
@@ -152,10 +156,13 @@ class DataGenerator(object):
         self.parent = self.deps_graph.parent
         self.children = self.deps_graph.children
         self.G = self.deps_graph.G
-        self.c_tree = CliqueTree(m, k, self.edges, higher_order_cliques=True)
+        #self.c_tree = CliqueTree(m, k, self.edges, higher_order_cliques=True)
+        self.c_tree = CliqueTree(m+1, k, self.edges, higher_order_cliques=True)
         
         # Generate class-conditional LF & edge parameters, stored in self.theta
         self.theta = self._generate_params(param_ranges)
+
+        print(self.theta)
 
         # Generate class balance self.p
         if class_balance is None:
