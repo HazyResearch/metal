@@ -120,7 +120,7 @@ class ClusterDependencies(DependenciesGraph):
         self.parent = {}  # Note we leave this empty here for now...
         self.children = defaultdict(set)
         self.clusters = defaultdict(set)
-        for i in range(1, m):
+        for i in range(m):
             if random() < edge_prob:
                 c = choice(n_clusters)
                 for j in self.clusters[c]:
