@@ -71,6 +71,7 @@ class TreeDependencies(DependenciesGraph):
                 self.children[p_i].add(i)
                 self.G.add_edge(i, p_i)
 
+# TODO: Make this an option in the parent class, or something like that?
 class YPlusTreeDependencies(DependenciesGraph):
     """Generate a random tree-structured dependency graph based on a
     specified edge probability, but include Y and an edge between
@@ -110,6 +111,22 @@ class ChainDependencies(DependenciesGraph):
             self.parent[i] = p_i
             self.children[p_i].add(i)
             self.G.add_edge(i, p_i)
+
+class ClusterDependencies(DependenciesGraph):
+    """Generate a cluster-structured dependency graph."""
+    def __init__(self, m, n_clusters, edge_prob=1.0):
+        self.G = nx.Graph()
+        self.edges = []
+        self.parent = {}  # Note we leave this empty here for now...
+        self.children = defaultdict(set)
+        self.clusters = defaultdict(set)
+        for i in range(1, m):
+            if random() < edge_prob:
+                c = choice(n_clusters)
+                for j in self.clusters[c]:
+                    self.edges.append((i, j))
+                    self.G.add_edge(i, j)
+                self.clusters[c].add(i)
 
 ###
 ### DATA GENERATORS
