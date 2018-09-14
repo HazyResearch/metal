@@ -1,13 +1,15 @@
 import networkx as nx
 
 
-def get_clique_tree(nodes, edges):
+def get_junction_tree(nodes, edges):
     """Given a set of int nodes i and edges (i,j), returns an nx.Graph object G
     which is a clique tree, where:
         - G.node[i]['members'] contains the set of original nodes in the ith
             maximal clique
         - G[i][j]['members'] contains the set of original nodes in the seperator
             set between maximal cliques i and j
+    Note: The clique tree of a graph is a junction tree iff the graph is
+    triangulated (chordal); thus this function returns only junction trees!
 
     Note: This method is currently only implemented for chordal graphs; TODO:
     add a step to triangulate non-chordal graphs.
