@@ -285,10 +285,11 @@ class Classifier(nn.Module):
                 list of such metrics
             break_ties: How to break ties when making predictions
             verbose: The verbosity for just this score method; it will not
-                update the class config.
+                update the class config
 
         Returns:
-            scores: A (float) score
+            scores: A (float) score or a list of such scores if kwarg metric
+                is a list
         """
         Y = self._to_numpy(Y)
         Y_p = self.predict(X, break_ties=break_ties, **kwargs)
