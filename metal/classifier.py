@@ -285,7 +285,7 @@ class Classifier(nn.Module):
                 {1,...,k}
             metric: A metric (string) with which to score performance or a
                 list of such metrics
-            break_ties: How to break ties when making predictions
+            break_ties: A tie-breaking policy (see Classifier._break_ties())
             verbose: The verbosity for just this score method; it will not
                 update the class config
 
@@ -314,7 +314,7 @@ class Classifier(nn.Module):
 
         Args:
             X: The input for the predict_proba method
-            break_ties: A tie-breaking policy
+            break_ties: A tie-breaking policy (see Classifier._break_ties())
 
         Returns:
             An n-dim np.ndarray of predictions in {1,...k}
