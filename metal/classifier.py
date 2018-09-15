@@ -115,6 +115,12 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError
 
+    def _create_checkpointer(self, checkpoint_config):
+        model_class = type(self).__name__
+        return Checkpointer(
+            model_class, **checkpoint_config, verbose=self.config["verbose"]
+        )
+
     def _train(self, train_loader, loss_fn, X_dev=None, Y_dev=None):
         """The internal training routine called by train() after initial setup
 
@@ -140,10 +146,8 @@ class Classifier(nn.Module):
 
         # Create the checkpointer if applicable
         if evaluate_dev and train_config["checkpoint"]:
-            checkpoint_config = train_config["checkpoint_config"]
-            model_class = type(self).__name__
-            checkpointer = Checkpointer(
-                model_class, **checkpoint_config, verbose=self.config["verbose"]
+            checkpointer = self._create_checkpointer(
+                train_config["checkpoint_config"]
             )
 
         # Train the model
@@ -213,15 +217,13 @@ class Classifier(nn.Module):
         if evaluate_dev and train_config["checkpoint"]:
             checkpointer.restore(model=self)
 
+        # Print confusion matrix if applicable
         if self.config["verbose"]:
             print("Finished Training")
-
-            if evaluate_dev:
+            if evaluate_dev and not self.multitask:
                 Y_p_dev = self.predict(X_dev)
-
-                if not self.multitask:
-                    print("Confusion Matrix (Dev)")
-                    confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)
+                print("Confusion Matrix (Dev)")
+                confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)
 
     def _set_optimizer(self, train_config):
         optimizer_config = train_config["optimizer_config"]
