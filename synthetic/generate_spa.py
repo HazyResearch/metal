@@ -105,6 +105,7 @@ class DataGenerator(object):
 
         # Cache for sum-product algorithm
         self.msg_cache = {}
+        self.p_marginal_cache = {}
 
         # Generate O, mu, Sigma, Sigma_inv
         # Y = (
@@ -173,6 +174,12 @@ class DataGenerator(object):
     def P_marginal(self, query, condition_on={}, clique_id=None):
         """Compute P(query|condition_on) using the sum-product algorithm over
         the junction tree `self.jt`"""
+
+        # Check the cache first, keyed by targets (projected onto members of
+        # clique i), i, j
+        cache_key = (tuple(query.items()), tuple(condition_on.items()))
+        if cache_key in self.p_marginal_cache:
+            return self.p_marginal_cache[cache_key]
 
         # Check inputs to make sure refers to valid variable ids and values
         for i, vi in {**query, **condition_on}.items():
@@ -243,6 +250,7 @@ class DataGenerator(object):
                             qi, condition_on=condition_on, clique_id=ci
                         )
                 p_marginal += p
+            self.p_marginal_cache[cache_key] = p_marginal
             return p_marginal
 
         else:
@@ -260,7 +268,9 @@ class DataGenerator(object):
                     for vals in product(range(self.k + 1), repeat=len(query))
                 ]
             )
-            return p / Z
+            p_marginal = p / Z
+            self.p_marginal_cache[cache_key] = p_marginal
+            return p_marginal
 
     def _message(self, targets, i, j=None):
         """Computes the sum-product algorithm message from junction tree clique
