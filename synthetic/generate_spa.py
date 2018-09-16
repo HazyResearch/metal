@@ -54,6 +54,7 @@ class DataGenerator(object):
         n: (int) The number of data points
         m: (int) The number of labeling sources
         k: (int) The cardinality of the classification task
+        abstains: (bool) Whether to include 0 labels as abstains
         class_balance: (np.array) each class's percentage of the population
         deps_graph: (DependenciesGraph) A DependenciesGraph object
             specifying the dependencies structure of the sources
@@ -65,7 +66,7 @@ class DataGenerator(object):
                 of correlation between correlated sources
 
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
-    because they include abstains.
+    because they include abstains, of {1,...,k} if abstains=False
     """
 
     def __init__(
@@ -73,6 +74,7 @@ class DataGenerator(object):
         n,
         m,
         k=2,
+        abstains=True,
         class_balance="random",
         deps_graph=None,
         param_ranges={
@@ -84,6 +86,7 @@ class DataGenerator(object):
         self.n = n
         self.m = m
         self.k = k
+        self.k0 = 0 if abstains else 1
 
         # Form DependenciesGraph and JunctionTree
         self.deps_graph = (
@@ -141,7 +144,12 @@ class DataGenerator(object):
                 theta_range = param_ranges["theta_range_edge"]
             t_min, t_max = min(theta_range), max(theta_range)
 
-            for vals in product(range(self.k + 1), repeat=2):
+            for vals in product(range(self.k0, self.k + 1), repeat=2):
+                # Y does not have abstain votes
+                if (i == self.m and vals[0] == 0) or (
+                    j == self.m and vals[1] == 0
+                ):
+                    continue
                 theta[((i, j), vals)] = (t_max - t_min) * random() + t_min
                 theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
         return theta
@@ -171,11 +179,36 @@ class DataGenerator(object):
         else:
             return self.jt.G.edges()[clique_id[0], clique_id[1]]["members"]
 
+    def iter_vals(self, var_ids, fixed={}):
+        """Iterator over the possible values of a set of variables, yielding a
+        dictionary mapping from variable id to value
+
+        Args:
+            - var_ids: A list of variable ids; note that self.m is assumed to
+                correspond to Y, which does not take on abstain values
+            - fixed: A dictionary mapping from variable id to fixed value
+        """
+        val_ranges = {}
+        for i in var_ids:
+            if i in fixed:
+                val_ranges[i] = [fixed[i]]
+
+            # If variable is Y, do not iterate over abstain values
+            elif i == self.m:
+                val_ranges[i] = range(1, self.k + 1)
+
+            # Else, self.k0 controls whether abstains are included or not
+            else:
+                val_ranges[i] = range(self.k0, self.k + 1)
+
+        for vals in product(*val_ranges.values()):
+            yield dict(zip(val_ranges.keys(), vals))
+
     def P_marginal(self, query, condition_on={}, clique_id=None):
         """Compute P(query|condition_on) using the sum-product algorithm over
         the junction tree `self.jt`"""
 
-        # Check the cache first, keyed by targets (projected onto members of
+        # Check the cache first, keyed by query (projected onto members of
         # clique i), i, j
         cache_key = (tuple(query.items()), tuple(condition_on.items()))
         if cache_key in self.p_marginal_cache:
@@ -183,7 +216,13 @@ class DataGenerator(object):
 
         # Check inputs to make sure refers to valid variable ids and values
         for i, vi in {**query, **condition_on}.items():
-            if i < 0 or i > self.m or vi < 0 or vi > self.k:
+            if (
+                i < 0
+                or i > self.m
+                or vi < self.k0
+                or vi > self.k
+                or (i == self.m and vi == 0)
+            ):
                 raise ValueError(f"Error with input {{{i}:{vi}}}")
 
         if clique_id is not None:
@@ -219,8 +258,8 @@ class DataGenerator(object):
                     - set(query.keys())
                     - set(condition_on.keys())
                 )
-            for nq_vals in product(range(self.k + 1), repeat=len(nq_ids)):
-                q = {**query, **dict(zip(nq_ids, nq_vals))}
+            for nq in self.iter_vals(nq_ids):
+                q = {**query, **nq}
                 p = 1.0
 
                 # Cliques in subgraph of junction tree
@@ -261,30 +300,24 @@ class DataGenerator(object):
 
             # Return normalized probability
             Z = sum(
-                [
-                    self._message(
-                        {**dict(zip(query.keys(), vals)), **condition_on}, ci
-                    )
-                    for vals in product(range(self.k + 1), repeat=len(query))
-                ]
+                self._message({**q, **condition_on}, ci)
+                for q in self.iter_vals(query.keys())
             )
             p_marginal = p / Z
             self.p_marginal_cache[cache_key] = p_marginal
             return p_marginal
 
-    def _message(self, targets, i, j=None):
+    def _message(self, query, i, j=None):
         """Computes the sum-product algorithm message from junction tree clique
         i --> j"""
         clique_members = self.jt.G.node[i]["members"]
 
-        # Check the cache first, keyed by targets (projected onto members of
+        # Check the cache first, keyed by query (projected onto members of
         # clique i), i, j
         cache_key = (
             i,
             j,
-            tuple(
-                [(ti, v) for ti, v in targets.items() if ti in clique_members]
-            ),
+            tuple([(ti, v) for ti, v in query.items() if ti in clique_members]),
         )
         if cache_key in self.msg_cache:
             return self.msg_cache[cache_key]
@@ -293,14 +326,7 @@ class DataGenerator(object):
         # Note that the target set will include the separator set values, so
         # these will not be summed over (as desired)
         msg = 0
-        val_ranges = {}
-        for ci in clique_members:
-            val_ranges[ci] = (
-                [targets[ci]] if ci in targets else range(self.k + 1)
-            )
-
-        for vals in product(*val_ranges.values()):
-            vals_dict = dict(zip(clique_members, vals))
+        for vals_dict in self.iter_vals(clique_members, fixed=query):
 
             # Compute the local message for current node i
             msg_v = self._exp_model(vals_dict)
@@ -310,44 +336,41 @@ class DataGenerator(object):
             if j is not None:
                 children -= {j}
             for c in children:
-                msg_v *= self._message({**vals_dict, **targets}, c, i)
+                msg_v *= self._message({**vals_dict, **query}, c, i)
             msg += msg_v
 
         # Cache message and return
         self.msg_cache[cache_key] = msg
         return msg
 
-    def P_marginal_brute_force(self, targets, condition_on={}):
-        """Compute P(targets|condition_on)"""
-        for i, vi in {**targets, **condition_on}.items():
-            if i < 0 or i > self.m or vi < 0 or vi > self.k:
-                raise ValueError(f"Error with input {{{i}:{vi}}}")
+    def P_marginal_brute_force(self, query, condition_on={}):
+        """Compute P(query|condition_on)"""
 
-        non_target = (
-            set(range(self.m + 1))
-            - set(targets.keys())
-            - set(condition_on.keys())
-        )
+        # Check inputs to make sure refers to valid variable ids and values
+        for i, vi in {**query, **condition_on}.items():
+            if (
+                i < 0
+                or i > self.m
+                or vi < self.k0
+                or vi > self.k
+                or (i == self.m and vi == 0)
+            ):
+                raise ValueError(f"Error with input {{{i}:{vi}}}")
 
         # The numerator has the target and condition_on variables fixed, and
         # sums over all the remaining vars
         p = sum(
-            [
-                self._exp_model(
-                    {**targets, **condition_on, **dict(zip(non_target, vals))}
-                )
-                for vals in product(range(self.k + 1), repeat=len(non_target))
-            ]
+            self._exp_model(q)
+            for q in self.iter_vals(
+                range(self.m + 1), fixed={**query, **condition_on}
+            )
         )
 
         # The demoninator has only condition_on variables fixed, and sums over
         # all the remaining vars
-        norm_vars = set(range(self.m + 1)) - set(condition_on.keys())
         Z = sum(
-            [
-                self._exp_model({**condition_on, **dict(zip(norm_vars, vals))})
-                for vals in product(range(self.k + 1), repeat=len(norm_vars))
-            ]
+            self._exp_model(q)
+            for q in self.iter_vals(range(self.m + 1), fixed={**condition_on})
         )
         return p / Z
 
