@@ -33,6 +33,7 @@ class JunctionTree(object):
     Args:
         m: (int) Number of labeling functions
         k: (int) Cardinality of the classification problem
+        abstains: (bool) Whether to include abstains (0 label)
         deps_graph [optional]: A DependenciesGraph object; must specify either
             this or a set of edges
         edges [optional]: A list of tuples (i,j) representing edges; this will
@@ -40,10 +41,18 @@ class JunctionTree(object):
     """
 
     def __init__(
-        self, m, k, deps_graph=None, edges=None, higher_order_cliques=False
+        self,
+        m,
+        k,
+        abstains=True,
+        deps_graph=None,
+        edges=None,
+        higher_order_cliques=False,
     ):
         self.m = m
         self.k = k
+        self.abstains = abstains
+        self.k0 = 0 if abstains else 1
         if deps_graph is not None:
             self.deps_graph = deps_graph
         elif edges is not None:
@@ -51,9 +60,15 @@ class JunctionTree(object):
         else:
             raise ValueError("Must provide either deps_graph or edges.")
         self.G = self._get_junction_tree()
-        self.c_data, self.d = self._get_clique_data(
-            higher_order_cliques=higher_order_cliques
-        )
+
+        # Materialize the mappings from index --> val set once here
+        self.O_map = [
+            vals
+            for idx, vals in self.iter_observed(
+                higher_order_cliques=higher_order_cliques
+            )
+        ]
+        self.O_d = len(self.O_map)
 
     def _get_junction_tree(self):
         """Given a set of int nodes i and edges (i,j), returns an nx.Graph
@@ -98,6 +113,71 @@ class JunctionTree(object):
         )
         nx.draw(self.G, with_labels=True, node_size=500, labels=labels)
 
+    def _get_members(self, clique_id):
+        """Returns the member variable ids of a clique or separator set"""
+        if isinstance(clique_id, int):
+            return self.G.node[clique_id]["members"]
+        else:
+            return self.G.edges()[clique_id[0], clique_id[1]]["members"]
+
+    def iter_vals(self, var_ids, fixed={}, offset=0):
+        """Iterator over the possible values of a set of variables, yielding a
+        dictionary mapping from variable id to value
+
+        Args:
+            - var_ids: A list of variable ids; note that self.m is assumed to
+                correspond to Y, which does not take on abstain values
+            - fixed: A dictionary mapping from variable id to fixed value
+            - offset: Offset to use when iterating over value ranges; set to 1
+                if forming minimal set of statistics for generalized cov. matrix
+        """
+        val_ranges = {}
+        for i in var_ids:
+            if i in fixed:
+                val_ranges[i] = [fixed[i]]
+
+            # If variable is Y, do not iterate over abstain values
+            elif i == self.m:
+                val_ranges[i] = range(1 + offset, self.k + 1)
+
+            # Else, self.k0 controls whether abstains are included or not
+            else:
+                val_ranges[i] = range(self.k0 + offset, self.k + 1)
+
+        for vals in product(*val_ranges.values()):
+            yield dict(zip(val_ranges.keys(), vals))
+
+    def iter_observed(self, higher_order_cliques=True):
+        """Iterates over (i, vals) where i is an index and vals is a dictionary
+        mapping from LF indices to values
+
+        If higher_order_cliques = False, just iterates over the self.m
+        individual LF indicator blocks (each of which has self.k entries
+        if abstains=False, else self.k-1).
+
+        If higher_order_cliques = True, includes all maximal cliques in the
+        junction tree as well, minus Y.
+        """
+
+        # Unary observed cliques, {\lf_i}
+        cliques = [{i} for i in range(self.m)]
+
+        # Optionally, add higher-order observed cliques, which are the maximal
+        # cliques (nodes) of the junction tree, minus Y
+        if higher_order_cliques:
+            for ci in self.G.nodes():
+                cids = self._get_members(ci) - {self.m}
+                if cids not in cliques:
+                    cliques.append(cids)
+
+        # Iterate over the index, minimal set of values as dict
+        idx = -1
+        for cids in cliques:
+            for vals in self.iter_vals(cids, offset=1):
+                idx += 1
+                yield idx, vals
+
+    # TODO: REMOVE THIS?
     def _get_clique_data(self, higher_order_cliques=True):
         """Create a helper data structure which maps cliques (as tuples of
         member sources) --> {start_index, end_index, maximal_cliques}, where

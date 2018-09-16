@@ -86,13 +86,16 @@ class DataGenerator(object):
         self.n = n
         self.m = m
         self.k = k
+        self.abstains = abstains
         self.k0 = 0 if abstains else 1
 
         # Form DependenciesGraph and JunctionTree
         self.deps_graph = (
             DependenciesGraph(m) if deps_graph is None else deps_graph
         )
-        self.jt = JunctionTree(self.m, self.k, deps_graph=self.deps_graph)
+        self.jt = JunctionTree(
+            self.m, self.k, abstains=self.abstains, deps_graph=self.deps_graph
+        )
 
         # Generate class-conditional LF & edge parameters, stored in self.theta
         self.theta = self._generate_params(param_ranges)
@@ -172,38 +175,6 @@ class DataGenerator(object):
             x += self.theta[((i, j), (val_i, val_j))]
         return np.exp(x)
 
-    def _get_members(self, clique_id):
-        """Returns the member variable ids of a clique or separator set"""
-        if isinstance(clique_id, int):
-            return self.jt.G.node[clique_id]["members"]
-        else:
-            return self.jt.G.edges()[clique_id[0], clique_id[1]]["members"]
-
-    def iter_vals(self, var_ids, fixed={}):
-        """Iterator over the possible values of a set of variables, yielding a
-        dictionary mapping from variable id to value
-
-        Args:
-            - var_ids: A list of variable ids; note that self.m is assumed to
-                correspond to Y, which does not take on abstain values
-            - fixed: A dictionary mapping from variable id to fixed value
-        """
-        val_ranges = {}
-        for i in var_ids:
-            if i in fixed:
-                val_ranges[i] = [fixed[i]]
-
-            # If variable is Y, do not iterate over abstain values
-            elif i == self.m:
-                val_ranges[i] = range(1, self.k + 1)
-
-            # Else, self.k0 controls whether abstains are included or not
-            else:
-                val_ranges[i] = range(self.k0, self.k + 1)
-
-        for vals in product(*val_ranges.values()):
-            yield dict(zip(val_ranges.keys(), vals))
-
     def P_marginal(self, query, condition_on={}, clique_id=None):
         """Compute P(query|condition_on) using the sum-product algorithm over
         the junction tree `self.jt`"""
@@ -235,7 +206,8 @@ class DataGenerator(object):
                 ci
                 for ci in self.jt.G.nodes()
                 if len(
-                    self._get_members(ci).intersection(query.keys()) - {self.m}
+                    self.jt._get_members(ci).intersection(query.keys())
+                    - {self.m}
                 )
                 > 0
             ]
@@ -254,11 +226,11 @@ class DataGenerator(object):
             nq_ids = set()
             for ci in cids:
                 nq_ids = nq_ids.union(
-                    self._get_members(ci)
+                    self.jt._get_members(ci)
                     - set(query.keys())
                     - set(condition_on.keys())
                 )
-            for nq in self.iter_vals(nq_ids):
+            for nq in self.jt.iter_vals(nq_ids):
                 q = {**query, **nq}
                 p = 1.0
 
@@ -268,7 +240,7 @@ class DataGenerator(object):
                         [
                             (i, q[i])
                             for i in range(self.m + 1)
-                            if i in self._get_members(ci)
+                            if i in self.jt._get_members(ci)
                         ]
                     )
                     p *= self.P_marginal(
@@ -282,7 +254,7 @@ class DataGenerator(object):
                             [
                                 (i, q[i])
                                 for i in range(self.m + 1)
-                                if i in self._get_members((ci, cj))
+                                if i in self.jt._get_members((ci, cj))
                             ]
                         )
                         p /= self.P_marginal(
@@ -301,7 +273,7 @@ class DataGenerator(object):
             # Return normalized probability
             Z = sum(
                 self._message({**q, **condition_on}, ci)
-                for q in self.iter_vals(query.keys())
+                for q in self.jt.iter_vals(query.keys())
             )
             p_marginal = p / Z
             self.p_marginal_cache[cache_key] = p_marginal
@@ -326,7 +298,7 @@ class DataGenerator(object):
         # Note that the target set will include the separator set values, so
         # these will not be summed over (as desired)
         msg = 0
-        for vals_dict in self.iter_vals(clique_members, fixed=query):
+        for vals_dict in self.jt.iter_vals(clique_members, fixed=query):
 
             # Compute the local message for current node i
             msg_v = self._exp_model(vals_dict)
@@ -361,7 +333,7 @@ class DataGenerator(object):
         # sums over all the remaining vars
         p = sum(
             self._exp_model(q)
-            for q in self.iter_vals(
+            for q in self.jt.iter_vals(
                 range(self.m + 1), fixed={**query, **condition_on}
             )
         )
@@ -370,23 +342,23 @@ class DataGenerator(object):
         # all the remaining vars
         Z = sum(
             self._exp_model(q)
-            for q in self.iter_vals(range(self.m + 1), fixed={**condition_on})
+            for q in self.jt.iter_vals(
+                range(self.m + 1), fixed={**condition_on}
+            )
         )
         return p / Z
 
-    def compute_sigma_O(self, higher_order=False):
-        if higher_order:
-            raise NotImplementedError()
-
-        # Implementation for unary cliques
-        d = self.m * self.k
+    def get_sigma_O(self, higher_order_cliques=False):
+        d = len(
+            list(
+                self.jt.iter_observed(higher_order_cliques=higher_order_cliques)
+            )
+        )
         sigma_O = np.zeros((d, d))
 
-        # E[\lambda \lambda^T] - E[\lambda] E[\lambda]^T entrywise
-        for (i, j) in product(range(self.m), repeat=2):
-            for (vi, vj) in product(range(self.k), repeat=2):
-                sigma_O[i + vi, j + vj] = self.P_marginal(
-                    {i: vi, j: vj}
-                ) - self.P_marginal({i: vi}) * self.P_marginal({j: vj})
-
+        io = self.jt.iter_observed(higher_order_cliques=higher_order_cliques)
+        for ((i, vals_i), (j, vals_j)) in product(io, repeat=2):
+            sigma_O[i, j] = self.P_marginal(
+                {**vals_i, **vals_j}
+            ) - self.P_marginal(vals_i) * self.P_marginal(vals_j)
         return sigma_O
