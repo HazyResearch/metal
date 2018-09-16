@@ -1,6 +1,7 @@
 from collections import defaultdict
 from itertools import combinations, product
 
+import networkx as nx
 import numpy as np
 from numpy.random import choice, random
 
@@ -162,35 +163,104 @@ class DataGenerator(object):
             x += self.theta[((i, j), (val_i, val_j))]
         return np.exp(x)
 
-    def P_marginal(self, targets, condition_on={}):
-        """Compute P(targets|condition_on) using the sum-product algorithm over
+    def _get_members(self, clique_id):
+        """Returns the member variable ids of a clique or separator set"""
+        if isinstance(clique_id, int):
+            return self.jt.G.node[clique_id]["members"]
+        else:
+            return self.jt.G.edges()[clique_id[0], clique_id[1]]["members"]
+
+    def P_marginal(self, query, condition_on={}, clique_id=None):
+        """Compute P(query|condition_on) using the sum-product algorithm over
         the junction tree `self.jt`"""
-        for i, vi in {**targets, **condition_on}.items():
+
+        # Check inputs to make sure refers to valid variable ids and values
+        for i, vi in {**query, **condition_on}.items():
             if i < 0 or i > self.m or vi < 0 or vi > self.k:
                 raise ValueError(f"Error with input {{{i}:{vi}}}")
 
-        # Identify the clique containing the targets
-        # TODO: Is this step actually necessary?
-        ci = np.argmax(
-            [
-                len(self.jt.G.node[ci]["members"].intersection(targets.keys()))
+        if clique_id is not None:
+            cids = [clique_id]
+
+        else:
+
+            # Get the set of cliques containing the (non-Y) query variables
+            _cids = [
+                ci
                 for ci in self.jt.G.nodes()
-            ]
-        )
-
-        # Run the sum-product algorithm recursively
-        p = self._message({**targets, **condition_on}, ci)
-
-        # Return normalized probability
-        Z = sum(
-            [
-                self._message(
-                    {**dict(zip(targets.keys(), vals)), **condition_on}, ci
+                if len(
+                    self._get_members(ci).intersection(query.keys()) - {self.m}
                 )
-                for vals in product(range(self.k + 1), repeat=len(targets))
+                > 0
             ]
-        )
-        return p / Z
+
+            # Extend so that the set of nodes constitutes a connected subgraph
+            # Note: This is just a quick heuristic way of doing this
+            cids = set(_cids)
+            for (ci, cj) in combinations(_cids, 2):
+                cids = cids.union(nx.shortest_path(self.jt.G, ci, cj))
+
+        if len(cids) > 1:
+            p_marginal = 0.0
+
+            # Compute recursively by multiplying clique marginals, dividing by
+            # separator set marginals, and marginalizing over non-query vars
+            nq_ids = set()
+            for ci in cids:
+                nq_ids = nq_ids.union(
+                    self._get_members(ci)
+                    - set(query.keys())
+                    - set(condition_on.keys())
+                )
+            for nq_vals in product(range(self.k + 1), repeat=len(nq_ids)):
+                q = {**query, **dict(zip(nq_ids, nq_vals))}
+                p = 1.0
+
+                # Cliques in subgraph of junction tree
+                for ci in cids:
+                    qi = dict(
+                        [
+                            (i, q[i])
+                            for i in range(self.m + 1)
+                            if i in self._get_members(ci)
+                        ]
+                    )
+                    p *= self.P_marginal(
+                        qi, condition_on=condition_on, clique_id=ci
+                    )
+
+                # Separator sets in subgraph of junction tree
+                for (ci, cj) in combinations(cids, 2):
+                    if (ci, cj) in self.jt.G.edges():
+                        qi = dict(
+                            [
+                                (i, q[i])
+                                for i in range(self.m + 1)
+                                if i in self._get_members((ci, cj))
+                            ]
+                        )
+                        p /= self.P_marginal(
+                            qi, condition_on=condition_on, clique_id=ci
+                        )
+                p_marginal += p
+            return p_marginal
+
+        else:
+            ci = list(cids)[0]
+
+            # Run the sum-product algorithm recursively
+            p = self._message({**query, **condition_on}, ci)
+
+            # Return normalized probability
+            Z = sum(
+                [
+                    self._message(
+                        {**dict(zip(query.keys(), vals)), **condition_on}, ci
+                    )
+                    for vals in product(range(self.k + 1), repeat=len(query))
+                ]
+            )
+            return p / Z
 
     def _message(self, targets, i, j=None):
         """Computes the sum-product algorithm message from junction tree clique
