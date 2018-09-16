@@ -9,7 +9,6 @@ from scipy.sparse import issparse
 from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
-from metal.label_model.graph_utils import get_clique_tree
 from metal.label_model.lm_defaults import lm_default_config
 from metal.utils import MetalDataset, recursive_merge_dicts
 
@@ -365,9 +364,9 @@ class LabelModel(Classifier):
         self.t = 1
 
     def _set_dependencies(self, deps):
-        nodes = range(self.m)
+        # nodes = range(self.m)
         self.deps = deps
-        self.c_tree = get_clique_tree(nodes, deps)
+        # self.c_tree = get_clique_tree(nodes, deps)
 
     def train(self, L_train, Y_dev=None, deps=[], class_balance=None, **kwargs):
         """Train the model (i.e. estimate mu) in one of two ways, depending on

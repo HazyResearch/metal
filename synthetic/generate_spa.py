@@ -144,8 +144,8 @@ class DataGenerator(object):
                 theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
         return theta
 
-    def _clique_factor(self, vals):
-        """Compute the factor function for a clique in the junction tree,
+    def _exp_model(self, vals):
+        """Compute the exponential model for a set of variables and values
         assuming an Ising model (i.e. only edge or node factors)
 
         Args:
@@ -223,7 +223,7 @@ class DataGenerator(object):
             vals_dict = dict(zip(clique_members, vals))
 
             # Compute the local message for current node i
-            msg_v = self._clique_factor(vals_dict)
+            msg_v = self._exp_model(vals_dict)
 
             # Recursively compute the messages from children
             children = set(self.jt.G.neighbors(i))
@@ -253,7 +253,7 @@ class DataGenerator(object):
         # sums over all the remaining vars
         p = sum(
             [
-                self._clique_factor(
+                self._exp_model(
                     {**targets, **condition_on, **dict(zip(non_target, vals))}
                 )
                 for vals in product(range(self.k + 1), repeat=len(non_target))
@@ -265,10 +265,25 @@ class DataGenerator(object):
         norm_vars = set(range(self.m + 1)) - set(condition_on.keys())
         Z = sum(
             [
-                self._clique_factor(
-                    {**condition_on, **dict(zip(norm_vars, vals))}
-                )
+                self._exp_model({**condition_on, **dict(zip(norm_vars, vals))})
                 for vals in product(range(self.k + 1), repeat=len(norm_vars))
             ]
         )
         return p / Z
+
+    def compute_sigma_O(self, higher_order=False):
+        if higher_order:
+            raise NotImplementedError()
+
+        # Implementation for unary cliques
+        d = self.m * self.k
+        sigma_O = np.zeros((d, d))
+
+        # E[\lambda \lambda^T] - E[\lambda] E[\lambda]^T entrywise
+        for (i, j) in product(range(self.m), repeat=2):
+            for (vi, vj) in product(range(self.k), repeat=2):
+                sigma_O[i + vi, j + vj] = self.P_marginal(
+                    {i: vi, j: vj}
+                ) - self.P_marginal({i: vi}) * self.P_marginal({j: vj})
+
+        return sigma_O

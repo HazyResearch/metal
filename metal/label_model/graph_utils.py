@@ -39,7 +39,9 @@ class JunctionTree(object):
             be used to create a DependenciesGraph object
     """
 
-    def __init__(self, m, k, deps_graph=None, edges=None):
+    def __init__(
+        self, m, k, deps_graph=None, edges=None, higher_order_cliques=False
+    ):
         self.m = m
         self.k = k
         if deps_graph is not None:
@@ -49,7 +51,9 @@ class JunctionTree(object):
         else:
             raise ValueError("Must provide either deps_graph or edges.")
         self.G = self._get_junction_tree()
-        self.c_data, self.d = self._get_clique_data()
+        self.c_data, self.d = self._get_clique_data(
+            higher_order_cliques=higher_order_cliques
+        )
 
     def _get_junction_tree(self):
         """Given a set of int nodes i and edges (i,j), returns an nx.Graph
@@ -82,8 +86,7 @@ class JunctionTree(object):
                 if w > 0:
                     G2.add_edge(i, j, weight=w, members=S)
 
-        # Return a minimum spanning tree of G2
-        # return nx.minimum_spanning_tree(G2)
+        # Return a *maximum* spanning tree of G2
         return nx.algorithms.tree.maximum_spanning_tree(G2)
 
     def draw(self):
