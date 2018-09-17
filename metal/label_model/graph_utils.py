@@ -47,7 +47,7 @@ class JunctionTree(object):
         abstains=True,
         deps_graph=None,
         edges=None,
-        higher_order_cliques=False,
+        higher_order_cliques=True,
     ):
         self.m = m
         self.k = k
@@ -119,6 +119,19 @@ class JunctionTree(object):
             return self.G.node[clique_id]["members"]
         else:
             return self.G.edges()[clique_id[0], clique_id[1]]["members"]
+
+    def _get_maximal_cliques(self, idxs):
+        """Returns the indices of the maximal cliques that the variables with
+        indices in idxs are in, or else the empty set"""
+        try:
+            idxs = set(idxs)
+        except Exception as e:
+            idxs = set([idxs])
+        cids = set()
+        for ci in self.G.nodes():
+            if idxs.issubset(self._get_members(ci)):
+                cids.add(ci)
+        return cids
 
     def iter_vals(self, var_ids, fixed={}, offset=0):
         """Iterator over the possible values of a set of variables, yielding a

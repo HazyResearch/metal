@@ -9,6 +9,7 @@ from scipy.sparse import issparse
 from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
+from metal.label_model.graph_utils import JunctionTree
 from metal.label_model.lm_defaults import lm_default_config
 from metal.utils import MetalDataset, recursive_merge_dicts
 
@@ -142,16 +143,17 @@ class LabelModel(Classifier):
     def _build_mask(self):
         """Build mask applied to O^{-1}, O for the matrix approx constraint"""
         self.mask = torch.ones(self.d, self.d).byte()
-        for ci in self.c_data.values():
-            si, ei = ci["start_index"], ci["end_index"]
-            for cj in self.c_data.values():
-                sj, ej = cj["start_index"], cj["end_index"]
 
-                # Check if ci and cj are part of the same maximal clique
-                # If so, mask out their corresponding blocks in O^{-1}
-                if len(ci["max_cliques"].intersection(cj["max_cliques"])) > 0:
-                    self.mask[si:ei, sj:ej] = 0
-                    self.mask[sj:ej, si:ei] = 0
+        # TODO: Where do we pass this from...?
+        higher_order_cliques = True
+        io = self.jt.iter_observed(higher_order_cliques=higher_order_cliques)
+        for ((i, vals_i), (j, vals_j)) in product(io, repeat=2):
+
+            # Check if ci and cj are part of the same maximal clique
+            # If so, mask out their corresponding blocks in O^{-1}
+            cids = set(vals_i.keys()).union(vals_j.keys())
+            if len(self.jt._get_maximal_cliques(cids)) > 0:
+                self.mask[i, j] = 0
 
     def _generate_O(self, L):
         """Form the overlaps matrix, which is just all the different observed
@@ -198,15 +200,18 @@ class LabelModel(Classifier):
 
         # Get the per-value labeling propensities
         # Note that self.O must have been computed already!
-        lps = torch.diag(self.O).numpy()
+        # lps = torch.diag(self.O).numpy()
+
+        # Note: Params should be self.k - 1 now!
 
         # TODO: Update for higher-order cliques!
-        self.mu_init = torch.zeros(self.d, self.k)
-        for i in range(self.m):
-            for y in range(self.k):
-                idx = i * self.k + y
-                mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y], 0, 1)
-                self.mu_init[idx, y] += mu_init
+        # self.mu_init = torch.zeros(self.d, self.k-1)
+        # for i in range(self.m):
+        #     for y in range(self.k-1):
+        #         idx = i * self.k + y
+        #         mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y],0,1)
+        #         self.mu_init[idx, y] += mu_init
+        self.mu_init = torch.randn(self.d, self.k - 1)
 
         # Initialize randomly based on self.mu_init
         self.mu = nn.Parameter(
@@ -214,7 +219,7 @@ class LabelModel(Classifier):
         ).float()
 
         if self.inv_form:
-            self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
+            self.Z = nn.Parameter(torch.randn(self.d, self.k - 1)).float()
 
         # Build the mask over O^{-1}
         # TODO: Put this elsewhere?
@@ -286,14 +291,17 @@ class LabelModel(Classifier):
         return X / Z
 
     def get_Q(self):
-        """Get the model's estimate of Q = \mu P \mu^T
+        """Get the model's estimate of
+            Q = \Sigma_{OH} \Sigma_H^{-1} \Sigma_{OH}^T
 
         We can then separately extract \mu subject to additional constraints,
         e.g. \mu P 1 = diag(O).
         """
         Z = self.Z.detach().clone().numpy()
+        # Note: shorthand for \Sigma_O
         O = self.O.numpy()
-        I_k = np.eye(self.k)
+        # Note: Params should be self.k - 1 now!
+        I_k = np.eye(self.k - 1)
         return O @ Z @ np.linalg.inv(I_k + Z.T @ O @ Z) @ Z.T @ O
 
     # These loss functions get all their data directly from the LabelModel
@@ -323,11 +331,15 @@ class LabelModel(Classifier):
         return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
 
     def loss_inv_mu(self, *args, l2=0):
-        loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t()) ** 2
-        loss_2 = (
-            torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
-        )
-        return loss_1 + loss_2 + self.loss_l2(l2=l2)
+        # loss_1 = torch.norm(self.Q - self.mu @ P @ self.mu.t()) ** 2
+        # loss_2 = (
+        #     torch.norm(torch.sum(self.mu @ P, 1) - torch.diag(self.O)) ** 2
+        # )
+        # return loss_1 + loss_2 + self.loss_l2(l2=l2)
+
+        # Note: Params should be self.k - 1 now!
+        P_inv = torch.from_numpy(np.linalg.inv(self.P[1:, 1:])).float()
+        return torch.norm(self.Q - self.mu @ P_inv @ self.mu.t()) ** 2
 
     def loss_mu(self, *args, l2=0):
         loss_1 = (
@@ -363,20 +375,30 @@ class LabelModel(Classifier):
         self.n, self.m = L.shape
         self.t = 1
 
-    def _set_dependencies(self, deps):
-        # nodes = range(self.m)
-        self.deps = deps
-        # self.c_tree = get_clique_tree(nodes, deps)
-
-    def train(self, L_train, Y_dev=None, deps=[], class_balance=None, **kwargs):
+    def train(
+        self,
+        L_train=None,
+        sigma_O=None,
+        Y_dev=None,
+        junction_tree=None,
+        deps=[],
+        class_balance=None,
+        **kwargs,
+    ):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
         whether source dependencies are provided or not:
 
         Args:
             L_train: An [n,m] scipy.sparse matrix with values in {0,1,...,k}
                 corresponding to labels from supervision sources on the
-                training set
+                training set. Either this or sigma_O must be provided
+            sigma_O: A [d,d] np.array representing the generalized covariance
+                matrix for the observable variables (cliques). Either this or
+                L_train must be provided
             Y_dev: Target labels for the dev set, for estimating class_balance
+            junction_tree: A JunctionTree class representing the dependency
+                structure of the LFs. If this is not provided, one is
+                constructed based on any deps provided.
             deps: (list of tuples) known dependencies between supervision
                 sources. If not provided, sources are assumed to be independent.
                 TODO: add automatic dependency-learning code
@@ -395,34 +417,62 @@ class LabelModel(Classifier):
             - Then, compute Q = mu P mu.T
             - Finally, estimate mu subject to mu P mu.T = Q and (1b)
         """
+
+        # Set config dictionaries
         self.config = recursive_merge_dicts(
             self.config, kwargs, misses="ignore"
         )
         train_config = self.config["train_config"]
 
-        # Note that the LabelModel class implements its own (centered) L2 reg.
-        l2 = train_config.get("l2", 0)
-
+        # Set the class balance
         self._set_class_balance(class_balance, Y_dev)
-        self._set_constants(L_train)
-        self._set_dependencies(deps)
-        self._check_L(L_train)
+
+        # TODO: Management of the different init options needs to be improved...
+        # E.g. checks for consistency, readable error messages, etc.
+        if L_train is not None:
+            self._check_L(L_train)
+            self._set_constants(L_train)  # Sets self.m, self.n, self.t
+        elif junction_tree is not None and sigma_O is not None:
+            self.m = junction_tree.m
+        else:
+            raise ValueError("Must input L_train or sigma_O and junction_tree.")
+
+        # Set or create the JunctionTree that handles the dependency structure
+        # of the LFs
+        self.jt = None
+        if junction_tree is not None:
+            self.jt = junction_tree
+        elif len(deps) > 0:
+            self.jt = JunctionTree(
+                self.m, self.k, edges=deps, higher_order_cliques=False
+            )
 
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
         # This flag allows us to eg test the latter even with no deps present
-        self.inv_form = len(self.deps) > 0
+        self.inv_form = len(deps) > 0 or self.jt is not None
 
         # Creating this faux dataset is necessary for now because the LabelModel
         # loss functions do not accept inputs, but Classifer._train() expects
         # training data to feed to the loss functions.
         dataset = MetalDataset([0], [0])
         train_loader = DataLoader(dataset)
+
+        # Note that the LabelModel class implements its own (centered) L2 reg.
+        l2 = train_config.get("l2", 0)
+
         if self.inv_form:
             # Compute O, O^{-1}, and initialize params
-            if self.config["verbose"]:
-                print("Computing O^{-1}...")
-            self._generate_O_inv(L_train)
+            if L_train is not None:
+                if self.config["verbose"]:
+                    print("Computing O^{-1}...")
+                self._generate_O_inv(L_train)
+            else:
+                self.O = torch.from_numpy(sigma_O).float()
+                self.O_inv = torch.from_numpy(np.linalg.inv(sigma_O)).float()
+                self.d = self.O.shape[0]
+
+            # Initialize parameters and mask
             self._init_params()
 
             # Estimate Z, compute Q = \mu P \mu^T
@@ -437,9 +487,15 @@ class LabelModel(Classifier):
             self._train(train_loader, partial(self.loss_inv_mu, l2=l2))
         else:
             # Compute O and initialize params
-            if self.config["verbose"]:
-                print("Computing O...")
-            self._generate_O(L_train)
+            if L_train is not None:
+                if self.config["verbose"]:
+                    print("Computing O...")
+                self._generate_O(L_train)
+            else:
+                self.O = torch.from_numpy(sigma_O).float()
+                self.d = self.O.shape[0]
+
+            # Initialize parameters and mask
             self._init_params()
 
             # Estimate \mu

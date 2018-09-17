@@ -362,3 +362,21 @@ class DataGenerator(object):
                 {**vals_i, **vals_j}
             ) - self.P_marginal(vals_i) * self.P_marginal(vals_j)
         return sigma_O
+
+    def get_mu(self, higher_order_cliques=False):
+        d = len(
+            list(
+                self.jt.iter_observed(higher_order_cliques=higher_order_cliques)
+            )
+        )
+        mu = np.zeros(d)
+
+        # TODO: Implement a new method for iter_observed(add_Y=True)!
+
+        for i, vals_i in self.jt.iter_observed(
+            higher_order_cliques=higher_order_cliques
+        ):
+
+            # TOTAL HACK!
+            mu[i] = self.P_marginal({self.m: 2, **vals_i})
+        return mu
