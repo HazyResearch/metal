@@ -6,4 +6,5 @@ __all__ = [
     "MajorityLabelVoter",
     "RandomVoter",
     "LabelModel",
+    "DependencyLearner"
 ]
