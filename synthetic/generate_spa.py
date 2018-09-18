@@ -64,6 +64,9 @@ class DataGenerator(object):
                 class conditional accuracy for each labeling source
             - theta_range_edge: The min and max possible values for the strength
                 of correlation between correlated sources
+        higher_order_cliques: (bool) Set here whether to track the higher-order
+            cliques or else just the unary cliques throughout. We set this once
+            globally for simplicity and to avoid confusions / mismatches.
 
     Note that k = the # of true classes; thus source labels are in {0,1,...,k}
     because they include abstains, of {1,...,k} if abstains=False
@@ -81,6 +84,7 @@ class DataGenerator(object):
             "theta_range_acc": (0.1, 1),
             "theta_range_edge": (0.1, 1),
         },
+        higher_order_cliques=True,
         **kwargs,
     ):
         self.n = n
@@ -94,7 +98,11 @@ class DataGenerator(object):
             DependenciesGraph(m) if deps_graph is None else deps_graph
         )
         self.jt = JunctionTree(
-            self.m, self.k, abstains=self.abstains, deps_graph=self.deps_graph
+            self.m,
+            self.k,
+            abstains=self.abstains,
+            deps_graph=self.deps_graph,
+            higher_order_cliques=higher_order_cliques,
         )
 
         # Generate class-conditional LF & edge parameters, stored in self.theta
@@ -206,7 +214,7 @@ class DataGenerator(object):
                 ci
                 for ci in self.jt.G.nodes()
                 if len(
-                    self.jt._get_members(ci).intersection(query.keys())
+                    self.jt.get_members(ci).intersection(query.keys())
                     - {self.m}
                 )
                 > 0
@@ -226,7 +234,7 @@ class DataGenerator(object):
             nq_ids = set()
             for ci in cids:
                 nq_ids = nq_ids.union(
-                    self.jt._get_members(ci)
+                    self.jt.get_members(ci)
                     - set(query.keys())
                     - set(condition_on.keys())
                 )
@@ -240,7 +248,7 @@ class DataGenerator(object):
                         [
                             (i, q[i])
                             for i in range(self.m + 1)
-                            if i in self.jt._get_members(ci)
+                            if i in self.jt.get_members(ci)
                         ]
                     )
                     p *= self.P_marginal(
@@ -254,7 +262,7 @@ class DataGenerator(object):
                             [
                                 (i, q[i])
                                 for i in range(self.m + 1)
-                                if i in self.jt._get_members((ci, cj))
+                                if i in self.jt.get_members((ci, cj))
                             ]
                         )
                         p /= self.P_marginal(
@@ -348,35 +356,24 @@ class DataGenerator(object):
         )
         return p / Z
 
-    def get_sigma_O(self, higher_order_cliques=False):
-        d = len(
-            list(
-                self.jt.iter_observed(higher_order_cliques=higher_order_cliques)
-            )
+    def get_class_balance(self):
+        """Generate the vector of elements P(Y=i) for i in {1,...,k}"""
+        return np.array(
+            [self.P_marginal({self.m: i}) for i in range(1, self.k + 1)]
         )
-        sigma_O = np.zeros((d, d))
 
-        io = self.jt.iter_observed(higher_order_cliques=higher_order_cliques)
-        for ((i, vals_i), (j, vals_j)) in product(io, repeat=2):
-            sigma_O[i, j] = self.P_marginal(
-                {**vals_i, **vals_j}
-            ) - self.P_marginal(vals_i) * self.P_marginal(vals_j)
+    def get_sigma_O(self):
+        d = self.jt.O_d
+        sigma_O = np.zeros((d, d))
+        for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
+            sigma_O[i, j] = self.P_marginal({**vi, **vj}) - self.P_marginal(
+                vi
+            ) * self.P_marginal(vj)
         return sigma_O
 
-    def get_mu(self, higher_order_cliques=False):
-        d = len(
-            list(
-                self.jt.iter_observed(higher_order_cliques=higher_order_cliques)
-            )
-        )
+    def get_mu(self):
+        d = self.jt.O_d
         mu = np.zeros(d)
-
-        # TODO: Implement a new method for iter_observed(add_Y=True)!
-
-        for i, vals_i in self.jt.iter_observed(
-            higher_order_cliques=higher_order_cliques
-        ):
-
-            # TOTAL HACK!
-            mu[i] = self.P_marginal({self.m: 2, **vals_i})
+        for i, vi in self.jt.iter_observed(add_Y=True):
+            mu[i] = self.P_marginal(vi)
         return mu

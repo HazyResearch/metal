@@ -141,18 +141,14 @@ class LabelModel(Classifier):
             return L_ind
 
     def _build_mask(self):
-        """Build mask applied to O^{-1}, O for the matrix approx constraint"""
+        """Build mask applied to O^{-1}, O for the matrix approx constraint; if
+        an entry (i,j) corresponds to cliques C_i, C_j that belong to the same
+        maximal clique, then mask out.
+        """
         self.mask = torch.ones(self.d, self.d).byte()
-
-        # TODO: Where do we pass this from...?
-        higher_order_cliques = True
-        io = self.jt.iter_observed(higher_order_cliques=higher_order_cliques)
-        for ((i, vals_i), (j, vals_j)) in product(io, repeat=2):
-
-            # Check if ci and cj are part of the same maximal clique
-            # If so, mask out their corresponding blocks in O^{-1}
-            cids = set(vals_i.keys()).union(vals_j.keys())
-            if len(self.jt._get_maximal_cliques(cids)) > 0:
+        for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
+            cids = set(vi.keys()).union(vj.keys())
+            if len(self.jt.get_maximal_cliques(cids)) > 0:
                 self.mask[i, j] = 0
 
     def _generate_O(self, L):
@@ -444,7 +440,10 @@ class LabelModel(Classifier):
             self.jt = junction_tree
         elif len(deps) > 0:
             self.jt = JunctionTree(
-                self.m, self.k, edges=deps, higher_order_cliques=False
+                self.m,
+                self.k,
+                edges=deps,
+                higher_order_cliques=self.config["higher_order_cliques"],
             )
 
         # Whether to take the simple conditionally independent approach, or the

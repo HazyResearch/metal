@@ -1,5 +1,4 @@
-from collections import OrderedDict
-from itertools import chain, product
+from itertools import product
 
 import networkx as nx
 
@@ -38,6 +37,9 @@ class JunctionTree(object):
             this or a set of edges
         edges [optional]: A list of tuples (i,j) representing edges; this will
             be used to create a DependenciesGraph object
+        higher_order_cliques: (bool) Set here whether to track the higher-order
+            cliques or else just the unary cliques throughout. We set this once
+            globally for simplicity and to avoid confusions / mismatches.
     """
 
     def __init__(
@@ -60,14 +62,10 @@ class JunctionTree(object):
         else:
             raise ValueError("Must provide either deps_graph or edges.")
         self.G = self._get_junction_tree()
+        self.higher_order_cliques = higher_order_cliques
 
         # Materialize the mappings from index --> val set once here
-        self.O_map = [
-            vals
-            for idx, vals in self.iter_observed(
-                higher_order_cliques=higher_order_cliques
-            )
-        ]
+        self.O_map = [vals for idx, vals in self.iter_observed()]
         self.O_d = len(self.O_map)
 
     def _get_junction_tree(self):
@@ -113,14 +111,14 @@ class JunctionTree(object):
         )
         nx.draw(self.G, with_labels=True, node_size=500, labels=labels)
 
-    def _get_members(self, clique_id):
+    def get_members(self, clique_id):
         """Returns the member variable ids of a clique or separator set"""
         if isinstance(clique_id, int):
             return self.G.node[clique_id]["members"]
         else:
             return self.G.edges()[clique_id[0], clique_id[1]]["members"]
 
-    def _get_maximal_cliques(self, idxs):
+    def get_maximal_cliques(self, idxs):
         """Returns the indices of the maximal cliques that the variables with
         indices in idxs are in, or else the empty set"""
         try:
@@ -129,7 +127,7 @@ class JunctionTree(object):
             idxs = set([idxs])
         cids = set()
         for ci in self.G.nodes():
-            if idxs.issubset(self._get_members(ci)):
+            if idxs.issubset(self.get_members(ci)):
                 cids.add(ci)
         return cids
 
@@ -157,19 +155,23 @@ class JunctionTree(object):
             else:
                 val_ranges[i] = range(self.k0 + offset, self.k + 1)
 
-        for vals in product(*val_ranges.values()):
-            yield dict(zip(val_ranges.keys(), vals))
+        # Make sure variables and values returned are sorted!
+        var_ids = sorted(list(var_ids))
+        val_ranges_s = [val_ranges[i] for i in var_ids]
+        for vals in product(*val_ranges_s):
+            yield dict(zip(var_ids, vals))
 
-    def iter_observed(self, higher_order_cliques=True):
+    def iter_observed(self, add_Y=False):
         """Iterates over (i, vals) where i is an index and vals is a dictionary
         mapping from LF indices to values
 
-        If higher_order_cliques = False, just iterates over the self.m
+        If self.higher_order_cliques = False, just iterates over the self.m
         individual LF indicator blocks (each of which has self.k entries
-        if abstains=False, else self.k-1).
+        if abstains=False, else self.k-1). If self.higher_order_cliques = True,
+        includes all maximal cliques in the junction tree as well, minus Y.
 
-        If higher_order_cliques = True, includes all maximal cliques in the
-        junction tree as well, minus Y.
+        Args:
+            - add_Y: (bool) Add Y to all the cliques as well
         """
 
         # Unary observed cliques, {\lf_i}
@@ -177,85 +179,17 @@ class JunctionTree(object):
 
         # Optionally, add higher-order observed cliques, which are the maximal
         # cliques (nodes) of the junction tree, minus Y
-        if higher_order_cliques:
+        if self.higher_order_cliques:
             for ci in self.G.nodes():
-                cids = self._get_members(ci) - {self.m}
+                cids = self.get_members(ci) - {self.m}
                 if cids not in cliques:
-                    cliques.append(cids)
+                    cliques.append(set(cids))
 
         # Iterate over the index, minimal set of values as dict
         idx = -1
         for cids in cliques:
+            if add_Y:
+                cids.add(self.m)
             for vals in self.iter_vals(cids, offset=1):
                 idx += 1
                 yield idx, vals
-
-    # TODO: REMOVE THIS?
-    def _get_clique_data(self, higher_order_cliques=True):
-        """Create a helper data structure which maps cliques (as tuples of
-        member sources) --> {start_index, end_index, maximal_cliques}, where
-        the last value is a set of indices in this data structure.
-        """
-        c_data = OrderedDict()
-
-        # Add all the unary cliques
-        for i in range(self.m):
-            c_data[(i,)] = {
-                "start_index": i * self.k,
-                "end_index": (i + 1) * self.k,
-                "max_cliques": set(
-                    [
-                        j
-                        for j in self.G.nodes()
-                        if i in self.G.node[j]["members"]
-                    ]
-                ),
-                "size": 1,
-                "members": {i},
-            }
-
-        # Get the higher-order clique statistics based on the clique tree
-        # First, iterate over the maximal cliques (nodes of c_tree) and
-        # separator sets (edges of c_tree)
-        start_index = self.m * self.k
-        if higher_order_cliques:
-            for item in chain(self.G.nodes(), self.G.edges()):
-                if isinstance(item, int):
-                    C = self.G.node[item]
-                    C_type = "node"
-                elif isinstance(item, tuple):
-                    C = self.G[item[0]][item[1]]
-                    C_type = "edge"
-                else:
-                    raise ValueError(item)
-
-                # Important to sort here!!
-                members = sorted(list(C["members"]))
-                nc = len(members)
-                id = tuple(members)
-
-                # Check if already added
-                if id in c_data:
-                    continue
-
-                if nc > 1:
-                    w = self.k ** nc
-                    c_data[id] = {
-                        "start_index": start_index,
-                        "end_index": start_index + w,
-                        "max_cliques": set([item])
-                        if C_type == "node"
-                        else set(item),
-                        "size": nc,
-                        "members": set(members),
-                    }
-                    start_index += w
-        d = start_index
-        return c_data, d
-
-    def iter_index(self):
-        """Iterates over the (clique_members, values) indices, returning them
-        as a dictionary {lf_idx : val, ...}."""
-        for c, c_data in self.c_data.items():
-            for vals in product(range(1, self.k + 1), repeat=c_data["size"]):
-                yield {li: v for li, v in zip(c, vals)}
