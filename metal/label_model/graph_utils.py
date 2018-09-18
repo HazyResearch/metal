@@ -65,8 +65,12 @@ class JunctionTree(object):
         self.higher_order_cliques = higher_order_cliques
 
         # Materialize the mappings from index --> val set once here
+        # Observed vars
         self.O_map = [vals for idx, vals in self.iter_observed()]
         self.O_d = len(self.O_map)
+        # Hidden vars
+        self.H_map = [vals for idx, vals in self.iter_hidden()]
+        self.H_d = len(self.H_map)
 
     def _get_junction_tree(self):
         """Given a set of int nodes i and edges (i,j), returns an nx.Graph
@@ -163,17 +167,15 @@ class JunctionTree(object):
 
     def iter_observed(self, add_Y=False):
         """Iterates over (i, vals) where i is an index and vals is a dictionary
-        mapping from LF indices to values
-
-        If self.higher_order_cliques = False, just iterates over the self.m
-        individual LF indicator blocks (each of which has self.k entries
-        if abstains=False, else self.k-1). If self.higher_order_cliques = True,
-        includes all maximal cliques in the junction tree as well, minus Y.
+        mapping from LF indices to values, iterating over all observed values:
+            - The m LFs
+            - If self.higher_order_cliques=True: also iterates over all maximal
+                cliques in the junction tree, *but with Y removed*
 
         Args:
-            - add_Y: (bool) Add Y to all the cliques as well
+            - add_Y: (bool) Add Y to all the cliques as well- mainly as a
+                convenience for forming an iterator for mu
         """
-
         # Unary observed cliques, {\lf_i}
         cliques = [{i} for i in range(self.m)]
 
@@ -190,6 +192,30 @@ class JunctionTree(object):
         for cids in cliques:
             if add_Y:
                 cids.add(self.m)
+            for vals in self.iter_vals(cids, offset=1):
+                idx += 1
+                yield idx, vals
+
+    def iter_hidden(self):
+        """Iterates over (i, vals) where i is an index and vals is a dictionary
+        mapping from LF indices to values, iterating over all hidden values:
+            - Y
+            - All the non-singleton separator sets (which all include Y)
+
+        Note: Currently we *don't* ever add the higher-order cliques.
+        """
+        # Must include at least Y- now observed \union hidden contains all nodes
+        cliques = [{self.m}]
+
+        # Next, add all separator sets (i.e. add all new non-singleton sep sets)
+        for i, j in self.G.edges():
+            cids = self.get_members((i, j))
+            if cids not in cliques:
+                cliques.append(set(cids))
+
+        # Iterate over the index, minimal set of values as dict
+        idx = -1
+        for cids in cliques:
             for vals in self.iter_vals(cids, offset=1):
                 idx += 1
                 yield idx, vals

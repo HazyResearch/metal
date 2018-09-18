@@ -363,13 +363,30 @@ class DataGenerator(object):
         )
 
     def get_sigma_O(self):
-        d = self.jt.O_d
-        sigma_O = np.zeros((d, d))
+        sigma_O = np.zeros((self.jt.O_d, self.jt.O_d))
         for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
             sigma_O[i, j] = self.P_marginal({**vi, **vj}) - self.P_marginal(
                 vi
             ) * self.P_marginal(vj)
         return sigma_O
+
+    def get_sigma_H(self):
+        sigma_H = np.zeros((self.jt.H_d, self.jt.H_d))
+        for ((i, vi), (j, vj)) in product(self.jt.iter_hidden(), repeat=2):
+            sigma_H[i, j] = self.P_marginal({**vi, **vj}) - self.P_marginal(
+                vi
+            ) * self.P_marginal(vj)
+        return sigma_H
+
+    def get_sigma_OH(self):
+        sigma_OH = np.zeros((self.jt.O_d, self.jt.H_d))
+        for ((i, vi), (j, vj)) in product(
+            self.jt.iter_observed(), self.jt.iter_hidden()
+        ):
+            sigma_OH[i, j] = self.P_marginal({**vi, **vj}) - self.P_marginal(
+                vi
+            ) * self.P_marginal(vj)
+        return sigma_OH
 
     def get_mu(self):
         d = self.jt.O_d
