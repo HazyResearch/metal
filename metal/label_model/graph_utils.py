@@ -1,7 +1,36 @@
 from itertools import product
-
+from itertools import combinations
 import networkx as nx
 
+def generate_edges(M, clique_size, num_cliques):
+    """Given a type of dependency structure to create, returns a list of edges.
+
+    Args:
+        M: (int) Number of labeling functions 
+        clique_size: (int) Maximum size of clique/block in Sigma matrix
+        num_cliques: (int) Number of cliques/blocks 
+    Returns:
+        edges: (list) List of edge tuples
+    """
+    
+    #Valid Input Structure
+    assert M/float(clique_size) >= num_cliques
+    
+    edges = []
+    i = 0
+    while (True):
+        cluster_lfs = range(i,i+clique_size)
+        #edge tuples are size 2
+        for comb in combinations(cluster_lfs, 2):
+            edges.append(comb)
+        
+        #created a clique
+        num_cliques-=1
+        if num_cliques <= 0:   
+            return edges
+
+        #move to next LF for new clique
+        i+=clique_size
 
 class DependenciesGraph(object):
     """Helper data structures for source dependencies graph.
