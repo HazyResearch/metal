@@ -121,18 +121,7 @@ class DataGenerator(object):
         self.msg_cache = {}
         self.p_marginal_cache = {}
 
-        # Generate O, mu, Sigma, Sigma_inv
-        # Y = (
-        #     1
-        # )  # Note: we pick an arbitrary Y here, since assuming doesn't matter
-        # self.O = self._generate_O_Y(Y=Y)
-        # self.mu = self._generate_mu_Y(Y=Y)
-        # self.sig, self.sig_inv = self._generate_sigma(self.O, self.mu)
-
-        # # Generate the true labels self.Y and label matrix self.L
-        # self._generate_label_matrix()
-
-    def _generate_params(self, param_ranges):
+    def _generate_params(self, param_ranges, rank_one_model=True):
         """This function generates the parameters of the data generating model
 
         Note that along with the potential functions of the SPA algorithm, this
@@ -394,3 +383,81 @@ class DataGenerator(object):
         for i, vi in self.jt.iter_observed(add_Y=True):
             mu[i] = self.P_marginal(vi)
         return mu
+
+
+class SimpleDataGenerator(DataGenerator):
+    """Generates a synthetic dataset
+
+    In this simple model (which corresponds to a rank-one problem if singleton
+    separator sets), we tie weights such that
+        P(\lf_C | Y) = P(\lf_C' | Y)
+    if \lf_C, \lf_C' only differ on which incorrect values are chosen.
+
+    Args:
+        n: (int) The number of data points
+        m: (int) The number of labeling sources
+        k: (int) The cardinality of the classification task
+        abstains: (bool) Whether to include 0 labels as abstains
+        class_balance: (np.array) each class's percentage of the population
+        deps_graph: (DependenciesGraph) A DependenciesGraph object
+            specifying the dependencies structure of the sources
+        param_ranges: (dict) A dictionary of ranges to draw the model parameters
+            from:
+            - theta_range_acc: (tuple) The min and max possible values for the
+                class conditional accuracy for each labeling source
+            - theta_range_edge: The min and max possible values for the strength
+                of correlation between correlated sources
+        higher_order_cliques: (bool) Set here whether to track the higher-order
+            cliques or else just the unary cliques throughout. We set this once
+            globally for simplicity and to avoid confusions / mismatches.
+
+    Note that k = the # of true classes; thus source labels are in {0,1,...,k}
+    because they include abstains, of {1,...,k} if abstains=False
+    """
+
+    def _generate_params(self, param_ranges):
+        """This function generates the parameters of the data generating model
+
+        Note that along with the potential functions of the SPA algorithm, this
+        essentially defines our model. This model is the most general form,
+        where each marginal conditional probability for each clique C,
+        P(\lf_C | Y), is generated randomly.
+        """
+        theta = defaultdict(float)
+        theta_r1 = {}
+
+        # Binary clique factors
+        for idxs in self.jt.deps_graph.G.edges():
+            (i, j) = sorted(idxs)
+
+            # Binary cliques (i,j) = (\lf_i, Y)
+            if j == self.m:
+                for vals in product(
+                    range(self.k0, self.k + 1), range(1, self.k + 1)
+                ):
+                    vi, vj = vals
+                    key = (i, j, vj)
+
+                    # For each (\lf_i, Y) pair, store the single parameter
+                    if key not in theta_r1:
+                        theta_range = param_ranges["theta_range_acc"]
+                        t_min, t_max = min(theta_range), max(theta_range)
+                        theta_r1[key] = (t_max - t_min) * random() + t_min
+
+                    # Store for the specific value set, either correct or not
+                    if vi == vj:
+                        theta[((i, j), vals)] = theta_r1[key]
+                    else:
+                        theta[((i, j), vals)] = (1 - theta_r1[key]) / (
+                            self.k - 1
+                        )
+                    theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
+
+            # Binary cliques (i,j) = (\lf_i, \lf_j)
+            else:
+                for vals in product(range(self.k0, self.k + 1), repeat=2):
+                    theta_range = param_ranges["theta_range_edge"]
+                    t_min, t_max = min(theta_range), max(theta_range)
+                    theta[((i, j), vals)] = (t_max - t_min) * random() + t_min
+                    theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
+        return theta
