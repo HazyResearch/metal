@@ -351,20 +351,32 @@ class DataGenerator(object):
             [self.P_marginal({self.m: i}) for i in range(1, self.k + 1)]
         )
 
+    def _get_covariance(self, vals_i, vals_j):
+        """Get the covariance of two clique, value pairs as dictionaries vals_i,
+        vals_j."""
+        sigma = 0.0
+
+        # Note: Need to check that they don't conflict!
+        conflict = False
+        for k in set(vals_i.keys()).intersection(vals_j.keys()):
+            if vals_i[k] != vals_j[k]:
+                conflict = True
+                break
+        if not conflict:
+            sigma += self.P_marginal({**vals_i, **vals_j})
+        sigma -= self.P_marginal(vals_i) * self.P_marginal(vals_j)
+        return sigma
+
     def get_sigma_O(self):
         sigma_O = np.zeros((self.jt.O_d, self.jt.O_d))
         for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
-            sigma_O[i, j] = self.P_marginal({**vi, **vj}) - self.P_marginal(
-                vi
-            ) * self.P_marginal(vj)
+            sigma_O[i, j] = self._get_covariance(vi, vj)
         return sigma_O
 
     def get_sigma_H(self):
         sigma_H = np.zeros((self.jt.H_d, self.jt.H_d))
         for ((i, vi), (j, vj)) in product(self.jt.iter_hidden(), repeat=2):
-            sigma_H[i, j] = self.P_marginal({**vi, **vj}) - self.P_marginal(
-                vi
-            ) * self.P_marginal(vj)
+            sigma_H[i, j] = self._get_covariance(vi, vj)
         return sigma_H
 
     def get_sigma_OH(self):
@@ -372,9 +384,7 @@ class DataGenerator(object):
         for ((i, vi), (j, vj)) in product(
             self.jt.iter_observed(), self.jt.iter_hidden()
         ):
-            sigma_OH[i, j] = self.P_marginal({**vi, **vj}) - self.P_marginal(
-                vi
-            ) * self.P_marginal(vj)
+            sigma_OH[i, j] = self._get_covariance(vi, vj)
         return sigma_OH
 
     def get_mu(self):
