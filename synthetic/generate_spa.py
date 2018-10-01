@@ -434,9 +434,6 @@ class DataGenerator(object):
                 vals = list(
                     self.jt.iter_vals(self.jt.get_members(c), fixed=fixed)
                 )
-
-                # Note: Not explicitly removing y from the query v here...
-                # should work but worth double checking!
                 p_L = [self.P_marginal(v, condition_on=fixed) for v in vals]
 
                 # Pick one of the value sets randomly and put into L

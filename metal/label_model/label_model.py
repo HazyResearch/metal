@@ -38,6 +38,20 @@ class LabelModel(Classifier):
         if np.any(L < 0):
             raise ValueError("L must have values in {0,1,...,k}.")
 
+    # def _get_L_aug(self, L):
+    #     """Returns the augmented version of L corresponding to the minimal set
+    #     of indicators for each value of each clique of LFs.
+
+    #     For example, three ind LFs with cardinality K=3, applied to a single
+    #     data point, would go from:
+    #         [1, 2, 3] --> [0, 0, 1, 0, 1, 1]
+    #     """
+    #     # TODO: Update LabelModel to keep L variants as sparse matrices
+    #     # throughout and remove this line.
+    #     if issparse(L):
+    #         L = L.todense()
+    #     L_aug = np.zeros((L.shape[0], ))
+
     def _create_L_ind(self, L):
         """Convert a label matrix with labels in 0...k to a one-hot format
 
@@ -444,7 +458,7 @@ class LabelModel(Classifier):
         self.jt = None
         if junction_tree is not None:
             self.jt = junction_tree
-        elif len(deps) > 0:
+        else:
             self.jt = JunctionTree(
                 self.m,
                 self.k,
@@ -455,7 +469,7 @@ class LabelModel(Classifier):
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
         # This flag allows us to eg test the latter even with no deps present
-        self.inv_form = len(deps) > 0 or self.jt is not None
+        self.inv_form = len(deps) > 0 or not self.jt.ind_model
 
         # Creating this faux dataset is necessary for now because the LabelModel
         # loss functions do not accept inputs, but Classifer._train() expects

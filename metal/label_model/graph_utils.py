@@ -72,6 +72,12 @@ class JunctionTree(object):
         self.H_map = [vals for idx, vals in self.iter_hidden()]
         self.H_d = len(self.H_map)
 
+    @property
+    def ind_model(self):
+        """Returns True if there are only edges between LFs and Y (no LF-LF)
+        dependencies"""
+        return len(self.deps_graph.G.edges()) - self.m == 0
+
     def _get_junction_tree(self):
         """Given a set of int nodes i and edges (i,j), returns an nx.Graph
         object G which is a clique tree, where:
@@ -165,16 +171,12 @@ class JunctionTree(object):
         for vals in product(*val_ranges_s):
             yield dict(zip(var_ids, vals))
 
-    def iter_observed(self, add_Y=False):
+    def iter_observed(self):
         """Iterates over (i, vals) where i is an index and vals is a dictionary
         mapping from LF indices to values, iterating over all observed values:
             - The m LFs
             - If self.higher_order_cliques=True: also iterates over all maximal
                 cliques in the junction tree, *but with Y removed*
-
-        Args:
-            - add_Y: (bool) Add Y to all the cliques as well- mainly as a
-                convenience for forming an iterator for mu
         """
         # Unary observed cliques, {\lf_i}
         cliques = [{i} for i in range(self.m)]
@@ -190,8 +192,6 @@ class JunctionTree(object):
         # Iterate over the index, minimal set of values as dict
         idx = -1
         for cids in cliques:
-            if add_Y:
-                cids.add(self.m)
             for vals in self.iter_vals(cids, offset=1):
                 idx += 1
                 yield idx, vals
