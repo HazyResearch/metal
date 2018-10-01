@@ -176,6 +176,11 @@ class DataGenerator(object):
         """Compute P(query|condition_on) using the sum-product algorithm over
         the junction tree `self.jt`"""
 
+        # Make sure query and condition_on are disjoint!
+        for k in condition_on.keys():
+            if k in query:
+                del query[k]
+
         # Check the cache first, keyed by query (projected onto members of
         # clique i), i, j
         cache_key = (tuple(query.items()), tuple(condition_on.items()))
@@ -196,6 +201,11 @@ class DataGenerator(object):
         if clique_id is not None:
             cids = [clique_id]
 
+        # Route P(Y) queries correctly here
+        elif len(query) == 1 and self.m in query:
+            cids = [0]
+
+        # Else get the set of containing maximal cliques
         else:
 
             # Get the set of cliques containing the (non-Y) query variables
@@ -237,7 +247,11 @@ class DataGenerator(object):
                         [
                             (i, q[i])
                             for i in range(self.m + 1)
-                            if i in self.jt.get_members(ci)
+                            if i
+                            in (
+                                self.jt.get_members(ci)
+                                - set(condition_on.keys())
+                            )
                         ]
                     )
                     p *= self.P_marginal(
@@ -251,7 +265,11 @@ class DataGenerator(object):
                             [
                                 (i, q[i])
                                 for i in range(self.m + 1)
-                                if i in self.jt.get_members((ci, cj))
+                                if i
+                                in (
+                                    self.jt.get_members((ci, cj))
+                                    - set(condition_on.keys())
+                                )
                             ]
                         )
                         p /= self.P_marginal(
