@@ -351,19 +351,19 @@ class DataGenerator(object):
             [self.P_marginal({self.m: i}) for i in range(1, self.k + 1)]
         )
 
-    def _get_covariance(self, vals_i, vals_j):
-        """Get the covariance of two clique, value pairs as dictionaries vals_i,
-        vals_j."""
-        sigma = 0.0
-
+    def _get_joint_prob(self, vals_i, vals_j):
         # Note: Need to check that they don't conflict!
         conflict = False
         for k in set(vals_i.keys()).intersection(vals_j.keys()):
             if vals_i[k] != vals_j[k]:
                 conflict = True
                 break
-        if not conflict:
-            sigma += self.P_marginal({**vals_i, **vals_j})
+        return self.P_marginal({**vals_i, **vals_j}) if not conflict else 0.0
+
+    def _get_covariance(self, vals_i, vals_j):
+        """Get the covariance of two clique, value pairs as dictionaries vals_i,
+        vals_j."""
+        sigma = self._get_joint_prob(vals_i, vals_j)
         sigma -= self.P_marginal(vals_i) * self.P_marginal(vals_j)
         return sigma
 
@@ -388,10 +388,10 @@ class DataGenerator(object):
         return sigma_OH
 
     def get_mu(self):
-        d = self.jt.O_d
-        mu = np.zeros(d)
-        for i, vi in self.jt.iter_observed(add_Y=True):
-            mu[i] = self.P_marginal(vi)
+        mu = np.zeros((self.jt.O_d, self.jt.H_d))
+        for i, vi in self.jt.iter_observed():
+            for j, vj in self.jt.iter_hidden():
+                mu[i, j] = self._get_joint_prob(vi, vj)
         return mu
 
 

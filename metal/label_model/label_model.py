@@ -347,6 +347,12 @@ class LabelModel(Classifier):
         )
         return loss_1 + loss_2 + self.loss_l2(l2=l2)
 
+    def get_mu(self, lps, sign_flip=1):
+        """Get the *actual* mu from sigma_OH that we solve for."""
+        mu = sign_flip * self.mu.detach().numpy()
+        mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
+        return mu
+
     def _set_class_balance(self, class_balance, Y_dev):
         """Set a prior for the class balance
 
