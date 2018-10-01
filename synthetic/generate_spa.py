@@ -1,5 +1,5 @@
 from collections import defaultdict
-from itertools import combinations, product
+from itertools import chain, combinations, product
 
 import networkx as nx
 import numpy as np
@@ -393,6 +393,38 @@ class DataGenerator(object):
             for j, vj in self.jt.iter_hidden():
                 mu[i, j] = self._get_joint_prob(vi, vj)
         return mu
+
+    def generate_label_matrix(self, n):
+        """Generate an m x n label matrix."""
+        L = np.zeros((n, self.m))
+        Y_range = range(1, self.k + 1)
+        p_Y = np.array([self.P_marginal({self.m: y}) for y in Y_range])
+        for i in range(n):
+            Y = choice(Y_range, p=p_Y)
+
+            # Traverse the junction tree DFS starting at node 0
+            for p, c in chain([(-1, 0)], nx.dfs_edges(self.jt.G, source=0)):
+
+                # The fixed values are the separator set members, which will
+                # always contain Y; else Y if at node 0
+                S = self.jt.G.edges[p, c]["members"] if p > 0 else set([self.m])
+                fixed = dict(
+                    [(j, L[i, j]) if j < self.m else (self.m, Y) for j in S]
+                )
+
+                # Start with sources in node 0 of the junction tree
+                vals = list(
+                    self.jt.iter_vals(self.jt.get_members(c), fixed=fixed)
+                )
+
+                # Note: Not explicitly removing y from the query v here...
+                # should work but worth double checking!
+                p_L = [self.P_marginal(v, condition_on=fixed) for v in vals]
+
+                # Pick one of the value sets randomly and put into L
+                for j, val in choice(vals, p=p_L).items():
+                    L[i, j] = val
+        return L
 
 
 class SimpleDataGenerator(DataGenerator):
