@@ -1,6 +1,6 @@
 from collections import Counter
 from functools import partial
-from itertools import chain, product
+from itertools import product
 
 import numpy as np
 import torch
@@ -38,121 +38,27 @@ class LabelModel(Classifier):
         if np.any(L < 0):
             raise ValueError("L must have values in {0,1,...,k}.")
 
-    # def _get_L_aug(self, L):
-    #     """Returns the augmented version of L corresponding to the minimal set
-    #     of indicators for each value of each clique of LFs.
+    def get_L_aug(self, L):
+        """Returns the augmented version of L corresponding to the minimal set
+        of indicators for each value of each clique of LFs.
 
-    #     For example, three ind LFs with cardinality K=3, applied to a single
-    #     data point, would go from:
-    #         [1, 2, 3] --> [0, 0, 1, 0, 1, 1]
-    #     """
-    #     # TODO: Update LabelModel to keep L variants as sparse matrices
-    #     # throughout and remove this line.
-    #     if issparse(L):
-    #         L = L.todense()
-    #     L_aug = np.zeros((L.shape[0], ))
-
-    def _create_L_ind(self, L):
-        """Convert a label matrix with labels in 0...k to a one-hot format
-
-        Args:
-            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
-
-        Returns:
-            L_ind: An [n,m*k] dense np.ndarray with values in {0,1}
-
-        Note that no column is required for 0 (abstain) labels.
+        For example, three ind LFs with cardinality K=3, applied to a single
+        data point, would go from:
+            [1, 2, 3] --> [0, 0, 1, 0, 1, 1]
         """
+        n = L.shape[0]
+        L_aug = np.ones((n, self.jt.O_d))
+
         # TODO: Update LabelModel to keep L variants as sparse matrices
         # throughout and remove this line.
         if issparse(L):
             L = L.todense()
 
-        L_ind = np.zeros((self.n, self.m * self.k))
-        for y in range(1, self.k + 1):
-            # A[x::y] slices A starting at x at intervals of y
-            # e.g., np.arange(9)[0::3] == np.array([0,3,6])
-            L_ind[:, (y - 1) :: self.k] = np.where(L == y, 1, 0)
-        return L_ind
-
-    def _get_augmented_label_matrix(self, L, higher_order=False):
-        """Returns an augmented version of L where each column is an indicator
-        for whether a certain source or clique of sources voted in a certain
-        pattern.
-
-        Args:
-            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
-        """
-        # Create a helper data structure which maps cliques (as tuples of member
-        # sources) --> {start_index, end_index, maximal_cliques}, where
-        # the last value is a set of indices in this data structure
-        self.c_data = {}
-        for i in range(self.m):
-            self.c_data[i] = {
-                "start_index": i * self.k,
-                "end_index": (i + 1) * self.k,
-                "max_cliques": set(
-                    [
-                        j
-                        for j in self.c_tree.nodes()
-                        if i in self.c_tree.node[j]["members"]
-                    ]
-                ),
-            }
-
-        L_ind = self._create_L_ind(L)
-
-        # Get the higher-order clique statistics based on the clique tree
-        # First, iterate over the maximal cliques (nodes of c_tree) and
-        # separator sets (edges of c_tree)
-        if higher_order:
-            L_aug = np.copy(L_ind)
-            for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
-                if isinstance(item, int):
-                    C = self.c_tree.node[item]
-                    C_type = "node"
-                elif isinstance(item, tuple):
-                    C = self.c_tree[item[0]][item[1]]
-                    C_type = "edge"
-                else:
-                    raise ValueError(item)
-                members = list(C["members"])
-                nc = len(members)
-
-                # If a unary maximal clique, just store its existing index
-                if nc == 1:
-                    C["start_index"] = members[0] * self.k
-                    C["end_index"] = (members[0] + 1) * self.k
-
-                # Else add one column for each possible value
-                else:
-                    L_C = np.ones((self.n, self.k ** nc))
-                    for i, vals in enumerate(product(range(self.k), repeat=nc)):
-                        for j, v in enumerate(vals):
-                            L_C[:, i] *= L_ind[:, members[j] * self.k + v]
-
-                    # Add to L_aug and store the indices
-                    if L_aug is not None:
-                        C["start_index"] = L_aug.shape[1]
-                        C["end_index"] = L_aug.shape[1] + L_C.shape[1]
-                        L_aug = np.hstack([L_aug, L_C])
-                    else:
-                        C["start_index"] = 0
-                        C["end_index"] = L_C.shape[1]
-                        L_aug = L_C
-
-                    # Add to self.c_data as well
-                    id = tuple(members) if len(members) > 1 else members[0]
-                    self.c_data[id] = {
-                        "start_index": C["start_index"],
-                        "end_index": C["end_index"],
-                        "max_cliques": set([item])
-                        if C_type == "node"
-                        else set(item),
-                    }
-            return L_aug
-        else:
-            return L_ind
+        # Form matrix column-wise to be faster w.r.t. n
+        for idx, vals in self.jt.iter_observed():
+            for j, v in vals.items():
+                L_aug[:, idx] *= L[:, j] == v
+        return L_aug
 
     def _build_mask(self):
         """Build mask applied to O^{-1}, O for the matrix approx constraint; if
