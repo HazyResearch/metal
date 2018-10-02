@@ -334,23 +334,26 @@ class LabelModel(Classifier):
         p = np.diag(P).reshape(-1, 1)
         return P - p @ p.T
 
-    def get_mu(self, lps, sign_flip=1):
+    def get_mu(self, lps, sign_flip=1, col_ordering=None):
         """Recover mu from the low-rank matrix ZZ^T that we solve for."""
+        km = self.k - self.jt.k0
 
         # Get Q = \Sigma_{OH} @ \Sigma_H^{-1} @ \Sigma_{OH}^T
         Z = self.Z.detach().clone().numpy()
         sigma_O = self.O.numpy()
-        I_k = np.eye(self.k - 1)
+        I_k = np.eye(km)
         Q = sigma_O @ Z @ np.linalg.inv(I_k + Z.T @ sigma_O @ Z) @ Z.T @ sigma_O
 
         # Take the eigendecomposition of Q and \Sigma_H^{-1}
         D1, V1 = np.linalg.eigh(Q)
         D2, V2 = np.linalg.eigh(np.linalg.inv(self.sigma_H))
-        r = np.sqrt(D2[-1] / D1[-1])
-        sigma_OH = (1 / r) * V1[:, -1].reshape(-1, 1) @ np.linalg.inv(V2)
+        R = np.diag(1 / np.sqrt(D2[-km:] / D1[-km:]))
+        sigma_OH = V1[:, -km:] @ R @ np.linalg.inv(V2)
 
         # Recover \mu from \Sigma_{OH}
         mu = sign_flip * sigma_OH
+        if col_ordering is not None:
+            mu = mu[:, col_ordering]
         mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
         return mu
 
