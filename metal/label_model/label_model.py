@@ -300,20 +300,6 @@ class LabelModel(Classifier):
         Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
         return X / Z
 
-    def get_Q(self):
-        """Get the model's estimate of
-            Q = \Sigma_{OH} \Sigma_H^{-1} \Sigma_{OH}^T
-
-        We can then separately extract \mu subject to additional constraints,
-        e.g. \mu P 1 = diag(O).
-        """
-        Z = self.Z.detach().clone().numpy()
-        # Note: shorthand for \Sigma_O
-        O = self.O.numpy()
-        # Note: Params should be self.k - 1 now!
-        I_k = np.eye(self.k - 1)
-        return O @ Z @ np.linalg.inv(I_k + Z.T @ O @ Z) @ Z.T @ O
-
     # These loss functions get all their data directly from the LabelModel
     # (for better or worse). The unused *args make these compatible with the
     # Classifer._train() method which expect loss functions to accept an input.
@@ -340,16 +326,30 @@ class LabelModel(Classifier):
     def loss_inv_Z(self, *args):
         return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
 
-    def loss_inv_mu(self, *args, l2=0):
-        # loss_1 = torch.norm(self.Q - self.mu @ P @ self.mu.t()) ** 2
-        # loss_2 = (
-        #     torch.norm(torch.sum(self.mu @ P, 1) - torch.diag(self.O)) ** 2
-        # )
-        # return loss_1 + loss_2 + self.loss_l2(l2=l2)
+    @property
+    def sigma_H(self):
+        # TODO: Throw error for non-singleton separator sets
+        return self.P[:1, :1]
 
-        # Note: Params should be self.k - 1 now!
-        P_inv = torch.from_numpy(np.linalg.inv(self.P[1:, 1:])).float()
-        return torch.norm(self.Q - self.mu @ P_inv @ self.mu.t()) ** 2
+    def get_mu(self, lps, sign_flip=1):
+        """Get the *actual* mu from sigma_OH that we solve for."""
+
+        # Get Q = \Sigma_{OH} @ \Sigma_H^{-1} @ \Sigma_{OH}^T
+        Z = self.Z.detach().clone().numpy()
+        sigma_O = self.O.numpy()
+        I_k = np.eye(self.k - 1)
+        Q = sigma_O @ Z @ np.linalg.inv(I_k + Z.T @ sigma_O @ Z) @ Z.T @ sigma_O
+
+        # Take the eigendecomposition of Q and \Sigma_H^{-1}
+        D1, V1 = np.linalg.eigh(Q)
+        D2, V2 = np.linalg.eigh(np.linalg.inv(self.sigma_H))
+        r = np.sqrt(D2[-1] / D1[-1])
+        sigma_OH = (1 / r) * V1[:, -1].reshape(-1, 1) @ np.linalg.inv(V2)
+
+        # Recover \mu from \Sigma_{OH}
+        mu = sign_flip * sigma_OH
+        mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
+        return mu
 
     def loss_mu(self, *args, l2=0):
         loss_1 = (
@@ -360,12 +360,6 @@ class LabelModel(Classifier):
             torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         )
         return loss_1 + loss_2 + self.loss_l2(l2=l2)
-
-    def get_mu(self, lps, sign_flip=1):
-        """Get the *actual* mu from sigma_OH that we solve for."""
-        mu = sign_flip * self.mu.detach().numpy()
-        mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
-        return mu
 
     def _set_class_balance(self, class_balance, Y_dev):
         """Set a prior for the class balance
@@ -498,12 +492,6 @@ class LabelModel(Classifier):
             if self.config["verbose"]:
                 print("Estimating Z...")
             self._train(train_loader, self.loss_inv_Z)
-            self.Q = torch.from_numpy(self.get_Q()).float()
-
-            # Estimate \mu
-            if self.config["verbose"]:
-                print("Estimating \mu...")
-            self._train(train_loader, partial(self.loss_inv_mu, l2=l2))
         else:
             # Compute O and initialize params
             if L_train is not None:
