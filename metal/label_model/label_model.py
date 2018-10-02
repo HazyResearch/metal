@@ -334,7 +334,7 @@ class LabelModel(Classifier):
         p = np.diag(P).reshape(-1, 1)
         return P - p @ p.T
 
-    def get_mu(self, lps, sign_flip=1, col_ordering=None):
+    def get_mu(self, lps, c=None):
         """Recover mu from the low-rank matrix ZZ^T that we solve for."""
         km = self.k - self.jt.k0
 
@@ -348,12 +348,20 @@ class LabelModel(Classifier):
         D1, V1 = np.linalg.eigh(Q)
         D2, V2 = np.linalg.eigh(np.linalg.inv(self.sigma_H))
         R = np.diag(1 / np.sqrt(D2[-km:] / D1[-km:]))
-        sigma_OH = V1[:, -km:] @ R @ np.linalg.inv(V2)
+
+        # The int or vector c encodes the remaining col-wise sign symmetries...
+        if c is None:
+            C = np.eye(km)
+        elif isinstance(c, (int, float)):
+            C = np.array([[c]])
+        else:
+            C = np.diag(c)
+
+        # Recover \Sigma_{OH}
+        sigma_OH = V1[:, -km:] @ C @ R @ np.linalg.inv(V2)
 
         # Recover \mu from \Sigma_{OH}
-        mu = sign_flip * sigma_OH
-        if col_ordering is not None:
-            mu = mu[:, col_ordering]
+        mu = sigma_OH
         mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
         return mu
 
