@@ -60,32 +60,48 @@ class LabelModel(Classifier):
                 L_aug[:, idx] *= L[:, j] == v
         return L_aug
 
-    def _build_mask(self):
-        """Build mask applied to O^{-1}, O for the matrix approx constraint; if
-        an entry (i,j) corresponds to cliques C_i, C_j that belong to the same
-        maximal clique, then mask out.
-        """
-        self.mask = torch.ones(self.d, self.d).byte()
-        for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
-            cids = set(vi.keys()).union(vj.keys())
-            if len(self.jt.get_maximal_cliques(cids)) > 0:
-                self.mask[i, j] = 0
-
-    def _generate_O(self, L):
+    def get_O(self, L):
         """Form the overlaps matrix, which is just all the different observed
         combinations of values of pairs of sources
 
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
         """
-        L_aug = self._get_augmented_label_matrix(L)
-        self.d = L_aug.shape[1]
-        self.O = torch.from_numpy(L_aug.T @ L_aug / self.n).float()
+        n = L.shape[0]
+        L_aug = self.get_L_aug(L)
+        O = L_aug.T @ L_aug / n
+        return torch.from_numpy(O).float()
 
-    def _generate_O_inv(self, L):
-        """Form the *inverse* overlaps matrix"""
-        self._generate_O(L)
-        self.O_inv = torch.from_numpy(np.linalg.inv(self.O.numpy())).float()
+    def get_sigma_O(self, L):
+        """Form the overlaps matrix, which is just all the different observed
+        combinations of values of pairs of sources
+
+        Note that we only include the k non-abstain values of each source,
+        otherwise the model not minimal --> leads to singular matrix
+        """
+        O = self.get_O(L).numpy()
+        l = np.diag(O).reshape(-1, 1)
+        sigma_O = O - l @ l.T
+        return torch.from_numpy(sigma_O).float()
+
+    @property
+    def sigma_H(self):
+        if not self.jt.singleton_sep_sets:
+            raise NotImplementedError("Sigma_H for non-singleton sep sets.")
+        P = self.P[1:, 1:].numpy()
+        p = np.diag(P).reshape(-1, 1)
+        return P - p @ p.T
+
+    def _build_mask(self):
+        """Build mask applied to O^{-1}, O for the matrix approx constraint; if
+        an entry (i,j) corresponds to cliques C_i, C_j that belong to the same
+        maximal clique, then mask out.
+        """
+        self.mask = torch.ones(self.jt.O_d, self.jt.O_d).byte()
+        for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
+            cids = set(vi.keys()).union(vj.keys())
+            if len(self.jt.get_maximal_cliques(cids)) > 0:
+                self.mask[i, j] = 0
 
     def _init_params(self):
         """Initialize the learned params
@@ -121,13 +137,13 @@ class LabelModel(Classifier):
         # Note: Params should be self.k - 1 now!
 
         # TODO: Update for higher-order cliques!
-        # self.mu_init = torch.zeros(self.d, self.k-1)
+        # self.mu_init = torch.zeros(self.jt.O_d, self.k-1)
         # for i in range(self.m):
         #     for y in range(self.k-1):
         #         idx = i * self.k + y
         #         mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y],0,1)
         #         self.mu_init[idx, y] += mu_init
-        self.mu_init = torch.randn(self.d, self.k - 1)
+        self.mu_init = torch.randn(self.jt.O_d, self.k - 1)
 
         # Initialize randomly based on self.mu_init
         self.mu = nn.Parameter(
@@ -135,44 +151,11 @@ class LabelModel(Classifier):
         ).float()
 
         if self.inv_form:
-            self.Z = nn.Parameter(torch.randn(self.d, self.k - 1)).float()
+            self.Z = nn.Parameter(torch.randn(self.jt.O_d, self.k - 1)).float()
 
         # Build the mask over O^{-1}
         # TODO: Put this elsewhere?
         self._build_mask()
-
-    def get_conditional_probs(self, source=None):
-        """Returns the full conditional probabilities table as a numpy array,
-        where row i*(k+1) + ly is the conditional probabilities of source i
-        emmiting label ly (including abstains 0), conditioned on different
-        values of Y, i.e.:
-
-            c_probs[i*(k+1) + ly, y] = P(\lambda_i = ly | Y = y)
-
-        Note that this simply involves inferring the kth row by law of total
-        probability and adding in to mu.
-
-        If `source` is not None, returns only the corresponding block.
-        """
-        c_probs = np.zeros((self.m * (self.k + 1), self.k))
-        mu = self.mu.detach().clone().numpy()
-
-        for i in range(self.m):
-            # si = self.c_data[(i,)]['start_index']
-            # ei = self.c_data[(i,)]['end_index']
-            # mu_i = mu[si:ei, :]
-            mu_i = mu[i * self.k : (i + 1) * self.k, :]
-            c_probs[i * (self.k + 1) + 1 : (i + 1) * (self.k + 1), :] = mu_i
-
-            # The 0th row (corresponding to abstains) is the difference between
-            # the sums of the other rows and one, by law of total prob
-            c_probs[i * (self.k + 1), :] = 1 - mu_i.sum(axis=0)
-        c_probs = np.clip(c_probs, 0.01, 0.99)
-
-        if source is not None:
-            return c_probs[source * (self.k + 1) : (source + 1) * (self.k + 1)]
-        else:
-            return c_probs
 
     def predict_proba(self, L):
         """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
@@ -222,7 +205,7 @@ class LabelModel(Classifier):
                 strengths to use
         """
         if isinstance(l2, (int, float)):
-            D = l2 * torch.eye(self.d)
+            D = l2 * torch.eye(self.jt.O_d)
         else:
             D = torch.diag(torch.from_numpy(l2))
 
@@ -230,23 +213,16 @@ class LabelModel(Classifier):
         return torch.norm(D @ (self.mu - self.mu_init)) ** 2
 
     def loss_inv_Z(self, *args):
-        return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
+        sigma_O_inv = self.sigma_O_inv
+        return torch.norm((sigma_O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
 
-    @property
-    def sigma_H(self):
-        if not self.jt.singleton_sep_sets:
-            raise NotImplementedError("Sigma_H for non-singleton sep sets.")
-        P = self.P[1:, 1:].numpy()
-        p = np.diag(P).reshape(-1, 1)
-        return P - p @ p.T
-
-    def get_mu(self, lps, c=None):
-        """Recover mu from the low-rank matrix ZZ^T that we solve for."""
+    def get_sigma_OH(self, c=None):
+        """Recover sigma_OH from the low-rank matrix ZZ^T that we solve for."""
         km = self.k - self.jt.k0
 
         # Get Q = \Sigma_{OH} @ \Sigma_H^{-1} @ \Sigma_{OH}^T
         Z = self.Z.detach().clone().numpy()
-        sigma_O = self.O.numpy()
+        sigma_O = self.sigma_O.numpy()
         I_k = np.eye(km)
         Q = sigma_O @ Z @ np.linalg.inv(I_k + Z.T @ sigma_O @ Z) @ Z.T @ sigma_O
 
@@ -264,21 +240,31 @@ class LabelModel(Classifier):
             C = np.diag(c)
 
         # Recover \Sigma_{OH}
-        sigma_OH = V1[:, -km:] @ C @ R @ np.linalg.inv(V2)
+        return V1[:, -km:] @ C @ R @ np.linalg.inv(V2)
+
+    def get_mu(self, lps=None, c=None):
+        """Recover mu from the low-rank matrix ZZ^T that we solve for."""
+
+        # We get the labeling propensities (E[\psi(O)]) either as kwarg or
+        # from overlaps matrix O
+        if lps is not None:
+            lps = lps.reshape(-1, 1)
+        elif self.O is not None:
+            lps = np.diag(self.O.numpy()).reshape(-1, 1)
+        else:
+            raise ValueError("Need labeling propensites, provided or from O.")
 
         # Recover \mu from \Sigma_{OH}
-        mu = sigma_OH
+        mu = self.get_sigma_OH(c=c)
         mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
         return mu
 
     def loss_mu(self, *args, l2=0):
+        O = self.O
         loss_1 = (
-            torch.norm((self.O - self.mu @ self.P @ self.mu.t())[self.mask])
-            ** 2
+            torch.norm((O - self.mu @ self.P @ self.mu.t())[self.mask]) ** 2
         )
-        loss_2 = (
-            torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
-        )
+        loss_2 = torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(O)) ** 2
         return loss_1 + loss_2 + self.loss_l2(l2=l2)
 
     def _set_class_balance(self, class_balance, Y_dev):
@@ -362,8 +348,10 @@ class LabelModel(Classifier):
         if L_train is not None:
             self._check_L(L_train)
             self._set_constants(L_train)  # Sets self.m, self.n, self.t
+            self.L_train = L_train
         elif junction_tree is not None and sigma_O is not None:
             self.m = junction_tree.m
+            self.L_train = None
         else:
             raise ValueError("Must input L_train or sigma_O and junction_tree.")
 
@@ -380,6 +368,19 @@ class LabelModel(Classifier):
                 higher_order_cliques=self.config["higher_order_cliques"],
             )
 
+        # Form basic data matrices
+        if self.L_train is not None:
+            if self.config["verbose"]:
+                print("Computing O^{-1}...")
+            self.O = self.get_O(self.L_train)
+            self.sigma_O = self.get_sigma_O(self.L_train)
+            self.sigma_O_inv = torch.from_numpy(
+                np.linalg.inv(self.sigma_O.numpy())
+            ).float()
+        else:
+            self.sigma_O = torch.from_numpy(sigma_O).float()
+            self.sigma_O_inv = torch.from_numpy(np.linalg.inv(sigma_O)).float()
+
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
         # This flag allows us to eg test the latter even with no deps present
@@ -394,37 +395,16 @@ class LabelModel(Classifier):
         # Note that the LabelModel class implements its own (centered) L2 reg.
         l2 = train_config.get("l2", 0)
 
+        # Initialize parameters and mask
+        self._init_params()
+
         if self.inv_form:
-            # Compute O, O^{-1}, and initialize params
-            if L_train is not None:
-                if self.config["verbose"]:
-                    print("Computing O^{-1}...")
-                self._generate_O_inv(L_train)
-            else:
-                self.O = torch.from_numpy(sigma_O).float()
-                self.O_inv = torch.from_numpy(np.linalg.inv(sigma_O)).float()
-                self.d = self.O.shape[0]
-
-            # Initialize parameters and mask
-            self._init_params()
-
             # Estimate Z, compute Q = \mu P \mu^T
             if self.config["verbose"]:
                 print("Estimating Z...")
             self._train(train_loader, self.loss_inv_Z)
+
         else:
-            # Compute O and initialize params
-            if L_train is not None:
-                if self.config["verbose"]:
-                    print("Computing O...")
-                self._generate_O(L_train)
-            else:
-                self.O = torch.from_numpy(sigma_O).float()
-                self.d = self.O.shape[0]
-
-            # Initialize parameters and mask
-            self._init_params()
-
             # Estimate \mu
             if self.config["verbose"]:
                 print("Estimating \mu...")
