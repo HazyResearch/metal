@@ -330,10 +330,12 @@ class LabelModel(Classifier):
     def sigma_H(self):
         if not self.jt.singleton_sep_sets:
             raise NotImplementedError("Sigma_H for non-singleton sep sets.")
-        return self.P[:1, :1]
+        P = self.P[1:, 1:].numpy()
+        p = np.diag(P).reshape(-1, 1)
+        return P - p @ p.T
 
     def get_mu(self, lps, sign_flip=1):
-        """Get the *actual* mu from sigma_OH that we solve for."""
+        """Recover mu from the low-rank matrix ZZ^T that we solve for."""
 
         # Get Q = \Sigma_{OH} @ \Sigma_H^{-1} @ \Sigma_{OH}^T
         Z = self.Z.detach().clone().numpy()
