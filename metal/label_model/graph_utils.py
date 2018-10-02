@@ -72,12 +72,6 @@ class JunctionTree(object):
         self.H_map = [vals for idx, vals in self.iter_hidden()]
         self.H_d = len(self.H_map)
 
-    @property
-    def ind_model(self):
-        """Returns True if there are only edges between LFs and Y (no LF-LF)
-        dependencies"""
-        return len(self.deps_graph.G.edges()) - self.m == 0
-
     def _get_junction_tree(self):
         """Given a set of int nodes i and edges (i,j), returns an nx.Graph
         object G which is a clique tree, where:
@@ -219,3 +213,18 @@ class JunctionTree(object):
             for vals in self.iter_vals(cids, offset=1):
                 idx += 1
                 yield idx, vals
+
+    @property
+    def ind_model(self):
+        """Returns True if there are only edges between LFs and Y (no LF-LF)
+        dependencies"""
+        return len(self.deps_graph.G.edges()) - self.m == 0
+
+    @property
+    def singleton_sep_sets(self):
+        """Returns True if the only separator set is {Y}."""
+        for i, j in self.G.edges():
+            cids = self.get_members((i, j))
+            if len(cids) > 1:
+                return False
+        return True

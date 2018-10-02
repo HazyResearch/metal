@@ -328,7 +328,8 @@ class LabelModel(Classifier):
 
     @property
     def sigma_H(self):
-        # TODO: Throw error for non-singleton separator sets
+        if not self.jt.singleton_sep_sets:
+            raise NotImplementedError("Sigma_H for non-singleton sep sets.")
         return self.P[:1, :1]
 
     def get_mu(self, lps, sign_flip=1):
