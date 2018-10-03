@@ -329,7 +329,7 @@ def error_buckets(gold, pred, X=None):
     buckets = defaultdict(list)
     gold = arraylike_to_numpy(gold)
     pred = arraylike_to_numpy(pred)
-    for i, (y, l) in enumerate(zip(gold, pred)):
+    for i, (y, l) in enumerate(zip(pred, gold)):
         buckets[y, l].append(X[i] if X is not None else i)
     return buckets
 
