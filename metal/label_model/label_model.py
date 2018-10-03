@@ -157,7 +157,7 @@ class LabelModel(Classifier):
         # TODO: Put this elsewhere?
         self._build_mask()
 
-    def predict_proba(self, L):
+    def predict_proba(self, L, lps=None, c=None):
         """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
 
         Args:
@@ -165,27 +165,17 @@ class LabelModel(Classifier):
         """
         self._set_constants(L)
 
-        L_aug = self._get_augmented_label_matrix(L)
-        mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
+        # Only implemented for singleton separator sets right now
+        if not self.jt.singleton_sep_sets:
+            raise NotImplementedError("Predict for non-singleton sep sets.")
 
-        # Create a "junction tree mask" over the columns of L_aug / mu
-        if len(self.deps) > 0:
-            jtm = np.zeros(L_aug.shape[1])
-
-            # All maximal cliques are +1
-            for i in self.c_tree.nodes():
-                node = self.c_tree.node[i]
-                jtm[node["start_index"] : node["end_index"]] = 1
-
-            # All separator sets are -1
-            for i, j in self.c_tree.edges():
-                edge = self.c_tree[i][j]
-                jtm[edge["start_index"] : edge["end_index"]] = 1
-        else:
-            jtm = np.ones(L_aug.shape[1])
+        L_aug = self.get_L_aug(L)
+        # TODO: Store mu after training!
+        mu = self.get_mu(lps=lps, c=c)
+        mask = self.jt.observed_maximal_mask()
 
         # Note: We omit abstains, effectively assuming uniform distribution here
-        X = np.exp(L_aug @ np.diag(jtm) @ np.log(mu) + np.log(self.p))
+        X = np.exp(L_aug @ np.diag(mask) @ np.log(mu) + np.log(self.p))
         Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
         return X / Z
 
@@ -258,6 +248,46 @@ class LabelModel(Classifier):
         mu = self.get_sigma_OH(c=c)
         mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
         return mu
+
+    def P_marginal(self, query):
+        """Returns P(query), where query is a dictionary mapping a set of
+        variable indices (where LFs are 0,...,self.m-1, Y is self.m) to values.
+
+        Either looks up the value directly from the set of learned minimal
+        statistics, mu, or infers from mu.
+        """
+
+        # TODO: Mu and lps should be cached!
+        mu = self.get_mu()
+        lps = np.diag(self.O.numpy()).reshape(-1, 1)
+
+        # Split the query into observed and Y
+        query_O = dict([(k, v) for k, v in query.items() if k < self.m])
+        Y = query[self.m]
+
+        # If just the class balance, return directly
+        if len(query_O) == 0:
+            return self.p[Y - 1]
+
+        # If the observed components in the minimal set of statistics, return
+        elif query_O in self.jt.O_map:
+            idx = self.jt.O_map.index(query_O)
+            if Y > 1:
+                return mu[idx, Y - 2]
+            else:
+                return lps[idx, 0] - mu[idx, :].sum()
+
+        # Else, handle recursively
+        else:
+            # Remove one of the non-minimal values and recurse
+            nm_idx = [
+                i for i, v in query.items() if v == self.k0 and i < self.m
+            ][0]
+            query_r = dict([(k, v) for k, v in query.items() if k != nm_idx])
+            return self.P_marginal(query_r) - sum(
+                self.P_marginal({**query_r, nm_idx: v})
+                for v in range(self.k0 + 1, self.k + 1)
+            )
 
     def loss_mu(self, *args, l2=0):
         O = self.O
