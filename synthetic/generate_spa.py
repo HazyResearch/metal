@@ -415,19 +415,21 @@ class DataGenerator(object):
     def generate_label_matrix(self, n):
         """Generate an m x n label matrix."""
         L = np.zeros((n, self.m))
+        Y = np.zeros(n)
         Y_range = range(1, self.k + 1)
         p_Y = np.array([self.P_marginal({self.m: y}) for y in Y_range])
         for i in range(n):
-            Y = choice(Y_range, p=p_Y)
+            y = choice(Y_range, p=p_Y)
+            Y[i] = y
 
             # Traverse the junction tree DFS starting at node 0
             for p, c in chain([(-1, 0)], nx.dfs_edges(self.jt.G, source=0)):
 
                 # The fixed values are the separator set members, which will
-                # always contain Y; else Y if at node 0
+                # always contain y; else y if at node 0
                 S = self.jt.G.edges[p, c]["members"] if p > 0 else set([self.m])
                 fixed = dict(
-                    [(j, L[i, j]) if j < self.m else (self.m, Y) for j in S]
+                    [(j, L[i, j]) if j < self.m else (self.m, y) for j in S]
                 )
 
                 # Start with sources in node 0 of the junction tree
@@ -439,7 +441,7 @@ class DataGenerator(object):
                 # Pick one of the value sets randomly and put into L
                 for j, val in choice(vals, p=p_L).items():
                     L[i, j] = val
-        return L
+        return L, Y
 
 
 class SimpleDataGenerator(DataGenerator):
