@@ -4,6 +4,7 @@ import numpy as np
 import scipy.sparse as sparse
 
 from metal.analysis import (
+    error_buckets,
     label_conflict,
     label_coverage,
     label_overlap,
@@ -51,6 +52,15 @@ class AnalysisTest(unittest.TestCase):
         self.assertTrue(
             (lf_conflicts(self.L) == np.array([0.2, 0.4, 0.4])).all()
         )
+
+    def test_error_buckets(self):
+        gold = [1, 1, 2, 1, 2]
+        pred = [1, 2, 1, 1, 2]
+        e_buckets = error_buckets(gold, pred)
+        self.assertEqual(e_buckets[1, 1], [0, 3])
+        self.assertEqual(e_buckets[1, 2], [2])
+        self.assertEqual(e_buckets[2, 2], [4])
+        self.assertEqual(e_buckets[2, 1], [1])
 
 
 if __name__ == "__main__":
