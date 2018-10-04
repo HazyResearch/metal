@@ -69,6 +69,8 @@ class JunctionTree(object):
         # Observed vars
         self.O_map = [vals for idx, vals in self.iter_observed()]
         self.O_d = len(self.O_map)
+        self.O_map_full = [vals for idx, vals in self.iter_observed(offset=0)]
+        self.O_d_full = len(self.O_map_full)
         # Hidden vars
         self.H_map = [vals for idx, vals in self.iter_hidden()]
         self.H_d = len(self.H_map)
@@ -220,11 +222,12 @@ class JunctionTree(object):
                 idx += 1
                 yield idx, vals
 
-    def observed_maximal_mask(self):
+    def observed_maximal_mask(self, offset=1):
         """Returns a binary mask selecting just those observed indices
         corresponding to maximal cliques (nodes) in the junction tree."""
-        mask = np.zeros(self.O_d)
-        for idx, vals in self.iter_observed():
+        d = self.O_d if offset == 1 else self.O_d_full
+        mask = np.zeros(d)
+        for idx, vals in self.iter_observed(offset=offset):
             ci_max = list(self.get_maximal_cliques(vals.keys()))
             assert len(ci_max) == 1
             ci_max = ci_max[0]

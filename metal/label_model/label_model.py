@@ -38,7 +38,7 @@ class LabelModel(Classifier):
         if np.any(L < 0):
             raise ValueError("L must have values in {0,1,...,k}.")
 
-    def get_L_aug(self, L):
+    def get_L_aug(self, L, offset=1):
         """Returns the augmented version of L corresponding to the minimal set
         of indicators for each value of each clique of LFs.
 
@@ -47,7 +47,8 @@ class LabelModel(Classifier):
             [1, 2, 3] --> [0, 0, 1, 0, 1, 1]
         """
         n = L.shape[0]
-        L_aug = np.ones((n, self.jt.O_d))
+        d = self.jt.O_d if offset == 1 else self.jt.O_d_full
+        L_aug = np.ones((n, d))
 
         # TODO: Update LabelModel to keep L variants as sparse matrices
         # throughout and remove this line.
@@ -55,7 +56,7 @@ class LabelModel(Classifier):
             L = L.todense()
 
         # Form matrix column-wise to be faster w.r.t. n
-        for idx, vals in self.jt.iter_observed():
+        for idx, vals in self.jt.iter_observed(offset=offset):
             for j, v in vals.items():
                 L_aug[:, idx] *= L[:, j] == v
         return L_aug
@@ -157,28 +158,6 @@ class LabelModel(Classifier):
         # TODO: Put this elsewhere?
         self._build_mask()
 
-    def predict_proba(self, L, lps=None, c=None):
-        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
-
-        Args:
-            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
-        """
-        self._set_constants(L)
-
-        # Only implemented for singleton separator sets right now
-        if not self.jt.singleton_sep_sets:
-            raise NotImplementedError("Predict for non-singleton sep sets.")
-
-        L_aug = self.get_L_aug(L)
-        # TODO: Store mu after training!
-        mu = self.get_mu(lps=lps, c=c)
-        mask = self.jt.observed_maximal_mask()
-
-        # Note: We omit abstains, effectively assuming uniform distribution here
-        X = np.exp(L_aug @ np.diag(mask) @ np.log(mu) + np.log(self.p))
-        Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
-        return X / Z
-
     # These loss functions get all their data directly from the LabelModel
     # (for better or worse). The unused *args make these compatible with the
     # Classifer._train() method which expect loss functions to accept an input.
@@ -249,7 +228,7 @@ class LabelModel(Classifier):
         mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
         return mu
 
-    def P_marginal(self, query):
+    def P_marginal(self, query, lps=None, c=1):
         """Returns P(query), where query is a dictionary mapping a set of
         variable indices (where LFs are 0,...,self.m-1, Y is self.m) to values.
 
@@ -258,8 +237,9 @@ class LabelModel(Classifier):
         """
 
         # TODO: Mu and lps should be cached!
-        mu = self.get_mu()
-        lps = np.diag(self.O.numpy()).reshape(-1, 1)
+        if lps is None:
+            lps = np.diag(self.O.numpy()).reshape(-1, 1)
+        mu = self.get_mu(lps=lps, c=c)
 
         # Split the query into observed and Y
         query_O = dict([(k, v) for k, v in query.items() if k < self.m])
@@ -284,10 +264,44 @@ class LabelModel(Classifier):
                 i for i, v in query.items() if v == self.k0 and i < self.m
             ][0]
             query_r = dict([(k, v) for k, v in query.items() if k != nm_idx])
-            return self.P_marginal(query_r) - sum(
-                self.P_marginal({**query_r, nm_idx: v})
+            return self.P_marginal(query_r, lps=lps, c=c) - sum(
+                self.P_marginal({**query_r, nm_idx: v}, lps=lps, c=c)
                 for v in range(self.k0 + 1, self.k + 1)
             )
+
+    def get_extended_mu(self, lps=None, c=1):
+        """Return mu, i.e. the matrix of marginal probabilities, for the full
+        (non-minimal) set of values"""
+        d = len(list(self.jt.iter_observed(offset=0)))
+        mu = np.zeros((d, self.k))
+        for y in range(1, self.k + 1):
+            for idx, vals in self.jt.iter_observed(offset=0):
+                mu[idx, y - 1] = self.P_marginal(
+                    {**vals, self.m: y}, lps=lps, c=c
+                )
+        return mu
+
+    def predict_proba(self, L, lps=None, c=None):
+        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
+
+        Args:
+            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
+        """
+        self._set_constants(L)
+
+        # Only implemented for singleton separator sets right now
+        if not self.jt.singleton_sep_sets:
+            raise NotImplementedError("Predict for non-singleton sep sets.")
+
+        L_aug = self.get_L_aug(L, offset=0)
+        # TODO: Store mu after training!
+        mu = self.get_extended_mu(lps=lps, c=c)
+        mask = self.jt.observed_maximal_mask(offset=0)
+
+        n_s = len(self.jt.G.edges())
+        X = np.exp(L_aug @ np.diag(mask) @ np.log(mu) - n_s * np.log(self.p))
+        Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
+        return X / Z
 
     def loss_mu(self, *args, l2=0):
         O = self.O
@@ -397,6 +411,7 @@ class LabelModel(Classifier):
                 edges=deps,
                 higher_order_cliques=self.config["higher_order_cliques"],
             )
+        self.k0 = self.jt.k0
 
         # Form basic data matrices
         if self.L_train is not None:
