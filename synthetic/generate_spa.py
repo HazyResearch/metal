@@ -81,8 +81,8 @@ class DataGenerator(object):
         class_balance="random",
         deps_graph=None,
         param_ranges={
-            "theta_range_acc": (0.1, 1),
-            "theta_range_edge": (0.1, 1),
+            "theta_acc_range": (-0.25, 1),
+            "theta_edge_range": (-1, 1),
         },
         higher_order_cliques=True,
         **kwargs,
@@ -130,33 +130,42 @@ class DataGenerator(object):
         P(\lf_C | Y), is generated randomly.
         """
         theta = defaultdict(float)
+        acc_range = param_ranges["theta_acc_range"]
+        acc_min, acc_max = min(acc_range), max(acc_range)
+        edge_range = param_ranges["theta_edge_range"]
+        edge_min, edge_max = min(edge_range), max(edge_range)
 
         # Unary clique factors
         # TODO: Set class balance here!
 
-        # Binary clique factors
-        for (i, j) in self.jt.deps_graph.G.edges():
+        # Pairwise (edge) factors
+        for edge in self.jt.deps_graph.G.edges():
+            (i, j) = sorted(edge)
 
-            # Separate parameters for (\lf_i, Y) factors vs. (\lf_i, \lf_j)
-            if i == self.m or j == self.m:
-                theta_range = param_ranges["theta_range_acc"]
-            else:
-                theta_range = param_ranges["theta_range_edge"]
-            t_min, t_max = min(theta_range), max(theta_range)
-
-            for vals in product(range(self.k0, self.k + 1), repeat=2):
-                # Y does not have abstain votes
-                if (i == self.m and vals[0] == 0) or (
-                    j == self.m and vals[1] == 0
+            # Pairwise accuracy factors (\lf_i, Y); note Y is index j = self.m
+            if j == self.m:
+                for vi, vj in product(
+                    range(self.k0, self.k + 1), range(1, self.k + 1)
                 ):
-                    continue
-                theta[((i, j), vals)] = (t_max - t_min) * random() + t_min
-                theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
+                    # Use a random positive theta value for correct, negative
+                    # for incorrect...
+                    acc = (acc_max - acc_min) * random() + acc_min
+                    theta[((i, j), (vi, vj))] = acc if vi == vj else -acc
+
+            # Pairwise correlation factors (\lf_i, \lf_j)
+            else:
+                for vi, vj in product(range(self.k0, self.k + 1), repeat=2):
+                    theta[((i, j), vi, vj)] = (
+                        edge_max - edge_min
+                    ) * random() + edge_min
+
+            # Populate the other ordering too
+            theta[((j, i), (vj, vi))] = theta[((i, j), (vi, vj))]
         return theta
 
     def _exp_model(self, vals):
-        """Compute the exponential model for a set of variables and values
-        assuming an Ising model (i.e. only edge or node factors)
+        """Compute the unnormalized exponential model for a set of variables and
+        values assuming an Ising model (i.e. only edge or node factors)
 
         Args:
             - vals: (dict) A dictionary of (LF index, value) entries.

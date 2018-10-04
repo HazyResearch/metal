@@ -247,15 +247,15 @@ class LabelModel(Classifier):
 
         # If just the class balance, return directly
         if len(query_O) == 0:
-            return self.p[Y - 1]
+            return np.clip(self.p[Y - 1], 0, 1)
 
         # If the observed components in the minimal set of statistics, return
         elif query_O in self.jt.O_map:
             idx = self.jt.O_map.index(query_O)
             if Y > 1:
-                return mu[idx, Y - 2]
+                return np.clip(mu[idx, Y - 2], 0, 1)
             else:
-                return lps[idx, 0] - mu[idx, :].sum()
+                return np.clip(lps[idx, 0] - mu[idx, :].sum(), 0, 1)
 
         # Else, handle recursively
         else:
@@ -264,9 +264,14 @@ class LabelModel(Classifier):
                 i for i, v in query.items() if v == self.k0 and i < self.m
             ][0]
             query_r = dict([(k, v) for k, v in query.items() if k != nm_idx])
-            return self.P_marginal(query_r, lps=lps, c=c) - sum(
-                self.P_marginal({**query_r, nm_idx: v}, lps=lps, c=c)
-                for v in range(self.k0 + 1, self.k + 1)
+            return np.clip(
+                self.P_marginal(query_r, lps=lps, c=c)
+                - sum(
+                    self.P_marginal({**query_r, nm_idx: v}, lps=lps, c=c)
+                    for v in range(self.k0 + 1, self.k + 1)
+                ),
+                0,
+                1,
             )
 
     def get_extended_mu(self, lps=None, c=1):
