@@ -1,4 +1,3 @@
-
 import unittest
 
 from metal.multitask.task_graph import TaskGraph
