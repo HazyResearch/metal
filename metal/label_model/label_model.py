@@ -28,318 +28,7 @@ class LabelModel(Classifier):
         config = recursive_merge_dicts(lm_default_config, kwargs)
         super().__init__(k, config)
 
-    def _check_L(self, L):
-        """Run some basic checks on L."""
-        # TODO: Take this out?
-        if issparse(L):
-            L = L.todense()
-
-        # Check for correct values, e.g. warning if in {-1,0,1}
-        if np.any(L < 0):
-            raise ValueError("L must have values in {0,1,...,k}.")
-
-    def get_L_aug(self, L, offset=1):
-        """Returns the augmented version of L corresponding to the minimal set
-        of indicators for each value of each clique of LFs.
-
-        For example, three ind LFs with cardinality K=3, applied to a single
-        data point, would go from:
-            [1, 2, 3] --> [0, 0, 1, 0, 1, 1]
-        """
-        n = L.shape[0]
-        d = self.jt.O_d if offset == 1 else self.jt.O_d_full
-        L_aug = np.ones((n, d))
-
-        # TODO: Update LabelModel to keep L variants as sparse matrices
-        # throughout and remove this line.
-        if issparse(L):
-            L = L.todense()
-
-        # Form matrix column-wise to be faster w.r.t. n
-        for idx, vals in self.jt.iter_observed(offset=offset):
-            for j, v in vals.items():
-                L_aug[:, idx] *= L[:, j] == v
-        return L_aug
-
-    def get_O(self, L):
-        """Form the overlaps matrix, which is just all the different observed
-        combinations of values of pairs of sources
-
-        Note that we only include the k non-abstain values of each source,
-        otherwise the model not minimal --> leads to singular matrix
-        """
-        n = L.shape[0]
-        L_aug = self.get_L_aug(L)
-        O = L_aug.T @ L_aug / n
-        return torch.from_numpy(O).float()
-
-    def get_sigma_O(self, L):
-        """Form the overlaps matrix, which is just all the different observed
-        combinations of values of pairs of sources
-
-        Note that we only include the k non-abstain values of each source,
-        otherwise the model not minimal --> leads to singular matrix
-        """
-        O = self.get_O(L).numpy()
-        l = np.diag(O).reshape(-1, 1)
-        sigma_O = O - l @ l.T
-        return torch.from_numpy(sigma_O).float()
-
-    @property
-    def sigma_H(self):
-        if not self.jt.singleton_sep_sets:
-            raise NotImplementedError("Sigma_H for non-singleton sep sets.")
-        P = self.P[1:, 1:].numpy()
-        p = np.diag(P).reshape(-1, 1)
-        return P - p @ p.T
-
-    def _build_mask(self):
-        """Build mask applied to O^{-1}, O for the matrix approx constraint; if
-        an entry (i,j) corresponds to cliques C_i, C_j that belong to the same
-        maximal clique, then mask out.
-        """
-        self.mask = torch.ones(self.jt.O_d, self.jt.O_d).byte()
-        for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
-            cids = set(vi.keys()).union(vj.keys())
-            if len(self.jt.get_maximal_cliques(cids)) > 0:
-                self.mask[i, j] = 0
-
-    def _init_params(self):
-        """Initialize the learned params
-
-        - \mu is the primary learned parameter, where each row corresponds to
-        the probability of a clique C emitting a specific combination of labels,
-        conditioned on different values of Y (for each column); that is:
-
-            self.mu[i*self.k + j, y] = P(\lambda_i = j | Y = y)
-
-        and similarly for higher-order cliques.
-        - Z is the inverse form version of \mu.
-        """
-        train_config = self.config["train_config"]
-
-        # Initialize mu so as to break basic reflective symmetry
-        # Note that we are given either a single or per-LF initial precision
-        # value, prec_i = P(Y=y|\lf=y), and use:
-        #   mu_init = P(\lf=y|Y=y) = P(\lf=y) * prec_i / P(Y=y)
-
-        # Handle single or per-LF values
-        if isinstance(train_config["prec_init"], (int, float)):
-            prec_init = train_config["prec_init"] * torch.ones(self.m)
-        else:
-            prec_init = torch.from_numpy(train_config["prec_init"])
-            if prec_init.shape[0] != self.m:
-                raise ValueError(f"prec_init must have shape {self.m}.")
-
-        # Get the per-value labeling propensities
-        # Note that self.O must have been computed already!
-        # lps = torch.diag(self.O).numpy()
-
-        # Note: Params should be self.k - 1 now!
-
-        # TODO: Update for higher-order cliques!
-        # self.mu_init = torch.zeros(self.jt.O_d, self.k-1)
-        # for i in range(self.m):
-        #     for y in range(self.k-1):
-        #         idx = i * self.k + y
-        #         mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y],0,1)
-        #         self.mu_init[idx, y] += mu_init
-        self.mu_init = torch.randn(self.jt.O_d, self.k - 1)
-
-        # Initialize randomly based on self.mu_init
-        self.mu = nn.Parameter(
-            self.mu_init.clone() * np.random.random()
-        ).float()
-
-        if self.inv_form:
-            self.Z = nn.Parameter(torch.randn(self.jt.O_d, self.k - 1)).float()
-
-        # Build the mask over O^{-1}
-        # TODO: Put this elsewhere?
-        self._build_mask()
-
-    # These loss functions get all their data directly from the LabelModel
-    # (for better or worse). The unused *args make these compatible with the
-    # Classifer._train() method which expect loss functions to accept an input.
-
-    def loss_l2(self, l2=0):
-        """L2 loss centered around mu_init, scaled optionally per-source.
-
-        In other words, diagonal Tikhonov regularization,
-            ||D(\mu-\mu_{init})||_2^2
-        where D is diagonal.
-
-        Args:
-            - l2: A float or np.array representing the per-source regularization
-                strengths to use
-        """
-        if isinstance(l2, (int, float)):
-            D = l2 * torch.eye(self.jt.O_d)
-        else:
-            D = torch.diag(torch.from_numpy(l2))
-
-        # Note that mu is a matrix and this is the *Frobenius norm*
-        return torch.norm(D @ (self.mu - self.mu_init)) ** 2
-
-    def loss_inv_Z(self, *args):
-        sigma_O_inv = self.sigma_O_inv
-        return torch.norm((sigma_O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
-
-    def get_sigma_OH(self, c=None):
-        """Recover sigma_OH from the low-rank matrix ZZ^T that we solve for."""
-        km = self.k - self.jt.k0
-
-        # Get Q = \Sigma_{OH} @ \Sigma_H^{-1} @ \Sigma_{OH}^T
-        Z = self.Z.detach().clone().numpy()
-        sigma_O = self.sigma_O.numpy()
-        I_k = np.eye(km)
-        Q = sigma_O @ Z @ np.linalg.inv(I_k + Z.T @ sigma_O @ Z) @ Z.T @ sigma_O
-
-        # Take the eigendecomposition of Q and \Sigma_H^{-1}
-        D1, V1 = np.linalg.eigh(Q)
-        D2, V2 = np.linalg.eigh(np.linalg.inv(self.sigma_H))
-        R = np.diag(1 / np.sqrt(D2[-km:] / D1[-km:]))
-
-        # The int or vector c encodes the remaining col-wise sign symmetries...
-        if c is None:
-            C = np.eye(km)
-        elif isinstance(c, (int, float)):
-            C = np.array([[c]])
-        else:
-            C = np.diag(c)
-
-        # Recover \Sigma_{OH}
-        return V1[:, -km:] @ C @ R @ np.linalg.inv(V2)
-
-    def get_mu(self, lps=None, c=None):
-        """Recover mu from the low-rank matrix ZZ^T that we solve for."""
-
-        # We get the labeling propensities (E[\psi(O)]) either as kwarg or
-        # from overlaps matrix O
-        if lps is not None:
-            lps = lps.reshape(-1, 1)
-        elif self.O is not None:
-            lps = np.diag(self.O.numpy()).reshape(-1, 1)
-        else:
-            raise ValueError("Need labeling propensites, provided or from O.")
-
-        # Recover \mu from \Sigma_{OH}
-        mu = self.get_sigma_OH(c=c)
-        mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
-        return mu
-
-    def P_marginal(self, query, lps=None, c=1):
-        """Returns P(query), where query is a dictionary mapping a set of
-        variable indices (where LFs are 0,...,self.m-1, Y is self.m) to values.
-
-        Either looks up the value directly from the set of learned minimal
-        statistics, mu, or infers from mu.
-        """
-
-        # TODO: Mu and lps should be cached!
-        if lps is None:
-            lps = np.diag(self.O.numpy()).reshape(-1, 1)
-        mu = self.get_mu(lps=lps, c=c)
-
-        # Split the query into observed and Y
-        query_O = dict([(k, v) for k, v in query.items() if k < self.m])
-        Y = query[self.m]
-
-        # If just the class balance, return directly
-        if len(query_O) == 0:
-            return np.clip(self.p[Y - 1], 0, 1)
-
-        # If the observed components in the minimal set of statistics, return
-        elif query_O in self.jt.O_map:
-            idx = self.jt.O_map.index(query_O)
-            if Y > 1:
-                return np.clip(mu[idx, Y - 2], 0, 1)
-            else:
-                return np.clip(lps[idx, 0] - mu[idx, :].sum(), 0, 1)
-
-        # Else, handle recursively
-        else:
-            # Remove one of the non-minimal values and recurse
-            nm_idx = [
-                i for i, v in query.items() if v == self.k0 and i < self.m
-            ][0]
-            query_r = dict([(k, v) for k, v in query.items() if k != nm_idx])
-            return np.clip(
-                self.P_marginal(query_r, lps=lps, c=c)
-                - sum(
-                    self.P_marginal({**query_r, nm_idx: v}, lps=lps, c=c)
-                    for v in range(self.k0 + 1, self.k + 1)
-                ),
-                0,
-                1,
-            )
-
-    def get_extended_mu(self, lps=None, c=1):
-        """Return mu, i.e. the matrix of marginal probabilities, for the full
-        (non-minimal) set of values"""
-        d = len(list(self.jt.iter_observed(offset=0)))
-        mu = np.zeros((d, self.k))
-        for y in range(1, self.k + 1):
-            for idx, vals in self.jt.iter_observed(offset=0):
-                mu[idx, y - 1] = self.P_marginal(
-                    {**vals, self.m: y}, lps=lps, c=c
-                )
-        return mu
-
-    def predict_proba(self, L, lps=None, c=None):
-        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
-
-        Args:
-            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
-        """
-        self._set_constants(L)
-
-        # Only implemented for singleton separator sets right now
-        if not self.jt.singleton_sep_sets:
-            raise NotImplementedError("Predict for non-singleton sep sets.")
-
-        L_aug = self.get_L_aug(L, offset=0)
-        # TODO: Store mu after training!
-        mu = self.get_extended_mu(lps=lps, c=c)
-        mask = self.jt.observed_maximal_mask(offset=0)
-
-        n_s = len(self.jt.G.edges())
-        X = np.exp(L_aug @ np.diag(mask) @ np.log(mu) - n_s * np.log(self.p))
-        Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
-        return X / Z
-
-    def loss_mu(self, *args, l2=0):
-        O = self.O
-        loss_1 = (
-            torch.norm((O - self.mu @ self.P @ self.mu.t())[self.mask]) ** 2
-        )
-        loss_2 = torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(O)) ** 2
-        return loss_1 + loss_2 + self.loss_l2(l2=l2)
-
-    def _set_class_balance(self, class_balance, Y_dev):
-        """Set a prior for the class balance
-
-        In order of preference:
-        1) Use user-provided class_balance
-        2) Estimate balance from Y_dev
-        3) Assume uniform class distribution
-        """
-        if class_balance is not None:
-            self.p = np.array(class_balance)
-        elif Y_dev is not None:
-            class_counts = Counter(Y_dev)
-            sorted_counts = np.array(
-                [v for k, v in sorted(class_counts.items())]
-            )
-            self.p = sorted_counts / sum(sorted_counts)
-        else:
-            self.p = (1 / self.k) * np.ones(self.k)
-        self.P = torch.diag(torch.from_numpy(self.p)).float()
-
-    def _set_constants(self, L):
-        self.n, self.m = L.shape
-        self.t = 1
-
+    # MODEL TRAINING
     def train(
         self,
         L_train=None,
@@ -421,12 +110,12 @@ class LabelModel(Classifier):
         # Form basic data matrices
         if self.L_train is not None:
             if self.config["verbose"]:
-                print("Computing O^{-1}...")
-            self.O = self.get_O(self.L_train)
+                print("Computing Sigma_O^{-1}...")
             self.sigma_O = self.get_sigma_O(self.L_train)
             self.sigma_O_inv = torch.from_numpy(
                 np.linalg.inv(self.sigma_O.numpy())
             ).float()
+            self.O = self.get_O(self.L_train)
         else:
             self.sigma_O = torch.from_numpy(sigma_O).float()
             self.sigma_O_inv = torch.from_numpy(np.linalg.inv(sigma_O)).float()
@@ -459,3 +148,318 @@ class LabelModel(Classifier):
             if self.config["verbose"]:
                 print("Estimating \mu...")
             self._train(train_loader, partial(self.loss_mu, l2=l2))
+
+    # MODEL PREDICTION
+    def predict_proba(self, L, lps=None, c=None):
+        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
+
+        Args:
+            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
+        """
+        self._set_constants(L)
+
+        # Only implemented for singleton separator sets right now
+        if not self.jt.singleton_sep_sets:
+            raise NotImplementedError("Predict for non-singleton sep sets.")
+
+        L_aug = self.get_L_aug(L, offset=0)
+        # TODO: Store mu after training!
+        mu = self.get_extended_mu(lps=lps, c=c)
+        mask = self.jt.observed_maximal_mask(offset=0)
+
+        n_s = len(self.jt.G.edges())
+        X = np.exp(L_aug @ np.diag(mask) @ np.log(mu) - n_s * np.log(self.p))
+        Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
+        return X / Z
+
+    # MODEL TRAINING SUB-FUNCTIONS
+    def _set_class_balance(self, class_balance, Y_dev):
+        """Set a prior for the class balance
+
+        In order of preference:
+        1) Use user-provided class_balance
+        2) Estimate balance from Y_dev
+        3) Assume uniform class distribution
+        """
+        if class_balance is not None:
+            self.p = np.array(class_balance)
+        elif Y_dev is not None:
+            class_counts = Counter(Y_dev)
+            sorted_counts = np.array(
+                [v for k, v in sorted(class_counts.items())]
+            )
+            self.p = sorted_counts / sum(sorted_counts)
+        else:
+            self.p = (1 / self.k) * np.ones(self.k)
+        self.P = torch.diag(torch.from_numpy(self.p)).float()
+
+    def _check_L(self, L):
+        """Run some basic checks on L."""
+        # TODO: Take this out?
+        if issparse(L):
+            L = L.todense()
+
+        # Check for correct values, e.g. warning if in {-1,0,1}
+        if np.any(L < 0):
+            raise ValueError("L must have values in {0,1,...,k}.")
+
+    def _set_constants(self, L):
+        self.n, self.m = L.shape
+        self.t = 1
+
+    def get_sigma_O(self, L):
+        """Form the overlaps matrix, which is just all the different observed
+        combinations of values of pairs of sources
+
+        Note that we only include the k non-abstain values of each source,
+        otherwise the model not minimal --> leads to singular matrix
+        """
+        O = self.get_O(L).numpy()
+        l = np.diag(O).reshape(-1, 1)
+        sigma_O = O - l @ l.T
+        return torch.from_numpy(sigma_O).float()
+
+    def get_O(self, L):
+        """Form the overlaps matrix, which is just all the different observed
+        combinations of values of pairs of sources
+
+        Note that we only include the k non-abstain values of each source,
+        otherwise the model not minimal --> leads to singular matrix
+        """
+        n = L.shape[0]
+        L_aug = self.get_L_aug(L)
+        O = L_aug.T @ L_aug / n
+        return torch.from_numpy(O).float()
+
+    def get_L_aug(self, L, offset=1):
+        """Returns the augmented version of L corresponding to the minimal set
+        of indicators for each value of each clique of LFs.
+
+        For example, three ind LFs with cardinality K=3, applied to a single
+        data point, would go from:
+            [1, 2, 3] --> [0, 0, 1, 0, 1, 1]
+        """
+        n = L.shape[0]
+        d = self.jt.O_d if offset == 1 else self.jt.O_d_full
+        L_aug = np.ones((n, d))
+
+        # TODO: Update LabelModel to keep L variants as sparse matrices
+        # throughout and remove this line.
+        if issparse(L):
+            L = L.todense()
+
+        # Form matrix column-wise to be faster w.r.t. n
+        for idx, vals in self.jt.iter_observed(offset=offset):
+            for j, v in vals.items():
+                L_aug[:, idx] *= L[:, j] == v
+        return L_aug
+
+    def _init_params(self):
+        """Initialize the learned params
+
+        - \mu is the primary learned parameter, where each row corresponds to
+        the probability of a clique C emitting a specific combination of labels,
+        conditioned on different values of Y (for each column); that is:
+
+            self.mu[i*self.k + j, y] = P(\lambda_i = j | Y = y)
+
+        and similarly for higher-order cliques.
+        - Z is the inverse form version of \mu.
+        """
+        train_config = self.config["train_config"]
+
+        # Initialize mu so as to break basic reflective symmetry
+        # Note that we are given either a single or per-LF initial precision
+        # value, prec_i = P(Y=y|\lf=y), and use:
+        #   mu_init = P(\lf=y|Y=y) = P(\lf=y) * prec_i / P(Y=y)
+
+        # Handle single or per-LF values
+        if isinstance(train_config["prec_init"], (int, float)):
+            prec_init = train_config["prec_init"] * torch.ones(self.m)
+        else:
+            prec_init = torch.from_numpy(train_config["prec_init"])
+            if prec_init.shape[0] != self.m:
+                raise ValueError(f"prec_init must have shape {self.m}.")
+
+        # Get the per-value labeling propensities
+        # Note that self.O must have been computed already!
+        # lps = torch.diag(self.O).numpy()
+
+        # Note: Params should be self.k - 1 now!
+
+        # TODO: Update for higher-order cliques!
+        # self.mu_init = torch.zeros(self.jt.O_d, self.k-1)
+        # for i in range(self.m):
+        #     for y in range(self.k-1):
+        #         idx = i * self.k + y
+        #         mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y],0,1)
+        #         self.mu_init[idx, y] += mu_init
+        self.mu_init = torch.randn(self.jt.O_d, self.k - 1)
+
+        # Initialize randomly based on self.mu_init
+        self.mu = nn.Parameter(
+            self.mu_init.clone() * np.random.random()
+        ).float()
+
+        if self.inv_form:
+            self.Z = nn.Parameter(torch.randn(self.jt.O_d, self.k - 1)).float()
+
+        # Build the mask over O^{-1}
+        # TODO: Put this elsewhere?
+        self._build_mask()
+
+    def _build_mask(self):
+        """Build mask applied to O^{-1}, O for the matrix approx constraint; if
+        an entry (i,j) corresponds to cliques C_i, C_j that belong to the same
+        maximal clique, then mask out.
+        """
+        self.mask = torch.ones(self.jt.O_d, self.jt.O_d).byte()
+        for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
+            cids = set(vi.keys()).union(vj.keys())
+            if len(self.jt.get_maximal_cliques(cids)) > 0:
+                self.mask[i, j] = 0
+
+    # These loss functions get all their data directly from the LabelModel
+    # (for better or worse). The unused *args make these compatible with the
+    # Classifer._train() method which expect loss functions to accept an input.
+
+    def loss_inv_Z(self, *args):
+        sigma_O_inv = self.sigma_O_inv
+        return torch.norm((sigma_O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
+
+    def loss_mu(self, *args, l2=0):
+        O = self.O
+        loss_1 = (
+            torch.norm((O - self.mu @ self.P @ self.mu.t())[self.mask]) ** 2
+        )
+        loss_2 = torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(O)) ** 2
+        return loss_1 + loss_2 + self.loss_l2(l2=l2)
+
+    def loss_l2(self, l2=0):
+        """L2 loss centered around mu_init, scaled optionally per-source.
+
+        In other words, diagonal Tikhonov regularization,
+            ||D(\mu-\mu_{init})||_2^2
+        where D is diagonal.
+
+        Args:
+            - l2: A float or np.array representing the per-source regularization
+                strengths to use
+        """
+        if isinstance(l2, (int, float)):
+            D = l2 * torch.eye(self.jt.O_d)
+        else:
+            D = torch.diag(torch.from_numpy(l2))
+
+        # Note that mu is a matrix and this is the *Frobenius norm*
+        return torch.norm(D @ (self.mu - self.mu_init)) ** 2
+
+    # MODEL PREDICTION SUB-FUNCTIONS
+    def get_extended_mu(self, lps=None, c=1):
+        """Return mu, i.e. the matrix of marginal probabilities, for the full
+        (non-minimal) set of values"""
+        d = len(list(self.jt.iter_observed(offset=0)))
+        mu = np.zeros((d, self.k))
+        for y in range(1, self.k + 1):
+            for idx, vals in self.jt.iter_observed(offset=0):
+                mu[idx, y - 1] = self.P_marginal(
+                    {**vals, self.m: y}, lps=lps, c=c
+                )
+        return mu
+
+    def P_marginal(self, query, lps=None, c=1):
+        """Returns P(query), where query is a dictionary mapping a set of
+        variable indices (where LFs are 0,...,self.m-1, Y is self.m) to values.
+
+        Either looks up the value directly from the set of learned minimal
+        statistics, mu, or infers from mu.
+        """
+
+        # TODO: Mu and lps should be cached!
+        if lps is None:
+            lps = np.diag(self.O.numpy()).reshape(-1, 1)
+        mu = self.get_mu(lps=lps, c=c)
+
+        # Split the query into observed and Y
+        query_O = dict([(k, v) for k, v in query.items() if k < self.m])
+        Y = query[self.m]
+
+        # If just the class balance, return directly
+        if len(query_O) == 0:
+            return np.clip(self.p[Y - 1], 0, 1)
+
+        # If the observed components in the minimal set of statistics, return
+        elif query_O in self.jt.O_map:
+            idx = self.jt.O_map.index(query_O)
+            if Y > 1:
+                return np.clip(mu[idx, Y - 2], 0, 1)
+            else:
+                return np.clip(lps[idx, 0] - mu[idx, :].sum(), 0, 1)
+
+        # Else, handle recursively
+        else:
+            # Remove one of the non-minimal values and recurse
+            nm_idx = [
+                i for i, v in query.items() if v == self.k0 and i < self.m
+            ][0]
+            query_r = dict([(k, v) for k, v in query.items() if k != nm_idx])
+            return np.clip(
+                self.P_marginal(query_r, lps=lps, c=c)
+                - sum(
+                    self.P_marginal({**query_r, nm_idx: v}, lps=lps, c=c)
+                    for v in range(self.k0 + 1, self.k + 1)
+                ),
+                0,
+                1,
+            )
+
+    def get_mu(self, lps=None, c=None):
+        """Recover mu from the low-rank matrix ZZ^T that we solve for."""
+
+        # We get the labeling propensities (E[\psi(O)]) either as kwarg or
+        # from overlaps matrix O
+        if lps is not None:
+            lps = lps.reshape(-1, 1)
+        elif self.O is not None:
+            lps = np.diag(self.O.numpy()).reshape(-1, 1)
+        else:
+            raise ValueError("Need labeling propensites, provided or from O.")
+
+        # Recover \mu from \Sigma_{OH}
+        mu = self.get_sigma_OH(c=c)
+        mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
+        return mu
+
+    def get_sigma_OH(self, c=None):
+        """Recover sigma_OH from the low-rank matrix ZZ^T that we solve for."""
+        km = self.k - self.jt.k0
+
+        # Get Q = \Sigma_{OH} @ \Sigma_H^{-1} @ \Sigma_{OH}^T
+        Z = self.Z.detach().clone().numpy()
+        sigma_O = self.sigma_O.numpy()
+        I_k = np.eye(km)
+        Q = sigma_O @ Z @ np.linalg.inv(I_k + Z.T @ sigma_O @ Z) @ Z.T @ sigma_O
+
+        # Take the eigendecomposition of Q and \Sigma_H^{-1}
+        D1, V1 = np.linalg.eigh(Q)
+        D2, V2 = np.linalg.eigh(np.linalg.inv(self.sigma_H))
+        R = np.diag(1 / np.sqrt(D2[-km:] / D1[-km:]))
+
+        # The int or vector c encodes the remaining col-wise sign symmetries...
+        if c is None:
+            C = np.eye(km)
+        elif isinstance(c, (int, float)):
+            C = np.array([[c]])
+        else:
+            C = np.diag(c)
+
+        # Recover \Sigma_{OH}
+        return V1[:, -km:] @ C @ R @ np.linalg.inv(V2)
+
+    @property
+    def sigma_H(self):
+        if not self.jt.singleton_sep_sets:
+            raise NotImplementedError("Sigma_H for non-singleton sep sets.")
+        P = self.P[1:, 1:].numpy()
+        p = np.diag(P).reshape(-1, 1)
+        return P - p @ p.T
