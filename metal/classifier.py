@@ -204,7 +204,7 @@ class Classifier(nn.Module):
                 epoch % train_config["print_every"] == 0
                 or epoch == train_config["n_epochs"] - 1
             ):
-                msg = f"[E:{epoch}]\tTrain Loss: {train_loss:.3f}"
+                msg = f"[E:{epoch}]\tTrain Loss: {train_loss:.8f}"
                 if evaluate_dev:
                     msg += f"\tDev score: {dev_score:.3f}"
                 print(msg)
