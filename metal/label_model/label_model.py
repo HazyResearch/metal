@@ -72,16 +72,7 @@ class LabelModel(Classifier):
         is primarily for testing on non-noisey synthetic data.
 
         We learn the parameters mu (representing the marginal probabilities of
-        the model over {Y, \lf_1, ..., \lf_}) in one of two ways, depending on
-        whether we model dependencies between the sources or not:
-
-        (1) No dependencies (conditionally independent sources): Estimate mu
-        subject to constraints:
-            (1a) O_{B(i,j)} - (mu P mu.T)_{B(i,j)} = 0, for i != j, where B(i,j)
-                is the block of entries corresponding to sources i,j
-            (1b) np.sum( mu P, 1 ) = diag(O)
-
-        (2) Source dependencies:
+        the model over {Y, \lf_1, ..., \lf_}) by the following approach:
             - First, estimate Z subject to the inverse form
             constraint:
                 (2a) O_\Omega + (ZZ.T)_\Omega = 0, \Omega is the deps mask
@@ -90,12 +81,75 @@ class LabelModel(Classifier):
         For further details, see:
         https://ajratner.github.io/assets/papers/mts-draft.pdf
         """
+        self._init_train(
+            L_train=L_train,
+            sigma_O=sigma_O,
+            E_O=E_O,
+            Y_dev=Y_dev,
+            junction_tree=junction_tree,
+            deps=deps,
+            class_balance=class_balance,
+            abstains=abstains,
+            **kwargs,
+        )
+
+        # Creating this faux dataset is necessary for now because the LabelModel
+        # loss functions do not accept inputs, but Classifer._train() expects
+        # training data to feed to the loss functions.
+        dataset = MetalDataset([0], [0])
+        train_loader = DataLoader(dataset)
+
+        # Estimate Z, compute Q = \mu P \mu^T
+        if self.config["verbose"]:
+            print("Estimating Z...")
+        self._train(train_loader, self.loss_inv_Z)
+
+        # Compute and cache final mu from Z if inv_form=True, including breaking
+        # sign symmetry here
+        self.mu = self.get_mu()
+
+    # MODEL PREDICTION
+    def predict_proba(self, L):
+        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
+
+        Args:
+            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
+        """
+        self._set_constants(L)
+
+        # Only implemented for singleton separator sets right now
+        if not self.jt.singleton_sep_sets:
+            raise NotImplementedError("Predict for non-singleton sep sets.")
+
+        L_aug = self.get_L_aug(L, offset=0)
+        mask = self.jt.observed_maximal_mask(offset=0)
+
+        # Get the extended version of mu that includes the non-minimal stats
+        mu = self.get_extended_mu()
+
+        n_s = len(self.jt.G.edges())
+        X = np.exp(L_aug @ np.diag(mask) @ np.log(mu) - n_s * np.log(self.p))
+        Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
+        return X / Z
+
+    # MODEL TRAINING SUB-FUNCTIONS
+    def _init_train(
+        self,
+        L_train=None,
+        sigma_O=None,
+        E_O=None,
+        Y_dev=None,
+        junction_tree=None,
+        deps=[],
+        class_balance=None,
+        abstains=True,
+        **kwargs,
+    ):
 
         # Set config dictionaries
         self.config = recursive_merge_dicts(
             self.config, kwargs, misses="ignore"
         )
-        train_config = self.config["train_config"]
 
         # Set the class balance
         self._set_class_balance(class_balance, Y_dev)
@@ -126,9 +180,9 @@ class LabelModel(Classifier):
 
         # Form basic data matrices
         if sigma_O is not None:
-            self.O = None
             self.E_O = E_O.reshape(-1, 1)
             self.sigma_O = torch.from_numpy(sigma_O).float()
+            self.O = torch.from_numpy(sigma_O + self.E_O @ self.E_O.T).float()
         else:
             self.O = self.get_O(L_train)
             self.E_O = np.diag(self.O.numpy()).reshape(-1, 1)
@@ -139,64 +193,12 @@ class LabelModel(Classifier):
             np.linalg.inv(self.sigma_O.numpy())
         ).float()
 
-        # Whether to take the simple conditionally independent approach, or the
-        # "inverse form" approach for handling dependencies
-        # This flag allows us to eg test the latter even with no deps present
-        self.inv_form = len(deps) > 0 or not self.jt.ind_model
-
-        # Creating this faux dataset is necessary for now because the LabelModel
-        # loss functions do not accept inputs, but Classifer._train() expects
-        # training data to feed to the loss functions.
-        dataset = MetalDataset([0], [0])
-        train_loader = DataLoader(dataset)
-
-        # Note that the LabelModel class implements its own (centered) L2 reg.
-        l2 = train_config.get("l2", 0)
-
-        # Initialize parameters and mask
+        # Initialize parameters
         self._init_params()
 
-        if self.inv_form:
-            # Estimate Z, compute Q = \mu P \mu^T
-            if self.config["verbose"]:
-                print("Estimating Z...")
-            self._train(train_loader, self.loss_inv_Z)
+        # Build the mask over O^{-1}
+        self._build_mask()
 
-        else:
-            # Estimate \mu
-            if self.config["verbose"]:
-                print("Estimating \mu...")
-            self._train(train_loader, partial(self.loss_mu, l2=l2))
-
-        # Compute and cache final mu from Z if inv_form=True, including breaking
-        # sign symmetry here
-        if self.inv_form:
-            self.mu = self.get_mu()
-
-    # MODEL PREDICTION
-    def predict_proba(self, L):
-        """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
-
-        Args:
-            L: An [n,m] scipy.sparse label matrix with values in {0,1,...,k}
-        """
-        self._set_constants(L)
-
-        # Only implemented for singleton separator sets right now
-        if not self.jt.singleton_sep_sets:
-            raise NotImplementedError("Predict for non-singleton sep sets.")
-
-        L_aug = self.get_L_aug(L, offset=0)
-        mask = self.jt.observed_maximal_mask(offset=0)
-
-        n_s = len(self.jt.G.edges())
-        X = np.exp(
-            L_aug @ np.diag(mask) @ np.log(self.mu) - n_s * np.log(self.p)
-        )
-        Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
-        return X / Z
-
-    # MODEL TRAINING SUB-FUNCTIONS
     def _set_class_balance(self, class_balance, Y_dev):
         """Set a prior for the class balance
 
@@ -279,62 +281,8 @@ class LabelModel(Classifier):
         return L_aug
 
     def _init_params(self):
-        """Initialize the learned params
-
-        - \mu is the primary learned parameter, where each row corresponds to
-        the probability of a clique C emitting a specific combination of labels,
-        conditioned on different values of Y (for each column); that is:
-
-            self.mu[i*self.k + j, y] = P(\lambda_i = j | Y = y)
-
-        and similarly for higher-order cliques.
-        - Z is the inverse form version of \mu.
-        """
-        train_config = self.config["train_config"]
-
-        # If non-inverse form (i.e. no deps), use mu as main Parameter
-        if not self.inv_form:
-            # Initialize mu so as to break basic reflective symmetry
-            # Note that we are given either a single or per-LF initial precision
-            # value, prec_i = P(Y=y|\lf=y), and use:
-            #   mu_init = P(\lf=y|Y=y) = P(\lf=y) * prec_i / P(Y=y)
-
-            # Handle single or per-LF values
-            if isinstance(train_config["prec_init"], (int, float)):
-                prec_init = train_config["prec_init"] * torch.ones(self.m)
-            else:
-                prec_init = torch.from_numpy(train_config["prec_init"])
-                if prec_init.shape[0] != self.m:
-                    raise ValueError(f"prec_init must have shape {self.m}.")
-
-            # Get the per-value labeling propensities
-            # Note that self.O must have been computed already!
-            # lps = torch.diag(self.O).numpy()
-
-            # Note: Params should be self.k - 1 now!
-
-            # TODO: Update for higher-order cliques!
-            # self.mu_init = torch.zeros(self.jt.O_d, self.k-1)
-            # for i in range(self.m):
-            #     for y in range(self.k-1):
-            #         idx = i * self.k + y
-            #         mu_init = torch.clamp(
-            #           lps[idx] * prec_init[i] / self.p[y],0,1)
-            #         self.mu_init[idx, y] += mu_init
-            self.mu_init = torch.randn(self.jt.O_d, self.k - 1)
-
-            # Initialize randomly based on self.mu_init
-            self.mu = nn.Parameter(
-                self.mu_init.clone() * np.random.random()
-            ).float()
-
-        # Otherwise Z is the main parameter, and mu is recovered separately...
-        else:
-            self.Z = nn.Parameter(torch.randn(self.jt.O_d, self.k - 1)).float()
-
-        # Build the mask over O^{-1}
-        # TODO: Put this elsewhere?
-        self._build_mask()
+        """Initialize the learned params Z"""
+        self.Z = nn.Parameter(torch.randn(self.jt.O_d, self.k - 1)).float()
 
     def _build_mask(self):
         """Build mask applied to O^{-1}, O for the matrix approx constraint; if
@@ -352,35 +300,9 @@ class LabelModel(Classifier):
     # Classifer._train() method which expect loss functions to accept an input.
 
     def loss_inv_Z(self, *args):
-        sigma_O_inv = self.sigma_O_inv
-        return torch.norm((sigma_O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
-
-    def loss_mu(self, *args, l2=0):
-        O = self.O
-        loss_1 = (
-            torch.norm((O - self.mu @ self.P @ self.mu.t())[self.mask]) ** 2
+        return (
+            torch.norm((self.sigma_O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
         )
-        loss_2 = torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(O)) ** 2
-        return loss_1 + loss_2 + self.loss_l2(l2=l2)
-
-    def loss_l2(self, l2=0):
-        """L2 loss centered around mu_init, scaled optionally per-source.
-
-        In other words, diagonal Tikhonov regularization,
-            ||D(\mu-\mu_{init})||_2^2
-        where D is diagonal.
-
-        Args:
-            - l2: A float or np.array representing the per-source regularization
-                strengths to use
-        """
-        if isinstance(l2, (int, float)):
-            D = l2 * torch.eye(self.jt.O_d)
-        else:
-            D = torch.diag(torch.from_numpy(l2))
-
-        # Note that mu is a matrix and this is the *Frobenius norm*
-        return torch.norm(D @ (self.mu - self.mu_init)) ** 2
 
     # MODEL PREDICTION SUB-FUNCTIONS
     def get_extended_mu(self):
@@ -392,6 +314,9 @@ class LabelModel(Classifier):
             for idx, vals in self.jt.iter_observed(offset=0):
                 mu[idx, y - 1] = self.P_marginal({**vals, self.m: y})
         return mu
+
+    def _clip(self, p):
+        return np.clip(p, 0.1, 0.99)
 
     def P_marginal(self, query):
         """Returns P(query), where query is a dictionary mapping a set of
@@ -415,7 +340,7 @@ class LabelModel(Classifier):
             if Y > 1:
                 return self.mu[idx, Y - 2]
             else:
-                return np.clip(self.E_O[idx, 0] - self.mu[idx, :].sum(), 0, 1)
+                return self._clip(self.E_O[idx, 0] - self.mu[idx, :].sum())
 
         # Else, handle recursively
         else:
@@ -428,7 +353,7 @@ class LabelModel(Classifier):
                 self.P_marginal({**query_r, nm_idx: v})
                 for v in range(self.k0 + 1, self.k + 1)
             )
-            return np.clip(self.P_marginal(query_r) - p_o, 0, 1)
+            return self._clip(self.P_marginal(query_r) - p_o)
 
     def _get_correct_sum(self, mu):
         """Sum all the elements of mu corresponding to P(\lf_i=Y); used as
@@ -450,7 +375,7 @@ class LabelModel(Classifier):
             for c in product([-1, 1], repeat=(self.k - self.k0))
         ]
         idx = np.argmax([self._get_correct_sum(mu) for mu in mus])
-        return np.clip(mus[idx], 0, 1)
+        return self._clip(mus[idx])
 
     def get_sigma_OH(self, C):
         """Recover sigma_OH from the low-rank matrix ZZ^T that we solve for."""
@@ -477,3 +402,155 @@ class LabelModel(Classifier):
         P = self.P[1:, 1:].numpy()
         p = np.diag(P).reshape(-1, 1)
         return P - p @ p.T
+
+
+class LabelModelInd(LabelModel):
+    """A LabelModel for the setting of independent LFs.
+
+    Note: Something buggy with this right now... either fix or just get rid of.
+
+    Args:
+        k: (int) the cardinality of the classifier
+    """
+
+    # MODEL TRAINING
+    def train(
+        self,
+        L_train=None,
+        sigma_O=None,
+        E_O=None,
+        Y_dev=None,
+        class_balance=None,
+        abstains=True,
+        **kwargs,
+    ):
+        """Train the model (i.e. estimate mu) in one of two ways, depending on
+        whether source dependencies are provided or not:
+
+        Args:
+            L_train: An [n,m] scipy.sparse matrix with values in {0,1,...,k}
+                corresponding to labels from supervision sources on the
+                training set. Either this or (sigma_O, E_O, junction_tree) must
+                be provided.
+            sigma_O: A [d,d] np.array representing Cov[\psi(O)], where O is the
+                set of observable cliques of sources, \psi(O) is the vector of
+                indicator random variables for O, and sigma_O = Cov[\psi(O)] is
+                the generalized covariance for O. Either this
+                (+ E_O, junction_tree) or L_train must be provided.
+            E_O: A [d] np.array representing E[\psi(O)] (see above), i.e. the
+                labeling rates for each source clique and label.
+            Y_dev: Target labels for the dev set, for estimating class_balance
+            class_balance: (np.array) each class's percentage of the population
+            abstains: (bool) Whether to include a 0 abstain value which the
+                sources can output, but that is not in Y's range
+
+        Note that to train the LabelModel, either (a) the [n, m] label matrix
+        L_train or (b) (sigma_O, E_O, junction_tree) must be provided, where (b)
+        is primarily for testing on non-noisey synthetic data.
+
+        We learn the parameters mu (representing the marginal probabilities of
+        the model over {Y, \lf_1, ..., \lf_}) assuming no dependencies
+        (conditionally independent sources): we estimate mu subject to
+        constraints:
+            (1a) O_{B(i,j)} - (mu mu.T)_{B(i,j)} = 0, for i != j, where B(i,j)
+                is the block of entries corresponding to sources i,j
+            (1b) np.sum( mu, 1 ) = diag(O)
+        """
+        self._init_train(
+            L_train=L_train,
+            sigma_O=sigma_O,
+            E_O=E_O,
+            Y_dev=Y_dev,
+            class_balance=class_balance,
+            abstains=abstains,
+            **kwargs,
+        )
+        train_config = self.config["train_config"]
+
+        # Creating this faux dataset is necessary for now because the LabelModel
+        # loss functions do not accept inputs, but Classifer._train() expects
+        # training data to feed to the loss functions.
+        dataset = MetalDataset([0], [0])
+        train_loader = DataLoader(dataset)
+
+        # Note that the LabelModel class implements its own (centered) L2 reg.
+        l2 = train_config.get("l2", 0)
+
+        # Estimate \mu
+        # Note that self._mu is the learned Parameter here
+        if self.config["verbose"]:
+            print("Estimating \mu...")
+        self._train(train_loader, partial(self.loss_mu, l2=l2))
+
+        # Cache the numpy output learned param
+        self.mu = self._mu.detach().numpy()
+
+    def _init_params(self):
+        """Initialize the learned params
+
+        - \mu is the primary learned parameter, where each row corresponds to
+        the probability of a clique C emitting a specific combination of labels,
+        conditioned on different values of Y (for each column); that is:
+
+            self.mu[i*self.k + j, y] = P(\lambda_i = j | Y = y)
+
+        and similarly for higher-order cliques.
+        - Z is the inverse form version of \mu.
+        """
+        train_config = self.config["train_config"]
+
+        # Initialize mu so as to break basic reflective symmetry
+        # Note that we are given either a single or per-LF initial precision
+        # value, prec_i = P(Y=y|\lf=y), and use:
+        #   mu_init = P(\lf=y|Y=y) = P(\lf=y) * prec_i / P(Y=y)
+
+        # Handle single or per-LF values
+        if isinstance(train_config["prec_init"], (int, float)):
+            prec_init = train_config["prec_init"] * torch.ones(self.m)
+        else:
+            prec_init = torch.from_numpy(train_config["prec_init"])
+            if prec_init.shape[0] != self.m:
+                raise ValueError(f"prec_init must have shape {self.m}.")
+
+        # TODO: Update for higher-order cliques!
+        # self.mu_init = torch.zeros(self.jt.O_d, self.k-1)
+        # for i in range(self.m):
+        #     for y in range(self.k-1):
+        #         idx = i * self.k + y
+        #         mu_init = torch.clamp(
+        #           lps[idx] * prec_init[i] / self.p[y],0,1)
+        #         self.mu_init[idx, y] += mu_init
+        self._mu_init = torch.randn(self.jt.O_d, self.k)
+
+        # Initialize randomly based on self.mu_init
+        self._mu = nn.Parameter(
+            self._mu_init.clone() * np.random.random() * 0.3
+        ).float()
+
+    # These loss functions get all their data directly from the LabelModel
+    # (for better or worse). The unused *args make these compatible with the
+    # Classifer._train() method which expect loss functions to accept an input.
+
+    def loss_mu(self, *args, l2=0):
+        loss_1 = torch.norm((self.O - self._mu @ self._mu.t())[self.mask]) ** 2
+        loss_2 = torch.norm(torch.sum(self._mu, 1) - torch.diag(self.O)) ** 2
+        return loss_1 + loss_2 + self.loss_l2(l2=l2)
+
+    def loss_l2(self, l2=0):
+        """L2 loss centered around mu_init, scaled optionally per-source.
+
+        In other words, diagonal Tikhonov regularization,
+            ||D(\mu-\mu_{init})||_2^2
+        where D is diagonal.
+
+        Args:
+            - l2: A float or np.array representing the per-source regularization
+                strengths to use
+        """
+        if isinstance(l2, (int, float)):
+            D = l2 * torch.eye(self.jt.O_d)
+        else:
+            D = torch.diag(torch.from_numpy(l2))
+
+        # Note that mu is a matrix and this is the *Frobenius norm*
+        return torch.norm(D @ (self._mu - self._mu_init)) ** 2
