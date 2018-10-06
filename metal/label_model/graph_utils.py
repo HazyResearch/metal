@@ -33,6 +33,7 @@ class JunctionTree(object):
     Args:
         m: (int) Number of labeling functions
         k: (int) Cardinality of the classification problem
+        t: (int) Number of tasks
         abstains: (bool) Whether to include abstains (0 label)
         deps_graph [optional]: A DependenciesGraph object; must specify either
             this or a set of edges
@@ -47,6 +48,7 @@ class JunctionTree(object):
         self,
         m,
         k,
+        t=1,
         abstains=True,
         deps_graph=None,
         edges=None,
@@ -54,6 +56,7 @@ class JunctionTree(object):
     ):
         self.m = m
         self.k = k
+        self.t = t
         self.abstains = abstains
         self.k0 = 0 if abstains else 1
         if deps_graph is not None:

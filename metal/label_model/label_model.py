@@ -33,10 +33,12 @@ class LabelModel(Classifier):
         self,
         L_train=None,
         sigma_O=None,
+        E_O=None,
         Y_dev=None,
         junction_tree=None,
         deps=[],
         class_balance=None,
+        abstains=True,
         **kwargs,
     ):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
@@ -45,10 +47,15 @@ class LabelModel(Classifier):
         Args:
             L_train: An [n,m] scipy.sparse matrix with values in {0,1,...,k}
                 corresponding to labels from supervision sources on the
-                training set. Either this or sigma_O must be provided
-            sigma_O: A [d,d] np.array representing the generalized covariance
-                matrix for the observable variables (cliques). Either this or
-                L_train must be provided
+                training set. Either this or (sigma_O, E_O, junction_tree) must
+                be provided.
+            sigma_O: A [d,d] np.array representing Cov[\psi(O)], where O is the
+                set of observable cliques of sources, \psi(O) is the vector of
+                indicator random variables for O, and sigma_O = Cov[\psi(O)] is
+                the generalized covariance for O. Either this
+                (+ E_O, junction_tree) or L_train must be provided.
+            E_O: A [d] np.array representing E[\psi(O)] (see above), i.e. the
+                labeling rates for each source clique and label.
             Y_dev: Target labels for the dev set, for estimating class_balance
             junction_tree: A JunctionTree class representing the dependency
                 structure of the LFs. If this is not provided, one is
@@ -57,6 +64,16 @@ class LabelModel(Classifier):
                 sources. If not provided, sources are assumed to be independent.
                 TODO: add automatic dependency-learning code
             class_balance: (np.array) each class's percentage of the population
+            abstains: (bool) Whether to include a 0 abstain value which the
+                sources can output, but that is not in Y's range
+
+        Note that to train the LabelModel, either (a) the [n, m] label matrix
+        L_train or (b) (sigma_O, E_O, junction_tree) must be provided, where (b)
+        is primarily for testing on non-noisey synthetic data.
+
+        We learn the parameters mu (representing the marginal probabilities of
+        the model over {Y, \lf_1, ..., \lf_}) in one of two ways, depending on
+        whether we model dependencies between the sources or not:
 
         (1) No dependencies (conditionally independent sources): Estimate mu
         subject to constraints:
@@ -68,8 +85,10 @@ class LabelModel(Classifier):
             - First, estimate Z subject to the inverse form
             constraint:
                 (2a) O_\Omega + (ZZ.T)_\Omega = 0, \Omega is the deps mask
-            - Then, compute Q = mu P mu.T
-            - Finally, estimate mu subject to mu P mu.T = Q and (1b)
+            - Then, compute mu using an eigendecomposition approach and sigma_H
+
+        For further details, see:
+        https://ajratner.github.io/assets/papers/mts-draft.pdf
         """
 
         # Set config dictionaries
@@ -81,44 +100,44 @@ class LabelModel(Classifier):
         # Set the class balance
         self._set_class_balance(class_balance, Y_dev)
 
-        # TODO: Management of the different init options needs to be improved...
-        # E.g. checks for consistency, readable error messages, etc.
+        # Input is either (a) a label matrix, L_train, or else both (b.i) a
+        # pre-computed sigma_O matrix and (b.ii) a JunctionTree object, where
+        # (b) is primarily for synthetic testing
         if L_train is not None:
             self._check_L(L_train)
-            self._set_constants(L_train)  # Sets self.m, self.n, self.t
-            self.L_train = L_train
-        elif junction_tree is not None and sigma_O is not None:
-            self.m = junction_tree.m
-            self.L_train = None
-        else:
-            raise ValueError("Must input L_train or sigma_O and junction_tree.")
+            self._set_constants(L_train)  # Sets self.m, self.t
+            self.k0 = 0 if abstains else 1
+        elif junction_tree is None or sigma_O is None or E_O is None:
+            raise ValueError(
+                "Must input L_train or (sigma_O, E_O, junction_tree)."
+            )
 
-        # Set or create the JunctionTree that handles the dependency structure
-        # of the LFs
+        # We are either given an explicit JunctionTree object capturing the
+        # dependency structure of the sources---*in which case the JunctionTree
+        # params override any set already*--or a list of dependency edges
         self.jt = None
         if junction_tree is not None:
             self.jt = junction_tree
+            self.m, self.t, self.k0 = self.jt.m, self.jt.t, self.jt.k0
         else:
             self.jt = JunctionTree(
-                self.m,
-                self.k,
-                edges=deps,
-                higher_order_cliques=self.config["higher_order_cliques"],
+                self.m, self.k, t=self.t, abstains=abstains, edges=deps
             )
-        self.k0 = self.jt.k0
 
         # Form basic data matrices
-        if self.L_train is not None:
-            if self.config["verbose"]:
-                print("Computing Sigma_O^{-1}...")
-            self.sigma_O = self.get_sigma_O(self.L_train)
-            self.sigma_O_inv = torch.from_numpy(
-                np.linalg.inv(self.sigma_O.numpy())
-            ).float()
-            self.O = self.get_O(self.L_train)
-        else:
+        if sigma_O is not None:
+            self.O = None
+            self.E_O = E_O.reshape(-1, 1)
             self.sigma_O = torch.from_numpy(sigma_O).float()
-            self.sigma_O_inv = torch.from_numpy(np.linalg.inv(sigma_O)).float()
+        else:
+            self.O = self.get_O(L_train)
+            self.E_O = np.diag(self.O.numpy()).reshape(-1, 1)
+            self.sigma_O = self.get_sigma_O(L_train)
+
+        # Form Sigma_O^{-1}
+        self.sigma_O_inv = torch.from_numpy(
+            np.linalg.inv(self.sigma_O.numpy())
+        ).float()
 
         # Whether to take the simple conditionally independent approach, or the
         # "inverse form" approach for handling dependencies
@@ -149,8 +168,13 @@ class LabelModel(Classifier):
                 print("Estimating \mu...")
             self._train(train_loader, partial(self.loss_mu, l2=l2))
 
+        # Compute and cache final mu from Z if inv_form=True, including breaking
+        # sign symmetry here
+        if self.inv_form:
+            self.mu = self.get_mu()
+
     # MODEL PREDICTION
-    def predict_proba(self, L, lps=None, c=None):
+    def predict_proba(self, L):
         """Returns the [n,k] matrix of label probabilities P(Y | \lambda)
 
         Args:
@@ -163,12 +187,12 @@ class LabelModel(Classifier):
             raise NotImplementedError("Predict for non-singleton sep sets.")
 
         L_aug = self.get_L_aug(L, offset=0)
-        # TODO: Store mu after training!
-        mu = self.get_extended_mu(lps=lps, c=c)
         mask = self.jt.observed_maximal_mask(offset=0)
 
         n_s = len(self.jt.G.edges())
-        X = np.exp(L_aug @ np.diag(mask) @ np.log(mu) - n_s * np.log(self.p))
+        X = np.exp(
+            L_aug @ np.diag(mask) @ np.log(self.mu) - n_s * np.log(self.p)
+        )
         Z = np.tile(X.sum(axis=1).reshape(-1, 1), self.k)
         return X / Z
 
@@ -204,7 +228,7 @@ class LabelModel(Classifier):
             raise ValueError("L must have values in {0,1,...,k}.")
 
     def _set_constants(self, L):
-        self.n, self.m = L.shape
+        self.m = L.shape[1]
         self.t = 1
 
     def get_sigma_O(self, L):
@@ -268,40 +292,44 @@ class LabelModel(Classifier):
         """
         train_config = self.config["train_config"]
 
-        # Initialize mu so as to break basic reflective symmetry
-        # Note that we are given either a single or per-LF initial precision
-        # value, prec_i = P(Y=y|\lf=y), and use:
-        #   mu_init = P(\lf=y|Y=y) = P(\lf=y) * prec_i / P(Y=y)
+        # If non-inverse form (i.e. no deps), use mu as main Parameter
+        if not self.inv_form:
+            # Initialize mu so as to break basic reflective symmetry
+            # Note that we are given either a single or per-LF initial precision
+            # value, prec_i = P(Y=y|\lf=y), and use:
+            #   mu_init = P(\lf=y|Y=y) = P(\lf=y) * prec_i / P(Y=y)
 
-        # Handle single or per-LF values
-        if isinstance(train_config["prec_init"], (int, float)):
-            prec_init = train_config["prec_init"] * torch.ones(self.m)
+            # Handle single or per-LF values
+            if isinstance(train_config["prec_init"], (int, float)):
+                prec_init = train_config["prec_init"] * torch.ones(self.m)
+            else:
+                prec_init = torch.from_numpy(train_config["prec_init"])
+                if prec_init.shape[0] != self.m:
+                    raise ValueError(f"prec_init must have shape {self.m}.")
+
+            # Get the per-value labeling propensities
+            # Note that self.O must have been computed already!
+            # lps = torch.diag(self.O).numpy()
+
+            # Note: Params should be self.k - 1 now!
+
+            # TODO: Update for higher-order cliques!
+            # self.mu_init = torch.zeros(self.jt.O_d, self.k-1)
+            # for i in range(self.m):
+            #     for y in range(self.k-1):
+            #         idx = i * self.k + y
+            #         mu_init = torch.clamp(
+            #           lps[idx] * prec_init[i] / self.p[y],0,1)
+            #         self.mu_init[idx, y] += mu_init
+            self.mu_init = torch.randn(self.jt.O_d, self.k - 1)
+
+            # Initialize randomly based on self.mu_init
+            self.mu = nn.Parameter(
+                self.mu_init.clone() * np.random.random()
+            ).float()
+
+        # Otherwise Z is the main parameter, and mu is recovered separately...
         else:
-            prec_init = torch.from_numpy(train_config["prec_init"])
-            if prec_init.shape[0] != self.m:
-                raise ValueError(f"prec_init must have shape {self.m}.")
-
-        # Get the per-value labeling propensities
-        # Note that self.O must have been computed already!
-        # lps = torch.diag(self.O).numpy()
-
-        # Note: Params should be self.k - 1 now!
-
-        # TODO: Update for higher-order cliques!
-        # self.mu_init = torch.zeros(self.jt.O_d, self.k-1)
-        # for i in range(self.m):
-        #     for y in range(self.k-1):
-        #         idx = i * self.k + y
-        #         mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y],0,1)
-        #         self.mu_init[idx, y] += mu_init
-        self.mu_init = torch.randn(self.jt.O_d, self.k - 1)
-
-        # Initialize randomly based on self.mu_init
-        self.mu = nn.Parameter(
-            self.mu_init.clone() * np.random.random()
-        ).float()
-
-        if self.inv_form:
             self.Z = nn.Parameter(torch.randn(self.jt.O_d, self.k - 1)).float()
 
         # Build the mask over O^{-1}
@@ -355,19 +383,17 @@ class LabelModel(Classifier):
         return torch.norm(D @ (self.mu - self.mu_init)) ** 2
 
     # MODEL PREDICTION SUB-FUNCTIONS
-    def get_extended_mu(self, lps=None, c=1):
+    def get_extended_mu(self):
         """Return mu, i.e. the matrix of marginal probabilities, for the full
         (non-minimal) set of values"""
         d = len(list(self.jt.iter_observed(offset=0)))
         mu = np.zeros((d, self.k))
         for y in range(1, self.k + 1):
             for idx, vals in self.jt.iter_observed(offset=0):
-                mu[idx, y - 1] = self.P_marginal(
-                    {**vals, self.m: y}, lps=lps, c=c
-                )
+                mu[idx, y - 1] = self.P_marginal({**vals, self.m: y})
         return mu
 
-    def P_marginal(self, query, lps=None, c=1):
+    def P_marginal(self, query):
         """Returns P(query), where query is a dictionary mapping a set of
         variable indices (where LFs are 0,...,self.m-1, Y is self.m) to values.
 
@@ -375,26 +401,21 @@ class LabelModel(Classifier):
         statistics, mu, or infers from mu.
         """
 
-        # TODO: Mu and lps should be cached!
-        if lps is None:
-            lps = np.diag(self.O.numpy()).reshape(-1, 1)
-        mu = self.get_mu(lps=lps, c=c)
-
         # Split the query into observed and Y
         query_O = dict([(k, v) for k, v in query.items() if k < self.m])
         Y = query[self.m]
 
         # If just the class balance, return directly
         if len(query_O) == 0:
-            return np.clip(self.p[Y - 1], 0, 1)
+            return self.p[Y - 1]
 
         # If the observed components in the minimal set of statistics, return
         elif query_O in self.jt.O_map:
             idx = self.jt.O_map.index(query_O)
             if Y > 1:
-                return np.clip(mu[idx, Y - 2], 0, 1)
+                return self.mu[idx, Y - 2]
             else:
-                return np.clip(lps[idx, 0] - mu[idx, :].sum(), 0, 1)
+                return np.clip(self.E_O[idx, 0] - self.mu[idx, :].sum(), 0, 1)
 
         # Else, handle recursively
         else:
@@ -403,36 +424,37 @@ class LabelModel(Classifier):
                 i for i, v in query.items() if v == self.k0 and i < self.m
             ][0]
             query_r = dict([(k, v) for k, v in query.items() if k != nm_idx])
-            return np.clip(
-                self.P_marginal(query_r, lps=lps, c=c)
-                - sum(
-                    self.P_marginal({**query_r, nm_idx: v}, lps=lps, c=c)
-                    for v in range(self.k0 + 1, self.k + 1)
-                ),
-                0,
-                1,
+            p_o = sum(
+                self.P_marginal({**query_r, nm_idx: v})
+                for v in range(self.k0 + 1, self.k + 1)
             )
+            return np.clip(self.P_marginal(query_r) - p_o, 0, 1)
 
-    def get_mu(self, lps=None, c=None):
+    def _get_correct_sum(self, mu):
+        """Sum all the elements of mu corresponding to P(\lf_i=Y); used as
+        heuristic for breaking final sign symmetries"""
+        sum_correct = 0.0
+        for idx, vals in self.jt.iter_observed():
+            if len(vals) == 1:
+                val = list(vals.values())[0]
+                if val > self.k0:
+                    sum_correct += mu[idx, val - self.k0 - 1]
+        return sum_correct
+
+    def get_mu(self):
         """Recover mu from the low-rank matrix ZZ^T that we solve for."""
+        # Test all ways of breaking col-wise sign symmetry, take one with
+        # highest sum of correct accuracies P(\lf_i=y)
+        mus = [
+            self.get_sigma_OH(np.diag(c)) + self.E_O @ self.p[1:].reshape(1, -1)
+            for c in product([-1, 1], repeat=(self.k - self.k0))
+        ]
+        idx = np.argmax([self._get_correct_sum(mu) for mu in mus])
+        return np.clip(mus[idx], 0, 1)
 
-        # We get the labeling propensities (E[\psi(O)]) either as kwarg or
-        # from overlaps matrix O
-        if lps is not None:
-            lps = lps.reshape(-1, 1)
-        elif self.O is not None:
-            lps = np.diag(self.O.numpy()).reshape(-1, 1)
-        else:
-            raise ValueError("Need labeling propensites, provided or from O.")
-
-        # Recover \mu from \Sigma_{OH}
-        mu = self.get_sigma_OH(c=c)
-        mu += lps.reshape([-1, 1]) @ np.diag(self.P[1:, 1:]).reshape([1, -1])
-        return mu
-
-    def get_sigma_OH(self, c=None):
+    def get_sigma_OH(self, C):
         """Recover sigma_OH from the low-rank matrix ZZ^T that we solve for."""
-        km = self.k - self.jt.k0
+        km = self.k - self.k0
 
         # Get Q = \Sigma_{OH} @ \Sigma_H^{-1} @ \Sigma_{OH}^T
         Z = self.Z.detach().clone().numpy()
@@ -445,15 +467,7 @@ class LabelModel(Classifier):
         D2, V2 = np.linalg.eigh(np.linalg.inv(self.sigma_H))
         R = np.diag(1 / np.sqrt(D2[-km:] / D1[-km:]))
 
-        # The int or vector c encodes the remaining col-wise sign symmetries...
-        if c is None:
-            C = np.eye(km)
-        elif isinstance(c, (int, float)):
-            C = np.array([[c]])
-        else:
-            C = np.diag(c)
-
-        # Recover \Sigma_{OH}
+        # Recover \Sigma_{OH}, using C to break col-wise sign symmetry
         return V1[:, -km:] @ C @ R @ np.linalg.inv(V2)
 
     @property
