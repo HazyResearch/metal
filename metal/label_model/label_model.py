@@ -316,7 +316,7 @@ class LabelModel(Classifier):
         return mu
 
     def _clip(self, p):
-        return np.clip(p, 0.1, 0.99)
+        return np.clip(p, 0.01, 0.99)
 
     def P_marginal(self, query):
         """Returns P(query), where query is a dictionary mapping a set of
