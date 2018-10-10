@@ -1,5 +1,5 @@
-
 import numpy as np
+from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
 from metal.metrics import metric_score
@@ -40,10 +40,84 @@ class MTClassifier(Classifier):
         self.multitask = True
         self.K = K
 
+    def _batch_evaluate(self, loader, break_ties="random", **kwargs):
+        """Evaluates the model using minibatches
+
+        Args:
+            loader: Pytorch DataLoader supplying (X,Y):
+                X: The input for the predict method
+                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
+                    in {1,...,k}; can be None for cases with no ground truth
+
+        Returns:
+            Y_p: an np.ndarray of predictions
+            Y: an np.ndarray of ground truth labels
+        """
+        Y = []
+        Y_p = []
+        for batch, data in enumerate(loader):
+            X_batch, Y_batch = data
+
+            if self.config["train_config"]["use_cuda"]:
+                X_batch = X_batch.cuda()
+
+            self._check(Y_batch, typ=list)
+            Y_batch = [self._to_numpy(Y_t) for Y_t in Y_batch]
+
+            Y_p = self.predict(X_batch, break_ties=break_ties, **kwargs)
+            self._check(Y_p, typ=list)
+
+            Y.append(Y_batch)
+            Y_p.append(
+                self._to_numpy(
+                    self.predict(X_batch, break_ties=break_ties, **kwargs)
+                )
+            )
+
+        # TODO: Check dims here (is hstack the right thing?)
+        Y = np.hstack(Y)
+        Y_p = np.hstack(Y_p)
+
+        return Y_p, Y
+
+    def evaluate(self, data, break_ties="random", **kwargs):
+        """Evaluates the model
+        Args:
+            data: either a Pytorch DataLoader or tuple supplying (X,Y):
+                X: The input for the predict method
+                Y: A t-length list of [n] or [n, 1] np.ndarrays or
+                torch.Tensors of gold labels in {1,...,K_t}
+
+        Returns:
+            Y_p: an np.ndarray of predictions
+            Y: an np.ndarray of ground truth labels
+        """
+
+        if type(data) is tuple:
+            X, Y = data
+
+            if self.config["train_config"]["use_cuda"]:
+                X = X.cuda()
+
+            self._check(Y, typ=list)
+            Y = [self._to_numpy(Y_t) for Y_t in Y]
+
+            Y_p = self.predict(X, break_ties=break_ties, **kwargs)
+            self._check(Y_p, typ=list)
+
+        elif type(data) is DataLoader:
+            Y_p, Y = self._batch_evaluate(data, break_ties=break_ties)
+
+        else:
+            raise ValueError(
+                "Unrecognized input data structure, use tuple or DataLoader!"
+            )
+
+        return Y_p, Y
+
     def score(
         self,
-        X,
-        Y,
+        data,
         metric="accuracy",
         reduce="mean",
         break_ties="random",
@@ -52,9 +126,10 @@ class MTClassifier(Classifier):
     ):
         """Scores the predictive performance of the Classifier on all tasks
         Args:
-            X: The input for the predict method
-            Y: A t-length list of [n] or [n, 1] np.ndarrays or torch.Tensors of
-                gold labels in {1,...,K_t}
+            data: either a Pytorch DataLoader or tuple supplying (X,Y):
+                X: The input for the predict method
+                Y: A t-length list of [n] or [n, 1] np.ndarrays or
+                   torch.Tensors of gold labels in {1,...,K_t}
             metric: The metric with which to score performance on each task
             reduce: How to reduce the scores of multiple tasks:
                  None : return a t-length list of scores
@@ -64,11 +139,9 @@ class MTClassifier(Classifier):
             scores: A (float) score or a t-length list of such scores if
                 reduce=None
         """
-        self._check(Y, typ=list)
-        Y = [self._to_numpy(Y_t) for Y_t in Y]
 
-        Y_p = self.predict(X, break_ties=break_ties, **kwargs)
-        self._check(Y_p, typ=list)
+        # TODO: TESTS!
+        Y_p, Y = self.evaluate(data, break_ties=break_ties)
 
         task_scores = []
         for t, Y_tp in enumerate(Y_p):

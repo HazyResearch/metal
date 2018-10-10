@@ -92,7 +92,9 @@ class MTEndModel(MTClassifier, EndModel):
         self.heads = self._build_task_heads(head_modules)
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduction="sum")
+        self.criteria = SoftCrossEntropyLoss(
+            reduction="sum", use_cuda=self.config["train_config"]["use_cuda"]
+        )
 
     def _build_input_layer(self, input_modules):
         if input_modules is None:
@@ -293,8 +295,13 @@ class MTEndModel(MTClassifier, EndModel):
 
     def _get_loss_fn(self):
         """Returns the loss function to use in the train routine"""
+        if hasattr(self.config, "use_cuda"):
+            if self.config["use_cuda"]:
+                criteria = self.criteria.cuda()
+        else:
+            criteria = self.criteria
         loss_fn = lambda X, Y: sum(
-            self.criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
+            criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
         )
         return loss_fn
 
