@@ -110,7 +110,7 @@ class MTClassifier(Classifier):
 
         else:
             raise ValueError(
-                "Unrecognized input data structure, use tuple or DataLoader!"
+                "Unrecognized input data structure, use tuple or DataLoader."
             )
 
         return Y_p, Y
