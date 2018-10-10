@@ -184,7 +184,7 @@ class EndModel(Classifier):
             loader = data
         else:
             raise ValueError(
-                "Unrecognized input data structure, use tuple or DataLoader!"
+                "Unrecognized input data structure, use tuple or DataLoader."
             )
         return loader
 
