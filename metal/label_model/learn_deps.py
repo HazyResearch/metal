@@ -31,7 +31,28 @@ class DependencyLearner():
         for i,j in deps_all:
             if i < j:
                 deps.append((i,j))
-        return deps
+
+        #HACK: force singleton separators
+        #(0,1) and (1,2) = (0,2)
+        #(0,1) and (0,2) = (1,2)
+        #(0,3) and (2,3) = (0,2)
+        #(1,3) and (0,1) = (0,3)
+
+        deps_singleton = []
+        for i,j in deps:
+            deps_singleton.append((i,j))
+
+        for i,j in deps:
+            for k,l in deps:
+                if (i == k) and (j < l):
+                    deps_singleton.append((j,l))
+                if (j == l) and (i < k):
+                    deps_singleton.append((i,k))
+                if (j == k) and (i < l):
+                    deps_singleton.append((i,l))
+                if (i == l) and (j < k):
+                    deps_singleton.append((j,k))
+        return deps_singleton
     
     def _rpca(self,thresh=1.0,delta=1e-5):
         lam = 1/np.sqrt(self.m)

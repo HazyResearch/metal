@@ -132,6 +132,48 @@ class DataGenerator(object):
         # # Generate the true labels self.Y and label matrix self.L
         # self._generate_label_matrix()
 
+    #HACK: new data generator
+    # def _generate_params(self, param_ranges, rank_one_model=True):
+    #     """This function generates the parameters of the data generating model
+    #     Note that along with the potential functions of the SPA algorithm, this
+    #     essentially defines our model. This model is the most general form,
+    #     where each marginal conditional probability for each clique C,
+    #     P(\lf_C | Y), is generated randomly.
+    #     """
+    #     theta = defaultdict(float)
+    #     acc_range = param_ranges["theta_range_acc"]
+    #     acc_min, acc_max = min(acc_range), max(acc_range)
+    #     edge_range = param_ranges["theta_range_edge"]
+    #     edge_min, edge_max = min(edge_range), max(edge_range)
+
+    #     # Unary clique factors
+    #     # TODO: Set class balance here!
+
+    #     # Pairwise (edge) factors
+    #     for edge in self.jt.deps_graph.G.edges():
+    #         (i, j) = sorted(edge)
+
+    #         # Pairwise accuracy factors (\lf_i, Y); note Y is index j = self.m
+    #         if j == self.m:
+    #             for vi, vj in product(
+    #                 range(self.k0, self.k + 1), range(1, self.k + 1)
+    #             ):
+    #                 # Use a random positive theta value for correct, negative
+    #                 # for incorrect...
+    #                 acc = (acc_max - acc_min) * random() + acc_min
+    #                 theta[((i, j), (vi, vj))] = acc if vi == vj else -acc
+
+    #         # Pairwise correlation factors (\lf_i, \lf_j)
+    #         else:
+    #             for vi, vj in product(range(self.k0, self.k + 1), repeat=2):
+    #                 theta[((i, j), vi, vj)] = (
+    #                     edge_max - edge_min
+    #                 ) * random() + edge_min
+
+    #         # Populate the other ordering too
+    #         theta[((j, i), (vj, vi))] = theta[((i, j), (vi, vj))]
+    #     return theta
+    
     def _generate_params(self, param_ranges):
         """This function generates the parameters of the data generating model
 
@@ -362,6 +404,16 @@ class DataGenerator(object):
             [self.P_marginal({self.m: i}) for i in range(1, self.k + 1)]
         )
 
+    #HACK: from new data generator
+    def _get_joint_prob(self, vals_i, vals_j):
+        # Note: Need to check that they don't conflict!
+        conflict = False
+        for k in set(vals_i.keys()).intersection(vals_j.keys()):
+            if vals_i[k] != vals_j[k]:
+                conflict = True
+                break
+        return self.P_marginal({**vals_i, **vals_j}) if not conflict else 0.0
+
     def get_sigma_O(self):
         d = self.jt.O_d
         sigma_O = np.zeros((d, d))
@@ -371,9 +423,17 @@ class DataGenerator(object):
             ) * self.P_marginal(vj)
         return sigma_O
 
-    def get_mu(self):
-        d = self.jt.O_d
-        mu = np.zeros(d)
-        for i, vi in self.jt.iter_observed(add_Y=True):
-            mu[i] = self.P_marginal(vi)
+    #HACK: from new data generator
+    def get_mu(self): #new get_mu function
+        mu = np.zeros((self.jt.O_d, self.jt.H_d))
+        for i, vi in self.jt.iter_observed():
+            for j, vj in self.jt.iter_hidden():
+                mu[i, j] = self._get_joint_prob(vi, vj)
         return mu
+    
+    # def get_mu(self):
+    #     d = self.jt.O_d
+    #     mu = np.zeros(d)
+    #     for i, vi in self.jt.iter_observed(): #HACK: removed add_Y since using the new junction tree methods 
+    #         mu[i] = self.P_marginal(vi)
+    #     return mu
