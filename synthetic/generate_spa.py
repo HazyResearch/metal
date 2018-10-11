@@ -1,5 +1,5 @@
 from collections import defaultdict
-from itertools import combinations, product
+from itertools import chain, combinations, product
 
 import networkx as nx
 import numpy as np
