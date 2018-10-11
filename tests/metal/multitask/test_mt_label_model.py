@@ -33,7 +33,7 @@ class MTLabelModelTest(unittest.TestCase):
 
         # Test label prediction accuracy
         if test_acc:
-            acc = label_model.score(data.L, data.Y)
+            acc = label_model.score((data.L, data.Y))
             self.assertGreater(acc, 0.95)
 
     def test_multitask(self):

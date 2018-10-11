@@ -46,8 +46,9 @@ class MTClassifier(Classifier):
         Args:
             loader: Pytorch DataLoader supplying (X,Y):
                 X: The input for the predict method
-                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
-                    in {1,...,k}; can be None for cases with no ground truth
+                Y: A t-length list of [n] or [n, 1] np.ndarrays or
+                torch.Tensors of gold labels in {1,...,K_t}
+
 
         Returns:
             Y_p: an np.ndarray of predictions
@@ -61,20 +62,26 @@ class MTClassifier(Classifier):
             if self.config["train_config"]["use_cuda"]:
                 X_batch = X_batch.cuda()
 
-            self._check(Y_batch, typ=list)
-            Y_batch = [self._to_numpy(Y_t) for Y_t in Y_batch]
+            Y_batch_list = []
+            # Breaking ties for each task if soft labels provided
+            for Y_t in Y_batch:
+                Y_t = self._to_numpy(Y_t)
+                if Y_t.ndim > 1:
+                    Y_t = self._break_ties(Y_t, break_ties)
+                Y_batch_list.append(Y_t)
 
-            Y_p = self.predict(X_batch, break_ties=break_ties, **kwargs)
-            self._check(Y_p, typ=list)
+            # Overwriting with tiebroken Y
+            Y_batch = Y_batch_list
+
+            self._check(Y_batch, typ=list)
+
+            Y_p_batch = self.predict(X_batch, break_ties=break_ties, **kwargs)
+            self._check(Y_p_batch, typ=list)
+            Y_p_batch = self._to_numpy(Y_p_batch)
 
             Y.append(Y_batch)
-            Y_p.append(
-                self._to_numpy(
-                    self.predict(X_batch, break_ties=break_ties, **kwargs)
-                )
-            )
+            Y_p.append(Y_p_batch)
 
-        # TODO: Check dims here (is hstack the right thing?)
         Y = np.hstack(Y)
         Y_p = np.hstack(Y_p)
 
@@ -100,7 +107,19 @@ class MTClassifier(Classifier):
                 X = X.cuda()
 
             self._check(Y, typ=list)
-            Y = [self._to_numpy(Y_t) for Y_t in Y]
+
+            Y_list = []
+
+            # Breaking ties for each task if soft labels provided
+            for Y_t in Y:
+                Y_t = self._to_numpy(Y_t)
+                if Y_t.ndim > 1:
+                    Y_t = self._break_ties(Y_t, break_ties)
+                Y_list.append(Y_t)
+
+            # Overwriting with tiebroken Y
+            Y = Y_list
+            self._check(Y, typ=list)
 
             Y_p = self.predict(X, break_ties=break_ties, **kwargs)
             self._check(Y_p, typ=list)
