@@ -257,7 +257,7 @@ class Classifier(nn.Module):
                     print_confusion_matrix=True,
                 )
 
-    def _create_dataset(self, data):
+    def _create_dataset(self, *data):
         """Converts input data to the appropriate Dataset"""
         return TensorDataset(*data)
 
@@ -346,27 +346,7 @@ class Classifier(nn.Module):
         Returns:
             scores: A (float) score
         """
-        data_loader = self._create_data_loader(data)
-        Y_pred = []
-        Y = []
-
-        # Do batch evaluation by default, getting the predictions and labels
-        for batch_num, data in enumerate(data_loader):
-            Xb, Yb = data
-            Y.append(Yb)
-
-            # Optionally move to GPU
-            if self.config["train_config"]["use_cuda"]:
-                Xb = Xb.cuda()
-
-            # Append predictions and labels from DataLoader
-            Y_pred.append(
-                self._to_numpy(
-                    self.predict(Xb, break_ties=break_ties, **kwargs)
-                )
-            )
-        Y_pred = np.hstack(Y_pred)
-        Y = np.hstack(Y)
+        Y_pred, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
 
         # Evaluate on the specified metrics
         metric_list = metric if isinstance(metric, list) else [metric]
@@ -385,6 +365,43 @@ class Classifier(nn.Module):
             return scores[0]
         else:
             return scores
+
+    def _get_predictions(self, data, break_ties="random", **kwargs):
+        """Computes predictions in batch, given a labeled dataset
+
+        Args:
+            data: a Pytorch DataLoader, Dataset, or tuple with Tensors (X,Y):
+                X: The input for the predict method
+                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
+                    in {1,...,k}
+            break_ties: How to break ties when making predictions
+
+        Returns:
+            Y_pred: A Tensor of predictions
+            Y: A Tensor of labels
+        """
+        data_loader = self._create_data_loader(data)
+        Y_pred = []
+        Y = []
+
+        # Do batch evaluation by default, getting the predictions and labels
+        for batch_num, data in enumerate(data_loader):
+            Xb, Yb = data
+            Y.append(self._to_numpy(Yb))
+
+            # Optionally move to GPU
+            if self.config["train_config"]["use_cuda"]:
+                Xb = Xb.cuda()
+
+            # Append predictions and labels from DataLoader
+            Y_pred.append(
+                self._to_numpy(
+                    self.predict(Xb, break_ties=break_ties, **kwargs)
+                )
+            )
+        Y_pred = np.hstack(Y_pred)
+        Y = np.hstack(Y)
+        return Y_pred, Y
 
     def predict(self, X, break_ties="random", **kwargs):
         """Predicts hard (int) labels for an input X on all tasks

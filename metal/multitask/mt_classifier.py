@@ -1,8 +1,8 @@
 import numpy as np
-from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
 from metal.metrics import metric_score
+from metal.multitask import MultiXYDataset, MultiYDataset
 
 
 class MTClassifier(Classifier):
@@ -40,100 +40,6 @@ class MTClassifier(Classifier):
         self.multitask = True
         self.K = K
 
-    def _batch_evaluate(self, loader, break_ties="random", **kwargs):
-        """Evaluates the model using minibatches
-
-        Args:
-            loader: Pytorch DataLoader supplying (X,Y):
-                X: The input for the predict method
-                Y: A t-length list of [n] or [n, 1] np.ndarrays or
-                torch.Tensors of gold labels in {1,...,K_t}
-
-
-        Returns:
-            Y_p: an np.ndarray of predictions
-            Y: an np.ndarray of ground truth labels
-        """
-        Y = []
-        Y_p = []
-        for batch, data in enumerate(loader):
-            X_batch, Y_batch = data
-
-            if self.config["train_config"]["use_cuda"]:
-                X_batch = X_batch.cuda()
-
-            Y_batch_list = []
-            # Breaking ties for each task if soft labels provided
-            for Y_t in Y_batch:
-                Y_t = self._to_numpy(Y_t)
-                if Y_t.ndim > 1:
-                    Y_t = self._break_ties(Y_t, break_ties)
-                Y_batch_list.append(Y_t)
-
-            # Overwriting with tiebroken Y
-            Y_batch = Y_batch_list
-
-            self._check(Y_batch, typ=list)
-
-            Y_p_batch = self.predict(X_batch, break_ties=break_ties, **kwargs)
-            self._check(Y_p_batch, typ=list)
-            Y_p_batch = self._to_numpy(Y_p_batch)
-
-            Y.append(Y_batch)
-            Y_p.append(Y_p_batch)
-
-        Y = np.hstack(Y)
-        Y_p = np.hstack(Y_p)
-
-        return Y_p, Y
-
-    def evaluate(self, data, break_ties="random", **kwargs):
-        """Evaluates the model
-        Args:
-            data: either a Pytorch DataLoader or tuple supplying (X,Y):
-                X: The input for the predict method
-                Y: A t-length list of [n] or [n, 1] np.ndarrays or
-                torch.Tensors of gold labels in {1,...,K_t}
-
-        Returns:
-            Y_p: an np.ndarray of predictions
-            Y: an np.ndarray of ground truth labels
-        """
-
-        if type(data) is tuple:
-            X, Y = data
-
-            if self.config["train_config"]["use_cuda"]:
-                X = X.cuda()
-
-            self._check(Y, typ=list)
-
-            Y_list = []
-
-            # Breaking ties for each task if soft labels provided
-            for Y_t in Y:
-                Y_t = self._to_numpy(Y_t)
-                if Y_t.ndim > 1:
-                    Y_t = self._break_ties(Y_t, break_ties)
-                Y_list.append(Y_t)
-
-            # Overwriting with tiebroken Y
-            Y = Y_list
-            self._check(Y, typ=list)
-
-            Y_p = self.predict(X, break_ties=break_ties, **kwargs)
-            self._check(Y_p, typ=list)
-
-        elif type(data) is DataLoader:
-            Y_p, Y = self._batch_evaluate(data, break_ties=break_ties)
-
-        else:
-            raise ValueError(
-                "Unrecognized input data structure, use tuple or DataLoader."
-            )
-
-        return Y_p, Y
-
     def score(
         self,
         data,
@@ -158,12 +64,10 @@ class MTClassifier(Classifier):
             scores: A (float) score or a t-length list of such scores if
                 reduce=None
         """
-
-        # TODO: TESTS!
-        Y_p, Y = self.evaluate(data, break_ties=break_ties)
+        Y_pred, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
 
         task_scores = []
-        for t, Y_tp in enumerate(Y_p):
+        for t, Y_tp in enumerate(Y_pred):
             score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0])
             task_scores.append(score)
 
@@ -261,6 +165,13 @@ class MTClassifier(Classifier):
         """
         return self.predict_proba(X, **kwargs)[t]
 
+    def _create_dataset(self, *data):
+        X, Y = data
+        if isinstance(X, list):
+            return MultiXYDataset(X, Y)
+        else:
+            return MultiYDataset(X, Y)
+
     @staticmethod
     def _to_torch(Z, dtype=None):
         """Converts a None, list, np.ndarray, or torch.Tensor to torch.Tensor"""
@@ -268,3 +179,11 @@ class MTClassifier(Classifier):
             return [Classifier._to_torch(z, dtype=dtype) for z in Z]
         else:
             return Classifier._to_torch(Z)
+
+    @staticmethod
+    def _to_numpy(Z):
+        """Converts a None, list, np.ndarray, or torch.Tensor to np.ndarray"""
+        if isinstance(Z, list):
+            return [Classifier._to_numpy(z) for z in Z]
+        else:
+            return Classifier._to_numpy(Z)

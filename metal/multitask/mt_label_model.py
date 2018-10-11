@@ -63,6 +63,9 @@ class MTLabelModel(MTClassifier, LabelModel):
         if issparse(L[0]):
             L = [L_t.todense() for L_t in L]
 
+        # Make sure converted to numpy here
+        L = self._to_numpy(L)
+
         L_ind = np.ones((self.n, self.m * self.k))
         for yi, y in enumerate(self.task_graph.feasible_set()):
             for t in range(self.t):
