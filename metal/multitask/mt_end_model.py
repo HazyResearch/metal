@@ -4,7 +4,6 @@ from collections import defaultdict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
 from metal.end_model import EndModel
 from metal.end_model.em_defaults import em_default_config
@@ -267,7 +266,7 @@ class MTEndModel(MTClassifier, EndModel):
                 head_outputs[t] = head(task_input)
         return head_outputs
 
-    def _preprocess_Y(self, Y):
+    def _preprocess_Y(self, Y, k=None):
         """Convert Y to t-length list of soft labels if necessary"""
         # If not a list, convert to a singleton list
         if not isinstance(Y, list):
@@ -285,13 +284,12 @@ class MTEndModel(MTClassifier, EndModel):
             for t, Y_t in enumerate(Y)
         ]
 
-    def _make_data_loader(self, X, Y, data_loader_config):
+    def _create_dataset(self, *data):
+        X, Y = data
         if isinstance(X, list):
-            dataset = MultiXYDataset(X, self._preprocess_Y(Y))
+            return MultiXYDataset(X, Y)
         else:
-            dataset = MultiYDataset(X, self._preprocess_Y(Y))
-        data_loader = DataLoader(dataset, shuffle=True, **data_loader_config)
-        return data_loader
+            return MultiYDataset(X, Y)
 
     def _get_loss_fn(self):
         """Returns the loss function to use in the train routine"""

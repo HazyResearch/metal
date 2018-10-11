@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data.dataloader import DataLoader
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 from tqdm import tqdm
 
 from metal.analysis import confusion_matrix
@@ -112,21 +112,25 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError
 
-    def _train(self, train_loader, loss_fn, dev_loader=None):
+    def _train(self, train_data, loss_fn, dev_data=None):
         """The internal training routine called by train() after initial setup
 
         Args:
-            train_loader: a torch DataLoader of X (data) and Y (labels) for
-                the train split
+            train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the train split
             loss_fn: the loss function to minimize (maps *data -> loss)
-            dev_loader: a torch DataLoader of X (data) and Y (labels) for
-                the dev split
+            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the dev split
 
-        If dev_loader is not provided, then no checkpointing or
+        If dev_data is not provided, then no checkpointing or
         evaluation on the dev set will occur.
         """
         train_config = self.config["train_config"]
-        evaluate_dev = dev_loader is not None
+        evaluate_dev = dev_data is not None
+
+        # Convert data to DataLoaders
+        train_loader = self._create_data_loader(train_data)
+        dev_loader = self._create_data_loader(dev_data)
 
         # Set the optimizer
         optimizer_config = train_config["optimizer_config"]
@@ -146,24 +150,22 @@ class Classifier(nn.Module):
 
         # Moving model to GPU
         if train_config["use_cuda"]:
-
             if self.config["verbose"]:
                 print("Using GPU...")
-
             self.cuda()
 
         # Train the model
         for epoch in range(train_config["n_epochs"]):
             epoch_loss = 0.0
-            for batch, data in tqdm(
+            for batch_num, data in tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
                 disable=train_config["disable_prog_bar"],
             ):
 
-                # moving data to GPU
+                # Moving data to GPU
                 if train_config["use_cuda"]:
-                    data = [d.cuda() for d in data]
+                    data = data.cuda()
 
                 # Zero the parameter gradients
                 optimizer.zero_grad()
@@ -247,14 +249,40 @@ class Classifier(nn.Module):
 
         if self.config["verbose"]:
             print("Finished Training")
-
             if evaluate_dev:
-                # Currently use default random break ties in evaluate
-                Y_p_dev, Y_dev = self.evaluate(dev_loader)
+                self.score(
+                    dev_loader,
+                    metric=["accuracy"],
+                    verbose=True,
+                    print_confusion_matrix=True,
+                )
 
-                if not self.multitask:
-                    print("Confusion Matrix (Dev)")
-                    confusion_matrix(Y_p_dev, Y_dev, pretty_print=True)
+    def _create_dataset(self, data):
+        """Converts input data to the appropriate Dataset"""
+        return TensorDataset(*data)
+
+    def _create_data_loader(self, data, **kwargs):
+        """Converts input data into a DataLoader"""
+        if data is None:
+            return None
+
+        # Set DataLoader config
+        # NOTE: Not applicable if data is already a DataLoader
+        config = {
+            **self.config["train_config"]["data_loader_config"],
+            **kwargs,
+            "pin_memory": self.config["train_config"]["use_cuda"],
+        }
+
+        # Return data as DataLoader
+        if isinstance(data, (tuple, list)):
+            return DataLoader(self._create_dataset(*data), **config)
+        elif isinstance(data, Dataset):
+            return DataLoader(data, **config)
+        elif isinstance(data, DataLoader):
+            return data
+        else:
+            raise ValueError("Input data type not recognized.")
 
     def _set_optimizer(self, optimizer_config):
         opt = optimizer_config["optimizer"]
@@ -292,93 +320,19 @@ class Classifier(nn.Module):
             )
         return lr_scheduler
 
-    def _batch_evaluate(self, loader, break_ties="random", **kwargs):
-        """Evaluates the model using minibatches
-
-        Args:
-            loader: Pytorch DataLoader supplying (X,Y):
-                X: The input for the predict method
-                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
-                    in {1,...,k}; can be None for cases with no ground truth
-
-        Returns:
-            Y_p: an np.ndarray of predictions
-            Y: an np.ndarray of ground truth labels
-        """
-        Y = []
-        Y_p = []
-        for batch, data in enumerate(loader):
-            X_batch, Y_batch = data
-
-            if self.config["train_config"]["use_cuda"]:
-                X_batch = X_batch.cuda()
-
-            Y_batch = self._to_numpy(Y_batch)
-
-            if Y_batch.ndim > 1:
-                Y_batch = self._break_ties(Y_batch, break_ties)
-
-            Y.append(Y_batch)
-            Y_p.append(
-                self._to_numpy(
-                    self.predict(X_batch, break_ties=break_ties, **kwargs)
-                )
-            )
-
-        Y = np.hstack(Y)
-        Y_p = np.hstack(Y_p)
-
-        return Y_p, Y
-
-    def evaluate(self, data, break_ties="random", **kwargs):
-        """Evaluates the model
-
-        Args:
-            data: either a Pytorch DataLoader or tuple supplying (X,Y):
-                X: The input for the predict method
-                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
-                    in {1,...,k}
-
-        Returns:
-            Y_p: an np.ndarray of predictions
-            Y: an np.ndarray of ground truth labels
-        """
-
-        if type(data) is tuple:
-            X, Y = data
-
-            if self.config["train_config"]["use_cuda"]:
-                X = X.cuda()
-
-            Y = self._to_numpy(Y)
-
-            if Y.ndim > 1:
-                Y = self._break_ties(Y, break_ties)
-
-            Y_p = self.predict(X, break_ties=break_ties, **kwargs)
-
-        elif type(data) is DataLoader:
-            Y_p, Y = self._batch_evaluate(data, break_ties=break_ties)
-
-        else:
-            raise ValueError(
-                "Unrecognized input data structure, use tuple or DataLoader!"
-            )
-
-        return Y_p, Y
-
     def score(
         self,
         data,
         metric=["accuracy"],
         break_ties="random",
         verbose=True,
+        print_confusion_matrix=True,
         **kwargs,
     ):
         """Scores the predictive performance of the Classifier on all tasks
 
         Args:
-            data: either a Pytorch DataLoader or tuple supplying (X,Y):
+            data: a Pytorch DataLoader, Dataset, or tuple with Tensors (X,Y):
                 X: The input for the predict method
                 Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
                     in {1,...,k}
@@ -387,19 +341,45 @@ class Classifier(nn.Module):
             break_ties: How to break ties when making predictions
             verbose: The verbosity for just this score method; it will not
                 update the class config.
+            print_confusion_matrix: Print confusion matrix
 
         Returns:
             scores: A (float) score
         """
+        data_loader = self._create_data_loader(data)
+        Y_pred = []
+        Y = []
 
-        Y_p, Y = self.evaluate(data, break_ties=break_ties)
+        # Do batch evaluation by default, getting the predictions and labels
+        for batch_num, data in enumerate(data_loader):
+            Xb, Yb = data
+            Y.append(Yb)
+
+            # Optionally move to GPU
+            if self.config["train_config"]["use_cuda"]:
+                Xb = Xb.cuda()
+
+            # Append predictions and labels from DataLoader
+            Y_pred.append(
+                self._to_numpy(
+                    self.predict(Xb, break_ties=break_ties, **kwargs)
+                )
+            )
+        Y_pred = np.hstack(Y_pred)
+        Y = np.hstack(Y)
+
+        # Evaluate on the specified metrics
         metric_list = metric if isinstance(metric, list) else [metric]
         scores = []
         for metric in metric_list:
-            score = metric_score(Y, Y_p, metric, ignore_in_gold=[0])
+            score = metric_score(Y, Y_pred, metric, ignore_in_gold=[0])
             scores.append(score)
             if verbose:
                 print(f"{metric.capitalize()}: {score:.3f}")
+
+        # Optionally print confusion matrix
+        if print_confusion_matrix:
+            confusion_matrix(Y_pred, Y, pretty_print=True)
 
         if isinstance(scores, list) and len(scores) == 1:
             return scores[0]
@@ -416,9 +396,8 @@ class Classifier(nn.Module):
         Returns:
             An n-dim np.ndarray of predictions in {1,...k}
         """
-        Y_p = self._to_numpy(self.predict_proba(X, **kwargs))
-        Y_ph = self._break_ties(Y_p, break_ties)
-        return Y_ph.astype(np.int)
+        Y_pred = self._to_numpy(self.predict_proba(X, **kwargs))
+        return self._break_ties(Y_pred, break_ties).astype(np.int)
 
     def predict_proba(self, X, **kwargs):
         """Predicts soft probabilistic labels for an input X on all tasks

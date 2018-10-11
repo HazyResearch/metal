@@ -5,6 +5,8 @@ lm_default_config = {
     "show_plots": True,
     # TRAIN
     "train_config": {
+        # Dataloader
+        "data_loader_config": {"batch_size": 1000, "num_workers": 1},
         # Classifier
         # Class balance (if learn_class_balance=False, fix to class_balance)
         "learn_class_balance": False,
