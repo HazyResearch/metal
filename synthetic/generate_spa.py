@@ -182,7 +182,6 @@ class DataGenerator(object):
             x += self.theta[((i, j), (val_i, val_j))]
         return np.exp(x)
 
-    #HACK: from new data generator
     def P_marginal(self, query, condition_on={}, clique_id=None):
         """Compute P(query|condition_on) using the sum-product algorithm over
         the junction tree `self.jt`"""
