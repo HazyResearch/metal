@@ -1,6 +1,6 @@
 from collections import Counter, defaultdict
 
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sparse
 from pandas import DataFrame, Series
