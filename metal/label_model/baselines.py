@@ -62,7 +62,7 @@ class MajorityLabelVoter(RandomVoter):
         pass
 
     def predict_proba(self, L):
-        L = np.array(L.todense()).astype(int)
+        L = self._to_numpy(L).astype(int)
         n, m = L.shape
         Y_p = np.zeros((n, self.k))
         for i in range(n):

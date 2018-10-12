@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 
+from metal.label_model.baselines import MajorityLabelVoter
 from metal.label_model.label_model import LabelModel
 from synthetic.generate import SingleTaskTreeDepsGenerator
 
@@ -37,6 +38,11 @@ class LabelModelTest(unittest.TestCase):
         if test_acc:
             score = label_model.score((data.L, data.Y))
             self.assertGreater(score, 0.95)
+
+            # Test against baseline
+            mv = MajorityLabelVoter()
+            mv_score = mv.score((data.L, data.Y))
+            self.assertGreater(score, mv_score)
 
     def test_no_deps(self):
         for seed in range(self.n_iters):
