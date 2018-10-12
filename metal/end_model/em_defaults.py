@@ -14,13 +14,13 @@ em_default_config = {
     "layer_out_dims": [10, 2],
     "batchnorm": False,
     "dropout": 0.0,
+    # GPU
+    "use_cuda": False,
     # TRAINING
     "train_config": {
         # Display
         "print_every": 1,  # Print after this many epochs
         "disable_prog_bar": False,  # Disable progress bar each epoch
-        # GPU
-        "use_cuda": False,
         # Dataloader
         "data_loader_config": {"batch_size": 32, "num_workers": 1},
         # Train Loop

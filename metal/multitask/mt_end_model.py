@@ -87,7 +87,7 @@ class MTEndModel(MTClassifier, EndModel):
 
         # Construct loss module
         self.criteria = SoftCrossEntropyLoss(
-            reduction="sum", use_cuda=self.config["train_config"]["use_cuda"]
+            reduction="sum", use_cuda=self.config["use_cuda"]
         )
 
     def _build_input_layer(self, input_modules):

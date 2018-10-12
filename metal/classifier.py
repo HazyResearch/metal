@@ -149,7 +149,7 @@ class Classifier(nn.Module):
             )
 
         # Moving model to GPU
-        if train_config["use_cuda"]:
+        if self.config["use_cuda"]:
             if self.config["verbose"]:
                 print("Using GPU...")
             self.cuda()
@@ -164,7 +164,7 @@ class Classifier(nn.Module):
             ):
 
                 # Moving data to GPU
-                if train_config["use_cuda"]:
+                if self.config["use_cuda"]:
                     data = data.cuda()
 
                 # Zero the parameter gradients
@@ -271,7 +271,7 @@ class Classifier(nn.Module):
         config = {
             **self.config["train_config"]["data_loader_config"],
             **kwargs,
-            "pin_memory": self.config["train_config"]["use_cuda"],
+            "pin_memory": self.config["use_cuda"],
         }
 
         # Return data as DataLoader
@@ -390,7 +390,7 @@ class Classifier(nn.Module):
             Y.append(self._to_numpy(Yb))
 
             # Optionally move to GPU
-            if self.config["train_config"]["use_cuda"]:
+            if self.config["use_cuda"]:
                 Xb = Xb.cuda()
 
             # Append predictions and labels from DataLoader
