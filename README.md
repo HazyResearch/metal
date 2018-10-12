@@ -105,3 +105,9 @@ This will install a few additional tools that help to ensure that any commits or
 * [flake8](http://flake8.pycqa.org/en/latest/): PEP8 linting
 
 After running `make dev` to install the necessary tools, you can run `make check` to see if any changes you've made violate the repo standards and `make fix` to fix any related to isort/black. Fixes for flake8 violations will need to be made manually.
+
+### GPU Usage
+MeTaL supports GPU usage, but does not include this in automatically-run tests; to run these tests, first install the requirements in `tests/gpu/requirements.txt`, then run:
+```
+nosetests tests/gpu
+```
