@@ -1,17 +1,11 @@
 from collections import Counter, defaultdict
 
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sparse
 from pandas import DataFrame, Series
 
 from metal.utils import arraylike_to_numpy
-
-# Avoids a potential error when using matplotlib in virtual envrionments
-# https://stackoverflow.com/questions/34977388/matplotlib-runtimeerror-python-
-# is-not-installed-as-a-framework
-matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt  # noqa: E402 # isort:skip
 
 
 ############################################################

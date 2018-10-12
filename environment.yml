@@ -5,7 +5,7 @@ channels:
 dependencies: # New core deps should also be added to setup.py for pip
   - python=3.6
   - jupyter
-  - matplotlib
+  - matplotlib=3
   - nb_conda_kernels
   - networkx=2
   - nose
