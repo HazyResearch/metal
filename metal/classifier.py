@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from scipy.sparse import issparse
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from tqdm import tqdm
 
@@ -258,6 +259,8 @@ class Classifier(nn.Module):
 
     def _create_dataset(self, *data):
         """Converts input data to the appropriate Dataset"""
+        # Make sure data is a tuple of dense tensors
+        data = [self._to_torch(x, dtype=torch.FloatTensor) for x in data]
         return TensorDataset(*data)
 
     def _create_data_loader(self, data, **kwargs):
@@ -463,9 +466,12 @@ class Classifier(nn.Module):
 
     @staticmethod
     def _to_numpy(Z):
-        """Converts a None, list, np.ndarray, or torch.Tensor to np.ndarray"""
+        """Converts a None, list, np.ndarray, or torch.Tensor to np.ndarray;
+        also handles converting sparse input to dense."""
         if Z is None:
             return Z
+        elif issparse(Z):
+            return Z.toarray()
         elif isinstance(Z, np.ndarray):
             return Z
         elif isinstance(Z, list):
@@ -481,9 +487,12 @@ class Classifier(nn.Module):
 
     @staticmethod
     def _to_torch(Z, dtype=None):
-        """Converts a None, list, np.ndarray, or torch.Tensor to torch.Tensor"""
+        """Converts a None, list, np.ndarray, or torch.Tensor to torch.Tensor;
+        also handles converting sparse input to dense."""
         if Z is None:
             return None
+        elif issparse(Z):
+            Z = torch.from_numpy(Z.toarray())
         elif isinstance(Z, torch.Tensor):
             pass
         elif isinstance(Z, list):
