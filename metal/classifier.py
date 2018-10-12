@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
-from metal.utils import Checkpointer, recursive_merge_dicts
+from metal.utils import Checkpointer, mt_to_cuda, recursive_merge_dicts
 
 
 class Classifier(nn.Module):
@@ -178,11 +178,12 @@ class Classifier(nn.Module):
 
                 # Moving data to GPU
                 if self.config["use_cuda"]:
-                    data = data.cuda()
+                    data = mt_to_cuda(data)
 
                 # Zero the parameter gradients
                 optimizer.zero_grad()
 
+                # import pdb; pdb.set_trace()
                 # Forward pass to calculate outputs
                 loss = loss_fn(*data)
                 if torch.isnan(loss):

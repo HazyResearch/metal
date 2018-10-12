@@ -365,3 +365,13 @@ def split_data(
             return outputs[0]
         else:
             return outputs
+
+
+def mt_to_cuda(data):
+    """Utility to push data from multitask data loaders to GPU"""
+    data[0] = data[0].cuda()
+    if isinstance(data[1], list):
+        data[1] = [d.cuda() for d in data[1]]
+    else:
+        data[1] = data[1].cuda()
+    return data
