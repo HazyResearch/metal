@@ -47,6 +47,7 @@ class MTClassifier(Classifier):
         reduce="mean",
         break_ties="random",
         verbose=True,
+        print_confusion_matrix=False,
         **kwargs,
     ):
         """Scores the predictive performance of the Classifier on all tasks
@@ -65,6 +66,12 @@ class MTClassifier(Classifier):
                 reduce=None
         """
         Y_pred, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
+
+        # TODO: Handle multiple metrics...
+        metric_list = metric if isinstance(metric, list) else [metric]
+        if len(metric_list) > 1:
+            raise NotImplementedError("Multiple metrics for multi-task.")
+        metric = metric_list[0]
 
         task_scores = []
         for t, Y_tp in enumerate(Y_pred):
