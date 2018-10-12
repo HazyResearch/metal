@@ -37,6 +37,7 @@ class LabelModel(Classifier):
         Y_dev=None,
         junction_tree=None,
         deps=[],
+        deps_learner=None,
         class_balance=None,
         abstains=True,
         **kwargs,
@@ -62,7 +63,8 @@ class LabelModel(Classifier):
                 constructed based on any deps provided.
             deps: (list of tuples) known dependencies between supervision
                 sources. If not provided, sources are assumed to be independent.
-                TODO: add automatic dependency-learning code
+            deps_learner: (object) A DependencyLearner class to use to learn dependencies 
+                automatically. 
             class_balance: (np.array) each class's percentage of the population
             abstains: (bool) Whether to include a 0 abstain value which the
                 sources can output, but that is not in Y's range
@@ -88,6 +90,7 @@ class LabelModel(Classifier):
             Y_dev=Y_dev,
             junction_tree=junction_tree,
             deps=deps,
+            deps_learner=deps_learner,
             class_balance=class_balance,
             abstains=abstains,
             **kwargs,
@@ -141,6 +144,7 @@ class LabelModel(Classifier):
         Y_dev=None,
         junction_tree=None,
         deps=[],
+        deps_learner=None,
         class_balance=None,
         abstains=True,
         **kwargs,
@@ -161,37 +165,56 @@ class LabelModel(Classifier):
             self._check_L(L_train)
             self._set_constants(L_train)  # Sets self.m, self.t
             self.k0 = 0 if abstains else 1
-        elif junction_tree is None or sigma_O is None or E_O is None:
+        elif (junction_tree is None and deps_learner is None) or sigma_O is None or E_O is None:
             raise ValueError(
-                "Must input L_train or (sigma_O, E_O, junction_tree)."
+                "Must input L_train or (sigma_O, E_O, junction_tree/deps_learner)."
             )
 
-        # We are either given an explicit JunctionTree object capturing the
-        # dependency structure of the sources---*in which case the JunctionTree
-        # params override any set already*--or a list of dependency edges
-        self.jt = None
-        if junction_tree is not None:
-            self.jt = junction_tree
-            self.m, self.t, self.k0 = self.jt.m, self.jt.t, self.jt.k0
-        else:
-            self.jt = JunctionTree(
-                self.m, self.k, t=self.t, abstains=abstains, edges=deps
-            )
 
         # Form basic data matrices
         if sigma_O is not None:
             self.E_O = E_O.reshape(-1, 1)
             self.sigma_O = torch.from_numpy(sigma_O).float()
             self.O = torch.from_numpy(sigma_O + self.E_O @ self.E_O.T).float()
+            #TODO: assumes no higher order cliques
+            self.sigma_O_small = self.sigma_O
         else:
             self.O = self.get_O(L_train)
             self.E_O = np.diag(self.O.numpy()).reshape(-1, 1)
             self.sigma_O = self.get_sigma_O(L_train)
+            self.sigma_O_small = self.get_sigma_O_small(L_train)
 
         # Form Sigma_O^{-1}
         self.sigma_O_inv = torch.from_numpy(
             np.linalg.inv(self.sigma_O.numpy())
         ).float()
+
+
+        #We are either given a list of dependencies or an explicit
+        #DependencyLearner object. In the latter case, we learn the
+        #dependencies automatically and form a JunctionTree object
+        self.jt = None
+        if deps_learner is not None:
+            print ("Learning Deps...")
+            deps = deps_learner.find_edges(self.sigma_O_small, thresh=0.18)
+            for i in range(np.shape(self.sigma_O)[0]):
+                deps.append((i,np.shape(self.sigma_O)[0]))
+            
+            self.jt = JunctionTree(
+                m=np.shape(self.sigma_O)[0], k=self.k, abstains=False, edges=deps, higher_order_cliques=False
+            )
+
+        # We are either given an explicit JunctionTree object capturing the
+        # dependency structure of the sources---*in which case the JunctionTree
+        # params override any set already*--or a list of dependency edges
+        if junction_tree is not None:
+            self.jt = junction_tree
+            #self.m, self.t, self.k0 = self.jt.m, self.jt.t, self.jt.k0
+        elif self.jt is None:
+            self.jt = JunctionTree(
+                self.m, self.k, t=self.t, abstains=abstains, edges=deps
+            )
+        self.m, self.t, self.k0 = self.jt.m, self.jt.t, self.jt.k0
 
         # Initialize parameters
         self._init_params()
@@ -230,9 +253,21 @@ class LabelModel(Classifier):
             raise ValueError("L must have values in {0,1,...,k}.")
 
     def _set_constants(self, L):
-        self.m = L.shape[1]
+        self.m = Ls.shape[1]
         self.t = 1
 
+    def get_sigma_O_small(self,L):
+        """Form the overlaps matrix, which is just all the different observed
+        combinations of values of pairs of sources minus the mean labels of sources.
+
+        Note that we only include the k non-abstain values of each source,
+        otherwise the model not minimal --> leads to singular matrix
+        """
+        N = np.shape(L)[1]
+        mu_L = np.mean(L,axis=0)
+        sigma_O_from_L = (np.dot(L.T,L))/(N-1) - np.outer(mu_L,mu_L)
+        return sigma_O_from_L
+    
     def get_sigma_O(self, L):
         """Form the overlaps matrix, which is just all the different observed
         combinations of values of pairs of sources

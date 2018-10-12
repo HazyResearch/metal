@@ -79,9 +79,11 @@ class RPCADependencyLearner(DependencyLearner):
             https://arxiv.org/pdf/1001.2363.pdf
         """
 
-        lam=1/np.sqrt(float(np.shape(sigma_O)[0]))
-        J_hat, _, _ = self.run_optimization(np.linalg.inv(sigma_O), delta=1e-5,lam=lam)
+        m = np.shape(sigma_O)[0] #number of sources
+        J_hat, _, _ = self.run_optimization(np.linalg.inv(sigma_O), delta=1e-5,lam=1/np.sqrt(float(m)))
 
+        #get dependencies and force singleton separators
+        #TODO: change singleton separator code with new lm.train() 
         deps_all = get_deps_from_inverse_sig(J_hat, thresh) 
         deps = self._force_singleton(deps_all)
 
