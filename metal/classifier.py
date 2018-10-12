@@ -41,9 +41,14 @@ class Classifier(nn.Module):
         self.multitask = False
         self.k = k
 
+        # Set random seed
         if self.config["seed"] is None:
             self.config["seed"] = np.random.randint(1e6)
         self._set_seed(self.config["seed"])
+
+        # Confirm that cuda is available if config is using CUDA
+        if self.config["use_cuda"] and not torch.cuda.is_available():
+            raise ValueError("use_cuda=True but CUDA not available.")
 
     def _set_seed(self, seed):
         self.seed = seed
