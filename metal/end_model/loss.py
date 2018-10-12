@@ -26,9 +26,10 @@ class SoftCrossEntropyLoss(nn.Module):
 
     def forward(self, input, target):
         n, k = input.shape
-        cum_losses = torch.zeros(n)
+        # Note that t.new_zeros, t.new_full put tensor on same device as t
+        cum_losses = input.new_zeros(n)
         for y in range(k):
-            cls_idx = torch.full((n,), y, dtype=torch.long)
+            cls_idx = input.new_full((n,), y, dtype=torch.long)
             y_loss = F.cross_entropy(input, cls_idx, reduction="none")
             if self.weight is not None:
                 y_loss = y_loss * self.weight[y]

@@ -2,6 +2,7 @@ import numpy as np
 
 from metal.classifier import Classifier
 from metal.metrics import metric_score
+from metal.multitask import MultiXYDataset, MultiYDataset
 
 
 class MTClassifier(Classifier):
@@ -41,19 +42,20 @@ class MTClassifier(Classifier):
 
     def score(
         self,
-        X,
-        Y,
+        data,
         metric="accuracy",
         reduce="mean",
         break_ties="random",
         verbose=True,
+        print_confusion_matrix=False,
         **kwargs,
     ):
         """Scores the predictive performance of the Classifier on all tasks
         Args:
-            X: The input for the predict method
-            Y: A t-length list of [n] or [n, 1] np.ndarrays or torch.Tensors of
-                gold labels in {1,...,K_t}
+            data: either a Pytorch Dataset, DataLoader or tuple supplying (X,Y):
+                X: The input for the predict method
+                Y: A t-length list of [n] or [n, 1] np.ndarrays or
+                   torch.Tensors of gold labels in {1,...,K_t}
             metric: The metric with which to score performance on each task
             reduce: How to reduce the scores of multiple tasks:
                  None : return a t-length list of scores
@@ -63,11 +65,13 @@ class MTClassifier(Classifier):
             scores: A (float) score or a t-length list of such scores if
                 reduce=None
         """
-        self._check(Y, typ=list)
-        Y = [self._to_numpy(Y_t) for Y_t in Y]
+        Y_p, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
 
-        Y_p = self.predict(X, break_ties=break_ties, **kwargs)
-        self._check(Y_p, typ=list)
+        # TODO: Handle multiple metrics...
+        metric_list = metric if isinstance(metric, list) else [metric]
+        if len(metric_list) > 1:
+            raise NotImplementedError("Multiple metrics for multi-task.")
+        metric = metric_list[0]
 
         task_scores = []
         for t, Y_tp in enumerate(Y_p):
@@ -168,6 +172,13 @@ class MTClassifier(Classifier):
         """
         return self.predict_proba(X, **kwargs)[t]
 
+    def _create_dataset(self, *data):
+        X, Y = data
+        if isinstance(X, list):
+            return MultiXYDataset(X, Y)
+        else:
+            return MultiYDataset(X, Y)
+
     @staticmethod
     def _to_torch(Z, dtype=None):
         """Converts a None, list, np.ndarray, or torch.Tensor to torch.Tensor"""
@@ -175,3 +186,11 @@ class MTClassifier(Classifier):
             return [Classifier._to_torch(z, dtype=dtype) for z in Z]
         else:
             return Classifier._to_torch(Z)
+
+    @staticmethod
+    def _to_numpy(Z):
+        """Converts a None, list, np.ndarray, or torch.Tensor to np.ndarray"""
+        if isinstance(Z, list):
+            return [Classifier._to_numpy(z) for z in Z]
+        else:
+            return Classifier._to_numpy(Z)

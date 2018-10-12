@@ -26,7 +26,7 @@ Snorkel MeTaL uses a new matrix approximation approach to learn the accuracies o
 This makes it significantly more scalable than our previous approaches.
 
 ## References
-* **Best Reference: [_Training Complex Models with Multi-Task Weak Supervision_](https://ajratner.github.io/assets/papers/mts-draft.pdf) [Technical Report]**
+* **Best Reference: [_Training Complex Models with Multi-Task Weak Supervision_](https://arxiv.org/abs/1810.02840) [Technical Report]**
 * [Snorkel MeTaL: Weak Supervision for Multi-Task Learning](https://ajratner.github.io/assets/papers/deem-metal-prototype.pdf) [SIGMOD DEEM 2018]
 * _[Snorkel: Rapid Training Data Creation with Weak Supervision](https://arxiv.org/abs/1711.10160) [VLDB 2018]_
 * _[Data Programming: Creating Large Training Sets, Quickly](https://arxiv.org/abs/1605.07723) [NIPS 2016]_
@@ -109,3 +109,9 @@ This will install a few additional tools that help to ensure that any commits or
 * [flake8](http://flake8.pycqa.org/en/latest/): PEP8 linting
 
 After running `make dev` to install the necessary tools, you can run `make check` to see if any changes you've made violate the repo standards and `make fix` to fix any related to isort/black. Fixes for flake8 violations will need to be made manually.
+
+### GPU Usage
+MeTaL supports GPU usage, but does not include this in automatically-run tests; to run these tests, first install the requirements in `tests/gpu/requirements.txt`, then run:
+```
+nosetests tests/gpu
+```

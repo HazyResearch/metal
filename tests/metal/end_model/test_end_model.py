@@ -33,8 +33,8 @@ class EndModelTest(unittest.TestCase):
     def test_logreg(self):
         em = LogisticRegression(seed=1, input_dim=2, verbose=False)
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
-        score = em.score(Xs[2], Ys[2], verbose=False)
+        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_softmax(self):
@@ -54,8 +54,8 @@ class EndModelTest(unittest.TestCase):
                 + 1
             )
             Ys.append(Y)
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], lr=0.1, n_epochs=10)
-        score = em.score(Xs[2], Ys[2], verbose=False)
+        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), lr=0.1, n_epochs=10)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_sparselogreg(self):
@@ -74,9 +74,9 @@ class EndModelTest(unittest.TestCase):
         em = SparseLogisticRegression(
             seed=1, input_dim=F, padding_idx=0, verbose=False
         )
-        em.train(X, Y, n_epochs=5, optimizer="sgd", lr=0.0005)
+        em.train((X, Y), n_epochs=5, optimizer="sgd", lr=0.0005)
         self.assertEqual(float(em.network[-1].W.weight.data[0, :].sum()), 0.0)
-        score = em.score(X, Y, verbose=False)
+        score = em.score((X, Y), verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_singletask(self):
@@ -89,8 +89,8 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
-        score = em.score(Xs[2], Ys[2], verbose=False)
+        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_singletask_extras(self):
@@ -103,8 +103,8 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
-        score = em.score(Xs[2], Ys[2], verbose=False)
+        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_custom_modules(self):
@@ -122,15 +122,13 @@ class EndModelTest(unittest.TestCase):
         )
         Xs, Ys = self.single_problem
         em.train(
-            Xs[0],
-            Ys[0],
-            Xs[1],
-            Ys[1],
+            (Xs[0], Ys[0]),
+            dev_data=(Xs[1], Ys[1]),
             n_epochs=5,
             verbose=False,
             show_plots=False,
         )
-        score = em.score(Xs[2], Ys[2], verbose=False)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
 

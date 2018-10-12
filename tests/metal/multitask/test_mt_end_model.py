@@ -48,14 +48,12 @@ class MTEndModelTest(unittest.TestCase):
         top_layer = len(em.config["layer_out_dims"]) - 1
         self.assertEqual(len(em.task_map[top_layer]), em.t)
         em.train(
-            self.Xs[0],
-            self.Ys[0],
-            self.Xs[1],
-            self.Ys[1],
+            (self.Xs[0], self.Ys[0]),
+            dev_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
         )
-        score = em.score(self.Xs[2], self.Ys[2], reduce="mean", verbose=False)
+        score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_multitask_custom_attachments(self):
@@ -74,14 +72,12 @@ class MTEndModelTest(unittest.TestCase):
         self.assertEqual(em.task_map[1][0], 0)
         self.assertEqual(em.task_map[2][0], 1)
         em.train(
-            self.Xs[0],
-            self.Ys[0],
-            self.Xs[1],
-            self.Ys[1],
+            (self.Xs[0], self.Ys[0]),
+            dev_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
         )
-        score = em.score(self.Xs[2], self.Ys[2], reduce="mean", verbose=False)
+        score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_multitask_two_modules(self):
@@ -102,9 +98,12 @@ class MTEndModelTest(unittest.TestCase):
         for i, X in enumerate(self.Xs):
             Xs.append([X[:, 0], X[:, 1]])
         em.train(
-            Xs[0], self.Ys[0], Xs[1], self.Ys[1], verbose=False, n_epochs=10
+            (Xs[0], self.Ys[0]),
+            dev_data=(Xs[1], self.Ys[1]),
+            verbose=False,
+            n_epochs=10,
         )
-        score = em.score(Xs[2], self.Ys[2], reduce="mean", verbose=False)
+        score = em.score((Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_multitask_custom_heads(self):
@@ -122,14 +121,12 @@ class MTEndModelTest(unittest.TestCase):
             task_head_layers=[1, 2],
         )
         em.train(
-            self.Xs[0],
-            self.Ys[0],
-            self.Xs[1],
-            self.Ys[1],
+            (self.Xs[0], self.Ys[0]),
+            dev_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
         )
-        score = em.score(self.Xs[2], self.Ys[2], reduce="mean", verbose=False)
+        score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
 
 

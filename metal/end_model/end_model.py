@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
 from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_default_config
@@ -13,7 +12,6 @@ from metal.utils import MetalDataset, hard_to_soft, recursive_merge_dicts
 class EndModel(Classifier):
     """A dynamically constructed discriminative classifier
 
-    Args:
         layer_out_dims: a list of integers corresponding to the output sizes
             of the layers of your network. The first element is the
             dimensionality of the input layer, the last element is the
@@ -158,25 +156,32 @@ class EndModel(Classifier):
             Y = hard_to_soft(Y.long(), k=k)
         return Y
 
-    def _make_data_loader(self, X, Y, data_loader_config):
-        dataset = MetalDataset(X, self._preprocess_Y(Y, self.k))
-        data_loader = DataLoader(dataset, shuffle=True, **data_loader_config)
-        return data_loader
+    def _create_dataset(self, *data):
+        return MetalDataset(*data)
 
     def _get_loss_fn(self):
-        loss_fn = lambda X, Y: self.criteria(self.forward(X), Y)
+        if self.config["use_cuda"]:
+            criteria = self.criteria.cuda()
+        else:
+            criteria = self.criteria
+        loss_fn = lambda X, Y: criteria(self.forward(X), Y)
         return loss_fn
 
-    def train(self, X_train, Y_train, X_dev=None, Y_dev=None, **kwargs):
+    def train(self, train_data, dev_data=None, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
-        train_config = self.config["train_config"]
 
-        Y_train = self._to_torch(Y_train, dtype=torch.FloatTensor)
-        Y_dev = self._to_torch(Y_dev)
+        # If train_data is provided as a tuple (X, Y), we can make sure Y is in
+        # the correct format
+        # NOTE: Better handling for if train_data is Dataset or DataLoader...?
+        if isinstance(train_data, (tuple, list)):
+            X, Y = train_data
+            Y = self._preprocess_Y(
+                self._to_torch(Y, dtype=torch.FloatTensor), self.k
+            )
+            train_data = (X, Y)
 
-        # Make data loaders
-        loader_config = train_config["data_loader_config"]
-        train_loader = self._make_data_loader(X_train, Y_train, loader_config)
+        # Convert input data to data loaders
+        train_loader = self._create_data_loader(train_data, shuffle=True)
 
         # Initialize the model
         self.reset()
@@ -185,7 +190,7 @@ class EndModel(Classifier):
         loss_fn = self._get_loss_fn()
 
         # Execute training procedure
-        self._train(train_loader, loss_fn, X_dev=X_dev, Y_dev=Y_dev)
+        self._train(train_loader, loss_fn, dev_data=dev_data)
 
     def predict_proba(self, X):
         """Returns a [n, k] tensor of soft (float) predictions."""

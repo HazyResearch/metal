@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.sparse import issparse
 from torch.utils.data import Dataset
 
 
@@ -36,12 +37,20 @@ class MultiXYDataset(Dataset):
     """
 
     def __init__(self, X, Y):
+
+        # Need to convert sparse matrices to dense here
+        # TODO: Need to handle sparse matrices better overall; maybe not use
+        # Datasets for them...?
+        if issparse(X[0]):
+            X = [Xt.toarray() for Xt in X]
+
+        # Check and set data objects
         self.X = X
         self.Y = Y
         self.t = len(Y)
-        n = len(X[0])
-        assert np.all([len(Y_t) == n for Y_t in Y])
-        assert np.all([len(X_t) == n for X_t in X])
+        self.n = len(X[0])
+        assert np.all([len(X_t) == self.n for X_t in X])
+        assert np.all([len(Y_t) == self.n for Y_t in Y])
 
     def __getitem__(self, index):
         return tuple(
@@ -52,4 +61,4 @@ class MultiXYDataset(Dataset):
         )
 
     def __len__(self):
-        return len(self.X[0])
+        return self.n

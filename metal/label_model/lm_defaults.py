@@ -3,8 +3,12 @@ lm_default_config = {
     "seed": None,
     "verbose": True,
     "show_plots": True,
+    # GPU
+    "use_cuda": False,
     # TRAIN
     "train_config": {
+        # Dataloader
+        "data_loader_config": {"batch_size": 1000, "num_workers": 1},
         # Classifier
         # Class balance (if learn_class_balance=False, fix to class_balance)
         "learn_class_balance": False,
@@ -26,5 +30,6 @@ lm_default_config = {
         # Train loop
         "n_epochs": 100,
         "print_every": 10,
+        "disable_prog_bar": True,  # Disable progress bar each epoch
     },
 }

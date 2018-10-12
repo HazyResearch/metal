@@ -4,18 +4,12 @@ from collections import defaultdict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
 from metal.end_model import EndModel
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.modules import IdentityModule
-from metal.multitask import (
-    MTClassifier,
-    MultiXYDataset,
-    MultiYDataset,
-    TaskGraph,
-)
+from metal.multitask import MTClassifier, TaskGraph
 from metal.multitask.mt_em_defaults import mt_em_default_config
 from metal.utils import recursive_merge_dicts
 
@@ -265,7 +259,7 @@ class MTEndModel(MTClassifier, EndModel):
                 head_outputs[t] = head(task_input)
         return head_outputs
 
-    def _preprocess_Y(self, Y):
+    def _preprocess_Y(self, Y, k=None):
         """Convert Y to t-length list of soft labels if necessary"""
         # If not a list, convert to a singleton list
         if not isinstance(Y, list):
@@ -283,18 +277,14 @@ class MTEndModel(MTClassifier, EndModel):
             for t, Y_t in enumerate(Y)
         ]
 
-    def _make_data_loader(self, X, Y, data_loader_config):
-        if isinstance(X, list):
-            dataset = MultiXYDataset(X, self._preprocess_Y(Y))
-        else:
-            dataset = MultiYDataset(X, self._preprocess_Y(Y))
-        data_loader = DataLoader(dataset, shuffle=True, **data_loader_config)
-        return data_loader
-
     def _get_loss_fn(self):
         """Returns the loss function to use in the train routine"""
+        if self.config["use_cuda"]:
+            criteria = self.criteria.cuda()
+        else:
+            criteria = self.criteria
         loss_fn = lambda X, Y: sum(
-            self.criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
+            criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
         )
         return loss_fn
 
