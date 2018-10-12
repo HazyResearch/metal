@@ -1,4 +1,4 @@
-# Snorkel MeTaLs
+# Snorkel MeTaL
 
 <img src="assets/logo_01.png" width="150"/>
 
