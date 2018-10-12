@@ -52,7 +52,7 @@ class MTClassifier(Classifier):
     ):
         """Scores the predictive performance of the Classifier on all tasks
         Args:
-            data: either a Pytorch DataLoader or tuple supplying (X,Y):
+            data: either a Pytorch Dataset, DataLoader or tuple supplying (X,Y):
                 X: The input for the predict method
                 Y: A t-length list of [n] or [n, 1] np.ndarrays or
                    torch.Tensors of gold labels in {1,...,K_t}
