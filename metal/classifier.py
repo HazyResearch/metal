@@ -282,7 +282,8 @@ class Classifier(nn.Module):
         else:
             raise ValueError("Input data type not recognized.")
 
-    def _set_optimizer(self, optimizer_config):
+    def _set_optimizer(self, train_config):
+        optimizer_config = train_config["optimizer_config"]
         opt = optimizer_config["optimizer"]
 
         # We set L2 here if the class does not implement its own L2 reg
