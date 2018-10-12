@@ -170,6 +170,22 @@ class LabelModel(Classifier):
                 "Must input L_train or (sigma_O, E_O, junction_tree/deps_learner)."
             )
 
+        # We are either given an explicit JunctionTree object capturing the
+        # dependency structure of the sources---*in which case the JunctionTree
+        # params override any set already*--or a list of dependency edges
+        self.jt = None
+        if junction_tree is not None:
+            self.jt = junction_tree
+            self.m, self.t, self.k0 = self.jt.m, self.jt.t, self.jt.k0
+        elif self.jt is None:
+            if L_train is None:
+                self.jt = JunctionTree(
+                    m=np.shape(sigma_O)[0], k=self.k, abstains=False, edges=deps, higher_order_cliques=False)
+            else:
+                self.jt = JunctionTree(
+                    m=self.m, k=self.k, abstains=False, edges=deps, higher_order_cliques=False)
+        self.m, self.t, self.k0 = self.jt.m, self.jt.t, self.jt.k0
+
 
         # Form basic data matrices
         if sigma_O is not None:
@@ -189,32 +205,18 @@ class LabelModel(Classifier):
             np.linalg.inv(self.sigma_O.numpy())
         ).float()
 
-
         #We are either given a list of dependencies or an explicit
         #DependencyLearner object. In the latter case, we learn the
         #dependencies automatically and form a JunctionTree object
-        self.jt = None
         if deps_learner is not None:
             print ("Learning Deps...")
-            deps = deps_learner.find_edges(self.sigma_O_small, thresh=0.18)
+            deps = deps_learner.find_edges(self.sigma_O_small, thresh=0.01)
             for i in range(np.shape(self.sigma_O)[0]):
                 deps.append((i,np.shape(self.sigma_O)[0]))
             
             self.jt = JunctionTree(
                 m=np.shape(self.sigma_O)[0], k=self.k, abstains=False, edges=deps, higher_order_cliques=False
             )
-
-        # We are either given an explicit JunctionTree object capturing the
-        # dependency structure of the sources---*in which case the JunctionTree
-        # params override any set already*--or a list of dependency edges
-        if junction_tree is not None:
-            self.jt = junction_tree
-            #self.m, self.t, self.k0 = self.jt.m, self.jt.t, self.jt.k0
-        elif self.jt is None:
-            self.jt = JunctionTree(
-                self.m, self.k, t=self.t, abstains=abstains, edges=deps
-            )
-        self.m, self.t, self.k0 = self.jt.m, self.jt.t, self.jt.k0
 
         # Initialize parameters
         self._init_params()
@@ -253,7 +255,7 @@ class LabelModel(Classifier):
             raise ValueError("L must have values in {0,1,...,k}.")
 
     def _set_constants(self, L):
-        self.m = Ls.shape[1]
+        self.m = L.shape[1]
         self.t = 1
 
     def get_sigma_O_small(self,L):
