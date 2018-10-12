@@ -39,7 +39,7 @@ class MetricsTest(unittest.TestCase):
 
     def test_array_conversion(self):
         gold = torch.Tensor([1, 1, 1, 2, 2])
-        pred = np.array([1., 1., 1., 2., 1.])
+        pred = np.array([1.0, 1.0, 1.0, 2.0, 1.0])
         score = accuracy_score(gold, pred)
         self.assertAlmostEqual(score, 0.8)
 

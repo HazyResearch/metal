@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from metal.classifier import Classifier

@@ -16,7 +16,7 @@ class SparseLinearModule(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv = 1. / math.sqrt(self.vocab_size)
+        stdv = 1.0 / math.sqrt(self.vocab_size)
         self.W.weight.data.uniform_(-stdv, stdv)
         self.b.data.uniform_(-stdv, stdv)
         if self.padding_idx is not None:
