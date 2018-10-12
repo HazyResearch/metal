@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
-from metal.utils import Checkpointer, mt_to_cuda, recursive_merge_dicts
+from metal.utils import Checkpointer, place_on_gpu, recursive_merge_dicts
 
 
 class Classifier(nn.Module):
@@ -179,7 +179,7 @@ class Classifier(nn.Module):
 
                 # Moving data to GPU
                 if self.config["use_cuda"]:
-                    data = mt_to_cuda(data)
+                    data = place_on_gpu(data)
 
                 # Zero the parameter gradients
                 optimizer.zero_grad()
@@ -404,7 +404,7 @@ class Classifier(nn.Module):
 
             # Optionally move to GPU
             if self.config["use_cuda"]:
-                Xb = Xb.cuda()
+                Xb = place_on_gpu(Xb)
 
             # Append predictions and labels from DataLoader
             Y_p.append(

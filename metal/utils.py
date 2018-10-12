@@ -367,11 +367,14 @@ def split_data(
             return outputs
 
 
-def mt_to_cuda(data):
-    """Utility to push data from multitask data loaders to GPU"""
-    data[0] = data[0].cuda()
-    if isinstance(data[1], list):
-        data[1] = [d.cuda() for d in data[1]]
+def place_on_gpu(data):
+    """Utility to place data on GPU, where data could be a torch.Tensor, a tuple
+    or list of Tensors, or a tuple or list of tuple or lists of Tensors"""
+    if isinstance(data, (list, tuple)):
+        for i in len(data):
+            data[i] = place_on_gpu(data[i])
+        return data
+    elif isinstance(data, torch.Tensor):
+        return data.cuda()
     else:
-        data[1] = data[1].cuda()
-    return data
+        return ValueError(f"Data type {type(data)} not recognized.")
