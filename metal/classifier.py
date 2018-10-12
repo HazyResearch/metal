@@ -215,7 +215,10 @@ class Classifier(nn.Module):
             if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
                 val_metric = train_config["validation_metric"]
                 dev_score = self.score(
-                    dev_loader, metric=val_metric, verbose=False
+                    dev_loader,
+                    metric=val_metric,
+                    verbose=False,
+                    print_confusion_matrix=False,
                 )
 
                 if train_config["checkpoint"]:
