@@ -245,7 +245,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
     if verbose is None:
         verbose = y.get("verbose", x.get("verbose", 1))
 
-    z = x.copy()
+    z = copy.deepcopy(x)
     recurse(z, y, misses, verbose)
     return z
 

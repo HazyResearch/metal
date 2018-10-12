@@ -1,4 +1,5 @@
 from collections import Counter
+from functools import partial
 from itertools import chain, product
 
 import numpy as np
@@ -19,6 +20,9 @@ class LabelModel(Classifier):
     Args:
         k: (int) the cardinality of the classifier
     """
+
+    # This class variable is explained in the Classifier class
+    implements_l2 = True
 
     def __init__(self, k=2, **kwargs):
         config = recursive_merge_dicts(lm_default_config, kwargs)
@@ -179,15 +183,36 @@ class LabelModel(Classifier):
         - Z is the inverse form version of \mu.
         """
         train_config = self.config["train_config"]
+
         # Initialize mu so as to break basic reflective symmetry
+        # Note that we are given either a single or per-LF initial precision
+        # value, prec_i = P(Y=y|\lf=y), and use:
+        #   mu_init = P(\lf=y|Y=y) = P(\lf=y) * prec_i / P(Y=y)
+
+        # Handle single or per-LF values
+        if isinstance(train_config["prec_init"], (int, float)):
+            prec_init = train_config["prec_init"] * torch.ones(self.m)
+        else:
+            prec_init = torch.from_numpy(train_config["prec_init"])
+            if prec_init.shape[0] != self.m:
+                raise ValueError(f"prec_init must have shape {self.m}.")
+
+        # Get the per-value labeling propensities
+        # Note that self.O must have been computed already!
+        lps = torch.diag(self.O).numpy()
+
         # TODO: Update for higher-order cliques!
         self.mu_init = torch.zeros(self.d, self.k)
         for i in range(self.m):
             for y in range(self.k):
-                self.mu_init[i * self.k + y, y] += (
-                    train_config["mu_init"] * np.random.random()
-                )
-        self.mu = nn.Parameter(self.mu_init.clone()).float()
+                idx = i * self.k + y
+                mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y], 0, 1)
+                self.mu_init[idx, y] += mu_init
+
+        # Initialize randomly based on self.mu_init
+        self.mu = nn.Parameter(
+            self.mu_init.clone() * np.random.random()
+        ).float()
 
         if self.inv_form:
             self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
@@ -275,19 +300,37 @@ class LabelModel(Classifier):
     # These loss functions get all their data directly from the LabelModel
     # (for better or worse). The unused *args make these compatible with the
     # Classifer._train() method which expect loss functions to accept an input.
-    # TODO: Add l2 regularization to all three of these loss functions
+
+    def loss_l2(self, l2=0):
+        """L2 loss centered around mu_init, scaled optionally per-source.
+
+        In other words, diagonal Tikhonov regularization,
+            ||D(\mu-\mu_{init})||_2^2
+        where D is diagonal.
+
+        Args:
+            - l2: A float or np.array representing the per-source regularization
+                strengths to use
+        """
+        if isinstance(l2, (int, float)):
+            D = l2 * torch.eye(self.d)
+        else:
+            D = torch.diag(torch.from_numpy(l2))
+
+        # Note that mu is a matrix and this is the *Frobenius norm*
+        return torch.norm(D @ (self.mu - self.mu_init)) ** 2
 
     def loss_inv_Z(self, *args):
         return torch.norm((self.O_inv + self.Z @ self.Z.t())[self.mask]) ** 2
 
-    def loss_inv_mu(self, *args):
+    def loss_inv_mu(self, *args, l2=0):
         loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t()) ** 2
         loss_2 = (
             torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         )
-        return loss_1 + loss_2
+        return loss_1 + loss_2 + self.loss_l2(l2=l2)
 
-    def loss_mu(self, *args):
+    def loss_mu(self, *args, l2=0):
         loss_1 = (
             torch.norm((self.O - self.mu @ self.P @ self.mu.t())[self.mask])
             ** 2
@@ -295,7 +338,7 @@ class LabelModel(Classifier):
         loss_2 = (
             torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         )
-        return loss_1 + loss_2
+        return loss_1 + loss_2 + self.loss_l2(l2=l2)
 
     def _set_class_balance(self, class_balance, Y_dev):
         """Set a prior for the class balance
@@ -356,6 +399,10 @@ class LabelModel(Classifier):
         self.config = recursive_merge_dicts(
             self.config, kwargs, misses="ignore"
         )
+        train_config = self.config["train_config"]
+
+        # Note that the LabelModel class implements its own (centered) L2 reg.
+        l2 = train_config.get("l2", 0)
 
         self._set_class_balance(class_balance, Y_dev)
         self._set_constants(L_train)
@@ -388,7 +435,7 @@ class LabelModel(Classifier):
             # Estimate \mu
             if self.config["verbose"]:
                 print("Estimating \mu...")
-            self._train(train_loader, self.loss_inv_mu)
+            self._train(train_loader, partial(self.loss_inv_mu, l2=l2))
         else:
             # Compute O and initialize params
             if self.config["verbose"]:
@@ -399,4 +446,4 @@ class LabelModel(Classifier):
             # Estimate \mu
             if self.config["verbose"]:
                 print("Estimating \mu...")
-            self._train(train_loader, self.loss_mu)
+            self._train(train_loader, partial(self.loss_mu, l2=l2))
