@@ -6,9 +6,6 @@ __pycache__/
 # macOS
 *.DS_Store
 
-# Sphinx documentation
-docs/
-
 # Jupyter Notebook
 .ipynb_checkpoints
 
