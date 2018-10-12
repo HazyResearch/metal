@@ -35,6 +35,11 @@ class Classifier(nn.Module):
         seed: (int) A random seed to set
     """
 
+    # A class variable indicating whether the class implements its own custom L2
+    # regularization (True) or not (False); in the latter case, generic L2 in
+    # the optimizer is used
+    implements_l2 = False
+
     def __init__(self, k, config):
         super().__init__()
         self.config = config
@@ -117,6 +122,12 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError
 
+    def _create_checkpointer(self, checkpoint_config):
+        model_class = type(self).__name__
+        return Checkpointer(
+            model_class, **checkpoint_config, verbose=self.config["verbose"]
+        )
+
     def _train(self, train_data, loss_fn, dev_data=None):
         """The internal training routine called by train() after initial setup
 
@@ -138,8 +149,7 @@ class Classifier(nn.Module):
         dev_loader = self._create_data_loader(dev_data)
 
         # Set the optimizer
-        optimizer_config = train_config["optimizer_config"]
-        optimizer = self._set_optimizer(optimizer_config)
+        optimizer = self._set_optimizer(train_config)
 
         # Set the lr scheduler
         scheduler_config = train_config["scheduler_config"]
@@ -147,10 +157,8 @@ class Classifier(nn.Module):
 
         # Create the checkpointer if applicable
         if evaluate_dev and train_config["checkpoint"]:
-            checkpoint_config = train_config["checkpoint_config"]
-            model_class = type(self).__name__
-            checkpointer = Checkpointer(
-                model_class, **checkpoint_config, verbose=self.config["verbose"]
+            checkpointer = self._create_checkpointer(
+                train_config["checkpoint_config"]
             )
 
         # Moving model to GPU
@@ -180,22 +188,6 @@ class Classifier(nn.Module):
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
-
-                # Add L1/L2 penalties
-                l1_penalty = train_config.get("l1", 0)
-                l2_penalty = train_config.get("l2", 0)
-                if l1_penalty or l2_penalty:
-                    l1_loss = 0.0
-                    l2_loss = 0.0
-                    for param in self.parameters():
-                        if l1_penalty:
-                            l1_loss += torch.norm(param, 1)
-                        if l2_penalty:
-                            l2_loss += torch.norm(param, 2)
-                    if l1_penalty:
-                        loss += l1_loss * train_config["l1"]
-                    if l2_penalty:
-                        loss += l2_loss * train_config["l2"]
 
                 # Backward pass to calculate gradients
                 loss.backward()
@@ -252,6 +244,7 @@ class Classifier(nn.Module):
         if evaluate_dev and train_config["checkpoint"]:
             checkpointer.restore(model=self)
 
+        # Print confusion matrix if applicable
         if self.config["verbose"]:
             print("Finished Training")
             if evaluate_dev:
@@ -291,17 +284,23 @@ class Classifier(nn.Module):
 
     def _set_optimizer(self, optimizer_config):
         opt = optimizer_config["optimizer"]
+
+        # We set L2 here if the class does not implement its own L2 reg
+        l2 = 0 if self.implements_l2 else train_config.get("l2", 0)
+
         if opt == "sgd":
             optimizer = optim.SGD(
                 self.parameters(),
                 **optimizer_config["optimizer_common"],
                 **optimizer_config["sgd_config"],
+                weight_decay=l2,
             )
         elif opt == "adam":
             optimizer = optim.Adam(
                 self.parameters(),
                 **optimizer_config["optimizer_common"],
                 **optimizer_config["adam_config"],
+                weight_decay=l2,
             )
         else:
             raise ValueError(f"Did not recognize optimizer option '{opt}''")
@@ -343,13 +342,14 @@ class Classifier(nn.Module):
                     in {1,...,k}
             metric: A metric (string) with which to score performance or a
                 list of such metrics
-            break_ties: How to break ties when making predictions
+            break_ties: A tie-breaking policy (see Classifier._break_ties())
             verbose: The verbosity for just this score method; it will not
                 update the class config.
             print_confusion_matrix: Print confusion matrix
 
         Returns:
-            scores: A (float) score
+            scores: A (float) score or a list of such scores if kwarg metric
+                is a list
         """
         Y_pred, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
 
@@ -413,7 +413,7 @@ class Classifier(nn.Module):
 
         Args:
             X: The input for the predict_proba method
-            break_ties: A tie-breaking policy
+            break_ties: A tie-breaking policy (see Classifier._break_ties())
 
         Returns:
             An n-dim np.ndarray of predictions in {1,...k}
