@@ -1,10 +1,10 @@
-# Snorkel MeTaL (previously known as _MuTS_)
+# Snorkel MeTaLs
 
 <img src="assets/logo_01.png" width="150"/>
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
-**_v0.1.7_**
+**_v0.2.0_**
 
 ## Getting Started
 * Quickly [set up](#setup) your environment
