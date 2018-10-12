@@ -65,7 +65,7 @@ setuptools.setup(
         "Homepage": "https://hazyresearch.github.io/snorkel/",
         "Source": "https://github.com/HazyResearch/metal/",
         "Bug Reports": "https://github.com/HazyResearch/metal/issues",
-        "Citation": "https://ajratner.github.io/assets/papers/mts-draft.pdf",
+        "Citation": "https://arxiv.org/abs/1810.02840",
     },
     cmdclass={"clean": CleanCommand},
 )
