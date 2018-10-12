@@ -2,7 +2,7 @@ name: metal
 channels:
   - pytorch
   - conda-forge
-dependencies:
+dependencies: # New core deps should also be added to setup.py for pip
   - python=3.6
   - jupyter
   - matplotlib
