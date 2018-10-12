@@ -1,12 +1,6 @@
 import matplotlib
 import numpy as np
 
-# Avoids a potential error when using matplotlib in virtual envrionments
-# https://stackoverflow.com/questions/34977388/matplotlib-runtimeerror-python-
-# is-not-installed-as-a-framework
-matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt  # noqa: E402 # isort:skip
-
 
 def compute_mu(L_aug, Y, k, p):
     """Given label matrix L_aug and labels Y, compute the true mu params.
