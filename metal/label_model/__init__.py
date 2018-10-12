@@ -7,5 +7,4 @@ __all__ = [
     "RandomVoter",
     "LabelModel",
     "LabelModelInd",
-    "DependencyLearner"
 ]

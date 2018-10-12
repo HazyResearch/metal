@@ -69,7 +69,7 @@ class LabelModel(Classifier):
 
         Note that to train the LabelModel, either (a) the [n, m] label matrix
         L_train or (b) (sigma_O, E_O, junction_tree) must be provided, where (b)
-        is primarily for testing on non-noisey synthetic data.
+        is primarily for testing on non-noisy synthetic data.
 
         We learn the parameters mu (representing the marginal probabilities of
         the model over {Y, \lf_1, ..., \lf_}) by the following approach:
