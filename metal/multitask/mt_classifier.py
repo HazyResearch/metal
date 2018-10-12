@@ -65,7 +65,7 @@ class MTClassifier(Classifier):
             scores: A (float) score or a t-length list of such scores if
                 reduce=None
         """
-        Y_pred, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
+        Y_p, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
 
         # TODO: Handle multiple metrics...
         metric_list = metric if isinstance(metric, list) else [metric]
@@ -74,7 +74,7 @@ class MTClassifier(Classifier):
         metric = metric_list[0]
 
         task_scores = []
-        for t, Y_tp in enumerate(Y_pred):
+        for t, Y_tp in enumerate(Y_p):
             score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0])
             task_scores.append(score)
 
