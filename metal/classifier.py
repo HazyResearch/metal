@@ -174,7 +174,10 @@ class Classifier(nn.Module):
             for batch_num, data in tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
-                disable=train_config["disable_prog_bar"],
+                disable=(
+                    train_config["disable_prog_bar"]
+                    or not self.config["verbose"]
+                ),
             ):
 
                 # Moving data to GPU
