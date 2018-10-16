@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -51,9 +50,3 @@ def print_matrix(X, decimals=1):
     """Pretty printing for numpy matrix X"""
     for row in np.round(X, decimals=decimals):
         print(row)
-
-
-def visualize_matrix(X, fig_size=(10, 10)):
-    plt.rcParams["figure.figsize"] = fig_size
-    plt.imshow(X)
-    plt.colorbar()

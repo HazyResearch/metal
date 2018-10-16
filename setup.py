@@ -44,7 +44,6 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
     install_requires=[
-        "matplotlib>=3",
         "networkx>=2",
         "numpy",
         "pandas",
