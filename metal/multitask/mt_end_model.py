@@ -28,8 +28,9 @@ class MTEndModel(MTClassifier, EndModel):
             inferred from this list. The output dimensions of the task heads
             will be inferred from the cardinalities pulled from K or the
             task_graph.
-        input_module: (nn.Module) a module that converts the user-provided
-            model inputs to torch.Tensors. Defaults to IdentityModule.
+        input_modules: (nn.Module) a list of modules that converts the
+            user-provided model inputs to torch.Tensors.
+            Defaults to IdentityModule.
         middle_modules: (nn.Module) a list of modules to execute between the
             input_module and task head. Defaults to nn.Linear.
         head_module: (nn.Module) a module to execute right before the final
@@ -50,7 +51,12 @@ class MTEndModel(MTClassifier, EndModel):
         task_graph=None,
         **kwargs,
     ):
+
         kwargs["layer_out_dims"] = layer_out_dims
+        kwargs["input_modules"] = input_modules
+        kwargs["middle_modules"] = middle_modules
+        kwargs["head_modules"] = head_modules
+
         config = recursive_merge_dicts(
             em_default_config, mt_em_default_config, misses="insert"
         )

@@ -134,6 +134,9 @@ class LSTMModule(nn.Module):
         """
         # Identify the first non-zero integer from the right (i.e., the length
         # of the sequence before padding starts).
+        import pdb
+
+        pdb.set_trace()
         batch_size, max_seq = X.shape
         seq_lengths = torch.zeros(batch_size, dtype=torch.long)
         for i in range(batch_size):

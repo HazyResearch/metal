@@ -49,6 +49,7 @@ class MultiXYDataset(Dataset):
         self.Y = Y
         self.t = len(Y)
         self.n = len(X[0])
+
         assert np.all([len(X_t) == self.n for X_t in X])
         assert np.all([len(Y_t) == self.n for Y_t in Y])
 
