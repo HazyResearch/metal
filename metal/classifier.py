@@ -185,7 +185,6 @@ class Classifier(nn.Module):
                 # Zero the parameter gradients
                 optimizer.zero_grad()
 
-                # import pdb; pdb.set_trace()
                 # Forward pass to calculate outputs
                 loss = loss_fn(*data)
                 if torch.isnan(loss):
@@ -416,6 +415,13 @@ class Classifier(nn.Module):
                 )
             )
         Y_p = np.hstack(Y_p)
+
+        # If the user has given marginal labels in a dataloader,
+        # convert to categorical!
+        if len(Y[0].shape) > 1:
+            if Y[0].shape[1] > 1:
+                Y = [np.argmax(y) for y in Y]
+
         Y = np.hstack(Y)
         return Y_p, Y
 
