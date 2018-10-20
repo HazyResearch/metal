@@ -24,8 +24,6 @@ class EndModel(Classifier):
             input_module and task head. Defaults to nn.Linear.
         head_module: (nn.Module) a module to execute right before the final
             softmax that outputs a prediction for the task.
-        criterion: (nn.Module) a loss function; if None, uses the default
-            ''noise-aware'' loss function, SoftCrossEntropyLoss.
     """
 
     def __init__(
@@ -34,7 +32,6 @@ class EndModel(Classifier):
         input_module=None,
         middle_modules=None,
         head_module=None,
-        criterion=None,
         **kwargs,
     ):
 
@@ -52,7 +49,7 @@ class EndModel(Classifier):
         config = recursive_merge_dicts(em_default_config, kwargs)
         super().__init__(k=layer_out_dims[-1], config=config)
 
-        self._build(input_module, middle_modules, head_module, criterion)
+        self._build(input_module, middle_modules, head_module)
 
         # Show network
         if self.config["verbose"]:
@@ -60,7 +57,7 @@ class EndModel(Classifier):
             self._print()
             print()
 
-    def _build(self, input_module, middle_modules, head_module, criterion):
+    def _build(self, input_module, middle_modules, head_module):
         """
         TBD
         """
@@ -73,10 +70,7 @@ class EndModel(Classifier):
             self.network = nn.Sequential(input_layer, *middle_layers, head)
 
         # Construct loss module
-        if criterion is not None:
-            self.criterion = criterion
-        else:
-            self.criterion = SoftCrossEntropyLoss(reduction="sum")
+        self.criteria = SoftCrossEntropyLoss(reduction="sum")
 
     def _build_input_layer(self, input_module):
         if input_module is None:
@@ -167,12 +161,12 @@ class EndModel(Classifier):
 
     def _get_loss_fn(self):
         if self.config["use_cuda"]:
-            criterion = self.criterion.cuda()
+            criteria = self.criteria.cuda()
         else:
-            criterion = self.criterion
+            criteria = self.criteria
         # This self.preprocess_Y allows us to not handle preprocessing
         # in a custom dataloader, but decreases speed a bit
-        loss_fn = lambda X, Y: criterion(
+        loss_fn = lambda X, Y: criteria(
             self.forward(X), self._preprocess_Y(Y, self.k)
         )
         return loss_fn

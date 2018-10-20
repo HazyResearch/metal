@@ -35,8 +35,6 @@ class MTEndModel(MTClassifier, EndModel):
             input_module and task head. Defaults to nn.Linear.
         head_module: (nn.Module) a module to execute right before the final
             softmax that outputs a prediction for the task.
-        criterion: (nn.Module) a loss function; if None, uses the default
-            ''noise-aware'' loss function, SoftCrossEntropyLoss.
         K: A t-length list of task cardinalities (overrided by task_graph
             if task_graph is not None)
         task_graph: TaskGraph: A TaskGraph which defines a feasible set of
@@ -49,7 +47,6 @@ class MTEndModel(MTClassifier, EndModel):
         input_modules=None,
         middle_modules=None,
         head_modules=None,
-        criterion=None,
         K=[],
         task_graph=None,
         **kwargs,
@@ -78,7 +75,7 @@ class MTEndModel(MTClassifier, EndModel):
         self.t = self.task_graph.t  # Total number of tasks
         assert len(self.K) == self.t
 
-        self._build(input_modules, middle_modules, head_modules, criterion)
+        self._build(input_modules, middle_modules, head_modules)
 
         # Show network
         if self.config["verbose"]:
@@ -86,7 +83,7 @@ class MTEndModel(MTClassifier, EndModel):
             self._print()
             print()
 
-    def _build(self, input_modules, middle_modules, head_modules, criterion):
+    def _build(self, input_modules, middle_modules, head_modules):
         """
         TBD
         """
@@ -95,10 +92,7 @@ class MTEndModel(MTClassifier, EndModel):
         self.heads = self._build_task_heads(head_modules)
 
         # Construct loss module
-        if criterion is not None:
-            self.criterion = criterion
-        else:
-            self.criterion = SoftCrossEntropyLoss(reduction="sum")
+        self.criteria = SoftCrossEntropyLoss(reduction="sum")
 
     def _build_input_layer(self, input_modules):
         if input_modules is None:
@@ -292,11 +286,11 @@ class MTEndModel(MTClassifier, EndModel):
     def _get_loss_fn(self):
         """Returns the loss function to use in the train routine"""
         if self.config["use_cuda"]:
-            criterion = self.criterion.cuda()
+            criteria = self.criteria.cuda()
         else:
-            criterion = self.criterion
+            criteria = self.criteria
         loss_fn = lambda X, Y: sum(
-            criterion(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
+            criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
         )
         return loss_fn
 
