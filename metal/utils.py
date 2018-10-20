@@ -108,7 +108,7 @@ def hard_to_soft(Y_h, k):
     assert (Y_h >= 1).all()
     assert (Y_h <= k).all()
     n = Y_h.shape[0]
-    Y_s = torch.zeros((n, k))
+    Y_s = torch.zeros((n, k), dtype=Y_h.dtype, device=Y_h.device)
     for i, j in enumerate(Y_h):
         Y_s[i, j - 1] = 1.0
     return Y_s

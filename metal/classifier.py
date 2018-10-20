@@ -418,9 +418,10 @@ class Classifier(nn.Module):
 
         # If the user has given marginal labels in a dataloader,
         # convert to categorical!
-        if len(Y[0].shape) > 1:
-            if Y[0].shape[1] > 1:
-                Y = [np.argmax(y) for y in Y]
+        # import ipdb; ipdb.set_trace()
+        # if len(Y[0].shape) > 1:
+        #    if Y[0].shape[1] > 1:
+        #        Y = [np.argmax(y) for y in Y]
 
         Y = np.hstack(Y)
         return Y_p, Y

@@ -164,7 +164,12 @@ class EndModel(Classifier):
             criteria = self.criteria.cuda()
         else:
             criteria = self.criteria
-        loss_fn = lambda X, Y: criteria(self.forward(X), Y)
+        # This self.preprocess_Y allows us to not handle preprocessing
+        # in a custom dataloader, but decreases speed a bit
+        # TODO: IMPROVE THIS!
+        loss_fn = lambda X, Y: criteria(
+            self.forward(X), self._preprocess_Y(Y, self.k)
+        )
         return loss_fn
 
     def train(self, train_data, dev_data=None, **kwargs):
@@ -173,7 +178,7 @@ class EndModel(Classifier):
         # If train_data is provided as a tuple (X, Y), we can make sure Y is in
         # the correct format
         # NOTE: Better handling for if train_data is Dataset or DataLoader...?
-        if isinstance(train_data, (tuple, list)):
+        if isinstance(train_data, (tuple, list)):  # JD COMMENTED THIS OUT 10/22
             X, Y = train_data
             Y = self._preprocess_Y(
                 self._to_torch(Y, dtype=torch.FloatTensor), self.k
