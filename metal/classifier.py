@@ -366,9 +366,6 @@ class Classifier(nn.Module):
         """
         Y_p, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
 
-        import ipdb
-
-        ipdb.set_trace()
         # Evaluate on the specified metrics
         metric_list = metric if isinstance(metric, list) else [metric]
         scores = []
@@ -420,15 +417,8 @@ class Classifier(nn.Module):
                     self.predict(Xb, break_ties=break_ties, **kwargs)
                 )
             )
+
         Y_p = np.hstack(Y_p)
-
-        # If the user has given marginal labels in a dataloader,
-        # convert to categorical!
-        # import ipdb; ipdb.set_trace()
-        # if len(Y[0].shape) > 1:
-        #    if Y[0].shape[1] > 1:
-        #        Y = [np.argmax(y) for y in Y]
-
         Y = np.hstack(Y)
         return Y_p, Y
 
