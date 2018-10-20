@@ -172,11 +172,13 @@ class Classifier(nn.Module):
         # Train the model
         for epoch in range(train_config["n_epochs"]):
             epoch_loss = 0.0
-            for batch_num, data in tqdm(
+            t = tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
                 disable=train_config["disable_prog_bar"],
-            ):
+            )
+
+            for batch_num, data in t:
 
                 # Moving data to GPU
                 if self.config["use_cuda"]:
@@ -207,6 +209,10 @@ class Classifier(nn.Module):
 
                 # Keep running sum of losses
                 epoch_loss += loss.detach()
+
+                # tqdm output
+                running_loss = epoch_loss / (len(data[0]) * (batch_num + 1))
+                t.set_postfix(avg_loss=float(running_loss))
 
             # Calculate average loss per training example
             # Saving division until this stage protects against the potential
@@ -363,6 +369,9 @@ class Classifier(nn.Module):
         """
         Y_p, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
 
+        import ipdb
+
+        ipdb.set_trace()
         # Evaluate on the specified metrics
         metric_list = metric if isinstance(metric, list) else [metric]
         scores = []
