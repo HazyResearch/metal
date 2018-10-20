@@ -4,7 +4,6 @@ from collections import defaultdict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from metal.end_model import EndModel
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
@@ -48,6 +47,7 @@ class MTEndModel(MTClassifier, EndModel):
         head_modules=None,
         K=[],
         task_graph=None,
+        class_weights=None,
         **kwargs,
     ):
         kwargs["layer_out_dims"] = layer_out_dims
@@ -69,7 +69,7 @@ class MTEndModel(MTClassifier, EndModel):
         self.t = self.task_graph.t  # Total number of tasks
         assert len(self.K) == self.t
 
-        self._build(input_modules, middle_modules, head_modules)
+        self._build(input_modules, middle_modules, head_modules, class_weights)
 
         # Show network
         if self.config["verbose"]:
@@ -77,7 +77,9 @@ class MTEndModel(MTClassifier, EndModel):
             self._print()
             print()
 
-    def _build(self, input_modules, middle_modules, head_modules):
+    def _build(
+        self, input_modules, middle_modules, head_modules, class_weights=None
+    ):
         """
         TBD
         """
@@ -86,7 +88,9 @@ class MTEndModel(MTClassifier, EndModel):
         self.heads = self._build_task_heads(head_modules)
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduction="sum")
+        self.criteria = SoftCrossEntropyLoss(
+            reduction="sum", weight=class_weights
+        )
 
     def _build_input_layer(self, input_modules):
         if input_modules is None:

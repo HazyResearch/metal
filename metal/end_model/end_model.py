@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
@@ -32,6 +31,7 @@ class EndModel(Classifier):
         input_module=None,
         middle_modules=None,
         head_module=None,
+        class_weights=None,
         **kwargs,
     ):
 
@@ -49,7 +49,7 @@ class EndModel(Classifier):
         config = recursive_merge_dicts(em_default_config, kwargs)
         super().__init__(k=layer_out_dims[-1], config=config)
 
-        self._build(input_module, middle_modules, head_module)
+        self._build(input_module, middle_modules, head_module, class_weights)
 
         # Show network
         if self.config["verbose"]:
@@ -57,7 +57,9 @@ class EndModel(Classifier):
             self._print()
             print()
 
-    def _build(self, input_module, middle_modules, head_module):
+    def _build(
+        self, input_module, middle_modules, head_module, class_weights=None
+    ):
         """
         TBD
         """
@@ -70,7 +72,9 @@ class EndModel(Classifier):
             self.network = nn.Sequential(input_layer, *middle_layers, head)
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduction="sum")
+        self.criteria = SoftCrossEntropyLoss(
+            reduction="sum", weight=class_weights
+        )
 
     def _build_input_layer(self, input_module):
         if input_module is None:

@@ -5,13 +5,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from scipy.sparse import issparse
-from torch.utils.data import DataLoader, Dataset, TensorDataset
-from tqdm import tqdm
-
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
 from metal.utils import Checkpointer, place_on_gpu, recursive_merge_dicts
+from scipy.sparse import issparse
+from torch.utils.data import DataLoader, Dataset, TensorDataset
+from tqdm import tqdm
 
 
 class Classifier(nn.Module):
@@ -41,7 +40,7 @@ class Classifier(nn.Module):
     # the optimizer is used
     implements_l2 = False
 
-    def __init__(self, k, config):
+    def __init__(self, k, config, class_weights=None):
         super().__init__()
         self.config = config
         self.multitask = False
