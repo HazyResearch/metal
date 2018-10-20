@@ -177,7 +177,7 @@ class EndModel(Classifier):
         # If train_data is provided as a tuple (X, Y), we can make sure Y is in
         # the correct format
         # NOTE: Better handling for if train_data is Dataset or DataLoader...?
-        if isinstance(train_data, (tuple, list)):  # JD COMMENTED THIS OUT 10/22
+        if isinstance(train_data, (tuple, list)):
             X, Y = train_data
             Y = self._preprocess_Y(
                 self._to_torch(Y, dtype=torch.FloatTensor), self.k
