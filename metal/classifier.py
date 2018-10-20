@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from scipy.sparse import issparse
-from torch.autograd import Variable
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from tqdm import tqdm
 
@@ -194,8 +193,6 @@ class Classifier(nn.Module):
                     raise Exception(msg)
 
                 # Backward pass to calculate gradients
-                loss = Variable(loss, requires_grad=True)
-
                 loss.backward()
 
                 # TODO: restore this once it has unit tests

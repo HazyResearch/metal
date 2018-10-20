@@ -166,7 +166,6 @@ class EndModel(Classifier):
             criteria = self.criteria
         # This self.preprocess_Y allows us to not handle preprocessing
         # in a custom dataloader, but decreases speed a bit
-        # TODO: IMPROVE THIS!
         loss_fn = lambda X, Y: criteria(
             self.forward(X), self._preprocess_Y(Y, self.k)
         )
