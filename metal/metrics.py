@@ -5,28 +5,6 @@ import torch
 from metal.utils import arraylike_to_numpy, hard_to_soft
 
 
-def metric_score(gold, pred, metric, probs=None, **kwargs):
-    if metric == "accuracy":
-        return accuracy_score(gold, pred, **kwargs)
-    elif metric == "coverage":
-        return coverage_score(gold, pred, **kwargs)
-    elif metric == "precision":
-        return precision_score(gold, pred, **kwargs)
-    elif metric == "recall":
-        return recall_score(gold, pred, **kwargs)
-    elif metric == "f1":
-        return f1_score(gold, pred, **kwargs)
-    elif metric == "fbeta":
-        return fbeta_score(gold, pred, **kwargs)
-    elif metric == "roc-auc":
-        if probs is None:
-            raise ValueError("ROC-AUC score requries the predicted probs.")
-        return roc_auc_score(gold, probs, **kwargs)
-    else:
-        msg = f"The metric you provided ({metric}) is not supported."
-        raise ValueError(msg)
-
-
 def accuracy_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
     """
     Calculate (micro) accuracy.
@@ -212,3 +190,29 @@ def _preprocess(gold, pred, ignore_in_gold, ignore_in_pred):
     if ignore_in_gold or ignore_in_pred:
         gold, pred = _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred)
     return gold, pred
+
+
+METRICS = {
+    "accuracy": accuracy_score,
+    "coverage": coverage_score,
+    "precision": precision_score,
+    "recall": recall_score,
+    "f1": f1_score,
+    "fbeta": fbeta_score,
+    "roc-auc": roc_auc_score,
+}
+
+
+def metric_score(gold, pred, metric, probs=None, **kwargs):
+    if metric not in METRICS:
+        msg = f"The metric you provided ({metric}) is not supported."
+        raise ValueError(msg)
+
+    # Note special handling because requires the predicted probabilities
+    elif metric == "roc-auc":
+        if probs is None:
+            raise ValueError("ROC-AUC score requries the predicted probs.")
+        return roc_auc_score(gold, probs, **kwargs)
+
+    else:
+        return METRICS[metric](gold, pred, **kwargs)

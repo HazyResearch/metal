@@ -417,13 +417,15 @@ class Classifier(nn.Module):
                 Xb = place_on_gpu(Xb)
 
             # Append predictions and labels from DataLoader
-            Y_pb, Y_sb = self.predict(Xb, break_ties=break_ties, **kwargs)
+            Y_pb, Y_sb = self.predict(
+                Xb, break_ties=break_ties, return_probs=True, **kwargs
+            )
             Y_p.append(self._to_numpy(Y_pb))
             Y_s.append(self._to_numpy(Y_sb))
 
         Y_p = np.hstack(Y_p)
         Y = np.hstack(Y)
-        Y_s = np.hstack(Y_s)
+        Y_s = np.vstack(Y_s)
         if return_probs:
             return Y_p, Y, Y_s
         else:
