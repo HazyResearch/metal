@@ -111,7 +111,8 @@ class EndModel(Classifier):
         if isinstance(module, IdentityModule):
             return module
         layer = [module]
-        layer.append(nn.ReLU())
+        if self.config["relu"]:
+            layer.append(nn.ReLU())
         if self.config["batchnorm"] and output_dim:
             layer.append(nn.BatchNorm1d(output_dim))
         if self.config["dropout"]:

@@ -12,6 +12,7 @@ em_default_config = {
     # middle layers (if any). The number of middle layers will be inferred
     # from this list.
     "layer_out_dims": [10, 2],
+    "relu": True,
     "batchnorm": False,
     "dropout": 0.0,
     # GPU
