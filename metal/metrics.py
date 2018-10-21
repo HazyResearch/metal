@@ -1,7 +1,8 @@
 import numpy as np
 import sklearn.metrics as skm
+import torch
 
-from metal.utils import arraylike_to_numpy
+from metal.utils import arraylike_to_numpy, hard_to_soft
 
 
 def metric_score(gold, pred, metric, probs=None, **kwargs):
@@ -177,11 +178,19 @@ def roc_auc_score(gold, probs, ignore_in_gold=[], ignore_in_pred=[]):
     Returns:
         roc_auc_score: The (float) roc_auc score
     """
+    gold = arraylike_to_numpy(gold)
+
+    # Filter out the ignore_in_gold (but not ignore_in_pred)
+    # Note the current sub-functions (below) do not handle this...
     if len(ignore_in_pred) > 0:
         raise ValueError("ignore_in_pred not defined for ROC-AUC score.")
-    gold, probs = _preprocess(gold, probs, ignore_in_gold, ignore_in_pred)
+    keep = [x not in ignore_in_gold for x in gold]
+    gold = gold[keep]
+    probs = probs[keep, :]
 
-    return skm.roc_auc_score(gold, probs)
+    # Convert gold to one-hot indicator format, using the k inferred from probs
+    gold_s = hard_to_soft(torch.from_numpy(gold), k=probs.shape[1]).numpy()
+    return skm.roc_auc_score(gold_s, probs)
 
 
 def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
