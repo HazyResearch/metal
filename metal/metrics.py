@@ -1,9 +1,10 @@
 import numpy as np
+import sklearn.metrics as skm
 
 from metal.utils import arraylike_to_numpy
 
 
-def metric_score(gold, pred, metric, **kwargs):
+def metric_score(gold, pred, metric, probs=None, **kwargs):
     if metric == "accuracy":
         return accuracy_score(gold, pred, **kwargs)
     elif metric == "coverage":
@@ -16,6 +17,10 @@ def metric_score(gold, pred, metric, **kwargs):
         return f1_score(gold, pred, **kwargs)
     elif metric == "fbeta":
         return fbeta_score(gold, pred, **kwargs)
+    elif metric == "roc-auc":
+        if probs is None:
+            raise ValueError("ROC-AUC score requries the predicted probs.")
+        return roc_auc_score(gold, probs, **kwargs)
     else:
         msg = f"The metric you provided ({metric}) is not supported."
         raise ValueError(msg)
@@ -158,6 +163,25 @@ def fbeta_score(
 
 def f1_score(gold, pred, **kwargs):
     return fbeta_score(gold, pred, beta=1.0, **kwargs)
+
+
+def roc_auc_score(gold, probs, ignore_in_gold=[], ignore_in_pred=[]):
+    """Compute the ROC AUC score, given the gold labels and predicted probs.
+
+    Args:
+        gold: A 1d array-like of gold labels
+        probs: A 2d array-like of predicted probabilities
+        ignore_in_gold: A list of labels for which elements having that gold
+            label will be ignored.
+
+    Returns:
+        roc_auc_score: The (float) roc_auc score
+    """
+    if len(ignore_in_pred) > 0:
+        raise ValueError("ignore_in_pred not defined for ROC-AUC score.")
+    gold, probs = _preprocess(gold, probs, ignore_in_gold, ignore_in_pred)
+
+    return skm.roc_auc_score(gold, probs)
 
 
 def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
