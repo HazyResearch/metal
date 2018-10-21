@@ -365,10 +365,6 @@ class Classifier(nn.Module):
                 is a list
         """
         Y_p, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
-
-        import ipdb
-
-        ipdb.set_trace()
         # Evaluate on the specified metrics
         metric_list = metric if isinstance(metric, list) else [metric]
         scores = []
