@@ -168,7 +168,12 @@ def convert_labels(Y, source, dest):
     """
     if Y is None:
         return Y
-    Y = Y.copy()
+    if isinstance(Y, np.ndarray):
+        Y = Y.copy()
+    elif isinstance(Y, torch.Tensor):
+        Y = Y.clone()
+    else:
+        raise ValueError("Unrecognized label data type.")
     negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}
     Y[Y == negative_map[source]] = negative_map[dest]
     return Y

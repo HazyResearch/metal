@@ -15,3 +15,6 @@ dependencies:  # New core deps should also be added to setup.py for pip
   - jupyter
   - nb_conda_kernels
   - runipy
+  - pip
+  - pip:
+    - gputil
