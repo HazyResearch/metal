@@ -84,7 +84,7 @@ class Classifier(nn.Module):
 
         Example:
             end_model = EndModel(...)
-            end_model.train(...)
+            end_model.train_model(...)
             end_model.save('my_end_model.pkl')
         """
         if destination is None:
@@ -115,11 +115,14 @@ class Classifier(nn.Module):
         # The apply(f) method recursively calls f on itself and all children
         self.apply(self._reset_module)
 
-    def train(self, *args, **kwargs):
+    def train_model(self, *args, **kwargs):
         """Trains a classifier
 
         Take care to initialize weights outside the training loop and zero out
         gradients at the beginning of each iteration inside the loop.
+
+        NOTE: self.train() is a method in nn.Module class, so we name this
+        method `train_model` so as not to conflict.
         """
         raise NotImplementedError
 
@@ -129,8 +132,9 @@ class Classifier(nn.Module):
             model_class, **checkpoint_config, verbose=self.config["verbose"]
         )
 
-    def _train(self, train_data, loss_fn, dev_data=None):
-        """The internal training routine called by train() after initial setup
+    def _train_model(self, train_data, loss_fn, dev_data=None):
+        """The internal training routine called by train_model() after initial
+        setup
 
         Args:
             train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
