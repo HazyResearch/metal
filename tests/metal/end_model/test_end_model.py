@@ -9,6 +9,7 @@ from metal.end_model import (
     LogisticRegression,
     SparseLogisticRegression,
 )
+from metal.metrics import METRICS
 from metal.modules import IdentityModule
 
 
@@ -130,6 +131,22 @@ class EndModelTest(unittest.TestCase):
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
+
+    def test_scoring(self):
+        """Test the metrics whole way through"""
+        em = EndModel(
+            seed=1,
+            batchnorm=False,
+            dropout=0.0,
+            layer_out_dims=[2, 10, 2],
+            verbose=False,
+        )
+        Xs, Ys = self.single_problem
+        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        metrics = list(METRICS.keys())
+        scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=True)
+        for i, metric in enumerate(metrics):
+            self.assertGreater(scores[i], 0.95)
 
 
 if __name__ == "__main__":
