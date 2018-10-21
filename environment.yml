@@ -2,16 +2,16 @@ name: metal
 channels:
   - pytorch
   - conda-forge
-dependencies: # New core deps should also be added to setup.py for pip
+dependencies:  # New core deps should also be added to setup.py for pip
   - python=3.6
-  - jupyter
-  - matplotlib=3
-  - nb_conda_kernels
   - networkx=2
-  - nose
   - numpy
   - pandas
   - pytorch=0.4.1
-  - runipy
   - scipy
-  - tqdm
+  - tqdm  # Packages below this line are optional (testing, notebooks, etc.)
+  - matplotlib=3 
+  - nose  
+  - jupyter
+  - nb_conda_kernels
+  - runipy

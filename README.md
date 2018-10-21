@@ -4,7 +4,7 @@
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
-**_v0.2.3_**
+**_v0.2.4_**
 
 ## Getting Started
 * Quickly [set up](#setup) your environment
