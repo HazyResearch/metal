@@ -422,10 +422,7 @@ class Classifier(nn.Module):
             )
             Y_p.append(self._to_numpy(Y_pb))
             Y_s.append(self._to_numpy(Y_sb))
-
-        Y_p = np.hstack(Y_p)
-        Y = np.hstack(Y)
-        Y_s = np.vstack(Y_s)
+        Y_p, Y, Y_s = map(self._stack_batches, [Y_p, Y, Y_s])
         if return_probs:
             return Y_p, Y, Y_s
         else:
@@ -550,3 +547,16 @@ class Classifier(nn.Module):
             true_val = getattr(self, name)
             if val != true_val:
                 raise Exception(f"{name} = {val}, but should be {true_val}.")
+
+    @staticmethod
+    def _stack_batches(X):
+        """Stack a list of np.ndarrays along the first axis, returning an
+        np.ndarray; note this is mainly for smooth hanlding of the multi-task
+        setting."""
+        X = [Classifier._to_numpy(Xb) for Xb in X]
+        if len(X[0].shape) == 1:
+            return np.hstack(X)
+        elif len(X[0].shape) == 2:
+            return np.vstack(X)
+        else:
+            raise ValueError(f"Can't stack {len(X[0].shape)}-dim batches.")
