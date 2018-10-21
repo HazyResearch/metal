@@ -167,7 +167,7 @@ class EndModel(Classifier):
         loss_fn = lambda X, Y: criteria(self.forward(X), Y)
         return loss_fn
 
-    def train(self, train_data, dev_data=None, **kwargs):
+    def train(self, train_data, dev_data=None, log_writer=None, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
 
         # If train_data is provided as a tuple (X, Y), we can make sure Y is in
@@ -190,7 +190,9 @@ class EndModel(Classifier):
         loss_fn = self._get_loss_fn()
 
         # Execute training procedure
-        self._train(train_loader, loss_fn, dev_data=dev_data)
+        self._train(
+            train_loader, loss_fn, dev_data=dev_data, log_writer=log_writer
+        )
 
     def predict_proba(self, X):
         """Returns a [n, k] tensor of soft (float) predictions."""

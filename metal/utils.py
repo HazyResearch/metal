@@ -1,6 +1,10 @@
 import copy
+import json
+import os
 import random
 from collections import defaultdict
+from subprocess import check_output
+from time import strftime
 
 import numpy as np
 import torch
@@ -378,3 +382,56 @@ def place_on_gpu(data):
         return data.cuda()
     else:
         return ValueError(f"Data type {type(data)} not recognized.")
+
+
+#
+# LOGGING
+#
+class LogWriter(object):
+    """Class for writing simple JSON logs at end of runs, with Tensorboard
+    interface for storing per-iter data as well.
+
+    Stores logs in log_dir/{YYYY}_{MM}_{DD}/{H}_{M}_{S}_run_name.json.
+    """
+
+    def __init__(self, log_dir, run_name=None):
+        date = strftime("%Y_%m_%d")
+        time = strftime("%H_%M_%S")
+
+        # Set logging directory + make sure exists
+        self.log_dir = os.path.join(log_dir, date)
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+
+        # Set JSON log path
+        if run_name is None:
+            run_name = f"{time}.json"
+        else:
+            run_name = f"{time}_{run_name}.json"
+        self.log_path = os.path.join(self.log_dir, run_name)
+
+        # Initialize log
+        # Note we have a separate section for during-run metrics
+        commit = check_output(["git", "rev-parse", "--short", "HEAD"]).strip()
+        self.log = {
+            "start-date": date,
+            "start-time": time,
+            "commit": str(commit),
+            "config": None,
+            "run-log": defaultdict(list),
+        }
+
+    def add_config(self, config):
+        self.log["config"] = config
+
+    def add_scalar(self, name, val, i):
+        # Note: Does not handle deduplication of (name, val) entries w same i
+        self.log["run-log"][name].append((i, val))
+
+    def write(self):
+        """Dump JSON to file"""
+        with open(self.log_path, "wb") as f:
+            json.dump(self.log, f, indent=1)
+
+    def close(self):
+        self.write()

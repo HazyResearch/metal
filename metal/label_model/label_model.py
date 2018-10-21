@@ -369,7 +369,15 @@ class LabelModel(Classifier):
         self.deps = deps
         self.c_tree = get_clique_tree(nodes, deps)
 
-    def train(self, L_train, Y_dev=None, deps=[], class_balance=None, **kwargs):
+    def train(
+        self,
+        L_train,
+        Y_dev=None,
+        deps=[],
+        class_balance=None,
+        log_writer=None,
+        **kwargs,
+    ):
         """Train the model (i.e. estimate mu) in one of two ways, depending on
         whether source dependencies are provided or not:
 
@@ -400,6 +408,10 @@ class LabelModel(Classifier):
             self.config, kwargs, misses="ignore"
         )
         train_config = self.config["train_config"]
+
+        # TODO: Implement logging for label model?
+        if log_writer is not None:
+            raise NotImplementedError("Logging for LabelModel.")
 
         # Note that the LabelModel class implements its own (centered) L2 reg.
         l2 = train_config.get("l2", 0)
