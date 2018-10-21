@@ -388,8 +388,8 @@ def place_on_gpu(data):
 # LOGGING
 #
 class LogWriter(object):
-    """Class for writing simple JSON logs at end of runs, with Tensorboard
-    interface for storing per-iter data as well.
+    """Class for writing simple JSON logs at end of runs, with interface for
+    storing per-iter data as well.
 
     Stores logs in log_dir/{YYYY}_{MM}_{DD}/{H}_{M}_{S}_run_name.json.
     """
