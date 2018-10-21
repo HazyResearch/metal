@@ -362,7 +362,9 @@ class Classifier(nn.Module):
             scores: A (float) score or a list of such scores if kwarg metric
                 is a list
         """
-        Y_p, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
+        Y_p, Y, Y_s = self._get_predictions(
+            data, break_ties=break_ties, return_probs=True, **kwargs
+        )
 
         # Evaluate on the specified metrics
         metric_list = metric if isinstance(metric, list) else [metric]
@@ -382,7 +384,9 @@ class Classifier(nn.Module):
         else:
             return scores
 
-    def _get_predictions(self, data, break_ties="random", **kwargs):
+    def _get_predictions(
+        self, data, break_ties="random", return_probs=False, **kwargs
+    ):
         """Computes predictions in batch, given a labeled dataset
 
         Args:
@@ -391,14 +395,17 @@ class Classifier(nn.Module):
                 Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
                     in {1,...,k}
             break_ties: How to break ties when making predictions
+            return_probs: Return the predicted probabilities as well
 
         Returns:
             Y_p: A Tensor of predictions
             Y: A Tensor of labels
+            [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
         """
         data_loader = self._create_data_loader(data)
         Y_p = []
         Y = []
+        Y_s = []
 
         # Do batch evaluation by default, getting the predictions and labels
         for batch_num, data in enumerate(data_loader):
@@ -410,27 +417,36 @@ class Classifier(nn.Module):
                 Xb = place_on_gpu(Xb)
 
             # Append predictions and labels from DataLoader
-            Y_p.append(
-                self._to_numpy(
-                    self.predict(Xb, break_ties=break_ties, **kwargs)
-                )
-            )
+            Y_pb, Y_sb = self.predict(Xb, break_ties=break_ties, **kwargs)
+            Y_p.append(self._to_numpy(Y_pb))
+            Y_s.append(self._to_numpy(Y_sb))
+
         Y_p = np.hstack(Y_p)
         Y = np.hstack(Y)
-        return Y_p, Y
+        Y_s = np.hstack(Y_s)
+        if return_probs:
+            return Y_p, Y, Y_s
+        else:
+            return Y_p, Y
 
-    def predict(self, X, break_ties="random", **kwargs):
+    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
 
         Args:
             X: The input for the predict_proba method
             break_ties: A tie-breaking policy (see Classifier._break_ties())
+            return_probs: Return the predicted probabilities as well
 
         Returns:
-            An n-dim np.ndarray of predictions in {1,...k}
+            Y_p: An n-dim np.ndarray of predictions in {1,...k}
+            [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
         """
-        Y_p = self._to_numpy(self.predict_proba(X, **kwargs))
-        return self._break_ties(Y_p, break_ties).astype(np.int)
+        Y_s = self._to_numpy(self.predict_proba(X, **kwargs))
+        Y_p = self._break_ties(Y_s, break_ties).astype(np.int)
+        if return_probs:
+            return Y_p, Y_s
+        else:
+            return Y_p
 
     def predict_proba(self, X, **kwargs):
         """Predicts soft probabilistic labels for an input X on all tasks
