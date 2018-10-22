@@ -48,7 +48,7 @@ In a complex codebase with lots of inheritance, passing kwargs all the way down 
 
 Config dicts should contain only settings. All problem-specific data will be passed directly to the individual methods that use them, so we never need to store it, and the model and data remain modular.
 
-Each model (LabelModel and EndModel) has its own config dict with default values for all necessary settings for running a model. If you pass in no additional arguments other than your data, the models will run. If you would like to update the parameters, however, there are three ways to do so: __init__(), train(), and update_config(). For the first two methods, all unused kwargs will be converted into a dict to merge into config. The update_config() method accepts a dict directly. Merging is performed recursively, so regardless of how nested a particular setting is inside of the config, you need only specify it by its name, not its full nested path in the dict.
+Each model (LabelModel and EndModel) has its own config dict with default values for all necessary settings for running a model. If you pass in no additional arguments other than your data, the models will run. If you would like to update the parameters, however, there are three ways to do so: __init__(), train_model(), and update_config(). For the first two methods, all unused kwargs will be converted into a dict to merge into config. The update_config() method accepts a dict directly. Merging is performed recursively, so regardless of how nested a particular setting is inside of the config, you need only specify it by its name, not its full nested path in the dict.
 
 ### Classifiers
 **Rule:** Use the right Classifier method for predictions/scoring

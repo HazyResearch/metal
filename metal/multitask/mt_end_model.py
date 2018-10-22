@@ -299,7 +299,7 @@ class MTEndModel(MTClassifier, EndModel):
         ]
 
     def _get_loss_fn(self):
-        """Returns the loss function to use in the train routine"""
+        """Returns the loss function to use in the train_model routine"""
         if self.config["use_cuda"]:
             criteria = self.criteria.cuda()
         else:

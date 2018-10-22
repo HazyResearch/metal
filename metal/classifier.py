@@ -84,7 +84,7 @@ class Classifier(nn.Module):
 
         Example:
             end_model = EndModel(...)
-            end_model.train(...)
+            end_model.train_model(...)
             end_model.save('my_end_model.pkl')
         """
         if destination is None:
@@ -115,11 +115,14 @@ class Classifier(nn.Module):
         # The apply(f) method recursively calls f on itself and all children
         self.apply(self._reset_module)
 
-    def train(self, *args, **kwargs):
+    def train_model(self, *args, **kwargs):
         """Trains a classifier
 
         Take care to initialize weights outside the training loop and zero out
         gradients at the beginning of each iteration inside the loop.
+
+        NOTE: self.train() is a method in nn.Module class, so we name this
+        method `train_model` so as not to conflict.
         """
         raise NotImplementedError
 
@@ -129,8 +132,9 @@ class Classifier(nn.Module):
             model_class, **checkpoint_config, verbose=self.config["verbose"]
         )
 
-    def _train(self, train_data, loss_fn, dev_data=None):
-        """The internal training routine called by train() after initial setup
+    def _train_model(self, train_data, loss_fn, dev_data=None):
+        """The internal training routine called by train_model() after initial
+        setup
 
         Args:
             train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
@@ -364,12 +368,15 @@ class Classifier(nn.Module):
             scores: A (float) score or a list of such scores if kwarg metric
                 is a list
         """
-        Y_p, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
+        Y_p, Y, Y_s = self._get_predictions(
+            data, break_ties=break_ties, return_probs=True, **kwargs
+        )
+
         # Evaluate on the specified metrics
         metric_list = metric if isinstance(metric, list) else [metric]
         scores = []
         for metric in metric_list:
-            score = metric_score(Y, Y_p, metric, ignore_in_gold=[0])
+            score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0])
             scores.append(score)
             if verbose:
                 print(f"{metric.capitalize()}: {score:.3f}")
@@ -383,7 +390,9 @@ class Classifier(nn.Module):
         else:
             return scores
 
-    def _get_predictions(self, data, break_ties="random", **kwargs):
+    def _get_predictions(
+        self, data, break_ties="random", return_probs=False, **kwargs
+    ):
         """Computes predictions in batch, given a labeled dataset
 
         Args:
@@ -392,14 +401,17 @@ class Classifier(nn.Module):
                 Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
                     in {1,...,k}
             break_ties: How to break ties when making predictions
+            return_probs: Return the predicted probabilities as well
 
         Returns:
             Y_p: A Tensor of predictions
             Y: A Tensor of labels
+            [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
         """
         data_loader = self._create_data_loader(data)
         Y_p = []
         Y = []
+        Y_s = []
 
         # Do batch evaluation by default, getting the predictions and labels
         for batch_num, data in enumerate(data_loader):
@@ -411,28 +423,35 @@ class Classifier(nn.Module):
                 Xb = place_on_gpu(Xb)
 
             # Append predictions and labels from DataLoader
-            Y_p.append(
-                self._to_numpy(
-                    self.predict(Xb, break_ties=break_ties, **kwargs)
-                )
+            Y_pb, Y_sb = self.predict(
+                Xb, break_ties=break_ties, return_probs=True, **kwargs
             )
+            Y_p.append(self._to_numpy(Y_pb))
+            Y_s.append(self._to_numpy(Y_sb))
+        Y_p, Y, Y_s = map(self._stack_batches, [Y_p, Y, Y_s])
+        if return_probs:
+            return Y_p, Y, Y_s
+        else:
+            return Y_p, Y
 
-        Y_p = np.hstack(Y_p)
-        Y = np.hstack(Y)
-        return Y_p, Y
-
-    def predict(self, X, break_ties="random", **kwargs):
+    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
 
         Args:
             X: The input for the predict_proba method
             break_ties: A tie-breaking policy (see Classifier._break_ties())
+            return_probs: Return the predicted probabilities as well
 
         Returns:
-            An n-dim np.ndarray of predictions in {1,...k}
+            Y_p: An n-dim np.ndarray of predictions in {1,...k}
+            [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
         """
-        Y_p = self._to_numpy(self.predict_proba(X, **kwargs))
-        return self._break_ties(Y_p, break_ties).astype(np.int)
+        Y_s = self._to_numpy(self.predict_proba(X, **kwargs))
+        Y_p = self._break_ties(Y_s, break_ties).astype(np.int)
+        if return_probs:
+            return Y_p, Y_s
+        else:
+            return Y_p
 
     def predict_proba(self, X, **kwargs):
         """Predicts soft probabilistic labels for an input X on all tasks
@@ -534,3 +553,16 @@ class Classifier(nn.Module):
             true_val = getattr(self, name)
             if val != true_val:
                 raise Exception(f"{name} = {val}, but should be {true_val}.")
+
+    @staticmethod
+    def _stack_batches(X):
+        """Stack a list of np.ndarrays along the first axis, returning an
+        np.ndarray; note this is mainly for smooth hanlding of the multi-task
+        setting."""
+        X = [Classifier._to_numpy(Xb) for Xb in X]
+        if len(X[0].shape) == 1:
+            return np.hstack(X)
+        elif len(X[0].shape) == 2:
+            return np.vstack(X)
+        else:
+            raise ValueError(f"Can't stack {len(X[0].shape)}-dim batches.")

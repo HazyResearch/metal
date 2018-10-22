@@ -81,7 +81,7 @@ class RandomSearchTuner(ModelTuner):
                 print(f"[{i + 1}] Testing {print_config}")
                 print("=" * 60)
 
-            model.train(
+            model.train_model(
                 *train_args, **train_kwargs, dev_data=dev_data, verbose=verbose
             )
             score = model.score(dev_data, verbose=verbose, **score_kwargs)

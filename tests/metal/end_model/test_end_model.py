@@ -9,6 +9,7 @@ from metal.end_model import (
     LogisticRegression,
     SparseLogisticRegression,
 )
+from metal.metrics import METRICS
 from metal.modules import IdentityModule
 
 
@@ -33,7 +34,7 @@ class EndModelTest(unittest.TestCase):
     def test_logreg(self):
         em = LogisticRegression(seed=1, input_dim=2, verbose=False)
         Xs, Ys = self.single_problem
-        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -54,7 +55,9 @@ class EndModelTest(unittest.TestCase):
                 + 1
             )
             Ys.append(Y)
-        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), lr=0.1, n_epochs=10)
+        em.train_model(
+            (Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), lr=0.1, n_epochs=10
+        )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -74,7 +77,7 @@ class EndModelTest(unittest.TestCase):
         em = SparseLogisticRegression(
             seed=1, input_dim=F, padding_idx=0, verbose=False
         )
-        em.train((X, Y), n_epochs=5, optimizer="sgd", lr=0.0005)
+        em.train_model((X, Y), n_epochs=5, optimizer="sgd", lr=0.0005)
         self.assertEqual(float(em.network[-1].W.weight.data[0, :].sum()), 0.0)
         score = em.score((X, Y), verbose=False)
         self.assertGreater(score, 0.95)
@@ -91,7 +94,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -107,7 +110,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -125,7 +128,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train(
+        em.train_model(
             (Xs[0], Ys[0]),
             dev_data=(Xs[1], Ys[1]),
             n_epochs=5,
@@ -134,6 +137,22 @@ class EndModelTest(unittest.TestCase):
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
+
+    def test_scoring(self):
+        """Test the metrics whole way through"""
+        em = EndModel(
+            seed=1,
+            batchnorm=False,
+            dropout=0.0,
+            layer_out_dims=[2, 10, 2],
+            verbose=False,
+        )
+        Xs, Ys = self.single_problem
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        metrics = list(METRICS.keys())
+        scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=True)
+        for i, metric in enumerate(metrics):
+            self.assertGreater(scores[i], 0.95)
 
 
 if __name__ == "__main__":

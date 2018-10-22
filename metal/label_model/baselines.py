@@ -8,7 +8,7 @@ class RandomVoter(LabelModel):
     A class that votes randomly among the available labels
     """
 
-    def train(self, *args, **kwargs):
+    def train_model(self, *args, **kwargs):
         pass
 
     def predict_proba(self, L):
@@ -32,7 +32,7 @@ class MajorityClassVoter(RandomVoter):
     Note that in the case of ties, non-integer probabilities are possible.
     """
 
-    def train(self, balance, *args, **kwargs):
+    def train_model(self, balance, *args, **kwargs):
         """
         Args:
             balance: A 1d arraylike that sums to 1, corresponding to the
@@ -58,7 +58,7 @@ class MajorityLabelVoter(RandomVoter):
     Note that in the case of ties, non-integer probabilities are possible.
     """
 
-    def train(self, *args, **kwargs):
+    def train_model(self, *args, **kwargs):
         pass
 
     def predict_proba(self, L):
