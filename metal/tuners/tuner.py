@@ -1,5 +1,8 @@
+import os
+import pickle
 import random
 from itertools import cycle, product
+from time import strftime
 
 import numpy as np
 
@@ -9,18 +12,42 @@ class ModelTuner(object):
 
     Args:
         model: (nn.Module) The model class to train (uninitiated)
-        log_dir: The directory in which to save intermediate results
-            If no log_dir is given, the model tuner will attempt to keep
-            all trained models in memory.
+        log_dir: (str) The path to the base log directory, or defaults to
+            current working directory.
+        run_dir: (str) The name of the sub-directory, or defaults to the date,
+            strftime("%Y_%m_%d").
+        run_name: (str) The name of the run, or defaults to the time,
+            strftime("%H_%M_%S").
+        log_writer_class: a metal.utils.LogWriter class for logging the full
+            model search.
+
+        Saves current best model to 'log_dir/run_dir/{run_name}_best_model.pkl'.
     """
 
-    def __init__(self, model_class, log_dir=None, seed=None):
+    def __init__(
+        self,
+        model_class,
+        log_dir=None,
+        run_dir=None,
+        run_name=None,
+        log_writer_class=None,
+        seed=None,
+    ):
         self.model_class = model_class
+        self.log_writer_class = log_writer_class
 
-        if log_dir is not None:
-            raise NotImplementedError
-        self.log_dir = log_dir
+        # Set logging subdirectory + make sure exists
+        log_dir = log_dir or os.getcwd()
+        run_dir = run_dir or strftime("%Y_%m_%d")
+        log_subdir = os.path.join(log_dir, run_dir)
+        if not os.path.exists(log_subdir):
+            os.makedirs(log_subdir)
 
+        # Set JSON log path
+        run_name = run_name or strftime("%H_%M_%S")
+        self.save_path = os.path.join(log_subdir, f"{run_name}_best_model.pkl")
+
+        # Set global seed
         if seed is None:
             self.seed = 0
         else:
@@ -28,6 +55,66 @@ class ModelTuner(object):
             self.seed = seed
 
         self.run_stats = []
+
+    def _train_model(
+        self,
+        iter,
+        config,
+        X_dev,
+        Y_dev,
+        init_args=[],
+        train_args=[],
+        init_kwargs={},
+        train_kwargs={},
+        verbose=False,
+        **score_kwargs,
+    ):
+        # Init model
+        model = self.model_class(*init_args, **init_kwargs, **config)
+
+        # Optionally print config
+        if verbose:
+            print_config = {
+                k: v
+                for k, v in config.items()
+                if isinstance(v, list) or isinstance(v, dict)
+            }
+            print("=" * 60)
+            print(f"[{iter}] Testing {print_config}")
+            print("=" * 60)
+
+        # Initialize a new LogWriter and train the model, returning the score
+        log_writer = None
+        if self.log_writer_class is not None:
+            log_writer = self.log_writer_class(
+                self.log_dir, run_name=f"model_search_{iter}"
+            )
+        model.train(
+            *train_args,
+            **train_kwargs,
+            X_dev=X_dev,
+            Y_dev=Y_dev,
+            verbose=verbose,
+            log_writer=log_writer,
+            **config,
+        )
+        score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
+        return score, model
+
+    def _save_best_model(self, model):
+        with open(self.save_path, "wb") as f:
+            pickle.dump(model, f)
+
+    def _load_best_model(self, clean_up=False):
+        with open(self.save_path, "rb") as f:
+            model = pickle.load(f)
+        if clean_up:
+            self._clean_up()
+        return model
+
+    def _clean_up(self):
+        if os.path.exists(self.save_path):
+            os.remove(self.save_path)
 
     def search(
         self,

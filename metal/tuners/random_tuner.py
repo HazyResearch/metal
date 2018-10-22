@@ -50,47 +50,33 @@ class RandomSearchTuner(ModelTuner):
         """
         # Clear run stats
         self.run_stats = []
-
         configs = self.config_generator(search_space, max_search, shuffle)
-        print_worthy = [
-            k
-            for k, v in search_space.items()
-            if isinstance(v, list) or isinstance(v, dict)
-        ]
-
         best_index = 0
         best_score = -1
-        best_model = None
         start_time = time.time()
         for i, config in enumerate(configs):
             # Unless seeds are given explicitly, give each config a unique one
             if config.get("seed", None) is None:
                 config["seed"] = self.seed + i
-            model = self.model_class(*init_args, **init_kwargs, **config)
 
-            if verbose:
-                print_config = {
-                    k: v for k, v in config.items() if k in print_worthy
-                }
-                print("=" * 60)
-                print(f"[{i + 1}] Testing {print_config}")
-                print("=" * 60)
-
-            model.train(
-                *train_args,
-                **train_kwargs,
-                X_dev=X_dev,
-                Y_dev=Y_dev,
+            score, model = self._train_model(
+                i,
+                config,
+                X_dev,
+                Y_dev,
+                init_args=init_args,
+                train_args=train_args,
+                init_kwargs=init_kwargs,
+                train_kwargs=train_kwargs,
                 verbose=verbose,
-                **config,
+                **score_kwargs,
             )
-            score = model.score(X_dev, Y_dev, verbose=verbose, **score_kwargs)
 
-            if score > best_score or best_model is None:
+            if score > best_score:
                 best_index = i + 1
-                best_model = model
                 best_score = score
                 best_config = config
+                self._save_best_model(model)
 
                 # Keep track of running statistics
                 time_elapsed = time.time() - start_time
@@ -109,4 +95,4 @@ class RandomSearchTuner(ModelTuner):
         print(f"Best score: {best_score}")
         print("=" * 60)
 
-        return best_model
+        return self._load_best_model(clean_up=True)
