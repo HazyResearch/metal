@@ -232,7 +232,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
                     if found:
                         break
             if not found:
-                msg = f'Could not find kwarg "{k}" in default config.'
+                msg = f'Could not find kwarg "{k}" in destination dict.'
                 if misses == "insert":
                     x[k] = v
                     if verbose > 1:
