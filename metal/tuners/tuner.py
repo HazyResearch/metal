@@ -32,8 +32,7 @@ class ModelTuner(object):
     def search(
         self,
         search_space,
-        X_dev,
-        Y_dev,
+        dev_data,
         init_args=[],
         train_args=[],
         init_kwargs={},
@@ -46,9 +45,8 @@ class ModelTuner(object):
         """
         Args:
             search_space: see config_generator() documentation
-            X_dev: The appropriate input for evaluating the given model
-            Y_dev: An [n] or [n, 1] tensor of gold labels in {0,...,K_t} or a
-                t-length list of such tensors if model.multitask=True.
+            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the dev split
             init_args: (list) positional args for initializing the model
             train_args: (list) positional args for training the model
             init_kwargs: (dict) keyword args for initializing the model

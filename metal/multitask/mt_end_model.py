@@ -28,8 +28,9 @@ class MTEndModel(MTClassifier, EndModel):
             inferred from this list. The output dimensions of the task heads
             will be inferred from the cardinalities pulled from K or the
             task_graph.
-        input_module: (nn.Module) a module that converts the user-provided
-            model inputs to torch.Tensors. Defaults to IdentityModule.
+        input_modules: (nn.Module) a list of modules that converts the
+            user-provided model inputs to torch.Tensors.
+            Defaults to IdentityModule.
         middle_modules: (nn.Module) a list of modules to execute between the
             input_module and task head. Defaults to nn.Linear.
         head_module: (nn.Module) a module to execute right before the final
@@ -50,7 +51,12 @@ class MTEndModel(MTClassifier, EndModel):
         task_graph=None,
         **kwargs,
     ):
+
         kwargs["layer_out_dims"] = layer_out_dims
+        kwargs["input_modules"] = input_modules
+        kwargs["middle_modules"] = middle_modules
+        kwargs["head_modules"] = head_modules
+
         config = recursive_merge_dicts(
             em_default_config, mt_em_default_config, misses="insert"
         )
@@ -94,9 +100,19 @@ class MTEndModel(MTClassifier, EndModel):
             input_modules = IdentityModule()
 
         if isinstance(input_modules, list):
-            input_layer = [self._make_layer(mod) for mod in input_modules]
+            input_layer = [
+                self._make_layer(
+                    mod, "input", self.config["input_layer_config"]
+                )
+                for mod in input_modules
+            ]
         else:
-            input_layer = self._make_layer(input_modules, output_dim)
+            input_layer = self._make_layer(
+                input_modules,
+                "input",
+                self.config["input_layer_config"],
+                output_dim=output_dim,
+            )
 
         return input_layer
 
@@ -111,11 +127,16 @@ class MTEndModel(MTClassifier, EndModel):
             if middle_modules is None:
                 module = nn.Linear(*layer_out_dims[i : i + 2])
                 layer = self._make_layer(
-                    module, output_dim=layer_out_dims[i + 1]
+                    module,
+                    "middle",
+                    self.config["middle_layer_config"],
+                    output_dim=layer_out_dims[i + 1],
                 )
             else:
                 module = middle_modules[i]
-                layer = self._make_layer(module)
+                layer = self._make_layer(
+                    module, "middle", self.config["middle_layer_config"]
+                )
             middle_layers.add_module(f"layer{i+1}", layer)
         return middle_layers
 
