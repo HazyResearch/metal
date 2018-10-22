@@ -70,16 +70,7 @@ class RandomSearchTuner(ModelTuner):
             init_kwargs = recursive_merge_dicts(init_kwargs, config)
             train_kwargs = recursive_merge_dicts(train_kwargs, config)
 
-            # Removing potential duplicate keys -- error occurs without this!
-            # for ky in config.keys():
-            #     if init_kwargs.get("train_config", None) is not None:
-            #         init_kwargs["train_config"] = self.remove_key(
-            #             init_kwargs["train_config"],ky)
-            #     train_kwargs = self.remove_key(
-            #         init_kwargs,ky)
-
             # Initializing model
-            # import ipdb; ipdb.set_trace()
             model = self.model_class(*init_args, **init_kwargs)
 
             if verbose:

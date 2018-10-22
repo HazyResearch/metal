@@ -75,12 +75,6 @@ class ModelTuner(object):
         """
         return self.run_stats
 
-    def remove_key(self, d, key):
-        r = dict(d)
-        if key in r.keys():
-            del r[key]
-        return r
-
     @staticmethod
     def config_generator(search_space, max_search, shuffle=True):
         """Generates config dicts from the given search space
