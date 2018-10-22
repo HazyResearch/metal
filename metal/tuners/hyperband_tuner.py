@@ -246,7 +246,7 @@ class HyperbandTuner(ModelTuner):
                         print(f"[{cur_model_index} Testing {print_config}")
                         print("=" * 60)
 
-                    model.train(
+                    model.train_model(
                         *train_args,
                         X_dev=X_dev,
                         Y_dev=Y_dev,
