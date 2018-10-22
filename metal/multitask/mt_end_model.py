@@ -100,9 +100,19 @@ class MTEndModel(MTClassifier, EndModel):
             input_modules = IdentityModule()
 
         if isinstance(input_modules, list):
-            input_layer = [self._make_layer(mod) for mod in input_modules]
+            input_layer = [
+                self._make_layer(
+                    mod, "input", self.config["input_layer_config"]
+                )
+                for mod in input_modules
+            ]
         else:
-            input_layer = self._make_layer(input_modules, output_dim)
+            input_layer = self._make_layer(
+                input_modules,
+                "input",
+                self.config["input_layer_config"],
+                output_dim=output_dim,
+            )
 
         return input_layer
 
@@ -117,11 +127,16 @@ class MTEndModel(MTClassifier, EndModel):
             if middle_modules is None:
                 module = nn.Linear(*layer_out_dims[i : i + 2])
                 layer = self._make_layer(
-                    module, output_dim=layer_out_dims[i + 1]
+                    module,
+                    "middle",
+                    self.config["middle_layer_config"],
+                    output_dim=layer_out_dims[i + 1],
                 )
             else:
                 module = middle_modules[i]
-                layer = self._make_layer(module)
+                layer = self._make_layer(
+                    module, "middle", self.config["middle_layer_config"]
+                )
             middle_layers.add_module(f"layer{i+1}", layer)
         return middle_layers
 

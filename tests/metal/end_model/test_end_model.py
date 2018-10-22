@@ -83,8 +83,10 @@ class EndModelTest(unittest.TestCase):
         """Test basic single-task end model"""
         em = EndModel(
             seed=1,
-            batchnorm=False,
-            dropout=0.0,
+            input_batchnorm=False,
+            middle_batchnorm=False,
+            input_dropout=0.0,
+            middle_dropout=0.0,
             layer_out_dims=[2, 10, 2],
             verbose=False,
         )
@@ -97,8 +99,10 @@ class EndModelTest(unittest.TestCase):
         """Test batchnorm and dropout"""
         em = EndModel(
             seed=1,
-            batchnorm=True,
-            dropout=0.01,
+            input_batchnorm=True,
+            middle_batchnorm=True,
+            input_dropout=0.01,
+            middle_dropout=0.01,
             layer_out_dims=[2, 10, 2],
             verbose=False,
         )

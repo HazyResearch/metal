@@ -64,10 +64,21 @@ class EndModel(Classifier):
         input_layer = self._build_input_layer(input_module)
         middle_layers = self._build_middle_layers(middle_modules)
         head = self._build_task_head(head_module)
-        if middle_layers is None:
-            self.network = nn.Sequential(input_layer, head)
+
+        # Construct list of layers
+        layers = [input_layer]
+        if middle_layers is not None:
+            layers += middle_layers
+        if not self.config["skip_head"]:
+            layers.append(head)
+
+        # Construct network
+        if len(layers) > 1:
+            self.network = nn.Sequential(*layers)
         else:
-            self.network = nn.Sequential(input_layer, *middle_layers, head)
+            self.network = layers[0]
+
+        self._print()
 
         # Construct loss module
         self.criteria = SoftCrossEntropyLoss(reduction="sum")
@@ -76,7 +87,12 @@ class EndModel(Classifier):
         if input_module is None:
             input_module = IdentityModule()
         output_dim = self.config["layer_out_dims"][0]
-        input_layer = self._make_layer(input_module, output_dim=output_dim)
+        input_layer = self._make_layer(
+            input_module,
+            "input",
+            self.config["input_layer_config"],
+            output_dim=output_dim,
+        )
         return input_layer
 
     def _build_middle_layers(self, middle_modules):
@@ -89,12 +105,16 @@ class EndModel(Classifier):
         for i in range(num_mid_layers):
             if middle_modules is None:
                 module = nn.Linear(*layer_out_dims[i : i + 2])
-                layer = self._make_layer(
-                    module, output_dim=layer_out_dims[i + 1]
-                )
+                output_dim = layer_out_dims[i + 1]
             else:
                 module = middle_modules[i]
-                layer = self._make_layer(module)
+                output_dim = None
+            layer = self._make_layer(
+                module,
+                "middle",
+                self.config["middle_layer_config"],
+                output_dim=output_dim,
+            )
             middle_layers.add_module(f"layer{i+1}", layer)
         return middle_layers
 
@@ -107,17 +127,20 @@ class EndModel(Classifier):
             head = head_module
         return head
 
-    def _make_layer(self, module, output_dim=None):
+    def _make_layer(self, module, prefix, layer_config, output_dim=None):
         if isinstance(module, IdentityModule):
             return module
         layer = [module]
-        if self.config["relu"]:
+        if layer_config[f"{prefix}_relu"]:
             layer.append(nn.ReLU())
-        if self.config["batchnorm"] and output_dim:
+        if layer_config[f"{prefix}_batchnorm"] and output_dim:
             layer.append(nn.BatchNorm1d(output_dim))
-        if self.config["dropout"]:
-            layer.append(nn.Dropout(self.config["dropout"]))
-        return nn.Sequential(*layer)
+        if layer_config[f"{prefix}_dropout"]:
+            layer.append(nn.Dropout(layer_config[f"{prefix}_dropout"]))
+        if len(layer) > 1:
+            return nn.Sequential(*layer)
+        else:
+            return layer[0]
 
     def _print(self):
         print(self.network)
