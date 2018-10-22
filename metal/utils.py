@@ -391,31 +391,38 @@ class LogWriter(object):
     """Class for writing simple JSON logs at end of runs, with interface for
     storing per-iter data as well.
 
-    Stores logs in log_dir/{YYYY}_{MM}_{DD}/{H}_{M}_{S}_run_name.json.
+    Args:
+        log_dir: (str) The path to the base log directory, or defaults to
+            current working directory.
+        run_dir: (str) The name of the sub-directory, or defaults to the date,
+            strftime("%Y_%m_%d").
+        run_name: (str) The name of the run, or defaults to the time,
+            strftime("%H_%M_%S).
+
+        Log is saved to 'log_dir/run_dir/{run_name}.json'
     """
 
-    def __init__(self, log_dir, run_name=None):
-        date = strftime("%Y_%m_%d")
-        time = strftime("%H_%M_%S")
+    def __init__(self, log_dir=None, run_dir=None, run_name=None):
+        start_date = strftime("%Y_%m_%d")
+        start_time = strftime("%H_%M_%S")
 
-        # Set logging directory + make sure exists
-        self.log_dir = os.path.join(log_dir, date)
-        if not os.path.exists(self.log_dir):
-            os.makedirs(self.log_dir)
+        # Set logging subdirectory + make sure exists
+        log_dir = log_dir or os.getcwd()
+        run_dir = run_dir or start_date
+        log_subdir = os.path.join(log_dir, run_dir)
+        if not os.path.exists(log_subdir):
+            os.makedirs(log_subdir)
 
         # Set JSON log path
-        if run_name is None:
-            run_name = f"{time}.json"
-        else:
-            run_name = f"{time}_{run_name}.json"
-        self.log_path = os.path.join(self.log_dir, run_name)
+        run_name = run_name or start_time
+        self.log_path = os.path.join(log_subdir, f"{run_name}.json")
 
         # Initialize log
         # Note we have a separate section for during-run metrics
         commit = check_output(["git", "rev-parse", "--short", "HEAD"]).strip()
         self.log = {
-            "start-date": date,
-            "start-time": time,
+            "start-date": start_date,
+            "start-time": start_time,
             "commit": str(commit),
             "config": None,
             "run-log": defaultdict(list),

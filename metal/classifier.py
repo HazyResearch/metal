@@ -138,6 +138,7 @@ class Classifier(nn.Module):
             loss_fn: the loss function to minimize (maps *data -> loss)
             dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
+            log_writer: a metal.utils.LogWriter object for logging
 
         If dev_data is not provided, then no checkpointing or
         evaluation on the dev set will occur.
