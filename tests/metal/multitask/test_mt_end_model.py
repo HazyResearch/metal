@@ -47,7 +47,7 @@ class MTEndModelTest(unittest.TestCase):
         )
         top_layer = len(em.config["layer_out_dims"]) - 1
         self.assertEqual(len(em.task_map[top_layer]), em.t)
-        em.train(
+        em.train_model(
             (self.Xs[0], self.Ys[0]),
             dev_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
@@ -71,7 +71,7 @@ class MTEndModelTest(unittest.TestCase):
         )
         self.assertEqual(em.task_map[1][0], 0)
         self.assertEqual(em.task_map[2][0], 1)
-        em.train(
+        em.train_model(
             (self.Xs[0], self.Ys[0]),
             dev_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
@@ -97,7 +97,7 @@ class MTEndModelTest(unittest.TestCase):
         Xs = []
         for i, X in enumerate(self.Xs):
             Xs.append([X[:, 0], X[:, 1]])
-        em.train(
+        em.train_model(
             (Xs[0], self.Ys[0]),
             dev_data=(Xs[1], self.Ys[1]),
             verbose=False,
@@ -120,7 +120,7 @@ class MTEndModelTest(unittest.TestCase):
             head_modules=[nn.Linear(8, 2), nn.Linear(4, 2)],
             task_head_layers=[1, 2],
         )
-        em.train(
+        em.train_model(
             (self.Xs[0], self.Ys[0]),
             dev_data=(self.Xs[1], self.Ys[1]),
             verbose=False,

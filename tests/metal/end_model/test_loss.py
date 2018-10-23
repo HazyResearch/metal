@@ -15,7 +15,7 @@ class LossTest(unittest.TestCase):
     def test_sce_equals_ce(self):
         # All correct predictions
         Y = torch.tensor([1, 2, 3], dtype=torch.long)
-        Y_s = hard_to_soft(Y, k=4)
+        Y_s = hard_to_soft(Y, k=4).float()
 
         sce = SoftCrossEntropyLoss(reduction="none")
         ce = nn.CrossEntropyLoss(reduction="none")
@@ -48,7 +48,7 @@ class LossTest(unittest.TestCase):
 
         sce = SoftCrossEntropyLoss()
         # Guess nearly perfectly
-        Y_ps = Y_s.clone()
+        Y_ps = Y_s.clone().float()
         Y_ps[Y_ps == 1] = 100
         Y_ps[Y_ps == 0] = -100
         self.assertAlmostEqual(sce(Y_ps, Y_s).numpy(), 0)

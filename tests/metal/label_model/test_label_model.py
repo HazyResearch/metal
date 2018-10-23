@@ -21,7 +21,7 @@ class LabelModelTest(unittest.TestCase):
 
     def _test_label_model(self, data, test_acc=True):
         label_model = LabelModel(k=data.k, verbose=False)
-        label_model.train(
+        label_model.train_model(
             data.L,
             deps=data.E,
             class_balance=data.p,

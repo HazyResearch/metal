@@ -65,7 +65,9 @@ class MTClassifier(Classifier):
             scores: A (float) score or a t-length list of such scores if
                 reduce=None
         """
-        Y_p, Y = self._get_predictions(data, break_ties=break_ties, **kwargs)
+        Y_p, Y, Y_s = self._get_predictions(
+            data, break_ties=break_ties, return_probs=True, **kwargs
+        )
 
         # TODO: Handle multiple metrics...
         metric_list = metric if isinstance(metric, list) else [metric]
@@ -75,7 +77,9 @@ class MTClassifier(Classifier):
 
         task_scores = []
         for t, Y_tp in enumerate(Y_p):
-            score = metric_score(Y[t], Y_tp, metric, ignore_in_gold=[0])
+            score = metric_score(
+                Y[t], Y_tp, metric, probs=Y_s[t], ignore_in_gold=[0]
+            )
             task_scores.append(score)
 
         # TODO: Other options for reduce, including scoring only certain
@@ -96,25 +100,32 @@ class MTClassifier(Classifier):
 
         return score
 
-    def predict(self, X, break_ties="random", **kwargs):
+    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
         """Predicts hard (int) labels for an input X on all tasks
 
         Args:
             X: The input for the predict_proba method
             break_ties: A tie-breaking policy
+            return_probs: Return the predicted probabilities as well
+
         Returns:
-            A t-length list of n-dim np.ndarrays of predictions in [n, K_t]
+            Y_p: A t-length list of n-dim np.ndarrays of predictions in [1, K_t]
+            [Optionally: Y_s: A t-length list of [n, K_t] np.ndarrays of
+                predicted probabilities]
         """
-        Y_p = self.predict_proba(X, **kwargs)
-        self._check(Y_p, typ=list)
-        self._check(Y_p[0], typ=np.ndarray)
+        Y_s = self.predict_proba(X, **kwargs)
+        self._check(Y_s, typ=list)
+        self._check(Y_s[0], typ=np.ndarray)
 
-        Y_ph = []
-        for Y_tp in Y_p:
-            Y_tph = self._break_ties(Y_tp, break_ties)
-            Y_ph.append(Y_tph.astype(np.int))
+        Y_p = []
+        for Y_ts in Y_s:
+            Y_tp = self._break_ties(Y_ts, break_ties)
+            Y_p.append(Y_tp.astype(np.int))
 
-        return Y_ph
+        if return_probs:
+            return Y_p, Y_s
+        else:
+            return Y_p
 
     def predict_proba(self, X, **kwargs):
         """Predicts soft probabilistic labels for an input X on all tasks
@@ -194,3 +205,10 @@ class MTClassifier(Classifier):
             return [Classifier._to_numpy(z) for z in Z]
         else:
             return Classifier._to_numpy(Z)
+
+    @staticmethod
+    def _stack_batches(X):
+        """Given a list of batches, each consisting of a T-len list of
+        np.ndarrays, stack along the first (batch) axis, returning a T-len list
+        of np.ndarrays."""
+        return [Classifier._stack_batches(Xt) for Xt in zip(*X)]

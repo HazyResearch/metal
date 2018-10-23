@@ -112,7 +112,7 @@ def hard_to_soft(Y_h, k):
     assert (Y_h >= 1).all()
     assert (Y_h <= k).all()
     n = Y_h.shape[0]
-    Y_s = torch.zeros((n, k))
+    Y_s = torch.zeros((n, k), dtype=Y_h.dtype, device=Y_h.device)
     for i, j in enumerate(Y_h):
         Y_s[i, j - 1] = 1.0
     return Y_s
@@ -172,7 +172,12 @@ def convert_labels(Y, source, dest):
     """
     if Y is None:
         return Y
-    Y = Y.copy()
+    if isinstance(Y, np.ndarray):
+        Y = Y.copy()
+    elif isinstance(Y, torch.Tensor):
+        Y = Y.clone()
+    else:
+        raise ValueError("Unrecognized label data type.")
     negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}
     Y[Y == negative_map[source]] = negative_map[dest]
     return Y
@@ -231,7 +236,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
                     if found:
                         break
             if not found:
-                msg = f'Could not find kwarg "{k}" in default config.'
+                msg = f'Could not find kwarg "{k}" in destination dict.'
                 if misses == "insert":
                     x[k] = v
                     if verbose > 1:

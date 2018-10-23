@@ -157,8 +157,7 @@ class HyperbandTuner(ModelTuner):
     def search(
         self,
         search_space,
-        X_dev,
-        Y_dev,
+        dev_data,
         init_args=[],
         train_args=[],
         init_kwargs={},
@@ -179,9 +178,8 @@ class HyperbandTuner(ModelTuner):
         Args:
             init_args: (list) positional args for initializing the model
             train_args: (list) positional args for training the model
-            X_dev: The appropriate input for evaluating the given model
-            Y_dev: An [n] or [n, 1] tensor of gold labels in {0,...,K_t} or a
-                t-length list of such tensors if model.multitask=True.
+            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the dev split
             search_space: see ModelTuner's config_generator() documentation
             max_search: see ModelTuner's config_generator() documentation
             shuffle: see ModelTuner's config_generator() documentation
@@ -237,8 +235,7 @@ class HyperbandTuner(ModelTuner):
                     score, model = self._train_model(
                         f"{band_index}_{i}",
                         configuration,
-                        X_dev,
-                        Y_dev,
+                        dev_data,
                         init_args=init_args,
                         train_args=train_args,
                         init_kwargs=init_kwargs,

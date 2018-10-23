@@ -55,12 +55,12 @@ from metal.label_model import LabelModel, EndModel
 
 # Train a label model and generate training labels
 label_model = LabelModel(k)
-label_model.train(L_train)
+label_model.train_model(L_train)
 Y_train_pred = label_model.predict(L_train)
 
 # Train a discriminative end model with the generated labels
 end_model = EndModel([1000,10,2])
-end_model.train(X_train, Y_train_pred, X_dev, Y_dev)
+end_model.train_model(X_train, Y_train_pred, X_dev, Y_dev)
 
 # Evaluate performance
 score = end_model.score(X_test, Y_test)

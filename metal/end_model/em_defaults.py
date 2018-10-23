@@ -12,8 +12,21 @@ em_default_config = {
     # middle layers (if any). The number of middle layers will be inferred
     # from this list.
     "layer_out_dims": [10, 2],
-    "batchnorm": False,
-    "dropout": 0.0,
+    # Input layer configs
+    "input_layer_config": {
+        "input_relu": True,
+        "input_batchnorm": False,
+        "input_dropout": 0.0,
+    },
+    # Middle layer configs
+    "middle_layer_config": {
+        "middle_relu": True,
+        "middle_batchnorm": False,
+        "middle_dropout": 0.0,
+    },
+    # Can optionally skip the head layer completely, for e.g. running baseline
+    # models...
+    "skip_head": False,
     # GPU
     "use_cuda": False,
     # TRAINING

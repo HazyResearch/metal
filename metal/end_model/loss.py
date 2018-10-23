@@ -33,7 +33,7 @@ class SoftCrossEntropyLoss(nn.Module):
             y_loss = F.cross_entropy(input, cls_idx, reduction="none")
             if self.weight is not None:
                 y_loss = y_loss * self.weight[y]
-            cum_losses += target[:, y] * y_loss
+            cum_losses += target[:, y].float() * y_loss
         if self.reduction == "none":
             return cum_losses
         elif self.reduction == "elementwise_mean":

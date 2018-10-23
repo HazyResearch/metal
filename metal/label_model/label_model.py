@@ -369,7 +369,7 @@ class LabelModel(Classifier):
         self.deps = deps
         self.c_tree = get_clique_tree(nodes, deps)
 
-    def train(
+    def train_model(
         self,
         L_train,
         Y_dev=None,
@@ -427,8 +427,8 @@ class LabelModel(Classifier):
         self.inv_form = len(self.deps) > 0
 
         # Creating this faux dataset is necessary for now because the LabelModel
-        # loss functions do not accept inputs, but Classifer._train() expects
-        # training data to feed to the loss functions.
+        # loss functions do not accept inputs, but Classifer._train_model()
+        # expects training data to feed to the loss functions.
         dataset = MetalDataset([0], [0])
         train_loader = DataLoader(dataset)
         if self.inv_form:
@@ -441,13 +441,13 @@ class LabelModel(Classifier):
             # Estimate Z, compute Q = \mu P \mu^T
             if self.config["verbose"]:
                 print("Estimating Z...")
-            self._train(train_loader, self.loss_inv_Z)
+            self._train_model(train_loader, self.loss_inv_Z)
             self.Q = torch.from_numpy(self.get_Q()).float()
 
             # Estimate \mu
             if self.config["verbose"]:
                 print("Estimating \mu...")
-            self._train(train_loader, partial(self.loss_inv_mu, l2=l2))
+            self._train_model(train_loader, partial(self.loss_inv_mu, l2=l2))
         else:
             # Compute O and initialize params
             if self.config["verbose"]:
@@ -458,4 +458,4 @@ class LabelModel(Classifier):
             # Estimate \mu
             if self.config["verbose"]:
                 print("Estimating \mu...")
-            self._train(train_loader, partial(self.loss_mu, l2=l2))
+            self._train_model(train_loader, partial(self.loss_mu, l2=l2))
