@@ -133,7 +133,7 @@ class Classifier(nn.Module):
         )
 
     def _train_model(self, train_data, loss_fn, dev_data=None, log_writer=None):
-        """The internal training routine called by train() after initial setup
+        """The internal training routine called by train_model() after setup
 
         Args:
             train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
