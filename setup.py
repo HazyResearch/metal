@@ -50,6 +50,7 @@ setuptools.setup(
         "torch>=0.4.1",
         "scipy",
         "tqdm",
+        "scikit-learn",
     ],
     include_package_data=True,
     keywords="machine-learning ai information-extraction weak-supervision mtl multitask multi-task-learning",
