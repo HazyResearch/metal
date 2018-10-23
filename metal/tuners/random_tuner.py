@@ -75,5 +75,7 @@ class RandomSearchTuner(ModelTuner):
         print(f"Best score: {self.best_score}")
         print("=" * 60)
 
+        self._save_report()
+
         # Return best model
         return self._load_best_model(clean_up=True)

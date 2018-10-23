@@ -42,12 +42,13 @@ class ModelTuner(object):
         # Set logging subdirectory + make sure exists
         self.log_dir = log_dir or os.getcwd()
         run_dir = run_dir or strftime("%Y_%m_%d")
-        log_subdir = os.path.join(self.log_dir, run_dir)
+        run_name = run_name or strftime("%H_%M_%S")
+        log_subdir = os.path.join(self.log_dir, run_dir, run_name)
+
         if not os.path.exists(log_subdir):
             os.makedirs(log_subdir)
 
         # Set JSON log path
-        run_name = run_name or strftime("%H_%M_%S")
         self.save_path = os.path.join(log_subdir, f"{run_name}_best_model.pkl")
         self.report_path = os.path.join(log_subdir, f"{run_name}_report.json")
 
