@@ -1,8 +1,9 @@
+import json
 import os
 import pickle
 import random
 from itertools import cycle, product
-from time import strftime
+from time import strftime, time
 
 import numpy as np
 
@@ -46,6 +47,7 @@ class ModelTuner(object):
         # Set JSON log path
         run_name = run_name or strftime("%H_%M_%S")
         self.save_path = os.path.join(log_subdir, f"{run_name}_best_model.pkl")
+        self.report_path = os.path.join(log_subdir, f"{run_name}_report.json")
 
         # Set global seed
         if seed is None:
@@ -54,11 +56,24 @@ class ModelTuner(object):
             random.seed(seed)
             self.seed = seed
 
-        self.run_stats = []
+        # Search state
+        # NOTE: Must be cleared each run with self._clear_state()!
+        self._clear_state()
 
-    def _train_model(
+    def _clear_state(self):
+        """Clears the state, starts clock"""
+        self.start_time = time()
+        self.run_stats = []
+        self.best_index = -1
+        self.best_score = -1
+        self.best_config = None
+
+        # Note: These must be set at the start of self.search()
+        self.search_space = None
+
+    def _test_model_config(
         self,
-        iter,
+        idx,
         config,
         dev_data,
         init_args=[],
@@ -71,24 +86,25 @@ class ModelTuner(object):
         # Init model
         model = self.model_class(*init_args, **init_kwargs, **config)
 
-        # Optionally print config
+        # Search params
+        # Select any params in search space that have list or dict
+        search_params = {
+            k: v
+            for k, v in config.items()
+            if isinstance(self.search_space[k], (list, dict))
+        }
         if verbose:
-            print_config = {
-                k: v
-                for k, v in config.items()
-                if isinstance(v, list) or isinstance(v, dict)
-            }
             print("=" * 60)
-            print(f"[{iter}] Testing {print_config}")
+            print(f"[{idx}] Testing {search_params}")
             print("=" * 60)
 
         # Initialize a new LogWriter and train the model, returning the score
         log_writer = None
         if self.log_writer_class is not None:
             log_writer = self.log_writer_class(
-                self.log_dir, run_name=f"model_search_{iter}"
+                self.log_dir, run_name=f"model_search_{idx}"
             )
-        model.train(
+        model.train_model(
             *train_args,
             **train_kwargs,
             dev_data=dev_data,
@@ -97,6 +113,24 @@ class ModelTuner(object):
             **config,
         )
         score = model.score(dev_data, verbose=verbose, **score_kwargs)
+
+        # If score better than best_score, save
+        if score > self.best_score:
+            self.best_score = score
+            self.best_index = idx
+            self.best_config = config
+            self._save_best_model(model)
+
+        # Save high-level run stats (in addition to per-model log)
+        time_elapsed = time() - self.start_time
+        self.run_stats.append(
+            {
+                "idx": idx,
+                "time_elapsed": time_elapsed,
+                "search_params": search_params,
+                "score": score,
+            }
+        )
         return score, model
 
     def _save_best_model(self, model):
@@ -113,6 +147,10 @@ class ModelTuner(object):
     def _clean_up(self):
         if os.path.exists(self.save_path):
             os.remove(self.save_path)
+
+    def _save_report(self):
+        with open(self.report_path, "wb") as f:
+            json.dump(self.run_stats, f, indent=1)
 
     def search(
         self,
@@ -147,18 +185,6 @@ class ModelTuner(object):
         the train loop).
         """
         raise NotImplementedError()
-
-    def get_run_stats(self):
-        """
-        Returns run stats of the previous search run.
-        Expect a list of dictionaries with the following keys:
-        {
-          "time_elapsed": the time elapsed for config
-          "best_score": the best score at the given time_elapsed
-          "best_config": the config of the best performing model
-          }
-        """
-        return self.run_stats
 
     @staticmethod
     def config_generator(search_space, max_search, shuffle=True):

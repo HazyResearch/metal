@@ -1,5 +1,3 @@
-import time
-
 from metal.tuners.tuner import ModelTuner
 from metal.utils import recursive_merge_dicts
 
@@ -47,12 +45,12 @@ class RandomSearchTuner(ModelTuner):
         parameters, including the network architecture (which is defined before
         the train loop).
         """
-        # Clear run stats
-        self.run_stats = []
+        self._clear_state()
+
+        # Generate configs
         configs = self.config_generator(search_space, max_search, shuffle)
-        best_index = 0
-        best_score = -1
-        start_time = time.time()
+
+        # Commence search
         for i, config in enumerate(configs):
             # Unless seeds are given explicitly, give each config a unique one
             if config.get("seed", None) is None:
@@ -62,7 +60,7 @@ class RandomSearchTuner(ModelTuner):
             init_kwargs = recursive_merge_dicts(init_kwargs, config)
             train_kwargs = recursive_merge_dicts(train_kwargs, config)
 
-            score, model = self._train_model(
+            score, model = self._test_model_config(
                 i,
                 config,
                 dev_data,
@@ -74,27 +72,12 @@ class RandomSearchTuner(ModelTuner):
                 **score_kwargs,
             )
 
-            if score > best_score:
-                best_index = i + 1
-                best_score = score
-                best_config = config
-                self._save_best_model(model)
-
-                # Keep track of running statistics
-                time_elapsed = time.time() - start_time
-                self.run_stats.append(
-                    {
-                        "time_elapsed": time_elapsed,
-                        "best_score": best_score,
-                        "best_config": best_config,
-                    }
-                )
-
         print("=" * 60)
         print(f"[SUMMARY]")
-        print(f"Best model: [{best_index}]")
-        print(f"Best config: {best_config}")
-        print(f"Best score: {best_score}")
+        print(f"Best model: [{self.best_index}]")
+        print(f"Best config: {self.best_config}")
+        print(f"Best score: {self.best_score}")
         print("=" * 60)
 
+        # Return best model
         return self._load_best_model(clean_up=True)

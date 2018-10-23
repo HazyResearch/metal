@@ -1,5 +1,4 @@
 import math
-import time
 
 import numpy as np
 
@@ -193,14 +192,10 @@ class HyperbandTuner(ModelTuner):
         parameters, including the network architecture (which is defined before
         the train loop).
         """
-
-        # Clear run stats
-        self.run_stats = []
+        self._clear_state()
 
         # Loop over each bracket
-        best_score, best_config, best_model_index = (float("-inf"), None, -1)
         n_models_scored = 0
-        start_time = time.time()
         for bracket_index, bracket in enumerate(self.hyperband_schedule):
 
             # Sample random configurations to seed SuccessiveHalving
@@ -232,7 +227,7 @@ class HyperbandTuner(ModelTuner):
                     configuration["n_epochs"] = r_i
 
                     # Train model and get the score
-                    score, model = self._train_model(
+                    score, model = self._test_model_config(
                         f"{band_index}_{i}",
                         configuration,
                         dev_data,
@@ -248,24 +243,6 @@ class HyperbandTuner(ModelTuner):
                     scored_configurations.append(
                         (score, cur_model_index, configuration)
                     )
-
-                    # Update best model and score
-                    if score > best_score:
-                        best_score = score
-                        best_model_index = cur_model_index
-                        best_config = configuration
-                        self._save_best_model(model)
-
-                        # Keep track of running statistics
-                        time_elapsed = time.time() - start_time
-                        self.run_stats.append(
-                            {
-                                "time_elapsed": time_elapsed,
-                                "best_score": best_score,
-                                "best_config": best_config,
-                            }
-                        )
-
                     n_models_scored += 1
 
                 # Sort scored configurations by score
@@ -280,9 +257,10 @@ class HyperbandTuner(ModelTuner):
 
         print("=" * 60)
         print(f"[SUMMARY]")
-        print(f"Best model: [{best_model_index}]")
-        print(f"Best config: {best_config}")
-        print(f"Best score: {best_score}")
+        print(f"Best model: [{self.best_index}]")
+        print(f"Best config: {self.best_config}")
+        print(f"Best score: {self.best_score}")
         print("=" * 60)
 
+        # Return best model
         return self._load_best_model(clean_up=True)
