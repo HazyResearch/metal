@@ -7,6 +7,8 @@ from time import strftime, time
 
 import numpy as np
 
+from metal.utils import recursive_merge_dicts
+
 
 class ModelTuner(object):
     """A tuner for models
@@ -38,9 +40,9 @@ class ModelTuner(object):
         self.log_writer_class = log_writer_class
 
         # Set logging subdirectory + make sure exists
-        log_dir = log_dir or os.getcwd()
+        self.log_dir = log_dir or os.getcwd()
         run_dir = run_dir or strftime("%Y_%m_%d")
-        log_subdir = os.path.join(log_dir, run_dir)
+        log_subdir = os.path.join(self.log_dir, run_dir)
         if not os.path.exists(log_subdir):
             os.makedirs(log_subdir)
 
@@ -83,16 +85,22 @@ class ModelTuner(object):
         verbose=False,
         **score_kwargs,
     ):
+
+        # Integrating generated config into init kwargs and train kwargs
+        init_kwargs = recursive_merge_dicts(init_kwargs, config)
+        train_kwargs = recursive_merge_dicts(train_kwargs, config)
+
         # Init model
-        model = self.model_class(*init_args, **init_kwargs, **config)
+        model = self.model_class(*init_args, **init_kwargs)
 
         # Search params
         # Select any params in search space that have list or dict
-        search_params = {
-            k: v
-            for k, v in config.items()
-            if isinstance(self.search_space[k], (list, dict))
-        }
+        search_params = {}
+        for k, v in config.items():
+            if k in self.search_space.keys():
+                if isinstance(self.search_space[k], (list, dict)):
+                    search_params[k] = v
+
         if verbose:
             print("=" * 60)
             print(f"[{idx}] Testing {search_params}")
@@ -110,7 +118,6 @@ class ModelTuner(object):
             dev_data=dev_data,
             verbose=verbose,
             log_writer=log_writer,
-            **config,
         )
         score = model.score(dev_data, verbose=verbose, **score_kwargs)
 

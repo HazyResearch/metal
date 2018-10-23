@@ -1,5 +1,4 @@
 from metal.tuners.tuner import ModelTuner
-from metal.utils import recursive_merge_dicts
 
 
 class RandomSearchTuner(ModelTuner):
@@ -46,6 +45,7 @@ class RandomSearchTuner(ModelTuner):
         the train loop).
         """
         self._clear_state()
+        self.search_space = search_space
 
         # Generate configs
         configs = self.config_generator(search_space, max_search, shuffle)
@@ -55,10 +55,6 @@ class RandomSearchTuner(ModelTuner):
             # Unless seeds are given explicitly, give each config a unique one
             if config.get("seed", None) is None:
                 config["seed"] = self.seed + i
-
-            # Integrating generated config into init kwargs and train kwargs
-            init_kwargs = recursive_merge_dicts(init_kwargs, config)
-            train_kwargs = recursive_merge_dicts(train_kwargs, config)
 
             score, model = self._test_model_config(
                 i,
