@@ -78,8 +78,6 @@ class EndModel(Classifier):
         else:
             self.network = layers[0]
 
-        self._print()
-
         # Construct loss module
         self.criteria = SoftCrossEntropyLoss(reduction="sum")
 

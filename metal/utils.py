@@ -414,13 +414,13 @@ class LogWriter(object):
         # Set logging subdirectory + make sure exists
         log_dir = log_dir or os.getcwd()
         run_dir = run_dir or start_date
-        log_subdir = os.path.join(log_dir, run_dir)
-        if not os.path.exists(log_subdir):
-            os.makedirs(log_subdir)
+        self.log_subdir = os.path.join(log_dir, run_dir)
+        if not os.path.exists(self.log_subdir):
+            os.makedirs(self.log_subdir)
 
         # Set JSON log path
         run_name = run_name or start_time
-        self.log_path = os.path.join(log_subdir, f"{run_name}.json")
+        self.log_path = os.path.join(self.log_subdir, f"{run_name}.json")
 
         # Initialize log
         # Note we have a separate section for during-run metrics
@@ -442,7 +442,7 @@ class LogWriter(object):
 
     def write(self):
         """Dump JSON to file"""
-        with open(self.log_path, "wb") as f:
+        with open(self.log_path, "w") as f:
             json.dump(self.log, f, indent=1)
 
     def close(self):

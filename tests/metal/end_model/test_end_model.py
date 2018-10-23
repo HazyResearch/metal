@@ -1,4 +1,6 @@
+import json
 import unittest
+from shutil import rmtree
 
 import numpy as np
 import torch
@@ -11,6 +13,7 @@ from metal.end_model import (
 )
 from metal.metrics import METRICS
 from metal.modules import IdentityModule
+from metal.utils import LogWriter
 
 
 class EndModelTest(unittest.TestCase):
@@ -153,6 +156,35 @@ class EndModelTest(unittest.TestCase):
         scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=True)
         for i, metric in enumerate(metrics):
             self.assertGreater(scores[i], 0.95)
+
+    def test_logging(self):
+        """Test the basic LogWriter class"""
+        log_writer = LogWriter(run_dir="test_dir", run_name="test")
+        em = EndModel(
+            seed=1,
+            input_batchnorm=False,
+            middle_batchnorm=False,
+            input_dropout=0.0,
+            middle_dropout=0.0,
+            layer_out_dims=[2, 10, 2],
+            verbose=False,
+        )
+        Xs, Ys = self.single_problem
+        em.train_model(
+            (Xs[0], Ys[0]),
+            dev_data=(Xs[1], Ys[1]),
+            n_epochs=7,
+            log_writer=log_writer,
+        )
+
+        # Load the log
+        with open(log_writer.log_path, "r") as f:
+            run_log = json.load(f)
+        self.assertEqual(run_log["config"]["train_config"]["n_epochs"], 7)
+        self.assertEqual(len(run_log["run-log"]["train-loss"]), 7)
+
+        # Clean up
+        rmtree(log_writer.log_subdir)
 
 
 if __name__ == "__main__":

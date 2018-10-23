@@ -258,12 +258,16 @@ class Classifier(nn.Module):
                     msg += f"\tDev score: {dev_score:.3f}"
                 print(msg)
 
-                # Also write train loss (+ dev score) to log_writer if available
-                if log_writer is not None:
-                    log_writer.add_scalar("train-loss", train_loss, epoch)
-                    if evaluate_dev:
-                        log_writer.add_scalar("dev-score", dev_score, epoch)
-                    log_writer.write()
+            # Also write train loss (+ dev score) to log_writer if available
+            if log_writer is not None and (
+                epoch % train_config["print_every"] == 0
+                or epoch == train_config["n_epochs"] - 1
+            ):
+                tls = float(train_loss.numpy())
+                log_writer.add_scalar("train-loss", tls, epoch)
+                if evaluate_dev:
+                    log_writer.add_scalar("dev-score", dev_score, epoch)
+                log_writer.write()
 
         # Restore best model if applicable
         if evaluate_dev and train_config["checkpoint"]:
