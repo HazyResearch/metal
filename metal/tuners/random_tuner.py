@@ -1,5 +1,3 @@
-import time
-
 from metal.tuners.tuner import ModelTuner
 from metal.utils import recursive_merge_dicts
 
@@ -47,20 +45,12 @@ class RandomSearchTuner(ModelTuner):
         parameters, including the network architecture (which is defined before
         the train loop).
         """
-        # Clear run stats
-        self.run_stats = []
+        self._clear_state()
 
+        # Generate configs
         configs = self.config_generator(search_space, max_search, shuffle)
-        print_worthy = [
-            k
-            for k, v in search_space.items()
-            if isinstance(v, list) or isinstance(v, dict)
-        ]
 
-        best_index = 0
-        best_score = -1
-        best_model = None
-        start_time = time.time()
+        # Commence search
         for i, config in enumerate(configs):
             # Unless seeds are given explicitly, give each config a unique one
             if config.get("seed", None) is None:
@@ -70,43 +60,24 @@ class RandomSearchTuner(ModelTuner):
             init_kwargs = recursive_merge_dicts(init_kwargs, config)
             train_kwargs = recursive_merge_dicts(train_kwargs, config)
 
-            # Initializing model
-            model = self.model_class(*init_args, **init_kwargs)
-
-            if verbose:
-                print_config = {
-                    k: v for k, v in config.items() if k in print_worthy
-                }
-                print("=" * 60)
-                print(f"[{i + 1}] Testing {print_config}")
-                print("=" * 60)
-
-            model.train_model(
-                *train_args, **train_kwargs, dev_data=dev_data, verbose=verbose
+            score, model = self._test_model_config(
+                i,
+                config,
+                dev_data,
+                init_args=init_args,
+                train_args=train_args,
+                init_kwargs=init_kwargs,
+                train_kwargs=train_kwargs,
+                verbose=verbose,
+                **score_kwargs,
             )
-            score = model.score(dev_data, verbose=verbose, **score_kwargs)
-
-            if score > best_score or best_model is None:
-                best_index = i + 1
-                best_model = model
-                best_score = score
-                best_config = config
-
-                # Keep track of running statistics
-                time_elapsed = time.time() - start_time
-                self.run_stats.append(
-                    {
-                        "time_elapsed": time_elapsed,
-                        "best_score": best_score,
-                        "best_config": best_config,
-                    }
-                )
 
         print("=" * 60)
         print(f"[SUMMARY]")
-        print(f"Best model: [{best_index}]")
-        print(f"Best config: {best_config}")
-        print(f"Best score: {best_score}")
+        print(f"Best model: [{self.best_index}]")
+        print(f"Best config: {self.best_config}")
+        print(f"Best score: {self.best_score}")
         print("=" * 60)
 
-        return best_model
+        # Return best model
+        return self._load_best_model(clean_up=True)

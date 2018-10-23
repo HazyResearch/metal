@@ -1,5 +1,4 @@
 import math
-import time
 
 import numpy as np
 
@@ -29,9 +28,19 @@ class HyperbandTuner(ModelTuner):
         hyperband_epochs_budget=200,
         hyperband_proportion_discard=3,
         log_dir=None,
+        run_dir=None,
+        run_name=None,
+        log_writer_class=None,
         seed=None,
     ):
-        super().__init__(model_class, log_dir, seed)
+        super().__init__(
+            model_class,
+            log_dir=log_dir,
+            run_dir=run_dir,
+            run_name=run_name,
+            log_writer_class=log_writer_class,
+            seed=seed,
+        )
 
         # Set random seed (Note this only makes sense in single threaded mode)
         self.rand_state = np.random.RandomState()
@@ -183,25 +192,10 @@ class HyperbandTuner(ModelTuner):
         parameters, including the network architecture (which is defined before
         the train loop).
         """
-
-        # Clear run stats
-        self.run_stats = []
-
-        print_worthy = [
-            k
-            for k, v in search_space.items()
-            if isinstance(v, list) or isinstance(v, dict)
-        ]
+        self._clear_state()
 
         # Loop over each bracket
-        best_model, best_score, best_config, best_model_index = (
-            None,
-            float("-inf"),
-            None,
-            -1,
-        )
         n_models_scored = 0
-        start_time = time.time()
         for bracket_index, bracket in enumerate(self.hyperband_schedule):
 
             # Sample random configurations to seed SuccessiveHalving
@@ -221,7 +215,7 @@ class HyperbandTuner(ModelTuner):
 
                 # Evaluate each configuration for r_i epochs
                 scored_configurations = []
-                for configuration in configurations:
+                for i, configuration in enumerate(configurations):
 
                     cur_model_index = n_models_scored
 
@@ -233,65 +227,40 @@ class HyperbandTuner(ModelTuner):
                     configuration["n_epochs"] = r_i
 
                     # Train model and get the score
-                    model = self.model_class(*init_args, **configuration)
-                    if verbose:
-                        print_config = {
-                            k: v
-                            for k, v in configuration.items()
-                            if k in print_worthy
-                        }
-                        print("=" * 60)
-                        print(f"[{cur_model_index} Testing {print_config}")
-                        print("=" * 60)
-
-                    model.train_model(
-                        *train_args,
-                        dev_data=dev_data,
-                        **configuration,
+                    score, model = self._test_model_config(
+                        f"{band_index}_{i}",
+                        configuration,
+                        dev_data,
+                        init_args=init_args,
+                        train_args=train_args,
+                        init_kwargs=init_kwargs,
+                        train_kwargs=train_kwargs,
                         verbose=verbose,
-                    )
-                    score = model.score(
-                        dev_data, verbose=verbose, **score_kwargs
+                        **score_kwargs,
                     )
 
                     # Add score and model to list
                     scored_configurations.append(
-                        (model, score, cur_model_index, configuration)
+                        (score, cur_model_index, configuration)
                     )
-
-                    # Update best model and score
-                    if score > best_score or best_model is None:
-                        best_model = model
-                        best_score = score
-                        best_model_index = cur_model_index
-                        best_config = configuration
-
-                        # Keep track of running statistics
-                        time_elapsed = time.time() - start_time
-                        self.run_stats.append(
-                            {
-                                "time_elapsed": time_elapsed,
-                                "best_score": best_score,
-                                "best_config": best_config,
-                            }
-                        )
-
                     n_models_scored += 1
 
                 # Sort scored configurations by score
-                scored_configurations.sort(key=lambda x: x[1], reverse=True)
+                scored_configurations.sort(key=lambda x: x[0], reverse=True)
 
                 # Successively halve the configurations
                 if band_index + 1 < len(bracket):
                     n_to_keep, _ = bracket[band_index + 1]
-                    configurations = [x[3] for x in scored_configurations][
+                    configurations = [x[2] for x in scored_configurations][
                         :n_to_keep
                     ]
 
         print("=" * 60)
         print(f"[SUMMARY]")
-        print(f"Best model: [{best_model_index}]")
-        print(f"Best config: {best_config}")
-        print(f"Best score: {best_score}")
+        print(f"Best model: [{self.best_index}]")
+        print(f"Best config: {self.best_config}")
+        print(f"Best score: {self.best_score}")
         print("=" * 60)
-        return best_model
+
+        # Return best model
+        return self._load_best_model(clean_up=True)

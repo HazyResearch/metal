@@ -33,7 +33,7 @@ class Classifier(nn.Module):
 
     Args:
         k: (int) The cardinality of the classifier
-        seed: (int) A random seed to set
+        config: (dict) A config dictionary
     """
 
     # A class variable indicating whether the class implements its own custom L2
@@ -132,9 +132,8 @@ class Classifier(nn.Module):
             model_class, **checkpoint_config, verbose=self.config["verbose"]
         )
 
-    def _train_model(self, train_data, loss_fn, dev_data=None):
-        """The internal training routine called by train_model() after initial
-        setup
+    def _train_model(self, train_data, loss_fn, dev_data=None, log_writer=None):
+        """The internal training routine called by train_model() after setup
 
         Args:
             train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
@@ -142,12 +141,17 @@ class Classifier(nn.Module):
             loss_fn: the loss function to minimize (maps *data -> loss)
             dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
+            log_writer: a metal.utils.LogWriter object for logging
 
         If dev_data is not provided, then no checkpointing or
         evaluation on the dev set will occur.
         """
         train_config = self.config["train_config"]
         evaluate_dev = dev_data is not None
+
+        # Add config to log_writer if provided
+        if log_writer is not None:
+            log_writer.add_config(self.config)
 
         # Convert data to DataLoaders
         train_loader = self._create_data_loader(train_data)
@@ -254,9 +258,23 @@ class Classifier(nn.Module):
                     msg += f"\tDev score: {dev_score:.3f}"
                 print(msg)
 
+            # Also write train loss (+ dev score) to log_writer if available
+            if log_writer is not None and (
+                epoch % train_config["print_every"] == 0
+                or epoch == train_config["n_epochs"] - 1
+            ):
+                tls = float(train_loss.numpy())
+                log_writer.add_scalar("train-loss", tls, epoch)
+                if evaluate_dev:
+                    log_writer.add_scalar("dev-score", dev_score, epoch)
+                log_writer.write()
+
         # Restore best model if applicable
         if evaluate_dev and train_config["checkpoint"]:
             checkpointer.restore(model=self)
+
+            if log_writer is not None:
+                log_writer.log["checkpoint_iter"] = checkpointer.best_iteration
 
         # Print confusion matrix if applicable
         if self.config["verbose"]:
@@ -268,6 +286,10 @@ class Classifier(nn.Module):
                     verbose=True,
                     print_confusion_matrix=True,
                 )
+
+        # Close log_writer if available
+        if log_writer is not None:
+            log_writer.close()
 
     def _create_dataset(self, *data):
         """Converts input data to the appropriate Dataset"""

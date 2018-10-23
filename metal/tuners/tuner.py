@@ -1,5 +1,9 @@
+import json
+import os
+import pickle
 import random
 from itertools import cycle, product
+from time import strftime, time
 
 import numpy as np
 
@@ -9,25 +13,144 @@ class ModelTuner(object):
 
     Args:
         model: (nn.Module) The model class to train (uninitiated)
-        log_dir: The directory in which to save intermediate results
-            If no log_dir is given, the model tuner will attempt to keep
-            all trained models in memory.
+        log_dir: (str) The path to the base log directory, or defaults to
+            current working directory.
+        run_dir: (str) The name of the sub-directory, or defaults to the date,
+            strftime("%Y_%m_%d").
+        run_name: (str) The name of the run, or defaults to the time,
+            strftime("%H_%M_%S").
+        log_writer_class: a metal.utils.LogWriter class for logging the full
+            model search.
+
+        Saves current best model to 'log_dir/run_dir/{run_name}_best_model.pkl'.
     """
 
-    def __init__(self, model_class, log_dir=None, seed=None):
+    def __init__(
+        self,
+        model_class,
+        log_dir=None,
+        run_dir=None,
+        run_name=None,
+        log_writer_class=None,
+        seed=None,
+    ):
         self.model_class = model_class
+        self.log_writer_class = log_writer_class
 
-        if log_dir is not None:
-            raise NotImplementedError
-        self.log_dir = log_dir
+        # Set logging subdirectory + make sure exists
+        log_dir = log_dir or os.getcwd()
+        run_dir = run_dir or strftime("%Y_%m_%d")
+        log_subdir = os.path.join(log_dir, run_dir)
+        if not os.path.exists(log_subdir):
+            os.makedirs(log_subdir)
 
+        # Set JSON log path
+        run_name = run_name or strftime("%H_%M_%S")
+        self.save_path = os.path.join(log_subdir, f"{run_name}_best_model.pkl")
+        self.report_path = os.path.join(log_subdir, f"{run_name}_report.json")
+
+        # Set global seed
         if seed is None:
             self.seed = 0
         else:
             random.seed(seed)
             self.seed = seed
 
+        # Search state
+        # NOTE: Must be cleared each run with self._clear_state()!
+        self._clear_state()
+
+    def _clear_state(self):
+        """Clears the state, starts clock"""
+        self.start_time = time()
         self.run_stats = []
+        self.best_index = -1
+        self.best_score = -1
+        self.best_config = None
+
+        # Note: These must be set at the start of self.search()
+        self.search_space = None
+
+    def _test_model_config(
+        self,
+        idx,
+        config,
+        dev_data,
+        init_args=[],
+        train_args=[],
+        init_kwargs={},
+        train_kwargs={},
+        verbose=False,
+        **score_kwargs,
+    ):
+        # Init model
+        model = self.model_class(*init_args, **init_kwargs, **config)
+
+        # Search params
+        # Select any params in search space that have list or dict
+        search_params = {
+            k: v
+            for k, v in config.items()
+            if isinstance(self.search_space[k], (list, dict))
+        }
+        if verbose:
+            print("=" * 60)
+            print(f"[{idx}] Testing {search_params}")
+            print("=" * 60)
+
+        # Initialize a new LogWriter and train the model, returning the score
+        log_writer = None
+        if self.log_writer_class is not None:
+            log_writer = self.log_writer_class(
+                self.log_dir, run_name=f"model_search_{idx}"
+            )
+        model.train_model(
+            *train_args,
+            **train_kwargs,
+            dev_data=dev_data,
+            verbose=verbose,
+            log_writer=log_writer,
+            **config,
+        )
+        score = model.score(dev_data, verbose=verbose, **score_kwargs)
+
+        # If score better than best_score, save
+        if score > self.best_score:
+            self.best_score = score
+            self.best_index = idx
+            self.best_config = config
+            self._save_best_model(model)
+
+        # Save high-level run stats (in addition to per-model log)
+        time_elapsed = time() - self.start_time
+        self.run_stats.append(
+            {
+                "idx": idx,
+                "time_elapsed": time_elapsed,
+                "search_params": search_params,
+                "score": score,
+            }
+        )
+        return score, model
+
+    def _save_best_model(self, model):
+        with open(self.save_path, "wb") as f:
+            pickle.dump(model, f)
+
+    def _load_best_model(self, clean_up=False):
+        with open(self.save_path, "rb") as f:
+            model = pickle.load(f)
+        if clean_up:
+            self._clean_up()
+        return model
+
+    def _clean_up(self):
+        if os.path.exists(self.save_path):
+            os.remove(self.save_path)
+
+    def _save_report(self):
+        with open(self.report_path, "wb") as f:
+            json.dump(self.run_stats, f, indent=1)
 
     def search(
         self,
@@ -62,18 +185,6 @@ class ModelTuner(object):
         the train loop).
         """
         raise NotImplementedError()
-
-    def get_run_stats(self):
-        """
-        Returns run stats of the previous search run.
-        Expect a list of dictionaries with the following keys:
-        {
-          "time_elapsed": the time elapsed for config
-          "best_score": the best score at the given time_elapsed
-          "best_config": the config of the best performing model
-          }
-        """
-        return self.run_stats
 
     @staticmethod
     def config_generator(search_space, max_search, shuffle=True):
