@@ -87,7 +87,7 @@ class RandomSearchModelTunerTest(unittest.TestCase):
             "layer_out_dims": [2, 10, 2],
             "verbose": False,
         }
-        search_space = {"input_dropout": [0.0, 1.0]}
+        search_space = {"middle_dropout": [0.0, 1.0]}
         tuner.search(
             search_space,
             (Xs[1], Ys[1]),
@@ -101,7 +101,7 @@ class RandomSearchModelTunerTest(unittest.TestCase):
             tuner_report = json.load(f)
 
         # Confirm that when input dropout = 1.0, score tanks, o/w does well
-        self.assertLess(tuner_report[0]["score"], 0.6)
+        self.assertLess(tuner_report[0]["score"], 0.65)
         self.assertGreater(tuner_report[1]["score"], 0.99)
 
         # Clean up
