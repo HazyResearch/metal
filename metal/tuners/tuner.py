@@ -98,14 +98,8 @@ class ModelTuner(object):
             train_kwargs, config, misses="insert"
         )
 
-        print(init_kwargs)
-        print(train_kwargs)
-
         # Init model
         model = self.model_class(*init_args, **init_kwargs)
-
-        print(model.config)
-        model._print()
 
         # Search params
         # Select any params in search space that have list or dict
