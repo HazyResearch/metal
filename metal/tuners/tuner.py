@@ -7,6 +7,8 @@ from time import strftime, time
 
 import numpy as np
 
+from metal.utils import recursive_merge_dicts
+
 
 class ModelTuner(object):
     """A tuner for models
@@ -22,7 +24,7 @@ class ModelTuner(object):
         log_writer_class: a metal.utils.LogWriter class for logging the full
             model search.
 
-        Saves current best model to 'log_dir/run_dir/{run_name}_best_model.pkl'.
+        Saves model search logs and tuner report to 'log_dir/run_dir/run_name/.'
     """
 
     def __init__(
@@ -38,16 +40,20 @@ class ModelTuner(object):
         self.log_writer_class = log_writer_class
 
         # Set logging subdirectory + make sure exists
-        log_dir = log_dir or os.getcwd()
-        run_dir = run_dir or strftime("%Y_%m_%d")
-        log_subdir = os.path.join(log_dir, run_dir)
-        if not os.path.exists(log_subdir):
-            os.makedirs(log_subdir)
+        self.init_date = strftime("%Y_%m_%d")
+        self.init_time = strftime("%H_%M_%S")
+        self.log_dir = log_dir or os.getcwd()
+        run_dir = run_dir or self.init_date
+        run_name = run_name or self.init_time
+        self.log_rootdir = os.path.join(self.log_dir, run_dir)
+        self.log_subdir = os.path.join(self.log_dir, run_dir, run_name)
 
-        # Set JSON log path
-        run_name = run_name or strftime("%H_%M_%S")
-        self.save_path = os.path.join(log_subdir, f"{run_name}_best_model.pkl")
-        self.report_path = os.path.join(log_subdir, f"{run_name}_report.json")
+        if not os.path.exists(self.log_subdir):
+            os.makedirs(self.log_subdir)
+
+        # Set best model pkl and JSON log paths
+        self.save_path = os.path.join(self.log_subdir, f"best_model.pkl")
+        self.report_path = os.path.join(self.log_subdir, f"tuner_report.json")
 
         # Set global seed
         if seed is None:
@@ -83,16 +89,26 @@ class ModelTuner(object):
         verbose=False,
         **score_kwargs,
     ):
+
+        # Integrating generated config into init kwargs and train kwargs
+        init_kwargs = recursive_merge_dicts(
+            init_kwargs, config, misses="insert"
+        )
+        train_kwargs = recursive_merge_dicts(
+            train_kwargs, config, misses="insert"
+        )
+
         # Init model
-        model = self.model_class(*init_args, **init_kwargs, **config)
+        model = self.model_class(*init_args, **init_kwargs)
 
         # Search params
         # Select any params in search space that have list or dict
-        search_params = {
-            k: v
-            for k, v in config.items()
-            if isinstance(self.search_space[k], (list, dict))
-        }
+        search_params = {}
+        for k, v in config.items():
+            if k in self.search_space.keys():
+                if isinstance(self.search_space[k], (list, dict)):
+                    search_params[k] = v
+
         if verbose:
             print("=" * 60)
             print(f"[{idx}] Testing {search_params}")
@@ -102,7 +118,9 @@ class ModelTuner(object):
         log_writer = None
         if self.log_writer_class is not None:
             log_writer = self.log_writer_class(
-                self.log_dir, run_name=f"model_search_{idx}"
+                log_dir=self.log_subdir,
+                run_dir=".",
+                run_name=f"model_search_{idx}",
             )
         model.train_model(
             *train_args,
@@ -110,7 +128,6 @@ class ModelTuner(object):
             dev_data=dev_data,
             verbose=verbose,
             log_writer=log_writer,
-            **config,
         )
         score = model.score(dev_data, verbose=verbose, **score_kwargs)
 
@@ -149,7 +166,7 @@ class ModelTuner(object):
             os.remove(self.save_path)
 
     def _save_report(self):
-        with open(self.report_path, "wb") as f:
+        with open(self.report_path, "w") as f:
             json.dump(self.run_stats, f, indent=1)
 
     def search(
