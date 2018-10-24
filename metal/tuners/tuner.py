@@ -24,7 +24,7 @@ class ModelTuner(object):
         log_writer_class: a metal.utils.LogWriter class for logging the full
             model search.
 
-        Saves current best model to 'log_dir/run_dir/{run_name}_best_model.pkl'.
+        Saves model search logs and tuner report to 'log_dir/run_dir/run_name/.'
     """
 
     def __init__(
@@ -40,17 +40,20 @@ class ModelTuner(object):
         self.log_writer_class = log_writer_class
 
         # Set logging subdirectory + make sure exists
+        self.init_date = strftime("%Y_%m_%d")
+        self.init_time = strftime("%H_%M_%S")
         self.log_dir = log_dir or os.getcwd()
-        run_dir = run_dir or strftime("%Y_%m_%d")
-        run_name = run_name or strftime("%H_%M_%S")
-        log_subdir = os.path.join(self.log_dir, run_dir, run_name)
+        run_dir = run_dir or self.init_date
+        run_name = run_name or self.init_time
+        self.log_rootdir = os.path.join(self.log_dir, run_dir)
+        self.log_subdir = os.path.join(self.log_dir, run_dir, run_name)
 
-        if not os.path.exists(log_subdir):
-            os.makedirs(log_subdir)
+        if not os.path.exists(self.log_subdir):
+            os.makedirs(self.log_subdir)
 
-        # Set JSON log path
-        self.save_path = os.path.join(log_subdir, f"{run_name}_best_model.pkl")
-        self.report_path = os.path.join(log_subdir, f"{run_name}_report.json")
+        # Set best model pkl and JSON log paths
+        self.save_path = os.path.join(self.log_subdir, f"best_model.pkl")
+        self.report_path = os.path.join(self.log_subdir, f"tuner_report.json")
 
         # Set global seed
         if seed is None:
@@ -111,7 +114,9 @@ class ModelTuner(object):
         log_writer = None
         if self.log_writer_class is not None:
             log_writer = self.log_writer_class(
-                self.log_dir, run_name=f"model_search_{idx}"
+                log_dir=self.log_subdir,
+                run_dir=".",
+                run_name=f"model_search_{idx}",
             )
         model.train_model(
             *train_args,
@@ -157,7 +162,7 @@ class ModelTuner(object):
             os.remove(self.save_path)
 
     def _save_report(self):
-        with open(self.report_path, "wb") as f:
+        with open(self.report_path, "w") as f:
             json.dump(self.run_stats, f, indent=1)
 
     def search(

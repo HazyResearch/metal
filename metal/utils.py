@@ -401,10 +401,10 @@ class LogWriter(object):
             current working directory.
         run_dir: (str) The name of the sub-directory, or defaults to the date,
             strftime("%Y_%m_%d").
-        run_name: (str) The name of the run, or defaults to the time,
+        run_name: (str) The name of the run + the time, or defaults to the time,
             strftime("%H_%M_%S).
 
-        Log is saved to 'log_dir/run_dir/{run_name}.json'
+        Log is saved to 'log_dir/run_dir/{run_name}_H_M_S.json'
     """
 
     def __init__(self, log_dir=None, run_dir=None, run_name=None):
@@ -419,7 +419,10 @@ class LogWriter(object):
             os.makedirs(self.log_subdir)
 
         # Set JSON log path
-        run_name = run_name or start_time
+        if run_name is not None:
+            run_name = f"{run_name}_{start_time}"
+        else:
+            run_name = start_time
         self.log_path = os.path.join(self.log_subdir, f"{run_name}.json")
 
         # Initialize log
