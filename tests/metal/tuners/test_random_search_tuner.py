@@ -94,6 +94,7 @@ class RandomSearchModelTunerTest(unittest.TestCase):
             init_kwargs=init_kwargs,
             train_args=[(Xs[0], Ys[0])],
             train_kwargs={"n_epochs": 10},
+            verbose=False,
         )
 
         # Load the log
@@ -102,7 +103,7 @@ class RandomSearchModelTunerTest(unittest.TestCase):
 
         # Confirm that when input dropout = 1.0, score tanks, o/w does well
         self.assertLess(tuner_report[0]["score"], 0.65)
-        self.assertGreater(tuner_report[1]["score"], 0.99)
+        self.assertGreater(tuner_report[1]["score"], 0.95)
 
         # Clean up
         rmtree(tuner.log_rootdir)
