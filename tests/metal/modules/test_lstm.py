@@ -22,6 +22,7 @@ class LSTMTest(unittest.TestCase):
         return [X[:800], X[800:900], X[900:]]
 
     def test_lstm_memorize_first(self):
+        """Confirm that lstm can memorize the first token in a long sequence"""
         X = torch.randint(1, MAX_INT + 1, (n, SEQ_LEN)).long()
         Y = X[:, 0]
 
@@ -53,6 +54,7 @@ class LSTMTest(unittest.TestCase):
         self.assertGreater(score, 0.95)
 
     def test_lstm_memorize_marker(self):
+        """Confirm that lstm can return the token that comes after a special marker"""
         X = torch.randint(1, MAX_INT + 1, (n, SEQ_LEN)).long()
         Y = torch.zeros(n).long()
         needles = np.random.randint(1, SEQ_LEN - 1, n)
