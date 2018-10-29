@@ -68,12 +68,13 @@ class RandomSearchTuner(ModelTuner):
                 **score_kwargs,
             )
 
-        print("=" * 60)
-        print(f"[SUMMARY]")
-        print(f"Best model: [{self.best_index}]")
-        print(f"Best config: {self.best_config}")
-        print(f"Best score: {self.best_score}")
-        print("=" * 60)
+        if verbose:
+            print("=" * 60)
+            print(f"[SUMMARY]")
+            print(f"Best model: [{self.best_index}]")
+            print(f"Best config: {self.best_config}")
+            print(f"Best score: {self.best_score}")
+            print("=" * 60)
 
         self._save_report()
 
