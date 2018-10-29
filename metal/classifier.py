@@ -182,7 +182,10 @@ class Classifier(nn.Module):
             t = tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
-                disable=train_config["disable_prog_bar"],
+                disable=(
+                    train_config["disable_prog_bar"]
+                    or not self.config["verbose"]
+                ),
             )
 
             for batch_num, data in t:
