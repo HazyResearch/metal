@@ -16,4 +16,5 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: master
     hooks:
-    -   id: flake8
+    - id: flake8
+      args: [--ignore, 'E203,E266,E501,E731,E741,W503,W605,F403,F401'] 
