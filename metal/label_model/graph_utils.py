@@ -1,6 +1,7 @@
-from itertools import product
-from itertools import combinations
+from itertools import combinations, product
+
 import networkx as nx
+import numpy as np
 
 def generate_edges(M, clique_size, num_cliques):
     """Given a type of dependency structure to create, returns a list of edges.
@@ -91,6 +92,7 @@ class JunctionTree(object):
     Args:
         m: (int) Number of labeling functions
         k: (int) Cardinality of the classification problem
+        t: (int) Number of tasks
         abstains: (bool) Whether to include abstains (0 label)
         deps_graph [optional]: A DependenciesGraph object; must specify either
             this or a set of edges
@@ -105,6 +107,7 @@ class JunctionTree(object):
         self,
         m,
         k,
+        t=1,
         abstains=True,
         deps_graph=None,
         edges=None,
@@ -112,6 +115,7 @@ class JunctionTree(object):
     ):
         self.m = m
         self.k = k
+        self.t = t
         self.abstains = abstains
         self.k0 = 0 if abstains else 1
         if deps_graph is not None:
@@ -124,8 +128,14 @@ class JunctionTree(object):
         self.higher_order_cliques = higher_order_cliques
 
         # Materialize the mappings from index --> val set once here
+        # Observed vars
         self.O_map = [vals for idx, vals in self.iter_observed()]
         self.O_d = len(self.O_map)
+        self.O_map_full = [vals for idx, vals in self.iter_observed(offset=0)]
+        self.O_d_full = len(self.O_map_full)
+        # Hidden vars
+        self.H_map = [vals for idx, vals in self.iter_hidden()]
+        self.H_d = len(self.H_map)
 
     def _get_junction_tree(self):
         """Given a set of int nodes i and edges (i,j), returns an nx.Graph
@@ -220,19 +230,13 @@ class JunctionTree(object):
         for vals in product(*val_ranges_s):
             yield dict(zip(var_ids, vals))
 
-    def iter_observed(self, add_Y=False):
+    def iter_observed(self, offset=1):
         """Iterates over (i, vals) where i is an index and vals is a dictionary
-        mapping from LF indices to values
-
-        If self.higher_order_cliques = False, just iterates over the self.m
-        individual LF indicator blocks (each of which has self.k entries
-        if abstains=False, else self.k-1). If self.higher_order_cliques = True,
-        includes all maximal cliques in the junction tree as well, minus Y.
-
-        Args:
-            - add_Y: (bool) Add Y to all the cliques as well
+        mapping from LF indices to values, iterating over all observed values:
+            - The m LFs
+            - If self.higher_order_cliques=True: also iterates over all maximal
+                cliques in the junction tree, *but with Y removed*
         """
-
         # Unary observed cliques, {\lf_i}
         cliques = [{i} for i in range(self.m)]
 
@@ -241,14 +245,70 @@ class JunctionTree(object):
         if self.higher_order_cliques:
             for ci in self.G.nodes():
                 cids = self.get_members(ci) - {self.m}
-                if cids not in cliques:
-                    cliques.append(set(cids))
+
+                # Iterate through the full powerset of observed cliques
+                for r in range(2, len(cids) + 1):
+                    for cids_ss in combinations(cids, r):
+                        cids_ss = set(cids_ss)
+                        if cids_ss not in cliques:
+                            cliques.append(set(cids_ss))
 
         # Iterate over the index, minimal set of values as dict
         idx = -1
         for cids in cliques:
-            if add_Y:
-                cids.add(self.m)
-            for vals in self.iter_vals(cids, offset=1):
+            for vals in self.iter_vals(cids, offset=offset):
                 idx += 1
                 yield idx, vals
+
+    def iter_hidden(self, offset=1):
+        """Iterates over (i, vals) where i is an index and vals is a dictionary
+        mapping from LF indices to values, iterating over all hidden values:
+            - Y
+            - All the non-singleton separator sets (which all include Y)
+
+        Note: Currently we *don't* ever add the higher-order cliques.
+        """
+        # Must include at least Y- now observed \union hidden contains all nodes
+        cliques = [{self.m}]
+
+        # Next, add all separator sets (i.e. add all new non-singleton sep sets)
+        for i, j in self.G.edges():
+            cids = self.get_members((i, j))
+            if cids not in cliques:
+                cliques.append(set(cids))
+
+        # Iterate over the index, minimal set of values as dict
+        idx = -1
+        for cids in cliques:
+            for vals in self.iter_vals(cids, offset=offset):
+                idx += 1
+                yield idx, vals
+
+    def observed_maximal_mask(self, offset=1):
+        """Returns a binary mask selecting just those observed indices
+        corresponding to maximal cliques (nodes) in the junction tree."""
+        d = self.O_d if offset == 1 else self.O_d_full
+        mask = np.zeros(d)
+        for idx, vals in self.iter_observed(offset=offset):
+            ci_max = list(self.get_maximal_cliques(vals.keys()))
+            assert len(ci_max) == 1
+            ci_max = ci_max[0]
+            ci_max_members = self.get_members(ci_max)
+            if len(vals) + 1 == len(ci_max_members):
+                mask[idx] = 1
+        return mask
+
+    @property
+    def ind_model(self):
+        """Returns True if there are only edges between LFs and Y (no LF-LF)
+        dependencies"""
+        return len(self.deps_graph.G.edges()) - self.m == 0
+
+    @property
+    def singleton_sep_sets(self):
+        """Returns True if the only separator set is {Y}."""
+        for i, j in self.G.edges():
+            cids = self.get_members((i, j))
+            if len(cids) > 1:
+                return False
+        return True

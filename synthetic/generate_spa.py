@@ -1,5 +1,5 @@
 from collections import defaultdict
-from itertools import combinations, product
+from itertools import chain, combinations, product
 
 import networkx as nx
 import numpy as np
@@ -81,8 +81,8 @@ class DataGenerator(object):
         class_balance="random",
         deps_graph=None,
         param_ranges={
-            "theta_range_acc": (0.1, 1),
-            "theta_range_edge": (0.1, 1),
+            "theta_acc_range": (-0.25, 1),
+            "theta_edge_range": (-1, 1),
         },
         higher_order_cliques=True,
         **kwargs,
@@ -121,18 +121,7 @@ class DataGenerator(object):
         self.msg_cache = {}
         self.p_marginal_cache = {}
 
-        # Generate O, mu, Sigma, Sigma_inv
-        # Y = (
-        #     1
-        # )  # Note: we pick an arbitrary Y here, since assuming doesn't matter
-        # self.O = self._generate_O_Y(Y=Y)
-        # self.mu = self._generate_mu_Y(Y=Y)
-        # self.sig, self.sig_inv = self._generate_sigma(self.O, self.mu)
-
-        # # Generate the true labels self.Y and label matrix self.L
-        # self._generate_label_matrix()
-
-    def _generate_params(self, param_ranges):
+    def _generate_params(self, param_ranges, rank_one_model=True):
         """This function generates the parameters of the data generating model
 
         Note that along with the potential functions of the SPA algorithm, this
@@ -141,33 +130,42 @@ class DataGenerator(object):
         P(\lf_C | Y), is generated randomly.
         """
         theta = defaultdict(float)
+        acc_range = param_ranges["theta_acc_range"]
+        acc_min, acc_max = min(acc_range), max(acc_range)
+        edge_range = param_ranges["theta_edge_range"]
+        edge_min, edge_max = min(edge_range), max(edge_range)
 
         # Unary clique factors
         # TODO: Set class balance here!
 
-        # Binary clique factors
-        for (i, j) in self.jt.deps_graph.G.edges():
+        # Pairwise (edge) factors
+        for edge in self.jt.deps_graph.G.edges():
+            (i, j) = sorted(edge)
 
-            # Separate parameters for (\lf_i, Y) factors vs. (\lf_i, \lf_j)
-            if i == self.m or j == self.m:
-                theta_range = param_ranges["theta_range_acc"]
-            else:
-                theta_range = param_ranges["theta_range_edge"]
-            t_min, t_max = min(theta_range), max(theta_range)
-
-            for vals in product(range(self.k0, self.k + 1), repeat=2):
-                # Y does not have abstain votes
-                if (i == self.m and vals[0] == 0) or (
-                    j == self.m and vals[1] == 0
+            # Pairwise accuracy factors (\lf_i, Y); note Y is index j = self.m
+            if j == self.m:
+                for vi, vj in product(
+                    range(self.k0, self.k + 1), range(1, self.k + 1)
                 ):
-                    continue
-                theta[((i, j), vals)] = (t_max - t_min) * random() + t_min
-                theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
+                    # Use a random positive theta value for correct, negative
+                    # for incorrect...
+                    acc = (acc_max - acc_min) * random() + acc_min
+                    theta[((i, j), (vi, vj))] = acc if vi == vj else -acc
+
+            # Pairwise correlation factors (\lf_i, \lf_j)
+            else:
+                for vi, vj in product(range(self.k0, self.k + 1), repeat=2):
+                    theta[((i, j), vi, vj)] = (
+                        edge_max - edge_min
+                    ) * random() + edge_min
+
+            # Populate the other ordering too
+            theta[((j, i), (vj, vi))] = theta[((i, j), (vi, vj))]
         return theta
 
     def _exp_model(self, vals):
-        """Compute the exponential model for a set of variables and values
-        assuming an Ising model (i.e. only edge or node factors)
+        """Compute the unnormalized exponential model for a set of variables and
+        values assuming an Ising model (i.e. only edge or node factors)
 
         Args:
             - vals: (dict) A dictionary of (LF index, value) entries.
@@ -186,6 +184,11 @@ class DataGenerator(object):
     def P_marginal(self, query, condition_on={}, clique_id=None):
         """Compute P(query|condition_on) using the sum-product algorithm over
         the junction tree `self.jt`"""
+
+        # Make sure query and condition_on are disjoint!
+        for k in condition_on.keys():
+            if k in query:
+                del query[k]
 
         # Check the cache first, keyed by query (projected onto members of
         # clique i), i, j
@@ -207,6 +210,11 @@ class DataGenerator(object):
         if clique_id is not None:
             cids = [clique_id]
 
+        # Route P(Y) queries correctly here
+        elif len(query) == 1 and self.m in query:
+            cids = [0]
+
+        # Else get the set of containing maximal cliques
         else:
 
             # Get the set of cliques containing the (non-Y) query variables
@@ -248,7 +256,11 @@ class DataGenerator(object):
                         [
                             (i, q[i])
                             for i in range(self.m + 1)
-                            if i in self.jt.get_members(ci)
+                            if i
+                            in (
+                                self.jt.get_members(ci)
+                                - set(condition_on.keys())
+                            )
                         ]
                     )
                     p *= self.P_marginal(
@@ -262,7 +274,11 @@ class DataGenerator(object):
                             [
                                 (i, q[i])
                                 for i in range(self.m + 1)
-                                if i in self.jt.get_members((ci, cj))
+                                if i
+                                in (
+                                    self.jt.get_members((ci, cj))
+                                    - set(condition_on.keys())
+                                )
                             ]
                         )
                         p /= self.P_marginal(
@@ -362,18 +378,154 @@ class DataGenerator(object):
             [self.P_marginal({self.m: i}) for i in range(1, self.k + 1)]
         )
 
+    def _get_joint_prob(self, vals_i, vals_j):
+        # Note: Need to check that they don't conflict!
+        conflict = False
+        for k in set(vals_i.keys()).intersection(vals_j.keys()):
+            if vals_i[k] != vals_j[k]:
+                conflict = True
+                break
+        return self.P_marginal({**vals_i, **vals_j}) if not conflict else 0.0
+
+    def _get_covariance(self, vals_i, vals_j):
+        """Get the covariance of two clique, value pairs as dictionaries vals_i,
+        vals_j."""
+        sigma = self._get_joint_prob(vals_i, vals_j)
+        sigma -= self.P_marginal(vals_i) * self.P_marginal(vals_j)
+        return sigma
+
     def get_sigma_O(self):
-        d = self.jt.O_d
-        sigma_O = np.zeros((d, d))
+        sigma_O = np.zeros((self.jt.O_d, self.jt.O_d))
         for ((i, vi), (j, vj)) in product(self.jt.iter_observed(), repeat=2):
-            sigma_O[i, j] = self.P_marginal({**vi, **vj}) - self.P_marginal(
-                vi
-            ) * self.P_marginal(vj)
+            sigma_O[i, j] = self._get_covariance(vi, vj)
         return sigma_O
 
+    def get_sigma_H(self):
+        sigma_H = np.zeros((self.jt.H_d, self.jt.H_d))
+        for ((i, vi), (j, vj)) in product(self.jt.iter_hidden(), repeat=2):
+            sigma_H[i, j] = self._get_covariance(vi, vj)
+        return sigma_H
+
+    def get_sigma_OH(self):
+        sigma_OH = np.zeros((self.jt.O_d, self.jt.H_d))
+        for ((i, vi), (j, vj)) in product(
+            self.jt.iter_observed(), self.jt.iter_hidden()
+        ):
+            sigma_OH[i, j] = self._get_covariance(vi, vj)
+        return sigma_OH
+
     def get_mu(self):
-        d = self.jt.O_d
-        mu = np.zeros(d)
-        for i, vi in self.jt.iter_observed(add_Y=True):
-            mu[i] = self.P_marginal(vi)
+        mu = np.zeros((self.jt.O_d, self.jt.H_d))
+        for i, vi in self.jt.iter_observed():
+            for j, vj in self.jt.iter_hidden():
+                mu[i, j] = self._get_joint_prob(vi, vj)
         return mu
+
+    def generate_label_matrix(self, n):
+        """Generate an m x n label matrix."""
+        L = np.zeros((n, self.m))
+        Y = np.zeros(n)
+        Y_range = range(1, self.k + 1)
+        p_Y = np.array([self.P_marginal({self.m: y}) for y in Y_range])
+        for i in range(n):
+            y = choice(Y_range, p=p_Y)
+            Y[i] = y
+
+            # Traverse the junction tree DFS starting at node 0
+            for p, c in chain([(-1, 0)], nx.dfs_edges(self.jt.G, source=0)):
+
+                # The fixed values are the separator set members, which will
+                # always contain y; else y if at node 0
+                S = self.jt.G.edges[p, c]["members"] if p > 0 else set([self.m])
+                fixed = dict(
+                    [(j, L[i, j]) if j < self.m else (self.m, y) for j in S]
+                )
+
+                # Start with sources in node 0 of the junction tree
+                vals = list(
+                    self.jt.iter_vals(self.jt.get_members(c), fixed=fixed)
+                )
+                p_L = [self.P_marginal(v, condition_on=fixed) for v in vals]
+
+                # Pick one of the value sets randomly and put into L
+                for j, val in choice(vals, p=p_L).items():
+                    L[i, j] = val
+        return L, Y
+
+
+class SimpleDataGenerator(DataGenerator):
+    """Generates a synthetic dataset
+
+    In this simple model (which corresponds to a rank-one problem if singleton
+    separator sets), we tie weights such that
+        P(\lf_C | Y) = P(\lf_C' | Y)
+    if \lf_C, \lf_C' only differ on which incorrect values are chosen.
+
+    Args:
+        n: (int) The number of data points
+        m: (int) The number of labeling sources
+        k: (int) The cardinality of the classification task
+        abstains: (bool) Whether to include 0 labels as abstains
+        class_balance: (np.array) each class's percentage of the population
+        deps_graph: (DependenciesGraph) A DependenciesGraph object
+            specifying the dependencies structure of the sources
+        param_ranges: (dict) A dictionary of ranges to draw the model parameters
+            from:
+            - theta_range_acc: (tuple) The min and max possible values for the
+                class conditional accuracy for each labeling source
+            - theta_range_edge: The min and max possible values for the strength
+                of correlation between correlated sources
+        higher_order_cliques: (bool) Set here whether to track the higher-order
+            cliques or else just the unary cliques throughout. We set this once
+            globally for simplicity and to avoid confusions / mismatches.
+
+    Note that k = the # of true classes; thus source labels are in {0,1,...,k}
+    because they include abstains, of {1,...,k} if abstains=False
+    """
+
+    def _generate_params(self, param_ranges):
+        """This function generates the parameters of the data generating model
+
+        Note that along with the potential functions of the SPA algorithm, this
+        essentially defines our model. This model is the most general form,
+        where each marginal conditional probability for each clique C,
+        P(\lf_C | Y), is generated randomly.
+        """
+        theta = defaultdict(float)
+        theta_r1 = {}
+
+        # Binary clique factors
+        for idxs in self.jt.deps_graph.G.edges():
+            (i, j) = sorted(idxs)
+
+            # Binary cliques (i,j) = (\lf_i, Y)
+            if j == self.m:
+                for vals in product(
+                    range(self.k0, self.k + 1), range(1, self.k + 1)
+                ):
+                    vi, vj = vals
+                    key = (i, j, vj)
+
+                    # For each (\lf_i, Y) pair, store the single parameter
+                    if key not in theta_r1:
+                        theta_range = param_ranges["theta_range_acc"]
+                        t_min, t_max = min(theta_range), max(theta_range)
+                        theta_r1[key] = (t_max - t_min) * random() + t_min
+
+                    # Store for the specific value set, either correct or not
+                    if vi == vj:
+                        theta[((i, j), vals)] = theta_r1[key]
+                    else:
+                        theta[((i, j), vals)] = (1 - theta_r1[key]) / (
+                            self.k - 1
+                        )
+                    theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
+
+            # Binary cliques (i,j) = (\lf_i, \lf_j)
+            else:
+                for vals in product(range(self.k0, self.k + 1), repeat=2):
+                    theta_range = param_ranges["theta_range_edge"]
+                    t_min, t_max = min(theta_range), max(theta_range)
+                    theta[((i, j), vals)] = (t_max - t_min) * random() + t_min
+                    theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
+        return theta
