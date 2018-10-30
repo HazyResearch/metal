@@ -228,6 +228,7 @@ class Classifier(nn.Module):
             train_loss = epoch_loss / len(train_loader.dataset)
 
             # Checkpoint performance on dev
+
             if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
                 val_metric = train_config["validation_metric"]
                 dev_score = self.score(

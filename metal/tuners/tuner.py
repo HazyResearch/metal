@@ -129,6 +129,7 @@ class ModelTuner(object):
             verbose=verbose,
             log_writer=log_writer,
         )
+
         score = model.score(dev_data, verbose=verbose, **score_kwargs)
 
         # If score better than best_score, save
