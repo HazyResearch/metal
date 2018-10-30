@@ -195,7 +195,7 @@ class Classifier(nn.Module):
                 optimizer.zero_grad()
 
                 # Forward pass to calculate outputs
-                loss = loss_fn(*data)
+                loss = loss_fn(*data,epoch)
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
@@ -225,7 +225,10 @@ class Classifier(nn.Module):
             train_loss = epoch_loss / len(train_loader.dataset)
 
             # Checkpoint performance on dev
+            
             if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
+                #if epoch > 15:
+                #    import pdb; pdb.set_trace()
                 val_metric = train_config["validation_metric"]
                 dev_score = self.score(
                     dev_loader,
@@ -393,7 +396,7 @@ class Classifier(nn.Module):
         Y_p, Y, Y_s = self._get_predictions(
             data, break_ties=break_ties, return_probs=True, **kwargs
         )
-
+        
         # Evaluate on the specified metrics
         metric_list = metric if isinstance(metric, list) else [metric]
         scores = []

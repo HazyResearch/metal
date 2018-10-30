@@ -6,7 +6,7 @@ from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.modules import IdentityModule
-from metal.utils import MetalDataset, hard_to_soft, recursive_merge_dicts
+from metal.utils import MetalDataset, hard_to_soft, recursive_merge_dicts, convert_labels
 
 
 class EndModel(Classifier):
@@ -46,7 +46,7 @@ class EndModel(Classifier):
 
         # Add layer_out_dims to kwargs so it will be merged into the config dict
         kwargs["layer_out_dims"] = layer_out_dims
-        config = recursive_merge_dicts(em_default_config, kwargs)
+        config = recursive_merge_dicts(em_default_config, kwargs,misses='insert')
         super().__init__(k=layer_out_dims[-1], config=config)
 
         self._build(input_module, middle_modules, head_module)
@@ -79,7 +79,7 @@ class EndModel(Classifier):
             self.network = layers[0]
 
         # Construct loss module
-        self.criteria = SoftCrossEntropyLoss(reduction="sum")
+        self.criteria = SoftCrossEntropyLoss(reduction="none")
 
     def _build_input_layer(self, input_module):
         if input_module is None:
@@ -179,6 +179,7 @@ class EndModel(Classifier):
         return Y
 
     def _create_dataset(self, *data):
+        import pdb; pdb.set_trace()
         return MetalDataset(*data)
 
     def _get_loss_fn(self):
@@ -205,6 +206,7 @@ class EndModel(Classifier):
                 self._to_torch(Y, dtype=torch.FloatTensor), self.k
             )
             train_data = (X, Y)
+        
 
         # Convert input data to data loaders
         train_loader = self._create_data_loader(train_data, shuffle=True)
