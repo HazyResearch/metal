@@ -17,13 +17,42 @@ class DependencyLearner():
         self.Oinv = Oinv
         self.O = np.linalg.inv(self.Oinv)
 
+    def _force_singleton(self,deps):
+        """Ensure that learned dependencies for singleton separators.
+        TODO: build checker for no complete graphs with these additions
+        Args:
+            deps: (list) List of tuples of LF pairs that are dependent
+        Example:
+            if (0,1) and (1,2) exist, add (0,2)
+            if (0,1) and (0,2) exist, add (1,2)
+            if (0,3) and (2,3) exist, add (0,2)
+            if (1,3) and (0,1) exist, add (0,3)
+        """
+        deps_singleton = []
+        for i,j in deps:
+            if i < j:
+                deps_singleton.append((i,j))
+
+        for i,j in deps:
+            for k,l in deps:
+                if (i == k) and (j < l):
+                    deps_singleton.append((j,l))
+                if (j == l) and (i < k):
+                    deps_singleton.append((i,k))
+                if (j == k) and (i < l):
+                    deps_singleton.append((i,l))
+                if (i == l) and (j < k):
+                    deps_singleton.append((j,k))
+        return deps_singleton
+
+
     def edges_from_amc(self,thresh=0.2):
         _, deps_all = self._amc(thresh)
         deps = []
         for i,j in deps_all:
             if i < j:
                 deps.append((i,j))
-        return deps
+        return self._force_singleton(deps)
     
     def edges_from_rpca(self,thresh=0.2):
         deps_all = self._rpca(thresh)
@@ -31,7 +60,7 @@ class DependencyLearner():
         for i,j in deps_all:
             if i < j:
                 deps.append((i,j))
-        return deps
+        return self._force_singleton(deps)
     
     def _rpca(self,thresh=1.0,delta=1e-5):
         lam = 1/np.sqrt(self.m)

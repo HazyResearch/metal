@@ -121,46 +121,47 @@ class DataGenerator(object):
         self.msg_cache = {}
         self.p_marginal_cache = {}
 
-    def _generate_params(self, param_ranges, rank_one_model=True):
-        """This function generates the parameters of the data generating model
+        # Generate O, mu, Sigma, Sigma_inv
+        # Y = (
+        #     1
+        # )  # Note: we pick an arbitrary Y here, since assuming doesn't matter
+        # self.O = self._generate_O_Y(Y=Y)
+        # self.mu = self._generate_mu_Y(Y=Y)
+        # self.sig, self.sig_inv = self._generate_sigma(self.O, self.mu)
 
+        # # Generate the true labels self.Y and label matrix self.L
+        # self._generate_label_matrix()
+    
+    def _generate_params(self, param_ranges):
+        """This function generates the parameters of the data generating model
         Note that along with the potential functions of the SPA algorithm, this
         essentially defines our model. This model is the most general form,
         where each marginal conditional probability for each clique C,
         P(\lf_C | Y), is generated randomly.
         """
         theta = defaultdict(float)
-        acc_range = param_ranges["theta_acc_range"]
-        acc_min, acc_max = min(acc_range), max(acc_range)
-        edge_range = param_ranges["theta_edge_range"]
-        edge_min, edge_max = min(edge_range), max(edge_range)
 
         # Unary clique factors
         # TODO: Set class balance here!
 
-        # Pairwise (edge) factors
-        for edge in self.jt.deps_graph.G.edges():
-            (i, j) = sorted(edge)
+        # Binary clique factors
+        for (i, j) in self.jt.deps_graph.G.edges():
 
-            # Pairwise accuracy factors (\lf_i, Y); note Y is index j = self.m
-            if j == self.m:
-                for vi, vj in product(
-                    range(self.k0, self.k + 1), range(1, self.k + 1)
-                ):
-                    # Use a random positive theta value for correct, negative
-                    # for incorrect...
-                    acc = (acc_max - acc_min) * random() + acc_min
-                    theta[((i, j), (vi, vj))] = acc if vi == vj else -acc
-
-            # Pairwise correlation factors (\lf_i, \lf_j)
+            # Separate parameters for (\lf_i, Y) factors vs. (\lf_i, \lf_j)
+            if i == self.m or j == self.m:
+                theta_range = param_ranges["theta_acc_range"]
             else:
-                for vi, vj in product(range(self.k0, self.k + 1), repeat=2):
-                    theta[((i, j), vi, vj)] = (
-                        edge_max - edge_min
-                    ) * random() + edge_min
+                theta_range = param_ranges["theta_edge_range"]
+            t_min, t_max = min(theta_range), max(theta_range)
 
-            # Populate the other ordering too
-            theta[((j, i), (vj, vi))] = theta[((i, j), (vi, vj))]
+            for vals in product(range(self.k0, self.k + 1), repeat=2):
+                # Y does not have abstain votes
+                if (i == self.m and vals[0] == 0) or (
+                    j == self.m and vals[1] == 0
+                ):
+                    continue
+                theta[((i, j), vals)] = (t_max - t_min) * random() + t_min
+                theta[((j, i), vals[::-1])] = theta[((i, j), vals)]
         return theta
 
     def _exp_model(self, vals):

@@ -28,40 +28,16 @@ def generate_edges(M, clique_size, num_cliques):
         #created a clique
         num_cliques-=1
         if num_cliques <= 0:   
-            return edges
+            break
 
         #move to next LF for new clique
         i+=clique_size
-
-def add_y(M, edges):
-    """Given a list of edges, add an edge from each node to Y (m+1).
-
-    Args:
-        M: (int) Number of labeling functions 
-        clique_size: (int) Maximum size of clique/block in Sigma matrix
-        num_cliques: (int) Number of cliques/blocks 
-    Returns:
-        edges: (list) List of edge tuples
-    """
     
-    #Valid Input Structure
-    assert M/float(clique_size) >= num_cliques
-    
-    edges = []
-    i = 0
-    while (True):
-        cluster_lfs = range(i,i+clique_size)
-        #edge tuples are size 2
-        for comb in combinations(cluster_lfs, 2):
-            edges.append(comb)
-        
-        #created a clique
-        num_cliques-=1
-        if num_cliques <= 0:   
-            return edges
+    #add edges to true label
+    for i in range(M):
+        edges.append((i,M))
+    return edges
 
-        #move to next LF for new clique
-        i+=clique_size
 
 class DependenciesGraph(object):
     """Helper data structures for source dependencies graph.
