@@ -35,7 +35,7 @@ class EndModel(Classifier):
         **kwargs,
     ):
 
-        if len(layer_out_dims) < 2:
+        if len(layer_out_dims) < 2 and not kwargs['skip_head']:
             raise ValueError(
                 "Arg layer_out_dims must have at least two "
                 "elements corresponding to the output dim of the input module "
@@ -63,13 +63,13 @@ class EndModel(Classifier):
         """
         input_layer = self._build_input_layer(input_module)
         middle_layers = self._build_middle_layers(middle_modules)
-        head = self._build_task_head(head_module)
 
         # Construct list of layers
         layers = [input_layer]
         if middle_layers is not None:
             layers += middle_layers
         if not self.config["skip_head"]:
+            head = self._build_task_head(head_module)
             layers.append(head)
 
         # Construct network
