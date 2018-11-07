@@ -39,6 +39,7 @@ class LSTMTest(unittest.TestCase):
             vocab_size,
             bidirectional=False,
             verbose=False,
+            lstm_reduction="attention",
         )
         em = EndModel(
             k=MAX_INT,
@@ -49,8 +50,8 @@ class LSTMTest(unittest.TestCase):
             seed=1,
             verbose=False,
         )
-        em.train_model(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=5)
-        score = em.score(Xs[2], Ys[2], verbose=False)
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=10)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_lstm_memorize_marker(self):
@@ -75,6 +76,7 @@ class LSTMTest(unittest.TestCase):
             vocab_size,
             bidirectional=True,
             verbose=False,
+            lstm_reduction="attention",
         )
         em = EndModel(
             k=MAX_INT,
@@ -84,8 +86,9 @@ class LSTMTest(unittest.TestCase):
             seed=1,
             verbose=False,
         )
-        em.train_model(Xs[0], Ys[0], Xs[1], Ys[1], n_epochs=10, verbose=False)
-        score = em.score(Xs[2], Ys[2], verbose=False)
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]),
+                       n_epochs=15, verbose=False)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
 
