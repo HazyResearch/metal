@@ -371,7 +371,6 @@ class Classifier(nn.Module):
         break_ties="random",
         verbose=True,
         print_confusion_matrix=True,
-        t=None,
         **kwargs,
     ):
         """Scores the predictive performance of the Classifier on all tasks
@@ -470,7 +469,7 @@ class Classifier(nn.Module):
             Y_p: An n-dim np.ndarray of predictions in {1,...k}
             [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
         """
-        Y_s = self._to_numpy(self.predict_proba(X, **kwargs))
+        Y_s = self._to_numpy(self.predict_proba(X))
         Y_p = self._break_ties(Y_s, break_ties).astype(np.int)
         if return_probs:
             return Y_p, Y_s

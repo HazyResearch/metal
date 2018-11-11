@@ -44,11 +44,11 @@ class MTClassifier(Classifier):
         self,
         data,
         metric="accuracy",
+        t=None,
         reduce="mean",
         break_ties="random",
         verbose=True,
         print_confusion_matrix=False,
-        t=None,
         **kwargs,
     ):
         """Scores the predictive performance of the Classifier on all tasks
@@ -58,10 +58,12 @@ class MTClassifier(Classifier):
                 Y: A t-length list of [n] or [n, 1] np.ndarrays or
                    torch.Tensors of gold labels in {1,...,K_t}
             metric: The metric with which to score performance on each task
+            t: Specific task to score.
             reduce: How to reduce the scores of multiple tasks:
                  None : return a t-length list of scores
                 'mean': return the mean score across tasks
             break_ties: How to break ties when making predictions
+
         Returns:
             scores: A (float) score or a t-length list of such scores if
                 reduce=None
