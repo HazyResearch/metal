@@ -63,7 +63,6 @@ class MTClassifier(Classifier):
                  None : return a t-length list of scores
                 'mean': return the mean score across tasks
             break_ties: How to break ties when making predictions
-
         Returns:
             scores: A (float) score or a t-length list of such scores if
                 reduce=None
