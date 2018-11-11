@@ -6,4 +6,5 @@ mt_em_default_config = {
     #   [list]: specify explicitly the layer for each head
     "pass_predictions": False,
     # If True, pass output of parent tasks as additional input to children tasks
+    "train_config": {"validation_task": None},
 }

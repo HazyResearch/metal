@@ -48,6 +48,7 @@ class MTClassifier(Classifier):
         break_ties="random",
         verbose=True,
         print_confusion_matrix=False,
+        t=None,
         **kwargs,
     ):
         """Scores the predictive performance of the Classifier on all tasks
@@ -74,6 +75,15 @@ class MTClassifier(Classifier):
         if len(metric_list) > 1:
             raise NotImplementedError("Multiple metrics for multi-task.")
         metric = metric_list[0]
+
+        # Return score for just one task if t is passed.
+        if t is not None:
+            score = metric_score(
+                Y[t], Y_p[t], metric, probs=Y_s[t], ignore_in_gold=[0]
+            )
+            if verbose:
+                print(f"{metric.capitalize()}: {score:.3f}")
+            return score
 
         task_scores = []
         for t, Y_tp in enumerate(Y_p):

@@ -232,6 +232,7 @@ class Classifier(nn.Module):
                     metric=val_metric,
                     verbose=False,
                     print_confusion_matrix=False,
+                    t=train_config.get("validation_task"),
                 )
 
                 if train_config["checkpoint"]:
@@ -370,6 +371,7 @@ class Classifier(nn.Module):
         break_ties="random",
         verbose=True,
         print_confusion_matrix=True,
+        t=None,
         **kwargs,
     ):
         """Scores the predictive performance of the Classifier on all tasks
