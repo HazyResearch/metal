@@ -77,7 +77,7 @@ class MTClassifier(Classifier):
             raise NotImplementedError("Multiple metrics for multi-task.")
         metric = metric_list[0]
 
-        # Return score for just one task if t is passed.
+        # Return score for task t only.
         if t is not None:
             score = metric_score(
                 Y[t], Y_p[t], metric, probs=Y_s[t], ignore_in_gold=[0]
