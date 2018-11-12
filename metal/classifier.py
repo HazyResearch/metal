@@ -231,12 +231,15 @@ class Classifier(nn.Module):
 
             if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
                 val_metric = train_config["validation_metric"]
+                validation_scoring_kwargs = train_config[
+                    "validation_scoring_kwargs"
+                ]
                 dev_score = self.score(
                     dev_loader,
                     metric=val_metric,
                     verbose=False,
                     print_confusion_matrix=False,
-                    t=train_config.get("validation_task"),
+                    **validation_scoring_kwargs,
                 )
 
                 if train_config["checkpoint"]:
@@ -474,7 +477,7 @@ class Classifier(nn.Module):
             Y_p: An n-dim np.ndarray of predictions in {1,...k}
             [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
         """
-        Y_s = self._to_numpy(self.predict_proba(X))
+        Y_s = self._to_numpy(self.predict_proba(X, **kwargs))
         Y_p = self._break_ties(Y_s, break_ties).astype(np.int)
         if return_probs:
             return Y_p, Y_s

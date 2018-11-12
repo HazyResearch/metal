@@ -142,7 +142,6 @@ class MTEndModelTest(unittest.TestCase):
             dev_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=3,
-            validation_metric="roc-auc",
             validation_task=0,
         )
         tasks = [0, 1]
@@ -153,17 +152,28 @@ class MTEndModelTest(unittest.TestCase):
                 reduce=None,
                 verbose=False,
             )
-            task_specific_scores = [
+            task_specific_scores_score_method = [
                 em.score(
                     (self.Xs[2], self.Ys[2]),
                     metric=metric,
-                    t=task,
+                    validation_task=task,
                     verbose=False,
                 )
                 for task in tasks
             ]
+            task_specific_scores_score_task_method = [
+                em.score_task(
+                    self.Xs[2], self.Ys[2], t=task, metric=metric, verbose=False
+                )
+                for task in tasks
+            ]
+
             for i in range(len(tasks)):
-                self.assertEqual(all_scores[i], task_specific_scores[i])
+                self.assertEqual(
+                    all_scores[i],
+                    task_specific_scores_score_method[i],
+                    task_specific_scores_score_task_method[i],
+                )
 
 
 if __name__ == "__main__":

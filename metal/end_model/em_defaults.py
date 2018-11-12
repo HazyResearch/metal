@@ -44,6 +44,7 @@ em_default_config = {
         "l2": 0.0,
         "validation_metric": "accuracy",
         "validation_freq": 1,
+        "validation_scoring_kwargs": {},
         # Evaluate dev for during training every this many epochs
         # Optimizer
         "optimizer_config": {
