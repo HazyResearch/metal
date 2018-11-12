@@ -14,7 +14,9 @@ class TensorBoardWriter(LogWriter):
         super().__init__(log_dir=log_dir, run_dir=run_dir, run_name=run_name)
 
         # Set up TensorBoard summary writer
-        self.tb_writer = SummaryWriter(self.log_subdir)
+        self.tb_writer = SummaryWriter(
+            self.log_subdir, filename_suffix=f".{run_name}"
+        )
 
     def add_scalar(self, name, val, i):
         super().add_scalar(name, val, i)

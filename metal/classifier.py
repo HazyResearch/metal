@@ -182,7 +182,10 @@ class Classifier(nn.Module):
             t = tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
-                disable=train_config["disable_prog_bar"],
+                disable=(
+                    train_config["disable_prog_bar"]
+                    or not self.config["verbose"]
+                ),
             )
 
             for batch_num, data in t:
@@ -225,6 +228,7 @@ class Classifier(nn.Module):
             train_loss = epoch_loss / len(train_loader.dataset)
 
             # Checkpoint performance on dev
+
             if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
                 val_metric = train_config["validation_metric"]
                 dev_score = self.score(
@@ -385,7 +389,8 @@ class Classifier(nn.Module):
             break_ties: A tie-breaking policy (see Classifier._break_ties())
             verbose: The verbosity for just this score method; it will not
                 update the class config.
-            print_confusion_matrix: Print confusion matrix
+            print_confusion_matrix: Print confusion matrix (overwritten to False if
+                verbose=False)
 
         Returns:
             scores: A (float) score or a list of such scores if kwarg metric
@@ -405,7 +410,7 @@ class Classifier(nn.Module):
                 print(f"{metric.capitalize()}: {score:.3f}")
 
         # Optionally print confusion matrix
-        if print_confusion_matrix:
+        if print_confusion_matrix and verbose:
             confusion_matrix(Y_p, Y, pretty_print=True)
 
         if isinstance(scores, list) and len(scores) == 1:

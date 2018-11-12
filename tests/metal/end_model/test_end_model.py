@@ -153,7 +153,7 @@ class EndModelTest(unittest.TestCase):
         Xs, Ys = self.single_problem
         em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
         metrics = list(METRICS.keys())
-        scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=True)
+        scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=False)
         for i, metric in enumerate(metrics):
             self.assertGreater(scores[i], 0.95)
 

@@ -19,11 +19,7 @@ class MTLabelModelTest(unittest.TestCase):
     def _test_label_model(self, data, test_acc=True):
         label_model = MTLabelModel(task_graph=data.task_graph, verbose=False)
         label_model.train_model(
-            data.L,
-            deps=data.E,
-            class_balance=data.p,
-            n_epochs=1000,
-            print_every=200,
+            data.L, deps=data.E, class_balance=data.p, n_epochs=1000
         )
 
         # Test parameter estimation error

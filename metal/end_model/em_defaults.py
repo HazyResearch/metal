@@ -31,6 +31,8 @@ em_default_config = {
     "use_cuda": False,
     # TRAINING
     "train_config": {
+        # Loss function config
+        "loss_fn_reduction": "sum",
         # Display
         "print_every": 1,  # Print after this many epochs
         "disable_prog_bar": False,  # Disable progress bar each epoch
