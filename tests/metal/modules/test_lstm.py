@@ -86,8 +86,9 @@ class LSTMTest(unittest.TestCase):
             seed=1,
             verbose=False,
         )
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]),
-                       n_epochs=15, verbose=False)
+        em.train_model(
+            (Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=15, verbose=False
+        )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 

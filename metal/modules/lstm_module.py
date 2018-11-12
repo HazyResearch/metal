@@ -70,11 +70,7 @@ class LSTMModule(nn.Module):
         )
         if lstm_reduction == "attention":
             att_size = hidden_size * (self.lstm.bidirectional + 1)
-            cuda = lstm_kwargs.get("use_cuda", False)
-            if cuda:
-                att_param = nn.Parameter(torch.cuda.FloatTensor(att_size, 1))
-            else:
-                att_param = nn.Parameter(torch.FloatTensor(att_size, 1))
+            att_param = nn.Parameter(torch.FloatTensor(att_size, 1))
             nn.init.xavier_normal_(att_param)
             self.attention_param = att_param
 
@@ -175,4 +171,3 @@ class LSTMModule(nn.Module):
         )
         reduced = self._reduce_output(outputs_unpacked, seq_lengths)
         return reduced[inv_perm_idx, :]
-
