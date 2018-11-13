@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from metal.metrics import METRICS
 from metal.modules import IdentityModule
 from metal.multitask import MTEndModel, TaskGraph, TaskHierarchy
 
@@ -128,6 +129,51 @@ class MTEndModelTest(unittest.TestCase):
         )
         score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
+
+    def test_scoring(self):
+        edges = [(0, 1)]
+        cards = [2, 2]
+        tg = TaskHierarchy(cards, edges)
+        em = MTEndModel(
+            layer_out_dims=[2, 8, 4], task_graph=tg, seed=1, verbose=False
+        )
+        em.train_model(
+            (self.Xs[0], self.Ys[0]),
+            dev_data=(self.Xs[1], self.Ys[1]),
+            verbose=False,
+            n_epochs=3,
+            validation_task=0,
+        )
+        tasks = [0, 1]
+        for metric in METRICS:
+            all_scores = em.score(
+                (self.Xs[2], self.Ys[2]),
+                metric=metric,
+                reduce=None,
+                verbose=False,
+            )
+            task_specific_scores_score_method = [
+                em.score(
+                    (self.Xs[2], self.Ys[2]),
+                    metric=metric,
+                    validation_task=task,
+                    verbose=False,
+                )
+                for task in tasks
+            ]
+            task_specific_scores_score_task_method = [
+                em.score_task(
+                    self.Xs[2], self.Ys[2], t=task, metric=metric, verbose=False
+                )
+                for task in tasks
+            ]
+
+            for i in range(len(tasks)):
+                self.assertEqual(
+                    all_scores[i],
+                    task_specific_scores_score_method[i],
+                    task_specific_scores_score_task_method[i],
+                )
 
 
 if __name__ == "__main__":

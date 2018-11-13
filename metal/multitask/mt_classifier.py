@@ -44,6 +44,7 @@ class MTClassifier(Classifier):
         self,
         data,
         metric="accuracy",
+        validation_task=None,
         reduce="mean",
         break_ties="random",
         verbose=True,
@@ -57,6 +58,8 @@ class MTClassifier(Classifier):
                 Y: A t-length list of [n] or [n, 1] np.ndarrays or
                    torch.Tensors of gold labels in {1,...,K_t}
             metric: The metric with which to score performance on each task
+            validation_task:
+                int: returns score for specific task number.
             reduce: How to reduce the scores of multiple tasks:
                  None : return a t-length list of scores
                 'mean': return the mean score across tasks
@@ -74,6 +77,19 @@ class MTClassifier(Classifier):
         if len(metric_list) > 1:
             raise NotImplementedError("Multiple metrics for multi-task.")
         metric = metric_list[0]
+
+        # Return score for task t only.
+        if validation_task is not None:
+            score = metric_score(
+                Y[validation_task],
+                Y_p[validation_task],
+                metric,
+                probs=Y_s[validation_task],
+                ignore_in_gold=[0],
+            )
+            if verbose:
+                print(f"{metric.capitalize()}: {score:.3f}")
+            return score
 
         task_scores = []
         for t, Y_tp in enumerate(Y_p):
@@ -151,7 +167,10 @@ class MTClassifier(Classifier):
         """
         Y = self._to_numpy(Y)
         Y_tp = self.predict_task(X, t=t, **kwargs)
-        score = metric_score(Y, Y_tp, metric, ignore_in_gold=[0], **kwargs)
+        probs = self.predict_proba(X)[t]
+        score = metric_score(
+            Y[t], Y_tp, metric, ignore_in_gold=[0], probs=probs, **kwargs
+        )
         if verbose:
             print(f"[t={t}] {metric.capitalize()}: {score:.3f}")
         return score
@@ -165,7 +184,7 @@ class MTClassifier(Classifier):
         Returns:
             An n-dim tensor of hard (int) predictions for the specified task
         """
-        Y_tp = self.predict_task_proba(X, **kwargs)
+        Y_tp = self.predict_task_proba(X, t=t, **kwargs)
         Y_tph = self._break_ties(Y_tp, break_ties)
         return Y_tph
 

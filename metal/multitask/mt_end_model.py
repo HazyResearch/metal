@@ -319,4 +319,4 @@ class MTEndModel(MTClassifier, EndModel):
 
     def predict_task_proba(self, X, t):
         """Returns an n x k matrix of probabilities for each label of task t"""
-        return self.predict_tasks_proba(X)[t]
+        return self.predict_proba(X)[t]
