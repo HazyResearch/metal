@@ -90,13 +90,16 @@ class SnorkelDataset(Dataset):
         :return:
 
         """
-        # init training set to initialize word_dict if needed
+        # initialize word_dict if needed
         train_set = cls(conn_str, candidate_def, word_dict=word_dict, split=train,
-                        use_lfs=use_lfs[train], pretrained_word_dict=pretrained_word_dict)
+                        use_lfs=use_lfs[train], pretrained_word_dict=pretrained_word_dict,
+                        max_seq_len=max_seq_len)
         return (
             train_set,
-            cls(conn_str, candidate_def, word_dict=train_set.word_dict, split=dev, use_lfs=use_lfs[dev]),
-            cls(conn_str, candidate_def, word_dict=train_set.word_dict, split=test, use_lfs=use_lfs[test])
+            cls(conn_str, candidate_def, word_dict=train_set.word_dict, split=dev,
+                use_lfs=use_lfs[dev], max_seq_len=max_seq_len),
+            cls(conn_str, candidate_def, word_dict=train_set.word_dict, split=test,
+                use_lfs=use_lfs[test], max_seq_len=max_seq_len)
         )
 
     def _mark_entities(self, c, markers):
