@@ -1,8 +1,10 @@
 import os
-import torch
-import numpy as np
 from collections import Counter
+
+import numpy as np
+import torch
 from torch.utils.data import Dataset
+
 from metal.contrib.info_extraction.utils import mark_entities
 
 
@@ -11,10 +13,19 @@ class SnorkelDataset(Dataset):
     Self-contained wrapper class for Snorkel 0.7 database instance.
     Suitable for datasets that fit entirely in memory.
     """
+
     session = None
 
-    def __init__(self, conn_str, candidate_def, split=0, use_lfs=False,
-                 word_dict=None, pretrained_word_dict=None, max_seq_len=125):
+    def __init__(
+        self,
+        conn_str,
+        candidate_def,
+        split=0,
+        use_lfs=False,
+        word_dict=None,
+        pretrained_word_dict=None,
+        max_seq_len=125,
+    ):
         """
         Assumes a Snorkel database that is fully instantiated with:
         - Candidates generated and assigned to train/dev/test splits
@@ -31,10 +42,10 @@ class SnorkelDataset(Dataset):
 
         """
         if os.path.exists(conn_str):
-            os.environ['SNORKELDB'] = "sqlite:///{}".format(conn_str)
+            os.environ["SNORKELDB"] = "sqlite:///{}".format(conn_str)
         else:
-            os.environ['SNORKELDB'] = "postgresql:///{}".format(conn_str)
-        print("Connected to {}".format(os.environ['SNORKELDB']))
+            os.environ["SNORKELDB"] = "postgresql:///{}".format(conn_str)
+        print("Connected to {}".format(os.environ["SNORKELDB"]))
 
         # defer imports until SNORKELDB is defined to prevent initalizing an empty sqlite instance
         from snorkel import SnorkelSession
@@ -52,29 +63,59 @@ class SnorkelDataset(Dataset):
         self.max_seq_len = max_seq_len
 
         # create markup sequences and labels
-        markers = [m.format(i) for i in range(self.cardinality) for m in ['~~[[{}', '{}]]~~']]
-        self.X = self.session.query(Candidate).filter(Candidate.split == split).order_by(Candidate.id).all()
+        markers = [
+            m.format(i)
+            for i in range(self.cardinality)
+            for m in ["~~[[{}", "{}]]~~"]
+        ]
+        self.X = (
+            self.session.query(Candidate)
+            .filter(Candidate.split == split)
+            .order_by(Candidate.id)
+            .all()
+        )
         self.X = [self._mark_entities(x, markers) for x in self.X]
 
         # initalize vocabulary
-        self.word_dict = self._build_vocab(self.X, markers) if not word_dict else word_dict
+        self.word_dict = (
+            self._build_vocab(self.X, markers) if not word_dict else word_dict
+        )
         if pretrained_word_dict:
             # include pretrained embedding terms
-            self._include_pretrained_vocab(pretrained_word_dict, self.session.query(Candidate).all())
+            self._include_pretrained_vocab(
+                pretrained_word_dict, self.session.query(Candidate).all()
+            )
 
         # initalize labels (from either LFs or gold labels)
         if use_lfs:
-            self.Y = torch.tensor(load_marginals(self.session, split=split).todense())
+            self.Y = torch.tensor(
+                load_marginals(self.session, split=split).todense()
+            )
         else:
-            self.Y = load_gold_labels(self.session, annotator_name='gold', split=split)
+            self.Y = load_gold_labels(
+                self.session, annotator_name="gold", split=split
+            )
             self.Y = [int(y) for y in np.nditer(self.Y.todense())]
             # remap class labels to not include 0 (reserved by MeTaL)
-            labels = {y: i + 1 for i, y in enumerate(sorted(np.unique(self.Y), reverse=1))}
+            labels = {
+                y: i + 1
+                for i, y in enumerate(sorted(np.unique(self.Y), reverse=1))
+            }
             self.Y = torch.tensor([labels[y] for y in self.Y])
 
     @classmethod
-    def splits(cls, conn_str, candidate_def, word_dict=None, train=0, dev=1, test=2, use_lfs=(0, 0, 0),
-               pretrained_word_dict=None, max_seq_len=125):
+    def splits(
+        cls,
+        conn_str,
+        candidate_def,
+        word_dict=None,
+        train=0,
+        dev=1,
+        test=2,
+        use_lfs=(0, 0, 0),
+        pretrained_word_dict=None,
+        max_seq_len=125,
+    ):
         """
         Create train/dev/test splits (mapped to split numbers)
 
@@ -91,15 +132,33 @@ class SnorkelDataset(Dataset):
 
         """
         # initialize word_dict if needed
-        train_set = cls(conn_str, candidate_def, word_dict=word_dict, split=train,
-                        use_lfs=use_lfs[train], pretrained_word_dict=pretrained_word_dict,
-                        max_seq_len=max_seq_len)
+        train_set = cls(
+            conn_str,
+            candidate_def,
+            word_dict=word_dict,
+            split=train,
+            use_lfs=use_lfs[train],
+            pretrained_word_dict=pretrained_word_dict,
+            max_seq_len=max_seq_len,
+        )
         return (
             train_set,
-            cls(conn_str, candidate_def, word_dict=train_set.word_dict, split=dev,
-                use_lfs=use_lfs[dev], max_seq_len=max_seq_len),
-            cls(conn_str, candidate_def, word_dict=train_set.word_dict, split=test,
-                use_lfs=use_lfs[test], max_seq_len=max_seq_len)
+            cls(
+                conn_str,
+                candidate_def,
+                word_dict=train_set.word_dict,
+                split=dev,
+                use_lfs=use_lfs[dev],
+                max_seq_len=max_seq_len,
+            ),
+            cls(
+                conn_str,
+                candidate_def,
+                word_dict=train_set.word_dict,
+                split=test,
+                use_lfs=use_lfs[test],
+                max_seq_len=max_seq_len,
+            ),
         )
 
     def _mark_entities(self, c, markers):
@@ -112,7 +171,10 @@ class SnorkelDataset(Dataset):
 
         """
         sent = c.get_parent().words
-        positions = [[c[i].get_word_start(), c[i].get_word_end()] for i in range(self.cardinality)]
+        positions = [
+            [c[i].get_word_start(), c[i].get_word_end()]
+            for i in range(self.cardinality)
+        ]
         seq = mark_entities(sent, positions, markers=markers, style="insert")
         return [w for w in seq if w.strip()]
 
@@ -164,18 +226,19 @@ class SnorkelDataset(Dataset):
         """
         x = torch.tensor([self.word_dict.lookup(w) for w in self.X[idx]])
         if x.size(0) > self.max_seq_len:
-            x = x[..., 0:min(x.size(0), self.max_seq_len)]
+            x = x[..., 0 : min(x.size(0), self.max_seq_len)]
         else:
             k = self.max_seq_len - x.size(0)
             x = torch.cat((x, torch.zeros(k, dtype=torch.long)))
         return x, self.Y[idx]
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     db_conn_str = "cdr.db"
-    candidate_def = ['ChemicalDisease', ['chemical', 'disease']]
+    candidate_def = ["ChemicalDisease", ["chemical", "disease"]]
     train, dev, test = SnorkelDataset.splits(db_conn_str, candidate_def)
 
-    print('[TRAIN] {}'.format(len(train)))
-    print('[DEV]   {}'.format(len(dev)))
-    print('[TEST]  {}'.format(len(test)))
+    print("[TRAIN] {}".format(len(train)))
+    print("[DEV]   {}".format(len(dev)))
+    print("[TEST]  {}".format(len(test)))
