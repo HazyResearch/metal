@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
 
 
@@ -68,9 +69,10 @@ class LSTMModule(nn.Module):
             **lstm_kwargs,
         )
         if lstm_reduction == "attention":
-            raise NotImplementedError
-            # self.attention = Attention(hidden_size *
-            #   (self.lstm.bidirectional + 1))
+            att_size = hidden_size * (self.lstm.bidirectional + 1)
+            att_param = nn.Parameter(torch.FloatTensor(att_size, 1))
+            nn.init.xavier_normal_(att_param)
+            self.attention_param = att_param
 
     def _load_pretrained(self, pretrained):
         if not pretrained.dim() == 2:
@@ -83,6 +85,14 @@ class LSTMModule(nn.Module):
         embedding = nn.Embedding(num_embeddings=rows, embedding_dim=cols)
         embedding.weight.data.copy_(pretrained)
         return embedding
+
+    def _attention(self, output):
+        # output is of shape (seq_length, hidden_size)
+        score = torch.matmul(output, self.attention_param).squeeze()
+        score = F.softmax(score, dim=0).view(output.size(0), 1)
+        scored_output = output * score
+        condensed_output = torch.sum(scored_output, dim=0)
+        return condensed_output
 
     def reset_parameters(self):
         # Note: Classifier.reset() calls reset_parameters() recursively on all
@@ -114,8 +124,7 @@ class LSTMModule(nn.Module):
                 # NOTE: maybe better to take first and last?
                 reduced.append(outputs[i, seq_lengths[i] - 1, :])
             elif self.lstm_reduction == "attention":
-                raise NotImplementedError
-                # reduced.append(self.attention(outputs))
+                reduced.append(self._attention(outputs[i, : seq_lengths[i], :]))
             else:
                 msg = (
                     f"Did not recognize lstm kwarg 'lstm_reduction' == "
@@ -162,26 +171,3 @@ class LSTMModule(nn.Module):
         )
         reduced = self._reduce_output(outputs_unpacked, seq_lengths)
         return reduced[inv_perm_idx, :]
-
-
-# TODO: Test this
-# class Attention(nn.Module):
-#     def __init__(self, attention_size):
-#         """
-#         An attention layer
-
-#         Args:
-#             attention_size: scalar that should match the LSTM hidden/output
-#                 size or 2x that size if the lstm is bidirectional
-#         """
-#         super(Attention, self).__init__()
-#         self.attention = nn.Parameter(torch.FloatTensor(attention_size, 1))
-#         nn.init.xavier_normal(self.attention)
-
-#     def forward(self, x_in):
-#         attention_score = torch.matmul(x_in, self.attention).squeeze()
-#         attention_score = F.softmax(attention_score).view(
-#             x_in.size(0), x_in.size(1), 1)
-#         scored_x = x_in * attention_score
-#         x_out = torch.sum(scored_x, dim=1)
-#         return x_out
