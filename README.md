@@ -29,7 +29,7 @@ This makes it significantly more scalable than our previous approaches.
 * **Best Reference: [Training Complex Models with Multi-Task Weak Supervision](https://arxiv.org/abs/1810.02840) [AAAI 2019]**
 * [Snorkel MeTaL: Weak Supervision for Multi-Task Learning](https://ajratner.github.io/assets/papers/deem-metal-prototype.pdf) [SIGMOD DEEM 2018]
 * _[Snorkel: Rapid Training Data Creation with Weak Supervision](https://arxiv.org/abs/1711.10160) [VLDB 2018]_
-* _[Data Programming: Creating Large Training Sets, Quickly](https://arxiv.org/abs/1605.07723) [NIPS 2016]_
+* _[Data Programming: Creating Large Training Sets, Quickly](https://arxiv.org/abs/1605.07723) [NeurIPS 2016]_
 
 ## Q&A
 One of the best places to look for Q&A (besides the doc strings) is the Issues page.
