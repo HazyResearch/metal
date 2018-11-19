@@ -212,9 +212,6 @@ class EndModel(Classifier):
         # Convert input data to data loaders
         train_loader = self._create_data_loader(train_data, shuffle=True)
 
-        # Initialize the model
-        self.reset()
-
         # Create loss function
         loss_fn = self._get_loss_fn()
 
