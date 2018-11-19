@@ -335,16 +335,17 @@ class Classifier(nn.Module):
         # We set L2 here if the class does not implement its own L2 reg
         l2 = 0 if self.implements_l2 else train_config.get("l2", 0)
 
+        parameters = filter(lambda p: p.requires_grad, self.parameters())
         if opt == "sgd":
             optimizer = optim.SGD(
-                self.parameters(),
+                parameters,
                 **optimizer_config["optimizer_common"],
                 **optimizer_config["sgd_config"],
                 weight_decay=l2,
             )
         elif opt == "adam":
             optimizer = optim.Adam(
-                self.parameters(),
+                parameters,
                 **optimizer_config["optimizer_common"],
                 **optimizer_config["adam_config"],
                 weight_decay=l2,
