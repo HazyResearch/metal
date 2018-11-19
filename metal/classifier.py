@@ -271,8 +271,7 @@ class Classifier(nn.Module):
                 epoch % train_config["print_every"] == 0
                 or epoch == train_config["n_epochs"] - 1
             ):
-                tls = float(train_loss.cpu().numpy())
-                log_writer.add_scalar("train-loss", tls, epoch)
+                log_writer.add_scalar("train-loss", train_loss, epoch)
                 if evaluate_dev:
                     log_writer.add_scalar("dev-score", dev_score, epoch)
                 log_writer.write()
