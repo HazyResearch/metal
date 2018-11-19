@@ -20,10 +20,10 @@ class SoftCrossEntropyLoss(nn.Module):
 
     def __init__(self, weight=None, reduction="elementwise_mean"):
         super().__init__()
-        assert weight is None or isinstance(weight, torch.FloatTensor)
         self.weight = weight
         if self.weight is not None:
             self.weight = torch.Tensor(self.weight)
+        assert self.weight is None or isinstance(self.weight, torch.FloatTensor)
         self.reduction = reduction
 
     def forward(self, input, target):
