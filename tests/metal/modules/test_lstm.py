@@ -123,18 +123,14 @@ class LSTMTest(unittest.TestCase):
                 verbose=False,
             )
 
-            print(lstm_module.embeddings.weight.requires_grad)
             before = lstm_module.embeddings.weight.clone()
-            print(before)
             em.train_model(
                 (Xs[0], Ys[0]),
                 dev_data=(Xs[1], Ys[1]),
                 n_epochs=15,
                 verbose=False,
             )
-            print(lstm_module.embeddings.weight.requires_grad)
             after = lstm_module.embeddings.weight.clone()
-            print(after)
 
             if freeze_embs:
                 self.assertEqual(torch.abs(before - after).sum().item(), 0.0)
