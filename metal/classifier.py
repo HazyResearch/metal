@@ -157,6 +157,12 @@ class Classifier(nn.Module):
         train_loader = self._create_data_loader(train_data)
         dev_loader = self._create_data_loader(dev_data)
 
+        # Moving model to GPU
+        if self.config["use_cuda"]:
+            if self.config["verbose"]:
+                print("Using GPU...")
+            self.cuda()
+
         # Set the optimizer
         optimizer = self._set_optimizer(train_config)
 
@@ -169,12 +175,6 @@ class Classifier(nn.Module):
             checkpointer = self._create_checkpointer(
                 train_config["checkpoint_config"]
             )
-
-        # Moving model to GPU
-        if self.config["use_cuda"]:
-            if self.config["verbose"]:
-                print("Using GPU...")
-            self.cuda()
 
         # Train the model
         for epoch in range(train_config["n_epochs"]):
@@ -216,7 +216,7 @@ class Classifier(nn.Module):
                 optimizer.step()
 
                 # Keep running sum of losses
-                epoch_loss += loss.detach()
+                epoch_loss += loss.item()
 
                 # tqdm output
                 running_loss = epoch_loss / (len(data[0]) * (batch_num + 1))
