@@ -23,9 +23,9 @@ class SoftCrossEntropyLoss(nn.Module):
         super().__init__()
         # Register as buffer is standard way to make sure gets moved /
         # converted with the Module, without making it a Parameter
-        self.register_buffer("loss_weights", weight)
-        if self.loss_weights is not None:  # pylint: disable=E0203
-            self.loss_weights = torch.FloatTensor(weight)
+        self.register_buffer("weight", weight)
+        if self.weight is not None:  # pylint: disable=E0203
+            self.weight = torch.FloatTensor(weight)
         self.reduction = reduction
 
     def forward(self, input, target):
@@ -35,8 +35,8 @@ class SoftCrossEntropyLoss(nn.Module):
         for y in range(k):
             cls_idx = input.new_full((n,), y, dtype=torch.long)
             y_loss = F.cross_entropy(input, cls_idx, reduction="none")
-            if self.loss_weights is not None:
-                y_loss = y_loss * self.loss_weights[y]
+            if self.weight is not None:
+                y_loss = y_loss * self.weight[y]
             cum_losses += target[:, y].float() * y_loss
         if self.reduction == "none":
             return cum_losses
