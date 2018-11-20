@@ -1,6 +1,6 @@
 Author: Braden Hancock (github: bhancock8)  
-Last Updated: 10/12/18  
-MeTaL Version: 0.2.0  
+Last Updated: 11/20/18  
+MeTaL Version: 0.3.2  
 
 # The MeTaL Commandments
 - [The MeTaL Commandments](#the-metal-commandments)
@@ -140,5 +140,5 @@ We use the following packages:
 No commits violating these style protocols will be accepted by the repository. See the developer guidelines on the main repository README for instructions on how to set up an environment for development that will inform you of violations (and autocorrect most of them) before you try to commit.
 
 ### Versioning: 
-We follow [semantic versioning](https://semver.org/).
+We attempt to follow [semantic versioning](https://semver.org/).
 
