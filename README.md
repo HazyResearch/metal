@@ -60,7 +60,7 @@ Y_train_pred = label_model.predict(L_train)
 
 # Train a discriminative end model with the generated labels
 end_model = EndModel([1000,10,2])
-end_model.train_model(X_train, Y_train_pred, X_dev, Y_dev)
+end_model.train_model(train_data=(X_train, Y_train_pred), dev_data=(X_dev, Y_dev))
 
 # Evaluate performance
 score = end_model.score(X_test, Y_test)
