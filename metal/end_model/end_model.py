@@ -82,6 +82,8 @@ class EndModel(Classifier):
 
         # Construct loss module
         weight = self.config["train_config"]["loss_weights"]
+        if weight is not None:
+            print(f"Using class weight vector {weight}...")
         reduction = self.config["train_config"]["loss_fn_reduction"]
         self.criteria = SoftCrossEntropyLoss(weight=weight, reduction=reduction)
 
