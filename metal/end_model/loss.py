@@ -8,6 +8,7 @@ class SoftCrossEntropyLoss(nn.Module):
 
     Args:
         weight: a tensor of relative weights to assign to each class.
+            the kwarg name 'weight' is used to match CrossEntropyLoss
         reduction: how to combine the elmentwise losses
             'none': return an unreduced list of elementwise losses
             'elementwise_mean': return the mean loss per elements
@@ -20,12 +21,11 @@ class SoftCrossEntropyLoss(nn.Module):
 
     def __init__(self, weight=None, reduction="elementwise_mean"):
         super().__init__()
-        self.weight = None
-        if weight is not None:
-            self.weight = torch.FloatTensor(weight)
-            # Register as buffer is standard way to make sure gets moved /
-            # converted with the Module, without making it a Parameter
-            self.register_buffer("class_weights", self.weight)
+        # Register as buffer is standard way to make sure gets moved /
+        # converted with the Module, without making it a Parameter
+        self.register_buffer("loss_weights", weight)
+        if self.loss_weights is not None:  # pylint: disable=E0203
+            self.loss_weights = torch.FloatTensor(weight)
         self.reduction = reduction
 
     def forward(self, input, target):
@@ -35,8 +35,8 @@ class SoftCrossEntropyLoss(nn.Module):
         for y in range(k):
             cls_idx = input.new_full((n,), y, dtype=torch.long)
             y_loss = F.cross_entropy(input, cls_idx, reduction="none")
-            if self.weight is not None:
-                y_loss = y_loss * self.weight[y]
+            if self.loss_weights is not None:
+                y_loss = y_loss * self.loss_weights[y]
             cum_losses += target[:, y].float() * y_loss
         if self.reduction == "none":
             return cum_losses
