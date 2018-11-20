@@ -81,11 +81,13 @@ class EndModel(Classifier):
             self.network = layers[0]
 
         # Construct loss module
-        weight = self.config["train_config"]["loss_weights"]
-        if weight is not None:
-            print(f"Using class weight vector {weight}...")
+        loss_weights = self.config["train_config"]["loss_weights"]
+        if loss_weights is not None and self.config["verbose"]:
+            print(f"Using class weight vector {loss_weights}...")
         reduction = self.config["train_config"]["loss_fn_reduction"]
-        self.criteria = SoftCrossEntropyLoss(weight=weight, reduction=reduction)
+        self.criteria = SoftCrossEntropyLoss(
+            weight=loss_weights, reduction=reduction
+        )
 
     def _build_input_layer(self, input_module):
         if input_module is None:
