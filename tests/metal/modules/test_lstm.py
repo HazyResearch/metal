@@ -92,6 +92,51 @@ class LSTMTest(unittest.TestCase):
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
+    def test_lstm_embeddings_freeze(self):
+        """Confirm that if embeddings are frozen, they do not change during training"""
+        X = torch.randint(1, MAX_INT + 1, (n, SEQ_LEN)).long()
+        Y = torch.zeros(n).long()
+        needles = np.random.randint(1, SEQ_LEN - 1, n)
+        for i in range(n):
+            X[i, needles[i]] = MAX_INT + 1
+            Y[i] = X[i, needles[i] + 1]
+
+        Xs = self._split_dataset(X)
+        Ys = self._split_dataset(Y)
+
+        embed_size = 4
+        hidden_size = 10
+        vocab_size = MAX_INT + 2
+
+        for freeze_embs in [True, False]:
+            lstm_module = LSTMModule(
+                embed_size,
+                hidden_size,
+                vocab_size,
+                freeze=freeze_embs,
+                verbose=False,
+            )
+            em = EndModel(
+                k=MAX_INT,
+                input_module=lstm_module,
+                layer_out_dims=[hidden_size * 2, MAX_INT],
+                verbose=False,
+            )
+
+            before = lstm_module.embeddings.weight.clone()
+            em.train_model(
+                (Xs[0], Ys[0]),
+                dev_data=(Xs[1], Ys[1]),
+                n_epochs=15,
+                verbose=False,
+            )
+            after = lstm_module.embeddings.weight.clone()
+
+            if freeze_embs:
+                self.assertEqual(torch.abs(before - after).sum().item(), 0.0)
+            else:
+                self.assertNotEqual(torch.abs(before - after).sum().item(), 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

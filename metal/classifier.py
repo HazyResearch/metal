@@ -157,6 +157,12 @@ class Classifier(nn.Module):
         train_loader = self._create_data_loader(train_data)
         dev_loader = self._create_data_loader(dev_data)
 
+        # Moving model to GPU
+        if self.config["use_cuda"]:
+            if self.config["verbose"]:
+                print("Using GPU...")
+            self.cuda()
+
         # Set the optimizer
         optimizer = self._set_optimizer(train_config)
 
@@ -169,12 +175,6 @@ class Classifier(nn.Module):
             checkpointer = self._create_checkpointer(
                 train_config["checkpoint_config"]
             )
-
-        # Moving model to GPU
-        if self.config["use_cuda"]:
-            if self.config["verbose"]:
-                print("Using GPU...")
-            self.cuda()
 
         # Train the model
         for epoch in range(train_config["n_epochs"]):
@@ -216,7 +216,7 @@ class Classifier(nn.Module):
                 optimizer.step()
 
                 # Keep running sum of losses
-                epoch_loss += loss.detach()
+                epoch_loss += loss.item()
 
                 # tqdm output
                 running_loss = epoch_loss / (len(data[0]) * (batch_num + 1))
@@ -271,8 +271,7 @@ class Classifier(nn.Module):
                 epoch % train_config["print_every"] == 0
                 or epoch == train_config["n_epochs"] - 1
             ):
-                tls = float(train_loss.cpu().numpy())
-                log_writer.add_scalar("train-loss", tls, epoch)
+                log_writer.add_scalar("train-loss", train_loss, epoch)
                 if evaluate_dev:
                     log_writer.add_scalar("dev-score", dev_score, epoch)
                 log_writer.write()
@@ -335,16 +334,17 @@ class Classifier(nn.Module):
         # We set L2 here if the class does not implement its own L2 reg
         l2 = 0 if self.implements_l2 else train_config.get("l2", 0)
 
+        parameters = filter(lambda p: p.requires_grad, self.parameters())
         if opt == "sgd":
             optimizer = optim.SGD(
-                self.parameters(),
+                parameters,
                 **optimizer_config["optimizer_common"],
                 **optimizer_config["sgd_config"],
                 weight_decay=l2,
             )
         elif opt == "adam":
             optimizer = optim.Adam(
-                self.parameters(),
+                parameters,
                 **optimizer_config["optimizer_common"],
                 **optimizer_config["adam_config"],
                 weight_decay=l2,
