@@ -62,12 +62,14 @@ Most of the magic happens in predict_proba(). The predict() method calls predict
 
 In the multi-task setting, additional task-specific versions of these are also implemented. If there is a significant efficiency gain to be had by predicting a single task in isolation, a model may also implement the predict_task_proba() method.
 
-       (all models) 	        (multi-task only)
-    	score 		    	score_task
-	    |			         |
+```
+	(all models) 	        (multi-task only)
+	score 		    	score_task
+	    |			        |
 	predict 	     	predict_task
-	    |	          		         |
+	    |	          		|
 	*predict_proba    <- 	predict_task_proba
+```
 
 ### Model Tuning
 **Rule:** The ModelTuner searches over config dicts, so all config settings are searchable
