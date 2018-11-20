@@ -38,6 +38,8 @@ em_default_config = {
         "disable_prog_bar": False,  # Disable progress bar each epoch
         # Dataloader
         "data_loader_config": {"batch_size": 32, "num_workers": 1},
+        # Loss weights
+        "loss_weights": None,
         # Train Loop
         "n_epochs": 10,
         # 'grad_clip': 0.0,
