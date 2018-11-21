@@ -148,9 +148,9 @@ class LSTMModule(nn.Module):
         Args:
             X: (torch.LongTensor) of shape [batch_size, max_seq_length],
             containing the indices of the embeddings to look up for each item in
-            the batch; OR, if self.skip_embeddings == True and features are
-            directly being passed in, then has shape [batch_size,
-            max_seq_length, feat_dim].
+            the batch, or 0 for padding; OR, if self.skip_embeddings == True and
+            features are directly being passed in, then has shape [batch_size,
+            max_seq_length, feat_dim], with all-0s vectors as padding.
         """
         # Check that X has the correct format
         if len(X.shape) == 2 and not self.skip_embeddings:
@@ -166,8 +166,7 @@ class LSTMModule(nn.Module):
         seq_lengths = torch.zeros(batch_size, dtype=torch.long)
         for i in range(batch_size):
             for j in range(max_seq - 1, -1, -1):
-                v = torch.sum(X[i, j]) if self.skip_embeddings else X[i, j]
-                if v != 0:
+                if not torch.all(X[i, j] == 0):
                     seq_lengths[i] = j + 1
                     break
         # Sort by length because pack_padded_sequence requires it

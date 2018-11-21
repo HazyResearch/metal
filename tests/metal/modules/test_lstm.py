@@ -159,7 +159,7 @@ class LSTMTest(unittest.TestCase):
         lstm_module = LSTMModule(
             embed_size,
             hidden_size,
-            skip_embeddings=True,  # This is where we handle this!
+            skip_embeddings=True,  # This is where we configure for this setting
             bidirectional=False,
             verbose=False,
             lstm_reduction="attention",
