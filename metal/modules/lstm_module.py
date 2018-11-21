@@ -18,6 +18,7 @@ class LSTMModule(nn.Module):
         skip_embeddings=False,
         bidirectional=True,
         verbose=True,
+        lstm_num_layers=1,
         **lstm_kwargs,
     ):
         """
@@ -71,6 +72,7 @@ class LSTMModule(nn.Module):
         self.lstm = nn.LSTM(
             embed_size,
             hidden_size,
+            num_layers=lstm_num_layers,
             batch_first=True,
             bidirectional=bidirectional,
             **lstm_kwargs,
