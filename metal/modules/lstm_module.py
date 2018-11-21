@@ -15,8 +15,10 @@ class LSTMModule(nn.Module):
         embeddings=None,
         lstm_reduction="max",
         freeze=False,
+        skip_embeddings=False,
         bidirectional=True,
         verbose=True,
+        lstm_num_layers=1,
         **lstm_kwargs,
     ):
         """
@@ -33,37 +35,44 @@ class LSTMModule(nn.Module):
             lstm_reduction: One of ['mean', 'max', 'last', 'attention']
                 denoting what to return as the output of the LSTMLayer
             freeze: If False, allow the embeddings to be updated
+            skip_embeddings: If True, directly accept X without using embeddings
         """
         super().__init__()
         self.lstm_reduction = lstm_reduction
         self.output_dim = hidden_size * 2 if bidirectional else hidden_size
         self.verbose = verbose
+        self.skip_embeddings = skip_embeddings
 
-        # Load provided embeddings or randomly initialize new ones
-        if embeddings is None:
-            self.embeddings = nn.Embedding(vocab_size, embed_size)
-            if self.verbose:
-                print(f"Using randomly initialized embeddings.")
-        else:
-            self.embeddings = self._load_pretrained(embeddings)
-            if self.verbose:
-                print(f"Using pretrained embeddings.")
+        if not self.skip_embeddings:
+            # Load provided embeddings or randomly initialize new ones
+            if embeddings is None:
+                self.embeddings = nn.Embedding(vocab_size, embed_size)
+                if self.verbose:
+                    print(f"Using randomly initialized embeddings.")
+            else:
+                self.embeddings = self._load_pretrained(embeddings)
+                if self.verbose:
+                    print(f"Using pretrained embeddings.")
 
-        # Freeze or not
-        self.embeddings.weight.requires_grad = not freeze
+            # Freeze or not
+            self.embeddings.weight.requires_grad = not freeze
 
         if self.verbose:
-            print(
-                f"Embeddings shape = ({self.embeddings.num_embeddings}, "
-                f"{self.embeddings.embedding_dim})"
-            )
-            print(f"The embeddings are {'' if freeze else 'NOT '}FROZEN")
-            print(f"Using lstm_reduction = '{lstm_reduction}'")
+            if self.skip_embeddings:
+                print("Skipping embeddings and using direct input.")
+            else:
+                print(
+                    f"Embeddings shape = ({self.embeddings.num_embeddings}, "
+                    f"{self.embeddings.embedding_dim})"
+                )
+                print(f"The embeddings are {'' if freeze else 'NOT '}FROZEN")
+                print(f"Using lstm_reduction = '{lstm_reduction}'")
 
         # Create lstm core
         self.lstm = nn.LSTM(
             embed_size,
             hidden_size,
+            num_layers=lstm_num_layers,
             batch_first=True,
             bidirectional=bidirectional,
             **lstm_kwargs,
@@ -137,29 +146,39 @@ class LSTMModule(nn.Module):
         """Applies one step of an lstm (plus reduction) to the input X
 
         Args:
-            X: (torch.LongTensor) of shape [batch_size, max_seq_length].
-                The indices of the embeddings to look up for each item in the
-                batch.
+            X: (torch.LongTensor) of shape [batch_size, max_seq_length],
+            containing the indices of the embeddings to look up for each item in
+            the batch, or 0 for padding; OR, if self.skip_embeddings == True and
+            features are directly being passed in, then has shape [batch_size,
+            max_seq_length, feat_dim], with all-0s vectors as padding.
         """
+        # Check that X has the correct format
+        if len(X.shape) == 2 and not self.skip_embeddings:
+            X = X.long()
+        elif len(X.shape) == 3 and self.skip_embeddings:
+            X = X.float()
+        else:
+            raise ValueError(f"X {X.shape} and skip_embeddings do not match.")
+
         # Identify the first non-zero integer from the right (i.e., the length
         # of the sequence before padding starts).
-        batch_size, max_seq = X.shape
+        batch_size, max_seq = X.shape[0], X.shape[1]
         seq_lengths = torch.zeros(batch_size, dtype=torch.long)
         for i in range(batch_size):
             for j in range(max_seq - 1, -1, -1):
-                if X[i, j] != 0:
+                if not torch.all(X[i, j] == 0):
                     seq_lengths[i] = j + 1
                     break
         # Sort by length because pack_padded_sequence requires it
         # Save original order to restore before returning
         seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
-        X = X[perm_idx, :]
+        X = X[perm_idx]
         inv_perm_idx = torch.tensor(
             [i for i, _ in sorted(enumerate(perm_idx), key=lambda idx: idx[1])],
             dtype=torch.long,
         )
 
-        X_encoded = self.embeddings(X)
+        X_encoded = X if self.skip_embeddings else self.embeddings(X)
         X_packed = rnn_utils.pack_padded_sequence(
             X_encoded, seq_lengths, batch_first=True
         )

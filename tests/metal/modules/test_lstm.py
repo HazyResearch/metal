@@ -137,6 +137,46 @@ class LSTMTest(unittest.TestCase):
             else:
                 self.assertNotEqual(torch.abs(before - after).sum().item(), 0.0)
 
+    def test_lstm_direct_features(self):
+        """Confirm that lstm can work over features passed in directly (rather
+        than embedded)."""
+        X = torch.randint(1, MAX_INT + 1, (n, SEQ_LEN)).long()
+        Y = X[:, 0]
+
+        # Convert X to one-hot features
+        Xf = torch.zeros((n, SEQ_LEN, MAX_INT)).long()
+        for i in range(n):
+            for j in range(SEQ_LEN):
+                Xf[i, j, X[i, j] - 1] = 1
+        X = Xf
+
+        Xs = self._split_dataset(X)
+        Ys = self._split_dataset(Y)
+
+        embed_size = MAX_INT
+        hidden_size = 10
+
+        lstm_module = LSTMModule(
+            embed_size,
+            hidden_size,
+            skip_embeddings=True,  # This is where we configure for this setting
+            bidirectional=False,
+            verbose=False,
+            lstm_reduction="attention",
+        )
+        em = EndModel(
+            k=MAX_INT,
+            input_module=lstm_module,
+            layer_out_dims=[hidden_size, MAX_INT],
+            optimizer="adam",
+            batchnorm=True,
+            seed=1,
+            verbose=False,
+        )
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=10)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
+        self.assertGreater(score, 0.95)
+
 
 if __name__ == "__main__":
     unittest.main()
