@@ -86,7 +86,8 @@ class EndModel(Classifier):
             print(f"Using class weight vector {loss_weights}...")
         reduction = self.config["train_config"]["loss_fn_reduction"]
         self.criteria = SoftCrossEntropyLoss(
-            weight=self._to_torch(loss_weights), reduction=reduction
+            weight=self._to_torch(loss_weights, dtype=torch.FloatTensor),
+            reduction=reduction,
         )
 
     def _build_input_layer(self, input_module):
