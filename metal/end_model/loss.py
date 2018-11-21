@@ -23,9 +23,11 @@ class SoftCrossEntropyLoss(nn.Module):
         super().__init__()
         # Register as buffer is standard way to make sure gets moved /
         # converted with the Module, without making it a Parameter
-        self.register_buffer("weight", weight)
-        if self.weight is not None:  # pylint: disable=E0203
-            self.weight = torch.FloatTensor(weight)
+        if weight is None:
+            self.weight = None
+        else:
+            # Note: Sets the attribute self.weight as well
+            self.register_buffer("weight", torch.FloatTensor(weight))
         self.reduction = reduction
 
     def forward(self, input, target):
