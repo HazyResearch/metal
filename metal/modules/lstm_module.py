@@ -15,6 +15,7 @@ class LSTMModule(nn.Module):
         embeddings=None,
         lstm_reduction="max",
         freeze=False,
+        skip_embeddings=False,
         bidirectional=True,
         verbose=True,
         **lstm_kwargs,
@@ -33,11 +34,13 @@ class LSTMModule(nn.Module):
             lstm_reduction: One of ['mean', 'max', 'last', 'attention']
                 denoting what to return as the output of the LSTMLayer
             freeze: If False, allow the embeddings to be updated
+            skip_embeddings: If True, directly accept X without using embeddings
         """
         super().__init__()
         self.lstm_reduction = lstm_reduction
         self.output_dim = hidden_size * 2 if bidirectional else hidden_size
         self.verbose = verbose
+        self.skip_embeddings = skip_embeddings
 
         # Load provided embeddings or randomly initialize new ones
         if embeddings is None:
@@ -53,12 +56,15 @@ class LSTMModule(nn.Module):
         self.embeddings.weight.requires_grad = not freeze
 
         if self.verbose:
-            print(
-                f"Embeddings shape = ({self.embeddings.num_embeddings}, "
-                f"{self.embeddings.embedding_dim})"
-            )
-            print(f"The embeddings are {'' if freeze else 'NOT '}FROZEN")
-            print(f"Using lstm_reduction = '{lstm_reduction}'")
+            if self.skip_embeddings:
+                print("Skipping embeddings and using direct input.")
+            else:
+                print(
+                    f"Embeddings shape = ({self.embeddings.num_embeddings}, "
+                    f"{self.embeddings.embedding_dim})"
+                )
+                print(f"The embeddings are {'' if freeze else 'NOT '}FROZEN")
+                print(f"Using lstm_reduction = '{lstm_reduction}'")
 
         # Create lstm core
         self.lstm = nn.LSTM(
@@ -159,7 +165,7 @@ class LSTMModule(nn.Module):
             dtype=torch.long,
         )
 
-        X_encoded = self.embeddings(X)
+        X_encoded = X if self.skip_embeddings else self.embeddings(X)
         X_packed = rnn_utils.pack_padded_sequence(
             X_encoded, seq_lengths, batch_first=True
         )
