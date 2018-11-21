@@ -42,18 +42,19 @@ class LSTMModule(nn.Module):
         self.verbose = verbose
         self.skip_embeddings = skip_embeddings
 
-        # Load provided embeddings or randomly initialize new ones
-        if embeddings is None:
-            self.embeddings = nn.Embedding(vocab_size, embed_size)
-            if self.verbose:
-                print(f"Using randomly initialized embeddings.")
-        else:
-            self.embeddings = self._load_pretrained(embeddings)
-            if self.verbose:
-                print(f"Using pretrained embeddings.")
+        if not self.skip_embeddings:
+            # Load provided embeddings or randomly initialize new ones
+            if embeddings is None:
+                self.embeddings = nn.Embedding(vocab_size, embed_size)
+                if self.verbose:
+                    print(f"Using randomly initialized embeddings.")
+            else:
+                self.embeddings = self._load_pretrained(embeddings)
+                if self.verbose:
+                    print(f"Using pretrained embeddings.")
 
-        # Freeze or not
-        self.embeddings.weight.requires_grad = not freeze
+            # Freeze or not
+            self.embeddings.weight.requires_grad = not freeze
 
         if self.verbose:
             if self.skip_embeddings:
@@ -143,23 +144,34 @@ class LSTMModule(nn.Module):
         """Applies one step of an lstm (plus reduction) to the input X
 
         Args:
-            X: (torch.LongTensor) of shape [batch_size, max_seq_length].
-                The indices of the embeddings to look up for each item in the
-                batch.
+            X: (torch.LongTensor) of shape [batch_size, max_seq_length],
+            containing the indices of the embeddings to look up for each item in
+            the batch; OR, if self.skip_embeddings == True and features are
+            directly being passed in, then has shape [batch_size,
+            max_seq_length, feat_dim].
         """
+        # Check that X has the correct format
+        if len(X.shape) == 2 and not self.skip_embeddings:
+            X = X.long()
+        elif len(X.shape) == 3 and self.skip_embeddings:
+            X = X.float()
+        else:
+            raise ValueError(f"X {X.shape} and skip_embeddings do not match.")
+
         # Identify the first non-zero integer from the right (i.e., the length
         # of the sequence before padding starts).
-        batch_size, max_seq = X.shape
+        batch_size, max_seq = X.shape[0], X.shape[1]
         seq_lengths = torch.zeros(batch_size, dtype=torch.long)
         for i in range(batch_size):
             for j in range(max_seq - 1, -1, -1):
-                if X[i, j] != 0:
+                v = torch.sum(X[i, j]) if self.skip_embeddings else X[i, j]
+                if v != 0:
                     seq_lengths[i] = j + 1
                     break
         # Sort by length because pack_padded_sequence requires it
         # Save original order to restore before returning
         seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
-        X = X[perm_idx, :]
+        X = X[perm_idx]
         inv_perm_idx = torch.tensor(
             [i for i, _ in sorted(enumerate(perm_idx), key=lambda idx: idx[1])],
             dtype=torch.long,
