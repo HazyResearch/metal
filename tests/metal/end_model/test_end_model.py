@@ -186,6 +186,31 @@ class EndModelTest(unittest.TestCase):
         # Clean up
         rmtree(log_writer.log_subdir)
 
+    def test_save_and_load(self):
+        """Test basic saving and loading"""
+        em = EndModel(
+            seed=1337,
+            input_batchnorm=False,
+            middle_batchnorm=False,
+            input_dropout=0.0,
+            middle_dropout=0.0,
+            layer_out_dims=[2, 10, 2],
+            verbose=False,
+        )
+        Xs, Ys = self.single_problem
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=3)
+        score = em.score((Xs[2], Ys[2]), verbose=False)
+
+        # Save model
+        em.save("test_save_model.pkl")
+
+        # Reload and make sure (a) score and (b) non-buffer, non-Parameter
+        # attributes are the same
+        em_2 = EndModel.load("test_save_model.pkl")
+        self.assertEqual(em.seed, em_2.seed)
+        score_2 = em_2.score((Xs[2], Ys[2]), verbose=False)
+        self.assertEqual(score, score_2)
+
 
 if __name__ == "__main__":
     unittest.main()
