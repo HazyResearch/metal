@@ -18,6 +18,7 @@ class LSTMModule(nn.Module):
         skip_embeddings=False,
         bidirectional=True,
         verbose=True,
+        seed=123,
         lstm_num_layers=1,
         **lstm_kwargs,
     ):
@@ -44,8 +45,13 @@ class LSTMModule(nn.Module):
         self.skip_embeddings = skip_embeddings
 
         if not self.skip_embeddings:
+
             # Load provided embeddings or randomly initialize new ones
             if embeddings is None:
+
+                # Note: Need to set seed here for deterministic init
+                if seed is not None:
+                    self._set_seed(seed)
                 self.embeddings = nn.Embedding(vocab_size, embed_size)
                 if self.verbose:
                     print(f"Using randomly initialized embeddings.")
@@ -82,6 +88,15 @@ class LSTMModule(nn.Module):
             att_param = nn.Parameter(torch.FloatTensor(att_size, 1))
             nn.init.xavier_normal_(att_param)
             self.attention_param = att_param
+
+    def _set_seed(self, seed):
+        self.seed = seed
+        if torch.cuda.is_available():
+            # TODO: confirm this works for gpus without knowing gpu_id
+            # torch.cuda.set_device(self.config['gpu_id'])
+            torch.backends.cudnn.enabled = True
+            torch.cuda.manual_seed(seed)
+        torch.manual_seed(seed)
 
     def _load_pretrained(self, pretrained):
         if not pretrained.dim() == 2:
