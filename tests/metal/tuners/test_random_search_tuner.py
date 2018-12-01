@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 from metal.end_model import EndModel
+from metal.modules import LSTMModule
 from metal.tuners.random_tuner import RandomSearchTuner
 from metal.utils import LogWriter
 
@@ -104,6 +105,76 @@ class RandomSearchModelTunerTest(unittest.TestCase):
         # Confirm that when input dropout = 1.0, score tanks, o/w does well
         self.assertLess(tuner_report[0]["score"], 0.65)
         self.assertGreater(tuner_report[1]["score"], 0.95)
+
+        # Clean up
+        rmtree(tuner.log_rootdir)
+
+    def test_tuner_with_lstm(self):
+        """Test basic functionality *and* determinism/seeding of the tuner
+        with a more complex EndModel having an input module"""
+        # From tests/metal/modules/test_lstm.py; TODO: Refactor this
+        n = 1000
+        SEQ_LEN = 5
+        MAX_INT = 8
+        X = torch.randint(1, MAX_INT + 1, (n, SEQ_LEN)).long()
+        Y = torch.zeros(n).long()
+        needles = np.random.randint(1, SEQ_LEN - 1, n)
+        for i in range(n):
+            X[i, needles[i]] = MAX_INT + 1
+            Y[i] = X[i, needles[i] + 1]
+        Xs = [X[:800], X[800:900], X[900:]]
+        Ys = [Y[:800], Y[800:900], Y[900:]]
+
+        embed_size = 4
+        hidden_size = 10
+        vocab_size = MAX_INT + 2
+
+        # Initialize LSTM module here
+        # TODO: Note the issue is that we will need to re-init each time...
+        lstm_module = LSTMModule(
+            embed_size,
+            hidden_size,
+            vocab_size=vocab_size,
+            seed=123,
+            bidirectional=True,
+            verbose=False,
+            lstm_reduction="attention",
+        )
+
+        # Set up RandomSearchTuner
+        tuner = RandomSearchTuner(EndModel, log_writer_class=LogWriter)
+
+        # EndModel init kwargs
+        init_kwargs = {
+            "seed": 123,
+            "batchnorm": True,
+            "k": MAX_INT,
+            "input_module": lstm_module,
+            "layer_out_dims": [hidden_size * 2, MAX_INT],
+            "input_batchnorm": True,
+            "verbose": False,
+        }
+
+        # Set up search space
+        # NOTE: No middle layers here, so these should return the same scores!
+        search_space = {"middle_dropout": [0.0, 1.0]}
+
+        # Run random grid search
+        tuner.search(
+            search_space,
+            (Xs[1], Ys[1]),
+            init_kwargs=init_kwargs,
+            train_args=[(Xs[0], Ys[0])],
+            train_kwargs={"n_epochs": 2},
+            verbose=False,
+        )
+
+        # Load the log
+        with open(tuner.report_path, "r") as f:
+            tuner_report = json.load(f)
+
+        # Confirm determinism
+        self.assertEqual(tuner_report[0]["score"], tuner_report[1]["score"])
 
         # Clean up
         rmtree(tuner.log_rootdir)
