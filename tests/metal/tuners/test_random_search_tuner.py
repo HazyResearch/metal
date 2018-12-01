@@ -129,30 +129,34 @@ class RandomSearchModelTunerTest(unittest.TestCase):
         hidden_size = 10
         vocab_size = MAX_INT + 2
 
-        # Initialize LSTM module here
-        # TODO: Note the issue is that we will need to re-init each time...
-        lstm_module = LSTMModule(
-            embed_size,
-            hidden_size,
-            vocab_size=vocab_size,
-            seed=123,
-            bidirectional=True,
-            verbose=False,
-            lstm_reduction="attention",
-        )
-
         # Set up RandomSearchTuner
-        tuner = RandomSearchTuner(EndModel, log_writer_class=LogWriter)
+        tuner = RandomSearchTuner(
+            EndModel,
+            module_classes={"input_module": LSTMModule},
+            log_writer_class=LogWriter,
+            seed=123,
+        )
 
         # EndModel init kwargs
         init_kwargs = {
             "seed": 123,
             "batchnorm": True,
             "k": MAX_INT,
-            "input_module": lstm_module,
             "layer_out_dims": [hidden_size * 2, MAX_INT],
             "input_batchnorm": True,
             "verbose": False,
+        }
+
+        # LSTMModule args & kwargs
+        module_args = {}
+        module_args["input_module"] = (embed_size, hidden_size)
+        module_kwargs = {}
+        module_kwargs["input_module"] = {
+            "vocab_size": vocab_size,
+            "seed": 123,
+            "bidirectional": True,
+            "verbose": False,
+            "lstm_reduction": "attention",
         }
 
         # Set up search space
@@ -166,6 +170,8 @@ class RandomSearchModelTunerTest(unittest.TestCase):
             init_kwargs=init_kwargs,
             train_args=[(Xs[0], Ys[0])],
             train_kwargs={"n_epochs": 2},
+            module_args=module_args,
+            module_kwargs=module_kwargs,
             verbose=False,
         )
 

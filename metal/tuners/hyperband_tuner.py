@@ -161,6 +161,8 @@ class HyperbandTuner(ModelTuner):
         train_args=[],
         init_kwargs={},
         train_kwargs={},
+        module_args={},
+        module_kwargs={},
         max_search=None,
         shuffle=True,
         verbose=True,
@@ -219,10 +221,6 @@ class HyperbandTuner(ModelTuner):
 
                     cur_model_index = n_models_scored
 
-                    # Set seed
-                    if configuration.get("seed", None) is None:
-                        configuration["seed"] = self.seed + cur_model_index
-
                     # Set epochs of the configuration
                     configuration["n_epochs"] = r_i
 
@@ -235,6 +233,8 @@ class HyperbandTuner(ModelTuner):
                         train_args=train_args,
                         init_kwargs=init_kwargs,
                         train_kwargs=train_kwargs,
+                        module_args=module_args,
+                        module_kwargs=module_kwargs,
                         verbose=verbose,
                         **score_kwargs,
                     )

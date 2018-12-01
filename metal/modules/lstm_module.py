@@ -20,7 +20,7 @@ class LSTMModule(nn.Module):
         verbose=True,
         seed=123,
         lstm_num_layers=1,
-        **lstm_kwargs,
+        **kwargs,
     ):
         """
         Args:
@@ -75,13 +75,13 @@ class LSTMModule(nn.Module):
                 print(f"Using lstm_reduction = '{lstm_reduction}'")
 
         # Create lstm core
+        # NOTE: We only pass explicitly-named kwargs here; can always add more!
         self.lstm = nn.LSTM(
             embed_size,
             hidden_size,
             num_layers=lstm_num_layers,
             batch_first=True,
             bidirectional=bidirectional,
-            **lstm_kwargs,
         )
         if lstm_reduction == "attention":
             att_size = hidden_size * (self.lstm.bidirectional + 1)
