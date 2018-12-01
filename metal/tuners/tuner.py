@@ -26,6 +26,7 @@ class ModelTuner(object):
             strftime("%H_%M_%S").
         log_writer_class: a metal.utils.LogWriter class for logging the full
             model search.
+        validation_metric: The metric to use in scoring and selecting models.
 
         Saves model search logs and tuner report to 'log_dir/run_dir/run_name/.'
     """
@@ -39,10 +40,12 @@ class ModelTuner(object):
         run_name=None,
         log_writer_class=None,
         seed=None,
+        validation_metric="accuracy",
     ):
         self.model_class = model_class
         self.module_classes = module_classes
         self.log_writer_class = log_writer_class
+        self.validation_metric = validation_metric
 
         # Set logging subdirectory + make sure exists
         self.init_date = strftime("%Y_%m_%d")
@@ -151,7 +154,12 @@ class ModelTuner(object):
             log_writer=log_writer,
         )
 
-        score = model.score(dev_data, verbose=verbose, **score_kwargs)
+        score = model.score(
+            dev_data,
+            metric=self.validation_metric,
+            verbose=verbose,
+            **score_kwargs,
+        )
 
         # If score better than best_score, save
         if score > self.best_score:
