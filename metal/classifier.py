@@ -157,6 +157,9 @@ class Classifier(nn.Module):
         train_loader = self._create_data_loader(train_data)
         dev_loader = self._create_data_loader(dev_data)
 
+        # Set model to train mode
+        self.train()
+
         # Moving model to GPU
         if self.config["use_cuda"]:
             if self.config["verbose"]:
@@ -297,6 +300,9 @@ class Classifier(nn.Module):
         # Close log_writer if available
         if log_writer is not None:
             log_writer.close()
+
+        # Set model to eval mode
+        self.eval()
 
     def _create_dataset(self, *data):
         """Converts input data to the appropriate Dataset"""
