@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 from shutil import rmtree
 
@@ -202,14 +203,18 @@ class EndModelTest(unittest.TestCase):
         score = em.score((Xs[2], Ys[2]), verbose=False)
 
         # Save model
-        em.save("test_save_model.pkl")
+        SAVE_PATH = "test_save_model.pkl"
+        em.save(SAVE_PATH)
 
         # Reload and make sure (a) score and (b) non-buffer, non-Parameter
         # attributes are the same
-        em_2 = EndModel.load("test_save_model.pkl")
+        em_2 = EndModel.load(SAVE_PATH)
         self.assertEqual(em.seed, em_2.seed)
         score_2 = em_2.score((Xs[2], Ys[2]), verbose=False)
         self.assertEqual(score, score_2)
+
+        # Clean up
+        os.remove(SAVE_PATH)
 
 
 if __name__ == "__main__":
