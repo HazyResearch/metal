@@ -160,7 +160,7 @@ class ModelTuner(object):
         score = model.score(
             dev_data,
             metric=self.validation_metric,
-            verbose=verbose,
+            verbose=False,  # Score is already printed in train_model above
             **score_kwargs,
         )
 
