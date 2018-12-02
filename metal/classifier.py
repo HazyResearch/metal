@@ -299,7 +299,7 @@ class Classifier(nn.Module):
             if evaluate_dev:
                 self.score(
                     dev_loader,
-                    metric=["accuracy"],
+                    metric=train_config["validation_metric"],
                     verbose=True,
                     print_confusion_matrix=True,
                 )

@@ -108,6 +108,9 @@ class ModelTuner(object):
             train_kwargs, config, misses="insert"
         )
 
+        # Also make sure train kwargs includes validation metric
+        train_kwargs["validation_metric"] = self.validation_metric
+
         # Initialize modules if provided
         for module_name, module_class in self.module_classes.items():
 
