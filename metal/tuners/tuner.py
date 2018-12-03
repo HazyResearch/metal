@@ -16,8 +16,9 @@ class ModelTuner(object):
     Args:
         model_class: (nn.Module class) The model class to train (uninitiated)
         module_classes: (dict) An optional dictionary of module classes
-        (uninitiated), with keys corresponding to their kwargs in model class,
-        e.g. "input_module" in EndModel.
+        (uninitiated), with keys corresponding to their kwargs in model class;
+        for example, with model_class=EndModel, could have:
+            module_classes = {"input_module": metal.modules.LSTMModule}
         log_dir: (str) The path to the base log directory, or defaults to
             current working directory.
         run_dir: (str) The name of the sub-directory, or defaults to the date,
