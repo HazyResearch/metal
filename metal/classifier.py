@@ -56,6 +56,9 @@ class Classifier(nn.Module):
         if self.config["use_cuda"] and not torch.cuda.is_available():
             raise ValueError("use_cuda=True but CUDA not available.")
 
+        # By default, put model in eval mode; switch to train mode in training
+        self.eval()
+
     def _set_seed(self, seed):
         self.seed = seed
         if torch.cuda.is_available():
@@ -157,6 +160,9 @@ class Classifier(nn.Module):
         train_loader = self._create_data_loader(train_data)
         dev_loader = self._create_data_loader(dev_data)
 
+        # Set model to train mode
+        self.train()
+
         # Moving model to GPU
         if self.config["use_cuda"]:
             if self.config["verbose"]:
@@ -228,12 +234,12 @@ class Classifier(nn.Module):
             train_loss = epoch_loss / len(train_loader.dataset)
 
             # Checkpoint performance on dev
-
             if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
                 val_metric = train_config["validation_metric"]
                 validation_scoring_kwargs = train_config[
                     "validation_scoring_kwargs"
                 ]
+                self.eval()
                 dev_score = self.score(
                     dev_loader,
                     metric=val_metric,
@@ -241,6 +247,7 @@ class Classifier(nn.Module):
                     print_confusion_matrix=False,
                     **validation_scoring_kwargs,
                 )
+                self.train()
 
                 if train_config["checkpoint"]:
                     checkpointer.checkpoint(self, epoch, dev_score)
@@ -276,6 +283,9 @@ class Classifier(nn.Module):
                     log_writer.add_scalar("dev-score", dev_score, epoch)
                 log_writer.write()
 
+        # Training complete- set model back to eval mode
+        self.eval()
+
         # Restore best model if applicable
         if evaluate_dev and train_config["checkpoint"]:
             checkpointer.restore(model=self)
@@ -289,7 +299,7 @@ class Classifier(nn.Module):
             if evaluate_dev:
                 self.score(
                     dev_loader,
-                    metric=["accuracy"],
+                    metric=train_config["validation_metric"],
                     verbose=True,
                     print_confusion_matrix=True,
                 )

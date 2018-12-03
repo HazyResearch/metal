@@ -19,6 +19,8 @@ class RandomSearchTuner(ModelTuner):
         train_args=[],
         init_kwargs={},
         train_kwargs={},
+        module_args={},
+        module_kwargs={},
         max_search=None,
         shuffle=True,
         verbose=True,
@@ -33,6 +35,8 @@ class RandomSearchTuner(ModelTuner):
             train_args: (list) positional args for training the model
             init_kwargs: (dict) keyword args for initializing the model
             train_kwargs: (dict) keyword args for training the model
+            module_args: (dict) Dictionary of lists of module args
+            module_kwargs: (dict) Dictionary of dictionaries of module kwargs
             max_search: see config_generator() documentation
             shuffle: see config_generator() documentation
 
@@ -52,10 +56,6 @@ class RandomSearchTuner(ModelTuner):
 
         # Commence search
         for i, config in enumerate(configs):
-            # Unless seeds are given explicitly, give each config a unique one
-            if config.get("seed", None) is None:
-                config["seed"] = self.seed + i
-
             score, model = self._test_model_config(
                 i,
                 config,
@@ -64,6 +64,8 @@ class RandomSearchTuner(ModelTuner):
                 train_args=train_args,
                 init_kwargs=init_kwargs,
                 train_kwargs=train_kwargs,
+                module_args=module_args,
+                module_kwargs=module_kwargs,
                 verbose=verbose,
                 **score_kwargs,
             )

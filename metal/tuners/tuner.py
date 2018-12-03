@@ -14,7 +14,11 @@ class ModelTuner(object):
     """A tuner for models
 
     Args:
-        model: (nn.Module) The model class to train (uninitiated)
+        model_class: (nn.Module class) The model class to train (uninitiated)
+        module_classes: (dict) An optional dictionary of module classes
+        (uninitiated), with keys corresponding to their kwargs in model class;
+        for example, with model_class=EndModel, could have:
+            module_classes = {"input_module": metal.modules.LSTMModule}
         log_dir: (str) The path to the base log directory, or defaults to
             current working directory.
         run_dir: (str) The name of the sub-directory, or defaults to the date,
@@ -23,6 +27,7 @@ class ModelTuner(object):
             strftime("%H_%M_%S").
         log_writer_class: a metal.utils.LogWriter class for logging the full
             model search.
+        validation_metric: The metric to use in scoring and selecting models.
 
         Saves model search logs and tuner report to 'log_dir/run_dir/run_name/.'
     """
@@ -30,14 +35,18 @@ class ModelTuner(object):
     def __init__(
         self,
         model_class,
+        module_classes={},
         log_dir=None,
         run_dir=None,
         run_name=None,
         log_writer_class=None,
         seed=None,
+        validation_metric="accuracy",
     ):
         self.model_class = model_class
+        self.module_classes = module_classes
         self.log_writer_class = log_writer_class
+        self.validation_metric = validation_metric
 
         # Set logging subdirectory + make sure exists
         self.init_date = strftime("%Y_%m_%d")
@@ -86,6 +95,8 @@ class ModelTuner(object):
         train_args=[],
         init_kwargs={},
         train_kwargs={},
+        module_args={},
+        module_kwargs={},
         verbose=False,
         **score_kwargs,
     ):
@@ -97,6 +108,23 @@ class ModelTuner(object):
         train_kwargs = recursive_merge_dicts(
             train_kwargs, config, misses="insert"
         )
+
+        # Also make sure train kwargs includes validation metric
+        train_kwargs["validation_metric"] = self.validation_metric
+
+        # Initialize modules if provided
+        for module_name, module_class in self.module_classes.items():
+
+            # Also integrate generated config into module kwargs so that module
+            # hyperparameters can be searched over as well
+            module_kwargs[module_name] = recursive_merge_dicts(
+                module_kwargs[module_name], config, misses="insert"
+            )
+
+            # Initialize module
+            init_kwargs[module_name] = module_class(
+                *module_args[module_name], **module_kwargs[module_name]
+            )
 
         # Init model
         model = self.model_class(*init_args, **init_kwargs)
@@ -130,7 +158,12 @@ class ModelTuner(object):
             log_writer=log_writer,
         )
 
-        score = model.score(dev_data, verbose=verbose, **score_kwargs)
+        score = model.score(
+            dev_data,
+            metric=self.validation_metric,
+            verbose=False,  # Score is already printed in train_model above
+            **score_kwargs,
+        )
 
         # If score better than best_score, save
         if score > self.best_score:
@@ -178,6 +211,8 @@ class ModelTuner(object):
         train_args=[],
         init_kwargs={},
         train_kwargs={},
+        module_args={},
+        module_kwargs={},
         max_search=None,
         shuffle=True,
         verbose=True,
@@ -192,6 +227,8 @@ class ModelTuner(object):
             train_args: (list) positional args for training the model
             init_kwargs: (dict) keyword args for initializing the model
             train_kwargs: (dict) keyword args for training the model
+            module_args: (dict) Dictionary of lists of module args
+            module_kwargs: (dict) Dictionary of dictionaries of module kwargs
             max_search: see config_generator() documentation
             shuffle: see config_generator() documentation
         Returns:

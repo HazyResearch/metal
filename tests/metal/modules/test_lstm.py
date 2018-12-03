@@ -36,7 +36,7 @@ class LSTMTest(unittest.TestCase):
         lstm_module = LSTMModule(
             embed_size,
             hidden_size,
-            vocab_size,
+            vocab_size=vocab_size,
             bidirectional=False,
             verbose=False,
             lstm_reduction="attention",
@@ -73,7 +73,7 @@ class LSTMTest(unittest.TestCase):
         lstm_module = LSTMModule(
             embed_size,
             hidden_size,
-            vocab_size,
+            vocab_size=vocab_size,
             bidirectional=True,
             verbose=False,
             lstm_reduction="attention",
@@ -112,7 +112,7 @@ class LSTMTest(unittest.TestCase):
             lstm_module = LSTMModule(
                 embed_size,
                 hidden_size,
-                vocab_size,
+                vocab_size=vocab_size,
                 freeze=freeze_embs,
                 verbose=False,
             )
@@ -173,9 +173,75 @@ class LSTMTest(unittest.TestCase):
             seed=1,
             verbose=False,
         )
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=10)
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=15)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
+
+    def test_lstm_determinism(self):
+        """Test whether training and scoring is deterministic given seed"""
+        X = torch.randint(1, MAX_INT + 1, (n, SEQ_LEN)).long()
+        Y = torch.zeros(n).long()
+        needles = np.random.randint(1, SEQ_LEN - 1, n)
+        for i in range(n):
+            X[i, needles[i]] = MAX_INT + 1
+            Y[i] = X[i, needles[i] + 1]
+
+        Xs = self._split_dataset(X)
+        Ys = self._split_dataset(Y)
+
+        embed_size = 4
+        hidden_size = 10
+        vocab_size = MAX_INT + 2
+
+        lstm_module = LSTMModule(
+            embed_size,
+            hidden_size,
+            vocab_size=vocab_size,
+            seed=123,
+            bidirectional=True,
+            verbose=False,
+            lstm_reduction="attention",
+        )
+        em = EndModel(
+            k=MAX_INT,
+            input_module=lstm_module,
+            layer_out_dims=[hidden_size * 2, MAX_INT],
+            batchnorm=True,
+            seed=123,
+            verbose=False,
+        )
+        em.train_model(
+            (Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=2, verbose=False
+        )
+        score_1 = em.score((Xs[2], Ys[2]), verbose=False)
+
+        # Test scoring determinism
+        score_2 = em.score((Xs[2], Ys[2]), verbose=False)
+        self.assertEqual(score_1, score_2)
+
+        # Test training determinism
+        lstm_module_2 = LSTMModule(
+            embed_size,
+            hidden_size,
+            vocab_size=vocab_size,
+            seed=123,
+            bidirectional=True,
+            verbose=False,
+            lstm_reduction="attention",
+        )
+        em_2 = EndModel(
+            k=MAX_INT,
+            input_module=lstm_module_2,
+            layer_out_dims=[hidden_size * 2, MAX_INT],
+            batchnorm=True,
+            seed=123,
+            verbose=False,
+        )
+        em_2.train_model(
+            (Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=2, verbose=False
+        )
+        score_3 = em_2.score((Xs[2], Ys[2]), verbose=False)
+        self.assertEqual(score_1, score_3)
 
 
 if __name__ == "__main__":

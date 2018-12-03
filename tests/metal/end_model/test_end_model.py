@@ -157,6 +157,35 @@ class EndModelTest(unittest.TestCase):
         for i, metric in enumerate(metrics):
             self.assertGreater(scores[i], 0.95)
 
+    def test_determinism(self):
+        """Test whether training and scoring is deterministic given seed"""
+        em = EndModel(
+            seed=123,
+            batchnorm=True,
+            dropout=0.1,
+            layer_out_dims=[2, 10, 2],
+            verbose=False,
+        )
+        Xs, Ys = self.single_problem
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=1)
+        score_1 = em.score((Xs[2], Ys[2]), verbose=False)
+
+        # Test scoring determinism
+        score_2 = em.score((Xs[2], Ys[2]), verbose=False)
+        self.assertEqual(score_1, score_2)
+
+        # Test training determinism
+        em_2 = EndModel(
+            seed=123,
+            batchnorm=True,
+            dropout=0.1,
+            layer_out_dims=[2, 10, 2],
+            verbose=False,
+        )
+        em_2.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=1)
+        score_3 = em_2.score((Xs[2], Ys[2]), verbose=False)
+        self.assertEqual(score_1, score_3)
+
     def test_logging(self):
         """Test the basic LogWriter class"""
         log_writer = LogWriter(run_dir="test_dir", run_name="test")
