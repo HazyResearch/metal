@@ -118,6 +118,29 @@ class Classifier(nn.Module):
         # The apply(f) method recursively calls f on itself and all children
         self.apply(self._reset_module)
 
+    def resume_training(self, train_data, model_path, dev_data=None):
+        """This model resume training of a classifier by reloading the appropiate state_dicts for each model
+
+        Args:
+           train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the train split
+            model_path: the path to the saved checpoint for resuming training
+            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the dev split
+        """
+        checkpointer = self._create_checkpointer(
+            self.config["train_config"]["checkpoint_config"]
+        )
+        restore_state = checkpointer.restore(model_path)
+        loss_fn = self._get_loss_fn()
+        self.train()
+        self._train_model(
+            train_data=train_data,
+            loss_fn=loss_fn,
+            dev_data=dev_data,
+            restore_state=restore_state,
+        )
+
     def train_model(self, *args, **kwargs):
         """Trains a classifier
 
@@ -135,7 +158,14 @@ class Classifier(nn.Module):
             model_class, **checkpoint_config, verbose=self.config["verbose"]
         )
 
-    def _train_model(self, train_data, loss_fn, dev_data=None, log_writer=None):
+    def _train_model(
+        self,
+        train_data,
+        loss_fn,
+        dev_data=None,
+        log_writer=None,
+        restore_state={},
+    ):
         """The internal training routine called by train_model() after setup
 
         Args:
@@ -182,8 +212,28 @@ class Classifier(nn.Module):
                 train_config["checkpoint_config"]
             )
 
+        # which iteration to start with
+        start_iteration = 0
+
+        if restore_state:
+            self.load_state_dict(restore_state["model"][0])
+            optimizer.load_state_dict(restore_state["optimizer"][0])
+            lr_scheduler.load_state_dict(restore_state["lr_scheduler"][0])
+            start_iteration = (
+                restore_state["epoch"] + 1
+            )  # start from next epooch
+            msg = f"Restored Checkpoint: Starting Epoch: {start_iteration}"
+
+            if "best_score" in restore_state:
+                checkpointer.best_iteration = restore_state["best_iteration"]
+                checkpointer.best_score = restore_state["best_score"]
+                checkpointer.best_model = True
+                msg += f"\t Best Iteration: {checkpointer.best_iteration}\t Best Dev Score:{checkpointer.best_score:.3f}"
+
+            print(msg)
+
         # Train the model
-        for epoch in range(train_config["n_epochs"]):
+        for epoch in range(start_iteration, train_config["n_epochs"]):
             epoch_loss = 0.0
             t = tqdm(
                 enumerate(train_loader),
@@ -250,7 +300,9 @@ class Classifier(nn.Module):
                 self.train()
 
                 if train_config["checkpoint"]:
-                    checkpointer.checkpoint(self, epoch, dev_score)
+                    checkpointer.checkpoint(
+                        self, epoch, dev_score, optimizer, lr_scheduler
+                    )
 
             # Apply learning rate scheduler
             if (
@@ -288,7 +340,7 @@ class Classifier(nn.Module):
 
         # Restore best model if applicable
         if evaluate_dev and train_config["checkpoint"]:
-            checkpointer.restore(model=self)
+            checkpointer.load_best_model(model=self)
 
             if log_writer is not None:
                 log_writer.log["checkpoint_iter"] = checkpointer.best_iteration

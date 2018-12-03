@@ -1,3 +1,4 @@
+import copy
 import json
 import unittest
 from shutil import rmtree
@@ -156,6 +157,30 @@ class EndModelTest(unittest.TestCase):
         scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=False)
         for i, metric in enumerate(metrics):
             self.assertGreater(scores[i], 0.95)
+
+    def test_checkpointing(self):
+        """Test the metrics whole way through"""
+        em = EndModel(
+            seed=1,
+            batchnorm=False,
+            dropout=0.0,
+            layer_out_dims=[2, 10, 2],
+            verbose=False,
+        )
+        Xs, Ys = self.single_problem
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        test_model = copy.deepcopy(em.state_dict())
+
+        # 0 indexed
+        new_model = torch.load("checkpoints/model_checkpoint_4.pth")
+        self.assertTrue(
+            torch.all(
+                torch.eq(
+                    test_model["network.1.0.weight"],
+                    new_model["model"][0]["network.1.0.weight"],
+                )
+            )
+        )
 
     def test_determinism(self):
         """Test whether training and scoring is deterministic given seed"""

@@ -2,6 +2,7 @@ import copy
 import json
 import os
 import random
+import shutil
 from collections import defaultdict
 from subprocess import check_output
 from time import strftime
@@ -35,7 +36,12 @@ class MetalDataset(Dataset):
 
 class Checkpointer(object):
     def __init__(
-        self, model_class, checkpoint_min=-1, checkpoint_runway=0, verbose=True
+        self,
+        model_class,
+        checkpoint_min=-1,
+        checkpoint_runway=0,
+        verbose=True,
+        checkpoint_destination="checkpoints",
     ):
         """Saves checkpoints as applicable based on a reported metric.
 
@@ -49,15 +55,26 @@ class Checkpointer(object):
         self.best_iteration = None
         self.best_score = checkpoint_min
         self.checkpoint_runway = checkpoint_runway
+        self.checkpoint_destination = checkpoint_destination
         self.verbose = verbose
+        self.state = dict({})
+
         if checkpoint_runway and verbose:
             print(
                 f"No checkpoints will be saved in the first "
                 f"checkpoint_runway={checkpoint_runway} iterations."
             )
 
-    def checkpoint(self, model, iteration, score):
+    def checkpoint(self, model, iteration, score, optimizer, lr_scheduler):
         if iteration >= self.checkpoint_runway:
+            self.state["epoch"] = iteration
+            self.state["model"] = (model.state_dict(),)
+            self.state["optimizer"] = (optimizer.state_dict(),)
+            self.state["lr_scheduler"] = (
+                lr_scheduler.state_dict() if lr_scheduler else None
+            )
+            self.state["score"] = score
+
             is_best = score > self.best_score
             if is_best:
                 if self.verbose:
@@ -65,11 +82,27 @@ class Checkpointer(object):
                         f"Saving model at iteration {iteration} with best "
                         f"score {score:.3f}"
                     )
-                self.best_model = copy.deepcopy(model.state_dict())
+                self.best_model = True
                 self.best_iteration = iteration
                 self.best_score = score
+                self.state["best_iteration"] = iteration
+                self.state["best_score"] = score
 
-    def restore(self, model):
+            if not os.path.exists(self.checkpoint_destination):
+                os.makedirs(self.checkpoint_destination)
+
+            torch.save(
+                self.state,
+                f"{self.checkpoint_destination}/model_checkpoint_{iteration}.pth",
+            )
+
+            if is_best:
+                shutil.copyfile(
+                    f"{self.checkpoint_destination}/model_checkpoint_{iteration}.pth",
+                    f"{self.checkpoint_destination}/best_model.pth",
+                )
+
+    def load_best_model(self, model):
         if self.best_model is None:
             raise Exception(
                 f"Best model was never found. Best score = "
@@ -80,8 +113,19 @@ class Checkpointer(object):
                 f"Restoring best model from iteration {self.best_iteration} "
                 f"with score {self.best_score:.3f}"
             )
-            model.load_state_dict(self.best_model)
+            # model.load_state_dict(self.best_model)
+            state = torch.load(
+                f"{self.checkpoint_destination}/best_model.pth",
+                map_location=torch.device("cpu"),
+            )
+            self.best_iteration = state["epoch"]
+            self.best_score = state["score"]
+            model.load_state_dict(state["model"][0])
             return model
+
+    def restore(self, destination):
+        state = torch.load(f"{destination}")
+        return state
 
 
 def rargmax(x, eps=1e-8):
