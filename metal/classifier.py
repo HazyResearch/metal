@@ -7,11 +7,21 @@ import torch.nn as nn
 import torch.optim as optim
 from scipy.sparse import issparse
 from torch.utils.data import DataLoader, Dataset, TensorDataset
-from tqdm import tqdm
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
 from metal.utils import Checkpointer, place_on_gpu, recursive_merge_dicts
+
+# Import tqdm_notebook if in Jupyter notebook
+try:
+    from IPython import get_ipython
+
+    if "IPKernelApp" not in get_ipython().config:
+        raise ImportError("console")
+except (AttributeError, ImportError):
+    from tqdm import tqdm
+else:
+    from tqdm import tqdm_notebook as tqdm
 
 
 class Classifier(nn.Module):
