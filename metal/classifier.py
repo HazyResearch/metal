@@ -1,3 +1,4 @@
+import os
 import pickle
 import random
 
@@ -21,7 +22,11 @@ try:
 except (AttributeError, ImportError):
     from tqdm import tqdm
 else:
-    from tqdm import tqdm_notebook as tqdm
+    # Only use tqdm notebook if not in travis testing
+    if "CI" not in os.environ:
+        from tqdm import tqdm_notebook as tqdm
+    else:
+        from tqdm import tqdm
 
 
 class Classifier(nn.Module):
