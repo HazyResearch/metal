@@ -270,7 +270,7 @@ class Classifier(nn.Module):
             ):
                 msg = f"[E:{epoch}]\tTrain Loss: {train_loss:.3f}"
                 if evaluate_dev:
-                    msg += f"\tDev score: {dev_score:.3f}"
+                    msg += f"\tDev {val_metric}: {dev_score:.3f}"
                 print(msg)
 
             # Also write train loss (+ dev score) to log_writer if available
