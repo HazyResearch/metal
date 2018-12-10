@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from metal.end_model import EndModel
-from metal.modules import LSTMModule
+from metal.modules import EmbeddingsEncoder, Encoder, LSTMModule
 
 n = 1000
 SEQ_LEN = 5
@@ -31,12 +31,13 @@ class LSTMTest(unittest.TestCase):
 
         embed_size = 4
         hidden_size = 10
-        vocab_size = MAX_INT + 1
 
+        encoder = EmbeddingsEncoder(
+            embed_size, vocab_size=MAX_INT + 1, verbose=False
+        )
         lstm_module = LSTMModule(
-            embed_size,
+            encoder,
             hidden_size,
-            vocab_size=vocab_size,
             bidirectional=False,
             verbose=False,
             lstm_reduction="attention",
@@ -68,12 +69,13 @@ class LSTMTest(unittest.TestCase):
 
         embed_size = 4
         hidden_size = 10
-        vocab_size = MAX_INT + 2
 
+        encoder = EmbeddingsEncoder(
+            embed_size, vocab_size=MAX_INT + 2, verbose=False
+        )
         lstm_module = LSTMModule(
-            embed_size,
+            encoder,
             hidden_size,
-            vocab_size=vocab_size,
             bidirectional=True,
             verbose=False,
             lstm_reduction="attention",
@@ -106,16 +108,15 @@ class LSTMTest(unittest.TestCase):
 
         embed_size = 4
         hidden_size = 10
-        vocab_size = MAX_INT + 2
 
         for freeze_embs in [True, False]:
-            lstm_module = LSTMModule(
+            encoder = EmbeddingsEncoder(
                 embed_size,
-                hidden_size,
-                vocab_size=vocab_size,
+                vocab_size=MAX_INT + 2,
                 freeze=freeze_embs,
                 verbose=False,
             )
+            lstm_module = LSTMModule(encoder, hidden_size, verbose=False)
             em = EndModel(
                 k=MAX_INT,
                 input_module=lstm_module,
@@ -123,14 +124,14 @@ class LSTMTest(unittest.TestCase):
                 verbose=False,
             )
 
-            before = lstm_module.embeddings.weight.clone()
+            before = lstm_module.encoder.embeddings.weight.clone()
             em.train_model(
                 (Xs[0], Ys[0]),
                 dev_data=(Xs[1], Ys[1]),
                 n_epochs=15,
                 verbose=False,
             )
-            after = lstm_module.embeddings.weight.clone()
+            after = lstm_module.encoder.embeddings.weight.clone()
 
             if freeze_embs:
                 self.assertEqual(torch.abs(before - after).sum().item(), 0.0)
@@ -157,9 +158,8 @@ class LSTMTest(unittest.TestCase):
         hidden_size = 10
 
         lstm_module = LSTMModule(
-            embed_size,
+            Encoder(embed_size),
             hidden_size,
-            skip_embeddings=True,  # This is where we configure for this setting
             bidirectional=False,
             verbose=False,
             lstm_reduction="attention",
@@ -191,12 +191,13 @@ class LSTMTest(unittest.TestCase):
 
         embed_size = 4
         hidden_size = 10
-        vocab_size = MAX_INT + 2
 
+        encoder = EmbeddingsEncoder(
+            embed_size, vocab_size=MAX_INT + 2, verbose=False
+        )
         lstm_module = LSTMModule(
-            embed_size,
+            encoder,
             hidden_size,
-            vocab_size=vocab_size,
             seed=123,
             bidirectional=True,
             verbose=False,
@@ -220,10 +221,12 @@ class LSTMTest(unittest.TestCase):
         self.assertEqual(score_1, score_2)
 
         # Test training determinism
+        encoder_2 = EmbeddingsEncoder(
+            embed_size, vocab_size=MAX_INT + 2, verbose=False
+        )
         lstm_module_2 = LSTMModule(
-            embed_size,
+            encoder_2,
             hidden_size,
-            vocab_size=vocab_size,
             seed=123,
             bidirectional=True,
             verbose=False,
