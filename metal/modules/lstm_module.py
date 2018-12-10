@@ -8,6 +8,8 @@ class Encoder(nn.Module):
     """The Encoder implements the encode() method, which maps a batch of data to
     encoded output of dimension [batch_size, max_seq_len, encoded_size]
 
+    The first argument must be the encoded size of the Encoder output.
+
     Args:
         encoded_size: (int) Output feature dimension of the Encoder
     """
@@ -112,13 +114,15 @@ class LSTMModule(nn.Module):
 
     def __init__(
         self,
-        encoder,
+        encoded_size,
         hidden_size,
         lstm_reduction="max",
         bidirectional=True,
         verbose=True,
         seed=123,
         lstm_num_layers=1,
+        encoder_class=Encoder,
+        encoder_kwargs={},
         **kwargs,
     ):
         """
@@ -132,9 +136,14 @@ class LSTMModule(nn.Module):
             skip_embeddings: If True, directly accept X without using embeddings
         """
         super().__init__()
-        self.encoder = encoder
         self.output_dim = hidden_size * 2 if bidirectional else hidden_size
         self.verbose = verbose
+
+        # Initialize Encoder
+        # Note constructing the Encoder here is helpful for e.g. Tuner, as then
+        # all model params initialized here
+        encoder_kwargs["verbose"] = self.verbose
+        self.encoder = encoder_class(encoded_size, **encoder_kwargs)
 
         self.lstm_reduction = lstm_reduction
         if self.verbose:

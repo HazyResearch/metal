@@ -147,17 +147,16 @@ class RandomSearchModelTunerTest(unittest.TestCase):
         }
 
         # LSTMModule args & kwargs
-        encoder = EmbeddingsEncoder(
-            embed_size, vocab_size=MAX_INT + 2, verbose=False
-        )
         module_args = {}
-        module_args["input_module"] = (encoder, hidden_size)
+        module_args["input_module"] = (embed_size, hidden_size)
         module_kwargs = {}
         module_kwargs["input_module"] = {
             "seed": 123,
             "bidirectional": True,
             "verbose": False,
             "lstm_reduction": "attention",
+            "encoder_class": EmbeddingsEncoder,
+            "encoder_kwargs": {"vocab_size": MAX_INT + 2},
         }
 
         # Set up search space

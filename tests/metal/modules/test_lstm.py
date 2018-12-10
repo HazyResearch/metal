@@ -32,15 +32,14 @@ class LSTMTest(unittest.TestCase):
         embed_size = 4
         hidden_size = 10
 
-        encoder = EmbeddingsEncoder(
-            embed_size, vocab_size=MAX_INT + 1, verbose=False
-        )
         lstm_module = LSTMModule(
-            encoder,
+            embed_size,
             hidden_size,
             bidirectional=False,
             verbose=False,
             lstm_reduction="attention",
+            encoder=EmbeddingsEncoder,
+            encoder_kwargs={"vocab_size": MAX_INT + 1},
         )
         em = EndModel(
             k=MAX_INT,
@@ -70,15 +69,14 @@ class LSTMTest(unittest.TestCase):
         embed_size = 4
         hidden_size = 10
 
-        encoder = EmbeddingsEncoder(
-            embed_size, vocab_size=MAX_INT + 2, verbose=False
-        )
         lstm_module = LSTMModule(
-            encoder,
+            embed_size,
             hidden_size,
             bidirectional=True,
             verbose=False,
             lstm_reduction="attention",
+            encoder=EmbeddingsEncoder,
+            encoder_kwargs={"vocab_size": MAX_INT + 2},
         )
         em = EndModel(
             k=MAX_INT,
@@ -110,13 +108,16 @@ class LSTMTest(unittest.TestCase):
         hidden_size = 10
 
         for freeze_embs in [True, False]:
-            encoder = EmbeddingsEncoder(
+            lstm_module = LSTMModule(
                 embed_size,
-                vocab_size=MAX_INT + 2,
-                freeze=freeze_embs,
+                hidden_size,
                 verbose=False,
+                encoder=EmbeddingsEncoder,
+                encoder_kwargs={
+                    "vocab_size": MAX_INT + 2,
+                    "freeze": freeze_embs,
+                },
             )
-            lstm_module = LSTMModule(encoder, hidden_size, verbose=False)
             em = EndModel(
                 k=MAX_INT,
                 input_module=lstm_module,
@@ -154,11 +155,11 @@ class LSTMTest(unittest.TestCase):
         Xs = self._split_dataset(X)
         Ys = self._split_dataset(Y)
 
-        embed_size = MAX_INT
+        encoded_size = MAX_INT
         hidden_size = 10
 
         lstm_module = LSTMModule(
-            Encoder(embed_size),
+            encoded_size,
             hidden_size,
             bidirectional=False,
             verbose=False,
@@ -192,16 +193,15 @@ class LSTMTest(unittest.TestCase):
         embed_size = 4
         hidden_size = 10
 
-        encoder = EmbeddingsEncoder(
-            embed_size, vocab_size=MAX_INT + 2, verbose=False
-        )
         lstm_module = LSTMModule(
-            encoder,
+            embed_size,
             hidden_size,
             seed=123,
             bidirectional=True,
             verbose=False,
             lstm_reduction="attention",
+            encoder=EmbeddingsEncoder,
+            encoder_kwargs={"vocab_size": MAX_INT + 2},
         )
         em = EndModel(
             k=MAX_INT,
@@ -221,16 +221,15 @@ class LSTMTest(unittest.TestCase):
         self.assertEqual(score_1, score_2)
 
         # Test training determinism
-        encoder_2 = EmbeddingsEncoder(
-            embed_size, vocab_size=MAX_INT + 2, verbose=False
-        )
         lstm_module_2 = LSTMModule(
-            encoder_2,
+            embed_size,
             hidden_size,
             seed=123,
             bidirectional=True,
             verbose=False,
             lstm_reduction="attention",
+            encoder=EmbeddingsEncoder,
+            encoder_kwargs={"vocab_size": MAX_INT + 2},
         )
         em_2 = EndModel(
             k=MAX_INT,
