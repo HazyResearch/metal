@@ -109,6 +109,16 @@ class EmbeddingsEncoder(Encoder):
         return self.embeddings(X.long())
 
 
+class CNNEncoder(nn.Module):
+    def encode(self, X):
+        """
+        Args:
+            X: (torch.LongTensor) of shape [batch_size, max_seq_length,
+            encoded_size], with all-0s vectors as padding.
+        """
+        raise NotImplementedError()
+
+
 class LSTMModule(nn.Module):
     """An LSTM-based input module"""
 
