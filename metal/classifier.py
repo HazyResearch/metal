@@ -1,3 +1,4 @@
+import os
 import pickle
 import random
 
@@ -7,11 +8,25 @@ import torch.nn as nn
 import torch.optim as optim
 from scipy.sparse import issparse
 from torch.utils.data import DataLoader, Dataset, TensorDataset
-from tqdm import tqdm
 
 from metal.analysis import confusion_matrix
 from metal.metrics import metric_score
 from metal.utils import Checkpointer, place_on_gpu, recursive_merge_dicts
+
+# Import tqdm_notebook if in Jupyter notebook
+try:
+    from IPython import get_ipython
+
+    if "IPKernelApp" not in get_ipython().config:
+        raise ImportError("console")
+except (AttributeError, ImportError):
+    from tqdm import tqdm
+else:
+    # Only use tqdm notebook if not in travis testing
+    if "CI" not in os.environ:
+        from tqdm import tqdm_notebook as tqdm
+    else:
+        from tqdm import tqdm
 
 
 class Classifier(nn.Module):
@@ -322,7 +337,7 @@ class Classifier(nn.Module):
             ):
                 msg = f"[E:{epoch}]\tTrain Loss: {train_loss:.3f}"
                 if evaluate_dev:
-                    msg += f"\tDev score: {dev_score:.3f}"
+                    msg += f"\tDev {val_metric}: {dev_score:.3f}"
                 print(msg)
 
             # Also write train loss (+ dev score) to log_writer if available

@@ -24,6 +24,7 @@ class RandomSearchTuner(ModelTuner):
         max_search=None,
         shuffle=True,
         verbose=True,
+        clean_up=True,
         **score_kwargs,
     ):
         """
@@ -81,4 +82,4 @@ class RandomSearchTuner(ModelTuner):
         self._save_report()
 
         # Return best model
-        return self._load_best_model(clean_up=True)
+        return self._load_best_model(clean_up=clean_up)
