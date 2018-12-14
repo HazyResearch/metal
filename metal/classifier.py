@@ -94,39 +94,27 @@ class Classifier(nn.Module):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
 
-    def save(self, destination=None):
+    def save(self, destination, **kwargs):
         """Serialize and save a model.
-
-        If destination is a filepath, write to file.
-        If destination is None, return a bytes object.
 
         Example:
             end_model = EndModel(...)
             end_model.train_model(...)
             end_model.save('my_end_model.pkl')
         """
-        if destination is None:
-            return pickle.dumps(self)
-        else:
-            with open(destination, "wb") as f:
-                pickle.dump(self, f)
+        with open(destination, "wb") as f:
+            torch.save(self, f, **kwargs)
 
     @staticmethod
-    def load(source=None):
+    def load(source, **kwargs):
         """Deserialize and load a model.
-
-        If source is a filepath, load from file.
-        If source is a bytes object, load from bytes.
 
         Example:
             end_model = EndModel.load('my_end_model.pkl')
             end_model.score(...)
         """
-        if isinstance(source, bytes):
-            return pickle.loads(source)
-        else:
-            with open(source, "rb") as f:
-                return pickle.load(f)
+        with open(source, "rb") as f:
+            return torch.load(f, **kwargs)
 
     def reset(self):
         """Initializes all modules in a network"""
