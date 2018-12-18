@@ -14,7 +14,7 @@ class Encoder(nn.Module):
         encoded_size: (int) Output feature dimension of the Encoder
     """
 
-    def __init__(self, encoded_size):
+    def __init__(self, encoded_size, verbose=True):
         super().__init__()
         self.encoded_size = encoded_size
 
