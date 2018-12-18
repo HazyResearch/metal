@@ -72,6 +72,7 @@ parser.add_argument(
 )
 
 
+# Setting up dataset to adjust CIFAR indices to one-index
 class MetalCIFARDataset(Dataset):
     """A dataset that group each item in X with it label from Y
 
@@ -83,9 +84,6 @@ class MetalCIFARDataset(Dataset):
 
     def __init__(self, dataset):
         self.dataset = dataset
-        # Y = convert_labels(Y,'onezero','categorical')
-        # self.Y = Y
-        # assert len(X) == len(Y)
 
     def __getitem__(self, index):
         x, y = self.dataset[index]
@@ -102,6 +100,7 @@ def train_model():
     global args
     args = parser.parse_args()
 
+    # Set up transformations for incoming data
     transform_train = transforms.Compose(
         [
             transforms.RandomCrop(32, padding=4),
@@ -122,6 +121,7 @@ def train_model():
         ]
     )
 
+    # Create datasets and data loaders
     trainset = CIFAR10(
         root="./data", train=True, download=True, transform=transform_train
     )
@@ -149,9 +149,11 @@ def train_model():
         "truck",
     )
 
+    # Define input encoder
     model = ResNet18()
-
     encode_dim = 512
+
+    # Define end model
     end_model = EndModel(
         [encode_dim, len(classes)],
         input_module=model,
@@ -164,6 +166,7 @@ def train_model():
         middle_batchnorm=False,
     )
 
+    # Train end model
     end_model.train_model(
         train_data=train_loader,
         dev_data=test_loader,
@@ -174,6 +177,7 @@ def train_model():
         validation_metric="accuracy",
     )
 
+    # Test end model
     end_model.score(
         test_loader, metric=["accuracy", "precision", "recall", "f1"]
     )
