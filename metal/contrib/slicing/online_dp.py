@@ -15,6 +15,24 @@ class LinearModule(nn.Module):
         return self.input_layer(x)
 
 
+class MLPModule(nn.Module):
+    def __init__(self, input_dim, output_dim, middle_dims=[], bias=False):
+        super().__init__()
+
+        # Create layers
+        dims = [input_dim] + middle_dims + [output_dim]
+        layers = []
+        for i in range(len(dims) - 1):
+            layers.append(nn.Linear(dims[i], dims[i + 1], bias=bias))
+            if i + 1 < len(dims):
+                layers.append(nn.Sigmoid())
+
+        self.input_layer = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.input_layer(x)
+
+
 class Classifier(nn.Module):
     def predict(self, x):
         yp = self.predict_proba(x).squeeze().detach().numpy()
