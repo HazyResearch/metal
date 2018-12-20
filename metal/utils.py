@@ -121,7 +121,7 @@ class Checkpointer(object):
             )
             self.best_iteration = state["epoch"]
             self.best_score = state["score"]
-            model.load_state_dict(state["model"][0])
+            model.load_state_dict(state["model"])
             return model
 
     def restore(self, destination):
