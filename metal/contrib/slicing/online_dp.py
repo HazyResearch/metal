@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
-
 class LinearModule(nn.Module):
     def __init__(self, input_dim, output_dim, bias=False):
         super().__init__()
@@ -112,7 +111,7 @@ class SliceDPModel(Classifier):
         accs,
         r=1,
         rw=False,
-        L_weights=[],
+        L_weights=None,
     ):
         """Online / joint data programming model
         Assumes balanced, binary class problem with conditionally ind. LFs that
@@ -132,7 +131,11 @@ class SliceDPModel(Classifier):
         self.m = m
         self.r = r
         self.rw = rw
-        self.L_weights = torch.from_numpy(np.array(L_weights, dtype=np.float32))
+        if L_weights is None:
+            self.L_weights = torch.ones(self.m).reshape(-1, 1)
+        else:
+            L_weights = np.array(L_weights, dtype=np.float32)
+            self.L_weights = torch.from_numpy(L_weights).reshape(-1, 1)
 
         # Basic binary loss function
         self.loss_fn = nn.BCEWithLogitsLoss(reduce=False)
@@ -173,12 +176,7 @@ class SliceDPModel(Classifier):
 
             # We then project the A weighting onto the respective features of
             # the L_head layer, and add these attention-weighted features to Xr
-            if self.L_weights.shape[0] > 0:
-                # Manually reweight
-                W = self.L_weights.repeat(4, 1).transpose(0, 1).repeat(b, 1, 1)
-            else:
-                # Use learned weights from L_head
-                W = self.L_head.weight.repeat(b, 1, 1)
+            W = self.L_head.weight.repeat(b, 1, 1)
 
             xr = torch.cat([xr, torch.bmm(A, W).squeeze()], 1)
 
@@ -201,7 +199,9 @@ class SliceDPModel(Classifier):
         # nb = torch.sum(L_mask)
         # loss_1 = torch.sum(self.loss_fn(self.forward_L(x), L_01) * L_mask) / nb
         # NOTE: Here, we add *all* data points to the loss
-        loss_1 = torch.mean(self.loss_fn(self.forward_L(x), L_01))
+        loss_1 = torch.mean(
+            self.loss_fn(self.forward_L(x), L_01) @ self.L_weights
+        )
 
         # Compute the noise-aware DP loss w/ the reweighted representation
         # Note: Need to convert L from {0,1} --> {-1,1}
