@@ -172,14 +172,40 @@ class EndModelTest(unittest.TestCase):
         test_model = copy.deepcopy(em.state_dict())
 
         # 0 indexed
+        new_model = torch.load("checkpoints/model_checkpoint_3.pth")
+        self.assertFalse(
+            torch.all(
+                torch.eq(
+                    test_model["network.1.0.weight"],
+                    new_model["model"]["network.1.0.weight"],
+                )
+            )
+        )
+
         new_model = torch.load("checkpoints/model_checkpoint_4.pth")
         self.assertTrue(
             torch.all(
                 torch.eq(
                     test_model["network.1.0.weight"],
-                    new_model["model"][0]["network.1.0.weight"],
+                    new_model["model"]["network.1.0.weight"],
                 )
             )
+        )
+
+    def test_resume_training(self):
+        em = EndModel(
+            seed=1,
+            batchnorm=False,
+            dropout=0.0,
+            layer_out_dims=[2, 10, 2],
+            verbose=False,
+        )
+        Xs, Ys = self.single_problem
+        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.resume_training(
+            (Xs[0], Ys[0]),
+            model_path="checkpoints/model_checkpoint_2.pth",
+            dev_data=(Xs[1], Ys[1]),
         )
 
     def test_determinism(self):

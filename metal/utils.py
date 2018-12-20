@@ -49,6 +49,7 @@ class Checkpointer(object):
             checkpoint_min (float): the initial "best" score to beat
             checkpoint_runway (int): don't save any checkpoints for the first
                 this many iterations
+            checkpoint_destination(str): the path to save each training checkpoint
         """
         self.model_class = model_class
         self.best_model = None
@@ -57,7 +58,7 @@ class Checkpointer(object):
         self.checkpoint_runway = checkpoint_runway
         self.checkpoint_destination = checkpoint_destination
         self.verbose = verbose
-        self.state = dict({})
+        self.state = {}
 
         if checkpoint_runway and verbose:
             print(
@@ -68,8 +69,8 @@ class Checkpointer(object):
     def checkpoint(self, model, iteration, score, optimizer, lr_scheduler):
         if iteration >= self.checkpoint_runway:
             self.state["epoch"] = iteration
-            self.state["model"] = (model.state_dict(),)
-            self.state["optimizer"] = (optimizer.state_dict(),)
+            self.state["model"] = model.state_dict()
+            self.state["optimizer"] = optimizer.state_dict()
             self.state["lr_scheduler"] = (
                 lr_scheduler.state_dict() if lr_scheduler else None
             )
@@ -96,6 +97,7 @@ class Checkpointer(object):
                 f"{self.checkpoint_destination}/model_checkpoint_{iteration}.pth",
             )
 
+            # Copies the model's best iteration (checkpoint) to a seperate file to reload after training
             if is_best:
                 shutil.copyfile(
                     f"{self.checkpoint_destination}/model_checkpoint_{iteration}.pth",
@@ -113,7 +115,6 @@ class Checkpointer(object):
                 f"Restoring best model from iteration {self.best_iteration} "
                 f"with score {self.best_score:.3f}"
             )
-            # model.load_state_dict(self.best_model)
             state = torch.load(
                 f"{self.checkpoint_destination}/best_model.pth",
                 map_location=torch.device("cpu"),
