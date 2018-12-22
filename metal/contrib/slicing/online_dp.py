@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
+
+from metal.end_model.end_model import EndModel
 
 class LinearModule(nn.Module):
     def __init__(self, input_dim, output_dim, bias=False):
@@ -31,139 +31,130 @@ class MLPModule(nn.Module):
     def forward(self, x):
         return self.input_layer(x)
 
-
-class Classifier(nn.Module):
-    def predict(self, x):
-        yp = self.predict_proba(x).squeeze().detach().numpy()
-        return np.where(yp > 0.5, 1, -1)
-
-    def score(self, X_np, Y_np):
-        X = self._convert_np_data(X_np)
-        return np.where(self.predict(X) == Y_np, 1, 0).sum() / X.shape[0]
-
-    def score_on_LF_slices(self, X_np, Y_np, L_np):
-        """Return the score for each coverage set of each LF"""
-        m = L_np.shape[1]
-        Yp = np.tile(self.predict(self._convert_np_data(X_np)), (m, 1))
-        Yp = np.abs(L_np).T * Yp
-        return 0.5 * (Yp @ Y_np / np.sum(np.abs(L_np), axis=0) + 1)
-
-    def train(
-        self,
-        X_np,
-        L_np,
-        batch_size=10,
-        n_epochs=10,
-        lr=0.01,
-        momentum=0.9,
-        print_every=10,
-    ):
-        """Train a standard supervised model using SGD with momentum."""
-        X, L = map(self._convert_np_data, [X_np, L_np])
-
-        # Create DataLoader
-        train_loader = DataLoader(TensorDataset(X, L), batch_size=batch_size)
-
-        # Set optimizer as SGD w/ momentum
-        optimizer = optim.SGD(self.parameters(), lr=lr, momentum=momentum)
-
-        # Train model
-        for epoch in range(n_epochs):
-            running_loss = 0.0
-            for batch, data in enumerate(train_loader):
-
-                # Zero the parameter gradients
-                optimizer.zero_grad()
-
-                # Forward + backward + optimize
-                loss = self.loss(*data)
-                loss.backward()
-                optimizer.step()
-                running_loss += loss.detach()
-
-            # Print loss every 10 epochs
-            if epoch % print_every == 0 or epoch == n_epochs - 1:
-                avg_loss = running_loss / batch
-                print(f"[Epoch {epoch}] Loss: {avg_loss:0.3f}")
-
-        print("Finished Training")
-
-    def _convert_np_data(self, X_np, convert_binary=False):
-        X_np = np.copy(X_np)
-
-        # Optionally: Convert from {-1,1} --> {0,1}
-        if convert_binary:
-            X_np[X_np == -1] = 0
-
-        return torch.from_numpy(X_np).float()
-
-    def print_params(self):
-        for name, param in self.named_parameters():
-            print("\n", name, param)
-
-
-class SliceDPModel(Classifier):
-    def __init__(
-        self,
-        input_dim,
-        input_module_class,
-        m,
+class SliceDPModel(EndModel):
+    """
+    Args:
+        - input_module: (nn.Module) a module that converts the user-provided
+            model inputs to torch.Tensors. Defaults to IdentityModule.
+        - accs: The LF accuracies, computed offline
+        - r: Intermediate representation dimension
+        - rw: Whether to use reweighting of representation for Y_head
+        - L_weights: The m-dim vector of weights to use for the LF-head
+                loss weighting; defaults to all 1's.
+        - middle_modules: (nn.Module) a list of modules to execute between the
+            input_module and task head. Defaults to nn.Linear.
+        - head_module: (nn.Module) a module to execute right before the final
+            softmax that outputs a prediction for the task.
+    """
+    
+    def __init__(self,
+        input_module,
         accs,
         r=1,
         rw=False,
         L_weights=None,
+        middle_modules=None,
+        **kwargs
     ):
-        """Online / joint data programming model
-        Assumes balanced, binary class problem with conditionally ind. LFs that
-        output binary labels or abstain, \lambda_i \in {-1,0,1}
-        Args:
-            - input_dim: Input data vector dimension
-            - input_module_class: Class that initializes with args (input_dim,
-                output_dim)
-            - m: Number of label sources
-            - accs: The LF accuracies, computed offline
-            - r: Intermediate representation dimension
-            - rw: Whether to use reweighting of representation for Y_head
-            - L_weights: If provided, manually weight L_heads using L_weights
-        """
-        super().__init__()
-        self.k = 1  # Fixed here for binary setting
-        self.m = m
+        
+        self.m = len(accs) # number of labeling sources
         self.r = r
         self.rw = rw
+        self.output_dim = 2 # Fixed for binary setting
+
+        # No bias-- only learn weights for L_head
+        head_module = nn.Linear(self.r, self.m, bias=False)
+
+        # Initialize EndModel.
+        # Note: We overwrite `self.k` which conventionally refers to the 
+        # number of tasks to `self.m` which is the number of LFs in our setting.
+        super().__init__([self.r, self.m], # layer_out_dims
+                         input_module,
+                         middle_modules, 
+                         head_module,
+                         verbose=False, # don't print EndModel params
+                         **kwargs)
+        
+        # Set to "verbose" by default
+        self.update_config({"verbose": kwargs.get("verbose", True) if kwargs else True})
+
+        # Redefine loss fn
+        self.criteria = nn.BCEWithLogitsLoss(reduce=False)
+        
+        # For manually reweighting. Default to all ones.
         if L_weights is None:
             self.L_weights = torch.ones(self.m).reshape(-1, 1)
         else:
-            L_weights = np.array(L_weights, dtype=np.float32)
             self.L_weights = torch.from_numpy(L_weights).reshape(-1, 1)
-
-        # Basic binary loss function
-        self.loss_fn = nn.BCEWithLogitsLoss(reduce=False)
-
-        # Input module
-        self.input_layer = nn.Sequential(
-            input_module_class(input_dim, self.r), nn.Sigmoid()
-        )
-
-        # Attach an [r, m] linear layer to predict the labels of the LFs
-        self.L_head = nn.Linear(self.r, self.m, bias=False)
+        
+        # Set network and L_head modules
+        modules = list(self.network.children())
+        self.network = nn.Sequential(*list(modules[:-1]))
+        self.L_head = modules[-1]
 
         # Attach the "DP head" which outputs the final prediction
         y_d = 2 * self.r if self.rw else self.r
-        self.Y_head = nn.Linear(y_d, self.k, bias=False)
-
+        self.Y_head = nn.Linear(y_d, self.output_dim, bias=False)
+        
         # Start by getting the DP marginal probability of Y=1, using the
         # provided LF accuracies, accs, and assuming cond. ind., binary LFs
-        self.w = torch.from_numpy(np.log(accs / (1 - accs))).float()
+        accs = np.array(accs, dtype=np.float32)
+        self.w = torch.from_numpy(np.log(accs / (1-accs))).float()
+        
+        if self.config["use_cuda"]:
+            self.L_weights = self.L_weights.cuda()
+            self.w = self.w.cuda()
+        
+        if self.config["verbose"]:
+            print ("Slice Heads:")
+            print ("Input Network:", self.network)
+            print ("L_head:", self.L_head)
+            print ("Y_head:", self.Y_head)
+        
+  
+    def _loss(self, X, L):
+        """Returns the loss consisting of summing the LF + DP head losses
+        
+        Args:
+            - X: A [batch_size, d] torch Tensor
+            - L: A [batch_size, m] torch Tensor with elements in {-1,0,1}
+        """
+        L_01 = (L + 1) / 2
+        # LF heads loss
+        # NOTE: Here, we only add non-abstains to the loss
+#         L_mask = torch.abs(L_01)
+#         nb = torch.sum(L_mask)
+        # loss_1 = torch.sum(self.loss_fn(self.forward_L(x), L_01) * L_mask) / nb
+        # NOTE: Here, we add *all* data points to the loss       
+        loss_1 = torch.mean(
+            self.criteria(self.forward_L(X), L_01) @ self.L_weights
+        )
 
+        # Compute the noise-aware DP loss w/ the reweighted representation
+        # Note: Need to convert L from {0,1} --> {-1,1}
+        label_probs = F.sigmoid(2 * L @ self.w).reshape(-1, 1)
+        multiclass_labels = torch.cat((label_probs, 1-label_probs), dim=1)
+        loss_2 = torch.mean(
+            self.criteria(self.forward_Y(X), multiclass_labels)
+        )
+        
+        # Just take the unweighted sum of these for now...
+#         return (10*loss_1 + loss_2) / 2
+        return (loss_1 + 10*loss_2) / 2
+
+    
+    def _get_loss_fn(self):
+        """ Override `EndModel` loss function with custom L_head + Y_head loss"""
+        return self._loss
+        
     def forward_L(self, x):
         """Returns the unnormalized predictions of the L_head layer."""
-        return self.L_head(self.input_layer(x))
-
+        return self.L_head(self.network(x))
+    
     def forward_Y(self, x):
         """Returns the output of the Y head only, over re-weighted repr."""
         b = x.shape[0]
-        xr = self.input_layer(x)
+        xr = self.network(x)
 
         # Concatenate with the LF attention-weighted representation as well
         if self.rw:
@@ -177,40 +168,20 @@ class SliceDPModel(Classifier):
             # We then project the A weighting onto the respective features of
             # the L_head layer, and add these attention-weighted features to Xr
             W = self.L_head.weight.repeat(b, 1, 1)
-
             xr = torch.cat([xr, torch.bmm(A, W).squeeze()], 1)
 
         # Return the list of head outputs + DP head
         return self.Y_head(xr).squeeze()
 
-    def loss(self, x, L):
-        """Returns the loss consisting of summing the LF + DP head losses
-        Args:
-            - x: A [batch_size, d] torch Tensor
-            - L: A [batch_size, m] torch Tensor with elements in {-1,0,1}
-        """
-
-        # Convert label matrix to [0,1] scale, and create abstain mask
-        L_01 = (L + 1) / 2
-
-        # LF heads loss
-        # NOTE: Here, we only add non-abstains to the loss
-        # L_mask = torch.abs(L_01)
-        # nb = torch.sum(L_mask)
-        # loss_1 = torch.sum(self.loss_fn(self.forward_L(x), L_01) * L_mask) / nb
-        # NOTE: Here, we add *all* data points to the loss
-        loss_1 = torch.mean(
-            self.loss_fn(self.forward_L(x), L_01) @ self.L_weights
-        )
-
-        # Compute the noise-aware DP loss w/ the reweighted representation
-        # Note: Need to convert L from {0,1} --> {-1,1}
-        loss_2 = torch.mean(
-            self.loss_fn(self.forward_Y(x), F.sigmoid(2 * L @ self.w))
-        )
-
-        # Just take the unweighted sum of these for now...
-        return (10 * loss_1 + loss_2) / 2
-
     def predict_proba(self, x):
-        return F.sigmoid(self.forward_Y(x))
+        return F.sigmoid(self.forward_Y(x)).data.cpu().numpy()
+
+    def score_on_LF_slices(self, X, Y, L):
+        """Return the score for each coverage set of each LF"""
+        m = L.shape[1]
+        X_eval = torch.from_numpy(X.astype(np.float32)) 
+        Yp = np.tile(self.predict(X_eval), (m, 1))
+        Yp[Yp==2] = -1 
+        Yp = np.abs(L).T * Yp
+        return 0.5 * (Yp @ Y / np.sum(np.abs(L), axis=0) + 1)
+
