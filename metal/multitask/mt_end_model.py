@@ -64,7 +64,7 @@ class MTEndModel(MTClassifier, EndModel):
         MTClassifier.__init__(self, K, config)
 
         if task_graph is None:
-            if K is None:
+            if len(K) == 0:
                 raise ValueError(
                     "You must supply either a list of "
                     "cardinalities (K) or a TaskGraph."
