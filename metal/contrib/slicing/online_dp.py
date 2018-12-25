@@ -100,6 +100,7 @@ class SliceDPModel(EndModel):
         # provided LF accuracies, accs, and assuming cond. ind., binary LFs
         accs = np.array(accs, dtype=np.float32)
         self.w = torch.from_numpy(np.log(accs / (1-accs))).float()
+        self.w[np.abs(self.w) == np.inf] = 0 # set weights from acc==0 to 0
         
         if self.config["use_cuda"]:
             self.L_weights = self.L_weights.cuda()
