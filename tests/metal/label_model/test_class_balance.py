@@ -11,7 +11,6 @@ sys.path.append("../synthetic")
 
 
 # TODOs:
-# (1) Basic tests starting from O
 # (2) Add abstains
 # (3) Noisy tests- starting from L
 
@@ -33,7 +32,7 @@ class ClassBalanceModelTest(unittest.TestCase):
         # LFs are better than random!
         alphas = []
         for i in range(m):
-            a = np.random.random((k, k)) + np.eye(k)
+            a = np.random.random((k, k)) + (k - 1) * np.eye(k)
             alphas.append(a @ np.diag(1 / a.sum(axis=0)))
         alpha = np.array(alphas)
 
@@ -62,7 +61,9 @@ class ClassBalanceModelTest(unittest.TestCase):
         self._set_seed(123)
         self._test_class_balance_estimation(3, 25)
 
+    # Note: This should pass! However, commented out because too slow...
     # def test_class_balance_estimation_5(self):
+    #     self._set_seed(123)
     #     self._test_class_balance_estimation(5, 25)
 
 

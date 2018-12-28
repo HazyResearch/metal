@@ -46,7 +46,7 @@ class ClassBalanceModel(nn.Module):
         diffs = (O - torch.einsum("aby,cdy,efy->acebdf", [Q, Q, Q]))[mask]
         return torch.norm(diffs) ** 2
 
-    def train_model(self, L=None, O=None, lr=1):
+    def train_model(self, L=None, O=None, lr=1, max_iter=1000, verbose=False):
 
         # Get overlaps tensor if L provided else use O directly (e.g. for tests)
         if O is not None:
@@ -73,14 +73,15 @@ class ClassBalanceModel(nn.Module):
         # Use L-BFGS here
         # Seems to be a tricky problem for simple 1st order approaches, and
         # small enough for quasi-Newton... L-BFGS seems to work well here
-        optimizer = optim.LBFGS([self.Q], lr=lr, max_iter=1000)
+        optimizer = optim.LBFGS([self.Q], lr=lr, max_iter=max_iter)
 
         # The closure computes the loss
         def closure():
             optimizer.zero_grad()
             loss = self.get_loss(O, self.Q, self.mask)
             loss.backward()
-            print(f"Loss: {loss.detach():.8f}")
+            if verbose:
+                print(f"Loss: {loss.detach():.8f}")
             return loss
 
         # Perform optimizer step
@@ -104,7 +105,8 @@ class ClassBalanceModel(nn.Module):
         cps = q @ np.diag(1 / p_y ** (1 / 3))
 
         # Re-order cps and p_y using assumption and store np.array values
-        # TODO: Take the *most common* ordering
-        col_order = cps[0].argmax(axis=0)
+        # Note: We take the *most common* ordering
+        vals, counts = np.unique(cps.argmax(axis=1), axis=0, return_counts=True)
+        col_order = vals[counts.argmax()]
         self.class_balance = p_y[col_order]
         self.cond_probs = cps[col_order]
