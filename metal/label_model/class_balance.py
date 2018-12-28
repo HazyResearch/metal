@@ -16,16 +16,17 @@ class ClassBalanceModel(nn.Module):
     want to later refactor and expand this class.
     """
 
-    def __init__(self, k, config=None):
+    def __init__(self, k, abstains=True, config=None):
         super().__init__()
         self.config = config
         self.k = k
+        self.k_lf = k + 1 if abstains else k
 
         # Estimated quantities (np.array)
         self.cond_probs = None
         self.class_balance = None
 
-    def _form_overlaps_tensor(self, L):
+    def _get_overlaps_tensor(self, L):
         """Transforms the input label matrix to a three-way overlaps tensor.
 
         Args:
@@ -38,6 +39,15 @@ class ClassBalanceModel(nn.Module):
         """
         # TODO
         pass
+
+    def get_mask(self, m):
+        """Get the mask for the three-way overlaps matrix O, which is 0 when
+        indices i,j,k are not unique"""
+        mask = torch.ones((m, m, m, self.k_lf, self.k_lf, self.k_lf)).byte()
+        for i, j, k in product(range(m), repeat=3):
+            if len(set((i, j, k))) < 3:
+                mask[i, j, k, :, :, :] = 0
+        return mask
 
     @staticmethod
     def get_loss(O, Q, mask):
@@ -58,12 +68,7 @@ class ClassBalanceModel(nn.Module):
         self.m = O.shape[0]
 
         # Compute mask
-        self.mask = torch.ones(
-            (self.m, self.m, self.m, self.k, self.k, self.k)
-        ).byte()
-        for i, j, k in product(range(self.m), repeat=3):
-            if len(set((i, j, k))) < 3:
-                self.mask[i, j, k, :, :, :] = 0
+        self.mask = self.get_mask(self.m)
 
         # Initialize parameters
         self.Q = nn.Parameter(
