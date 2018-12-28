@@ -19,7 +19,7 @@ def shuffle_matrices(matrices):
     return out
 
 
-def generate_multi_mode_data(n, mus, props, labels, plot=False):
+def generate_multi_mode_data(n, mus, props, labels):
     """Generate multi-mode data
 
     Args:
@@ -27,7 +27,6 @@ def generate_multi_mode_data(n, mus, props, labels, plot=False):
         - mus: [list of d-dim np.arrays] centers of the modes
         - props: [list of floats] proportion of data in each mode
         - labels: [list of ints] class label of each mode
-        - plot: [bool] Whether to plot the data
 
     Returns:
         - X: [n x d-dim array] Data points
@@ -47,12 +46,6 @@ def generate_multi_mode_data(n, mus, props, labels, plot=False):
     ]
     Yu = [l * np.ones(ni) for ni, l in zip(ns, labels)]
     Cu = [i * np.ones(ni) for i, ni in enumerate(ns)]
-
-    # Plot the data
-    if plot:
-        for Xi in Xu:
-            plt.scatter(Xi[:, 0], Xi[:, 1])
-        plt.show()
 
     # Generate labels and shuffle
     return shuffle_matrices([np.vstack(Xu), np.hstack(Yu), np.hstack(Cu)])
