@@ -11,7 +11,6 @@ sys.path.append("../synthetic")
 
 
 # TODOs:
-# (2) Add abstains
 # (3) Noisy tests- starting from L
 
 
@@ -95,9 +94,9 @@ class ClassBalanceModelTest(unittest.TestCase):
     #     self._set_seed(123)
     #     self._test_class_balance_estimation(5, 25)
 
-    # def test_class_balance_estimation_2_abstains(self):
-    #     self._set_seed(123)
-    #     self._test_class_balance_estimation(2, 25, abstains=True)
+    def test_class_balance_estimation_2_abstains(self):
+        self._set_seed(123)
+        self._test_class_balance_estimation(2, 25, abstains=True)
 
 
 if __name__ == "__main__":

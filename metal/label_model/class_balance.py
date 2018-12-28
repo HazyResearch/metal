@@ -72,7 +72,7 @@ class ClassBalanceModel(nn.Module):
 
         # Initialize parameters
         self.Q = nn.Parameter(
-            torch.from_numpy(np.random.rand(self.m, self.k, self.k)).float()
+            torch.from_numpy(np.random.rand(self.m, self.k_lf, self.k)).float()
         ).float()
 
         # Use L-BFGS here
@@ -109,9 +109,17 @@ class ClassBalanceModel(nn.Module):
         # Recover the estimated cond probs: Q = C(P^{1/3}) --> C = Q(P^{-1/3})
         cps = q @ np.diag(1 / p_y ** (1 / 3))
 
+        # Note: For assessing the order, we only care about the non-abstains
+        if self.k_lf > self.k:
+            cps_na = cps[:, 1:, :]
+        else:
+            cps_na = cps
+
         # Re-order cps and p_y using assumption and store np.array values
         # Note: We take the *most common* ordering
-        vals, counts = np.unique(cps.argmax(axis=1), axis=0, return_counts=True)
+        vals, counts = np.unique(
+            cps_na.argmax(axis=1), axis=0, return_counts=True
+        )
         col_order = vals[counts.argmax()]
         self.class_balance = p_y[col_order]
         self.cond_probs = cps[col_order]
