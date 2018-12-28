@@ -1,3 +1,5 @@
+"""Exports list of labeling functions: `LFs` that can then be applied to data."""
+
 import bz2
 from six.moves.cPickle import load
 

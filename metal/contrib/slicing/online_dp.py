@@ -4,7 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from metal.end_model.end_model import EndModel
+from metal.end_model.em_defaults import em_default_config
 from metal.metrics import metric_score
+from metal.utils import recursive_merge_dicts
 
 class LinearModule(nn.Module):
     def __init__(self, input_dim, output_dim, bias=False):
@@ -61,7 +63,7 @@ class SliceDPModel(EndModel):
         self.m = len(accs) # number of labeling sources
         self.r = r
         self.rw = rw
-        self.output_dim = 2 # Fixed for binary setting
+        self.output_dim = 2 # NOTE: Fixed for binary setting
 
         # No bias-- only learn weights for L_head
         head_module = nn.Linear(self.r, self.m, bias=False)
@@ -76,8 +78,11 @@ class SliceDPModel(EndModel):
                          verbose=False, # don't print EndModel params
                          **kwargs)
         
-        # Set to "verbose" by default
-        self.update_config({"verbose": kwargs.get("verbose", True) if kwargs else True})
+        # Set config
+        config = recursive_merge_dicts(
+            em_default_config, kwargs, misses="insert"
+        )
+        self.update_config(config)
 
         # Redefine loss fn
         self.criteria = nn.BCEWithLogitsLoss(reduce=False)
@@ -112,7 +117,6 @@ class SliceDPModel(EndModel):
             print ("Input Network:", self.network)
             print ("L_head:", self.L_head)
             print ("Y_head:", self.Y_head)
-        
   
     def _loss(self, X, L, Y_tilde=None):
         """Returns the loss consisting of summing the LF + DP head losses
@@ -123,11 +127,7 @@ class SliceDPModel(EndModel):
         """
         L_01 = (L + 1) / 2
         # LF heads loss
-        # NOTE: Here, we only add non-abstains to the loss
-#         L_mask = torch.abs(L_01)
-#         nb = torch.sum(L_mask)
-        # loss_1 = torch.sum(self.loss_fn(self.forward_L(x), L_01) * L_mask) / nb
-        # NOTE: Here, we add *all* data points to the loss
+        # NOTE: Here, we add *all* data points (incl. abstains) to the loss
         loss_1 = torch.mean(
             self.criteria(self.forward_L(X), L_01) @ self.L_weights
         )
@@ -143,7 +143,7 @@ class SliceDPModel(EndModel):
         )
         
         # Just take the unweighted sum of these for now...
-#         return (10*loss_1 + loss_2) / 2
+        # TODO: make this a hyperparameter
         return (loss_1 + 10*loss_2) / 2
 
     

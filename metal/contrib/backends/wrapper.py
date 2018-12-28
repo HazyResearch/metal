@@ -25,7 +25,6 @@ class SnorkelDataset(Dataset):
         word_dict=None,
         pretrained_word_dict=None,
         max_seq_len=125,
-        L_train=None,
     ):
         """
         Assumes a Snorkel database that is fully instantiated with:
@@ -103,12 +102,6 @@ class SnorkelDataset(Dataset):
                 for i, y in enumerate(sorted(np.unique(self.Y), reverse=1))
             }
             self.Y = torch.tensor([labels[y] for y in self.Y])
-
-        # initialize LFs for slice reweighting
-        if L_train is not None:
-            self.L = torch.from_numpy(L_train.todense().astype(np.float32))
-        else:
-            self.L = None
 
     @classmethod
     def splits(
@@ -237,11 +230,7 @@ class SnorkelDataset(Dataset):
         else:
             k = self.max_seq_len - x.size(0)
             x = torch.cat((x, torch.zeros(k, dtype=torch.long)))
-
-        if self.L is not None:
-            return x, self.L[idx]
-        else:
-            return x, self.Y[idx]
+        return x, self.Y[idx]
 
 
 if __name__ == "__main__":
