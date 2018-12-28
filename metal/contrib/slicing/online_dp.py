@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from metal.end_model.end_model import EndModel
+from metal.metrics import metric_score
 
 class LinearModule(nn.Module):
     def __init__(self, input_dim, output_dim, bias=False):
@@ -113,7 +114,7 @@ class SliceDPModel(EndModel):
             print ("Y_head:", self.Y_head)
         
   
-    def _loss(self, X, L):
+    def _loss(self, X, L, Y_tilde=None):
         """Returns the loss consisting of summing the LF + DP head losses
         
         Args:
@@ -126,17 +127,19 @@ class SliceDPModel(EndModel):
 #         L_mask = torch.abs(L_01)
 #         nb = torch.sum(L_mask)
         # loss_1 = torch.sum(self.loss_fn(self.forward_L(x), L_01) * L_mask) / nb
-        # NOTE: Here, we add *all* data points to the loss       
+        # NOTE: Here, we add *all* data points to the loss
         loss_1 = torch.mean(
             self.criteria(self.forward_L(X), L_01) @ self.L_weights
         )
-
+        
         # Compute the noise-aware DP loss w/ the reweighted representation
-        # Note: Need to convert L from {0,1} --> {-1,1}
-        label_probs = F.sigmoid(2 * L @ self.w).reshape(-1, 1)
-        multiclass_labels = torch.cat((label_probs, 1-label_probs), dim=1)
+        if Y_tilde is None:
+            # Note: Need to convert L from {0,1} --> {-1,1}
+            label_probs = F.sigmoid(2 * L @ self.w).reshape(-1, 1)
+            Y_tilde = torch.cat((label_probs, 1-label_probs), dim=1)
+
         loss_2 = torch.mean(
-            self.criteria(self.forward_Y(X), multiclass_labels)
+            self.criteria(self.forward_Y(X), Y_tilde)
         )
         
         # Just take the unweighted sum of these for now...
@@ -177,12 +180,43 @@ class SliceDPModel(EndModel):
     def predict_proba(self, x):
         return F.sigmoid(self.forward_Y(x)).data.cpu().numpy()
 
-    def score_on_LF_slices(self, X, Y, L):
-        """Return the score for each coverage set of each LF"""
-        m = L.shape[1]
-        X_eval = torch.from_numpy(X.astype(np.float32)) 
-        Yp = np.tile(self.predict(X_eval), (m, 1))
-        Yp[Yp==2] = -1 
-        Yp = np.abs(L).T * Yp
-        return 0.5 * (Yp @ Y / np.sum(np.abs(L), axis=0) + 1)
+    def score_on_slice(
+        self, 
+        data, 
+        selected_idx,
+        metric=["f1"], 
+        break_ties="random", 
+        verbose=True, 
+        **kwargs
+    ):
+        """Returns the slice-specific score as defined by given indexes.
+        
+        Args:
+            data: a pytorch DataLoader, Dataset or tuple with Tensors (X,Y)
+            metric: A metric (string) with which to score performance or a list
+                of such metrics
+            verbose: The verbosity for this score method; it will not update the
+                class config
+    
+        Returns:
+            scores: A (float) score of list of such scores if kwarg metric 
+                is a list
+        """
+        # Filter preds/gt by selected_idx
+        Y_p, Y, Y_s = self._get_predictions(
+            data, break_ties=break_ties, return_probs=True, **kwargs
+        ) 
+        Y_p, Y, Y_s = Y_p[selected_idx], Y[selected_idx], Y_s[selected_idx]
+
+        # Evaluate on selected metrics
+        metric_list = metric if isinstance(metric, list) else [metric]
+        scores = []
+        for metric in metric_list:
+            score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0]) 
+            scores.append(score)
+
+        if isinstance(scores, list) and len(scores) == 1:
+            return scores[0]
+        else:
+            return scores
 
