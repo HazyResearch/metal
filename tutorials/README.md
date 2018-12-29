@@ -18,3 +18,8 @@ Try out our built-in model tuners (grid/random search, or Hyperband) to perform 
 [Coming Soon]  
 Use our synthetic data generators to create training sets with various properties (e.g., class balance, label density, source accuracies, correlated sources, related tasks, etc.) and answer questions about how you may be able to improve performance on your own applications.
 
+
+## Advanced Tutorials
+
+### Class Balance
+This tutorial demonstrates estimation of the _class balance_ P(Y) using the `ClassBalanceModel` class.
