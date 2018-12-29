@@ -19,7 +19,12 @@ class ClassBalanceModel(nn.Module):
     def __init__(self, k, abstains=True, config=None):
         super().__init__()
         self.config = config
-        self.k = k
+        self.k = k  # The cardinality of the true label, Y \in {1,...,k}
+
+        # Labeling functions output labels in range {k_0,...,k}, and have
+        # cardinality k_lf
+        # If abstains=False, k_0 = 1 ==> k_lf = k
+        # If abstains=True, k_0 = 0 ==> k_lf = k + 1
         self.abstains = abstains
         self.k_0 = 0 if self.abstains else 1
         self.k_lf = k + 1 if self.abstains else k
@@ -38,7 +43,12 @@ class ClassBalanceModel(nn.Module):
 
         Outputs:
             O: (torch.Tensor) A (m, m, m, k, k, k) tensor of the label-specific
-            overlap rates.
+            empirical overlap rates; that is,
+
+                O[i,j,k,y1,y2,y3] = P(\lf_i = y1, \lf_j = y2, \lf_k = y3)
+
+            where this quantity is computed empirically by this function, based
+            on the label matrix L.
         """
         n, m = L.shape
 
@@ -68,7 +78,6 @@ class ClassBalanceModel(nn.Module):
         return torch.norm(diffs) ** 2
 
     def train_model(self, L=None, O=None, lr=1, max_iter=1000, verbose=False):
-
         # Get overlaps tensor if L provided else use O directly (e.g. for tests)
         if O is not None:
             pass
@@ -82,9 +91,7 @@ class ClassBalanceModel(nn.Module):
         self.mask = self.get_mask(self.m)
 
         # Initialize parameters
-        self.Q = nn.Parameter(
-            torch.from_numpy(np.random.rand(self.m, self.k_lf, self.k)).float()
-        ).float()
+        self.Q = nn.Parameter(torch.rand(self.m, self.k_lf, self.k)).float()
 
         # Use L-BFGS here
         # Seems to be a tricky problem for simple 1st order approaches, and
@@ -129,7 +136,7 @@ class ClassBalanceModel(nn.Module):
         # Re-order cps and p_y using assumption and store np.array values
         # Note: We take the *most common* ordering
         vals, counts = np.unique(
-            cps_na.argmax(axis=1), axis=0, return_counts=True
+            cps_na.argmax(axis=2), axis=0, return_counts=True
         )
         col_order = vals[counts.argmax()]
         self.class_balance = p_y[col_order]
