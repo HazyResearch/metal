@@ -57,6 +57,7 @@ class SliceDPModel(EndModel):
         rw=False,
         L_weights=None,
         middle_modules=None,
+        verbose=True,
         **kwargs
     ):
         
@@ -78,11 +79,8 @@ class SliceDPModel(EndModel):
                          verbose=False, # don't print EndModel params
                          **kwargs)
         
-        # Set config
-        config = recursive_merge_dicts(
-            em_default_config, kwargs, misses="insert"
-        )
-        self.update_config(config)
+        # Set reset "verbose" in config
+        self.update_config({"verbose": verbose})
 
         # Redefine loss fn
         self.criteria = nn.BCEWithLogitsLoss(reduce=False)
