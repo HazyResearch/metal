@@ -26,7 +26,7 @@ class SnorkelDataset(Dataset):
         pretrained_word_dict=None,
         max_seq_len=125,
         L_train=None,
-        selected_idx=None,
+        train_marginals=None
     ):
         """
         Assumes a Snorkel database that is fully instantiated with:
@@ -63,7 +63,6 @@ class SnorkelDataset(Dataset):
         self.cardinality = len(candidate_def[-1])
         self.split = split
         self.max_seq_len = max_seq_len
-        self.selected_idx = selected_idx
         self.use_lfs = use_lfs
 
         # create markup sequences and labels
@@ -95,6 +94,8 @@ class SnorkelDataset(Dataset):
             marginals = load_marginals(self.session, split=split)
             multitask_marginals = np.vstack((marginals, 1-marginals)).T
             self.Y = torch.tensor(multitask_marginals.astype(np.float32))
+        elif train_marginals is not None:
+            self.Y = torch.tensor(train_marginals.astype(np.float32))
         else:
             self.Y = load_gold_labels(
                 self.session, annotator_name="gold", split=split
@@ -112,12 +113,6 @@ class SnorkelDataset(Dataset):
             self.L = torch.from_numpy(L_train.todense().astype(np.float32))
         else:
             self.L = None
-
-        if self.selected_idx is not None:
-            self.X = [x for idx, x in enumerate(self.X) if idx in self.selected_idx]
-            self.Y = torch.tensor([y for idx, y in enumerate(self.Y) if idx in self.selected_idx])
-            if self.L is not None:
-                self.Y = torch.tensor([l for idx, l in enumerate(self.L) if idx in selected_idx])
 
     @classmethod
     def splits(
