@@ -137,12 +137,13 @@ class SliceDPModel(EndModel):
             Y_tilde = torch.cat((label_probs, 1-label_probs), dim=1)
 
         loss_2 = torch.mean(
-            self.criteria(self.forward_Y(X), Y_tilde)
+            self.criteria(F.softmax(self.forward_Y(X)), Y_tilde)
         )
+
         
         # Just take the unweighted sum of these for now...
         # TODO: make this a hyperparameter
-        return (loss_1 + 10*loss_2) / 2
+        return (10*loss_1 + loss_2) / 2
 
     
     def _get_loss_fn(self):
