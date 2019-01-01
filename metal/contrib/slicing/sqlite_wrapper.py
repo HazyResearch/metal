@@ -107,10 +107,12 @@ class SnorkelDataset(Dataset):
                 for i, y in enumerate(sorted(np.unique(self.Y), reverse=1))
             }
             self.Y = torch.tensor([labels[y] for y in self.Y])
+        
+        assert self.Y.shape[0] == len(self.X)
 
         # initialize LFs for slice reweighting
         if L_train is not None:
-            self.L = torch.from_numpy(L_train.todense().astype(np.float32))
+            self.L = torch.from_numpy(L_train.astype(np.float32))
         else:
             self.L = None
 
