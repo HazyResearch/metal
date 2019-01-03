@@ -94,3 +94,29 @@ def generate_label_matrix(
 
     overlap_idx = [i for i in range(n) if (L[i, -2] != 0 and L[i, -1] != 0)]
     return L, overlap_idx
+
+def plot_slice_scores(results, slice_name='S2', xlabel='Overlap Proportion'):
+    baseline_scores = results['baseline']
+    manual_scores = results['manual']
+    attention_scores = results['attention']
+    x_range = baseline_scores.keys()
+    
+    baseline_collected = [np.mean(np.array([s[slice_name] for s in baseline_scores[x]]))
+                          for x in x_range]
+    manual_collected = [np.mean(np.array([s[slice_name] for s in manual_scores[x]]))
+                          for x in x_range]
+    attention_collected = [np.mean(np.array([s[slice_name] for s in attention_scores[x]]))
+                          for x in x_range]
+        
+    # print x-axis in precision 2
+    x_range = ["%.2f" % float(x) for x in x_range]
+    
+    plt.title(f'Accuracy on {slice_name} vs. {xlabel}')
+    plt.plot(x_range, baseline_collected, label='baseline')
+    plt.plot(x_range, manual_collected, label='manual')
+    plt.plot(x_range, attention_collected, label='attention')
+    plt.xlabel(xlabel)
+    plt.ylabel(f"Accuracy on {slice_name}")
+    plt.ylim(bottom=0, top=1)
+    plt.legend()
+    plt.show()
