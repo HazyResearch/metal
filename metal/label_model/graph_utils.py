@@ -3,7 +3,6 @@ from itertools import combinations, product
 import networkx as nx
 import numpy as np
 
-
 class DependenciesGraph(object):
     """Helper data structures for source dependencies graph.
 

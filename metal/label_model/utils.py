@@ -63,3 +63,12 @@ def visualize_matrix(X, fig_size=(10, 10)):
     plt.rcParams["figure.figsize"] = fig_size
     plt.imshow(X)
     plt.colorbar()
+
+#Utils for Dependency Learner
+def get_deps_from_inverse_sig(J, thresh=0.2):
+    deps = []
+    for i in range(J.shape[0]):
+        for j in range(J.shape[1]):
+            if abs(J[i,j]) > thresh:
+                deps.append((i,j))
+    return deps
