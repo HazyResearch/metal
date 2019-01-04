@@ -8,13 +8,13 @@ def compare_LF_slices(Yp_ours, Yp_base, Y, L_test, LFs, metric="accuracy", delta
 
     improved = 0
     for LF_num, LF in enumerate(LFs):
-        LF_covered_idx = np.where(L_test[:, LF_num].todense() != 0)[0]
+        LF_covered_idx = np.where(L_test[:, LF_num] != 0)[0]
         ours_score = metric_score(Y[LF_covered_idx], Yp_ours[LF_covered_idx], metric)
         base_score = metric_score(Y[LF_covered_idx], Yp_base[LF_covered_idx], metric)
 
         delta = ours_score - base_score
         # filter out trivial differences 
-        if delta < delta_threshold:
+        if abs(delta) < delta_threshold:
             continue 
             
         to_print = (f"[{LF.__name__}] delta: {delta:.4f}, "
