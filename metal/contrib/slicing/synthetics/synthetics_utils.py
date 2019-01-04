@@ -1,3 +1,4 @@
+import os
 from random import shuffle
 
 import matplotlib.pyplot as plt
@@ -95,19 +96,22 @@ def generate_label_matrix(
     overlap_idx = [i for i in range(n) if (L[i, -2] != 0 and L[i, -1] != 0)]
     return L, overlap_idx
 
-def plot_slice_scores(results, slice_name='S2', xlabel='Overlap Proportion'):
+def plot_slice_scores(
+    results, slice_name='S2', xlabel='Overlap Proportion', save_dir=None
+):
     baseline_scores = results['baseline']
     manual_scores = results['manual']
     attention_scores = results['attention']
     x_range = baseline_scores.keys()
     
+    # take average value across trials
     baseline_collected = [np.mean(np.array([s[slice_name] for s in baseline_scores[x]]))
                           for x in x_range]
     manual_collected = [np.mean(np.array([s[slice_name] for s in manual_scores[x]]))
                           for x in x_range]
     attention_collected = [np.mean(np.array([s[slice_name] for s in attention_scores[x]]))
                           for x in x_range]
-        
+
     # print x-axis in precision 2
     x_range = ["%.2f" % float(x) for x in x_range]
     
@@ -120,3 +124,9 @@ def plot_slice_scores(results, slice_name='S2', xlabel='Overlap Proportion'):
     plt.ylim(bottom=0, top=1)
     plt.legend()
     plt.show()
+    
+    if save_dir is not None:
+        save_path = os.path.join(save_dir, f"{slice_name}-{xlabel}.png")
+        plt.savefig(save_path)
+        plt.clf()
+
