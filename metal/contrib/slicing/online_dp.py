@@ -112,6 +112,7 @@ class SliceDPModel(EndModel):
         
         if self.config["verbose"]:
             print ("Slice Heads:")
+            print ("Reweighting:", self.rw)
             print ("Input Network:", self.network)
             print ("L_head:", self.L_head)
             print ("Y_head:", self.Y_head)
@@ -201,19 +202,26 @@ class SliceDPModel(EndModel):
             scores: A (float) score of list of such scores if kwarg metric 
                 is a list
         """
-        # Filter preds/gt by selected_idx
-        Y_p, Y, Y_s = self._get_predictions(
-            data, break_ties=break_ties, return_probs=True, **kwargs
-        ) 
-        Y_p, Y, Y_s = Y_p[selected_idx], Y[selected_idx], Y_s[selected_idx]
 
-        # Evaluate on selected metrics
-        metric_list = metric if isinstance(metric, list) else [metric]
-        scores = []
-        for metric in metric_list:
-            score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0]) 
-            scores.append(score)
+        # no overlap, return 1.0
+        if len(selected_idx) == 0:
+            scores = [1.0] * len(metric)
 
+        # otherwise, compute score at overlap
+        else:
+            # Filter preds/gt by selected_idx
+            Y_p, Y, Y_s = self._get_predictions(
+                data, break_ties=break_ties, return_probs=True, **kwargs
+            ) 
+            Y_p, Y, Y_s = Y_p[selected_idx], Y[selected_idx], Y_s[selected_idx]
+    
+            # Evaluate on selected metrics
+            metric_list = metric if isinstance(metric, list) else [metric]
+            scores = []
+            for metric in metric_list:
+                score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0]) 
+                scores.append(score)
+    
         if isinstance(scores, list) and len(scores) == 1:
             return scores[0]
         else:
