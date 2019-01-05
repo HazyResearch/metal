@@ -138,9 +138,8 @@ class SliceDPModel(EndModel):
             Y_tilde = torch.cat((label_probs, 1-label_probs), dim=1)
 
         loss_2 = torch.mean(
-            self.criteria(F.softmax(self.forward_Y(X)), Y_tilde)
+            self.criteria(self.forward_Y(X), Y_tilde)
         )
-
         
         # Just take the unweighted sum of these for now...
         # TODO: make this a hyperparameter
@@ -175,10 +174,11 @@ class SliceDPModel(EndModel):
             xr = torch.cat([xr, torch.bmm(A, W).squeeze()], 1)
 
         # Return the list of head outputs + DP head
-        return self.Y_head(xr).squeeze()
+        outputs = self.Y_head(xr).squeeze()
+        return F.softmax(outputs)
 
     def predict_proba(self, x):
-        return F.sigmoid(self.forward_Y(x)).data.cpu().numpy()
+        return self.forward_Y(x).data.cpu().numpy()
 
     def score_on_slice(
         self, 
