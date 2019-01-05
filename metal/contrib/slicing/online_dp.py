@@ -44,6 +44,8 @@ class SliceDPModel(EndModel):
         - rw: Whether to use reweighting of representation for Y_head
         - L_weights: The m-dim vector of weights to use for the LF-head
                 loss weighting; defaults to all 1's.
+        - slice-weight: Factor to multiply loss for L_heads in joint loss with
+                Y_head loss
         - middle_modules: (nn.Module) a list of modules to execute between the
             input_module and task head. Defaults to nn.Linear.
         - head_module: (nn.Module) a module to execute right before the final
@@ -56,6 +58,7 @@ class SliceDPModel(EndModel):
         r=1,
         rw=False,
         L_weights=None,
+        slice_weight=10,
         middle_modules=None,
         verbose=True,
         **kwargs
@@ -65,6 +68,7 @@ class SliceDPModel(EndModel):
         self.r = r
         self.rw = rw
         self.output_dim = 2 # NOTE: Fixed for binary setting
+        self.slice_weight = slice_weight
 
         # No bias-- only learn weights for L_head
         head_module = nn.Linear(self.r, self.m, bias=False)
@@ -113,6 +117,7 @@ class SliceDPModel(EndModel):
         if self.config["verbose"]:
             print ("Slice Heads:")
             print ("Reweighting:", self.rw)
+            print ("Slice Weight:", self.slice_weight)
             print ("Input Network:", self.network)
             print ("L_head:", self.L_head)
             print ("Y_head:", self.Y_head)
@@ -143,7 +148,7 @@ class SliceDPModel(EndModel):
         
         # Just take the unweighted sum of these for now...
         # TODO: make this a hyperparameter
-        return (10*loss_1 + loss_2) / 2
+        return (self.slice_weight*loss_1 + loss_2) / 2
 
     
     def _get_loss_fn(self):
