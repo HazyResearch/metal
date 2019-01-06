@@ -208,7 +208,7 @@ class HyperbandTuner(ModelTuner):
             n_starting_configurations, _ = bracket[0]
             configurations = list(
                 self.config_generator(
-                    search_space,                    
+                    search_space,
                     max_search=n_starting_configurations,
                     rng=self.rng,
                     shuffle=True,
