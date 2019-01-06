@@ -150,7 +150,7 @@ class ModelTuner(object):
                 run_dir=".",
                 run_name=f"model_search_{idx}",
             )
-            
+
         model.train_model(
             *train_args,
             **train_kwargs,
