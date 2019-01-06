@@ -72,7 +72,7 @@ class ModelTuner(object):
 
         # Search state
         # NOTE: Must be cleared each run with self._clear_state()!
-        self._clear_state()
+        self._clear_state(self.seed)
 
     def _clear_state(self, seed=None):
         """Clears the state, starts clock"""
@@ -86,8 +86,8 @@ class ModelTuner(object):
         self.search_space = None
 
         # Reset the seed
-        seed_to_use = seed if self.seed is None else self.seed
-        self.rng = random.Random(seed_to_use)
+        if seed is not None:
+            self.rng = random.Random(seed)
 
     def _test_model_config(
         self,
