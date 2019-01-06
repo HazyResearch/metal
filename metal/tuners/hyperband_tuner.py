@@ -168,6 +168,7 @@ class HyperbandTuner(ModelTuner):
         max_search=None,
         shuffle=True,
         verbose=True,
+        seed=None,
         **score_kwargs,
     ):
         """
@@ -196,7 +197,7 @@ class HyperbandTuner(ModelTuner):
         parameters, including the network architecture (which is defined before
         the train loop).
         """
-        self._clear_state()
+        self._clear_state(seed)
         self.search_space = search_space
 
         # Loop over each bracket

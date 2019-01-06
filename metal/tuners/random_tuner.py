@@ -25,6 +25,7 @@ class RandomSearchTuner(ModelTuner):
         shuffle=True,
         verbose=True,
         clean_up=True,
+        seed=None,
         **score_kwargs,
     ):
         """
@@ -49,11 +50,11 @@ class RandomSearchTuner(ModelTuner):
         parameters, including the network architecture (which is defined before
         the train loop).
         """
-        self._clear_state()
+        self._clear_state(seed)
         self.search_space = search_space
 
         # Generate configs
-        configs = self.config_generator(search_space, max_search, shuffle)
+        configs = self.config_generator(search_space, max_search, self.rng, shuffle)
 
         # Commence search
         for i, config in enumerate(configs):
