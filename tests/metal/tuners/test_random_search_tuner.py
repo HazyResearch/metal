@@ -32,31 +32,41 @@ class RandomSearchModelTunerTest(unittest.TestCase):
     def test_config_constant(self):
         search_space = {"a": 1}
         tuner = RandomSearchTuner(None, None, seed=123)
-        configs = list(tuner.config_generator(search_space, max_search=10))
+        configs = list(
+            tuner.config_generator(search_space, rng=tuner.rng, max_search=10)
+        )
         self.assertEqual(len(configs), 1)
 
     def test_config_list(self):
         search_space = {"a": [1, 2]}
         tuner = RandomSearchTuner(None, None, seed=123)
-        configs = list(tuner.config_generator(search_space, max_search=10))
+        configs = list(
+            tuner.config_generator(search_space, rng=tuner.rng, max_search=10)
+        )
         self.assertEqual(len(configs), 2)
 
     def test_config_two_values(self):
         search_space = {"a": [1], "b": [1, 2, 3]}
         tuner = RandomSearchTuner(None, None, seed=123)
-        configs = list(tuner.config_generator(search_space, max_search=10))
+        configs = list(
+            tuner.config_generator(search_space, rng=tuner.rng, max_search=10)
+        )
         self.assertEqual(len(configs), 3)
 
     def test_config_range(self):
         search_space = {"a": [1], "b": [1, 2, 3], "c": {"range": [1, 10]}}
         tuner = RandomSearchTuner(None, None, seed=123)
-        configs = list(tuner.config_generator(search_space, max_search=10))
+        configs = list(
+            tuner.config_generator(search_space, rng=tuner.rng, max_search=10)
+        )
         self.assertEqual(len(configs), 10)
 
     def test_config_unbounded_max_search(self):
         search_space = {"a": [1], "b": [1, 2, 3], "c": {"range": [1, 10]}}
         tuner = RandomSearchTuner(None, None, seed=123)
-        configs = list(tuner.config_generator(search_space, max_search=0))
+        configs = list(
+            tuner.config_generator(search_space, rng=tuner.rng, max_search=0)
+        )
         self.assertEqual(len(configs), 3)
 
     def test_config_log_range(self):
@@ -67,7 +77,9 @@ class RandomSearchModelTunerTest(unittest.TestCase):
             "d": {"range": [1, 10], "scale": "log"},
         }
         tuner = RandomSearchTuner(None, None, seed=123)
-        configs = list(tuner.config_generator(search_space, max_search=20))
+        configs = list(
+            tuner.config_generator(search_space, rng=tuner.rng, max_search=20)
+        )
         self.assertEqual(len(configs), 20)
         self.assertGreater(
             np.mean([c["c"] for c in configs]),
@@ -103,8 +115,9 @@ class RandomSearchModelTunerTest(unittest.TestCase):
             tuner_report = json.load(f)
 
         # Confirm that when input dropout = 1.0, score tanks, o/w does well
-        self.assertLess(tuner_report[0]["score"], 0.65)
-        self.assertGreater(tuner_report[1]["score"], 0.95)
+        # - Tuner statistics at index 1 has dropout = 1, and 0 at index 0
+        self.assertLess(tuner_report[1]["score"], 0.65)
+        self.assertGreater(tuner_report[0]["score"], 0.95)
 
         # Clean up
         rmtree(tuner.log_rootdir)
