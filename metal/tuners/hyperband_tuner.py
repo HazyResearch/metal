@@ -32,6 +32,7 @@ class HyperbandTuner(ModelTuner):
         run_name=None,
         log_writer_class=None,
         seed=None,
+        **tuner_args,
     ):
         super().__init__(
             model_class,
@@ -40,6 +41,7 @@ class HyperbandTuner(ModelTuner):
             run_name=run_name,
             log_writer_class=log_writer_class,
             seed=seed,
+            **tuner_args,
         )
 
         # Set random seed (Note this only makes sense in single threaded mode)
@@ -195,6 +197,7 @@ class HyperbandTuner(ModelTuner):
         the train loop).
         """
         self._clear_state()
+        self.search_space = search_space
 
         # Loop over each bracket
         n_models_scored = 0
