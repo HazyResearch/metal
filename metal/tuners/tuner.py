@@ -127,8 +127,7 @@ class ModelTuner(object):
             )
 
         # Init model
-        model = self.model_class(*init_args, **init_kwargs,
-                                 verbose=verbose)
+        model = self.model_class(verbose=verbose, *init_args, **init_kwargs)
 
         # Search params
         # Select any params in search space that have list or dict
