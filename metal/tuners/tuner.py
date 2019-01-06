@@ -105,6 +105,7 @@ class ModelTuner(object):
     ):
 
         # Integrating generated config into init kwargs and train kwargs
+        init_kwargs["verbose"] = verbose
         init_kwargs = recursive_merge_dicts(
             init_kwargs, config, misses="insert"
         )
@@ -130,7 +131,7 @@ class ModelTuner(object):
             )
 
         # Init model
-        model = self.model_class(*init_args, **init_kwargs, verbose=verbose)
+        model = self.model_class(*init_args, **init_kwargs)
 
         # Search params
         # Select any params in search space that have list or dict
