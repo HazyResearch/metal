@@ -68,14 +68,13 @@ class ModelTuner(object):
         if seed is None:
             self.seed = 0
         else:
-            random.seed(seed)
             self.seed = seed
 
         # Search state
         # NOTE: Must be cleared each run with self._clear_state()!
-        self._clear_state()
+        self._clear_state(self.seed)
 
-    def _clear_state(self):
+    def _clear_state(self, seed=None):
         """Clears the state, starts clock"""
         self.start_time = time()
         self.run_stats = []
@@ -85,6 +84,10 @@ class ModelTuner(object):
 
         # Note: These must be set at the start of self.search()
         self.search_space = None
+
+        # Reset the seed
+        if seed is not None:
+            self.rng = random.Random(seed)
 
     def _test_model_config(
         self,
@@ -102,6 +105,7 @@ class ModelTuner(object):
     ):
 
         # Integrating generated config into init kwargs and train kwargs
+        init_kwargs["verbose"] = verbose
         init_kwargs = recursive_merge_dicts(
             init_kwargs, config, misses="insert"
         )
@@ -150,6 +154,7 @@ class ModelTuner(object):
                 run_dir=".",
                 run_name=f"model_search_{idx}",
             )
+
         model.train_model(
             *train_args,
             **train_kwargs,
@@ -242,7 +247,7 @@ class ModelTuner(object):
         raise NotImplementedError()
 
     @staticmethod
-    def config_generator(search_space, max_search, shuffle=True):
+    def config_generator(search_space, max_search, rng, shuffle=True):
         """Generates config dicts from the given search space
 
         Args:
@@ -322,7 +327,7 @@ class ModelTuner(object):
         discrete_configs = list(dict_product(discretes))
 
         if shuffle:
-            random.shuffle(discrete_configs)
+            rng.shuffle(discrete_configs)
 
         # If there are range parameters and a non-None max_search, cycle
         # through the discrete_configs (with new range values) until
@@ -336,5 +341,5 @@ class ModelTuner(object):
             if max_search and i == max_search:
                 break
             for k, v in ranges.items():
-                config[k] = float(v(random.random()))
+                config[k] = float(v(rng.random()))
             yield config
