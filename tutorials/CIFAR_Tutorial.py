@@ -1,3 +1,16 @@
+"""
+This tutorial script runs a simple ResNet to classify the CIFAR-10 dataset using MeTaL.
+The purpose of this particular tutorial is to demonstrate how a standard machine learning
+task can be run using MeTaL utilities.
+
+Running this script with settings in run_CIFAR_Tutorial.sh should give performance on the
+order of 92-93% dev set accuracy, which is comparable to the performance numbers presented in
+the pytorch-cifar repo (https://github.com/kuangliu/pytorch-cifar).  Note that as in the
+pytorch-cifar repo, the dev and test set are the same.  This is not generally the case!
+
+Running this script with default parameters should recover ~88% accuracy after 10 epochs.
+"""
+
 import argparse
 
 import numpy as np
@@ -6,51 +19,38 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data.dataloader as dataloader
-from resnet import ResNet18
 from torch.autograd import Variable
 from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
+# from torchvision.models import resnet
+import metal.contrib.modules.resnet_cifar10 as resnet
 from metal import EndModel
 from metal.utils import convert_labels
 
-SEED = 1
-
-# CUDA?
+# Checking to see if cuda is available for GPU use
 cuda = torch.cuda.is_available()
 
-# For reproducibility
-torch.manual_seed(SEED)
-
-if cuda:
-    torch.cuda.manual_seed(SEED)
-
-
-parser = argparse.ArgumentParser(description="PyTorch Training")
+# Parsing command line arguments
+parser = argparse.ArgumentParser(description="Training CIFAR 10")
 
 parser.add_argument(
     "--epochs", default=10, type=int, help="number of total epochs to run"
 )
 
 parser.add_argument(
-    "--start-epoch",
-    default=0,
-    type=int,
-    help="manual epoch number (useful on restarts)",
-)
-parser.add_argument(
     "-b",
     "--batch-size",
-    default=10,
+    default=128,
     type=int,
-    help="mini-batch size (default: 1)",
+    help="mini-batch size (default: 10)",
 )
 
 parser.add_argument(
     "--lr",
     "--learning-rate",
-    default=0.1,
+    default=0.001,
     type=float,
     help="initial learning rate",
 )
@@ -59,20 +59,15 @@ parser.add_argument("--momentum", default=0.9, type=float, help="momentum")
 parser.add_argument(
     "--weight-decay",
     "--wd",
-    default=0,
+    default=1e-4,
     type=float,
     help="weight decay (default: 1e-4)",
 )
-parser.add_argument(
-    "--print-freq",
-    "-p",
-    default=10,
-    type=int,
-    help="print frequency (default: 10)",
-)
+
+# Setting up dataset to adjust CIFAR indices to one-index,
+# per MeTaL convention
 
 
-# Setting up dataset to adjust CIFAR indices to one-index
 class MetalCIFARDataset(Dataset):
     """A dataset that group each item in X with it label from Y
 
@@ -126,16 +121,23 @@ def train_model():
         root="./data", train=True, download=True, transform=transform_train
     )
     train_loader = dataloader.DataLoader(
-        MetalCIFARDataset(trainset), batch_size=128, shuffle=True, num_workers=2
+        MetalCIFARDataset(trainset),
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=2,
     )
 
     testset = CIFAR10(
         root="./data", train=False, download=True, transform=transform_test
     )
     test_loader = dataloader.DataLoader(
-        MetalCIFARDataset(testset), batch_size=100, shuffle=False, num_workers=2
+        MetalCIFARDataset(testset),
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=2,
     )
 
+    # Defining classes in CIFAR-10 in order
     classes = (
         "plane",
         "car",
@@ -150,10 +152,13 @@ def train_model():
     )
 
     # Define input encoder
-    model = ResNet18()
+    model = resnet.ResNet18()
     encode_dim = 512
 
-    # Define end model
+    # Define end model. Note that in MeTaL we supply the encoding dimension
+    # to enable auto-compilation of a multi-task end model.  This abstraction
+    # is required here, even in the single task case.  See the default end
+    # model config file for all possible options.
     end_model = EndModel(
         [encode_dim, len(classes)],
         input_module=model,
