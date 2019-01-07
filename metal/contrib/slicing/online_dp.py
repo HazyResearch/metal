@@ -146,9 +146,9 @@ class SliceDPModel(EndModel):
             self.criteria(self.forward_Y(X), Y_tilde)
         )
         
-        # Just take the unweighted sum of these for now...
-        # TODO: make this a hyperparameter
-        return (self.slice_weight*loss_1 + loss_2) / 2
+        # Compute the weighted sum of these
+        loss_1 /= self.m # normalize by number of LFs
+        return (self.slice_weight*loss_1) + ((1-self.slice_weight)*loss_2)
 
     
     def _get_loss_fn(self):
