@@ -170,6 +170,13 @@ def roc_auc_score(gold, probs, ignore_in_gold=[], ignore_in_pred=[]):
     gold_s = hard_to_soft(torch.from_numpy(gold), k=probs.shape[1]).numpy()
     return skm.roc_auc_score(gold_s, probs)
 
+def thresholded_f1_score(gold, probs, threshold=0.75, **kwargs):
+    """F1 score where pos preds have > 0.75 confidence""" 
+    preds = np.ones(gold.shape) * 2 # set to all negative first
+    pos_mask = probs[:, 0] > threshold
+    preds[pos_mask] = 1
+    return f1_score(gold, preds, **kwargs)
+
 
 def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):
     """Remove from gold and pred all items with labels designated to ignore."""
@@ -200,6 +207,7 @@ METRICS = {
     "f1": f1_score,
     "fbeta": fbeta_score,
     "roc-auc": roc_auc_score,
+    "thresholded_f1": thresholded_f1_score,
 }
 
 
@@ -213,6 +221,12 @@ def metric_score(gold, pred, metric, probs=None, **kwargs):
         if probs is None:
             raise ValueError("ROC-AUC score requries the predicted probs.")
         return roc_auc_score(gold, probs, **kwargs)
+
+    elif metric.startswith("thresholded_"):
+        if probs is None:
+            raise ValueError("thresholded score requries the predicted probs.")
+        return METRICS[metric](gold, probs, **kwargs)
+
 
     else:
         return METRICS[metric](gold, pred, **kwargs)
