@@ -80,7 +80,7 @@ class ModelTuner(object):
         self.start_time = time()
         self.run_stats = []
         self.best_index = -1
-        self.best_score = -1
+        self.best_score = -1e9
         self.best_config = None
 
         # Note: These must be set at the start of self.search()

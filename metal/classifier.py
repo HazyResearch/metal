@@ -195,6 +195,9 @@ class Classifier(nn.Module):
             model_class, **checkpoint_config, verbose=self.config["verbose"]
         )
 
+    def get_loss_fn(self):
+        raise NotImplementedError
+
     def _train_model(
         self,
         train_data,
@@ -322,6 +325,10 @@ class Classifier(nn.Module):
                     "validation_scoring_kwargs"
                 ]
                 self.eval()
+
+                # Adding loss function to support validating on loss
+
+                # Getting dev score
                 dev_score = self.score(
                     dev_loader,
                     metric=val_metric,
@@ -381,12 +388,13 @@ class Classifier(nn.Module):
         if self.config["verbose"]:
             print("Finished Training")
             if evaluate_dev:
-                self.score(
-                    dev_loader,
-                    metric=train_config["validation_metric"],
-                    verbose=True,
-                    print_confusion_matrix=True,
-                )
+                if val_metric is not "neg_loss":
+                    self.score(
+                        dev_loader,
+                        metric=train_config["validation_metric"],
+                        verbose=True,
+                        print_confusion_matrix=True,
+                    )
 
         # Close log_writer if available
         if log_writer is not None:
@@ -501,8 +509,24 @@ class Classifier(nn.Module):
         metric_list = metric if isinstance(metric, list) else [metric]
         scores = []
         for metric in metric_list:
-            score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0])
-            scores.append(score)
+            if metric != "neg_loss":
+                score = metric_score(
+                    Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0]
+                )
+                scores.append(score)
+            else:
+                loss_fn = self._get_loss_fn()
+                # Handling this separately for now; could add a
+                # kwarg that is extra_metrics with name:fn pairs
+                loss = 0
+                for batch_num, data in enumerate(data):
+                    # Moving data to GPU
+                    if self.config["use_cuda"]:
+                        data = place_on_gpu(data)
+                    loss += float(loss_fn(*data).detach())
+                    # Using average validation loss
+                    score = -loss / (batch_num + 1)
+                scores.append(score)
             if verbose:
                 print(f"{metric.capitalize()}: {score:.3f}")
 
