@@ -10,6 +10,9 @@ This tutorial walks through the basic training and evaluation process for the tw
 ### Multi-Task
 Learn how to use the multi-task versions of our models to utilize supervision sources that (implicitly or explicitly) label multiple tasks at once and capitalize on the benefits of multi-task learning.
 
+### CIFAR 10 Example
+See an example of how to easily run the standard machine learning task of classifying the CIFAR 10 image dataset using Snorkel MeTaL; building upon existing datasets like this can be a useful gateway to exploring multi-task learning in a well-known setting.
+
 ### Model Tuning
 [Coming Soon]  
 Try out our built-in model tuners (grid/random search, or Hyperband) to perform hyperparameter search over many potential model configurations.
