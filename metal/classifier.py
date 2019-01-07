@@ -519,13 +519,15 @@ class Classifier(nn.Module):
                 # Handling this separately for now; could add a
                 # kwarg that is extra_metrics with name:fn pairs
                 loss = 0
-                for batch_num, data in enumerate(data):
+                samples = 0
+                for batch_num, d in enumerate(data):
+                    samples += len(d)
                     # Moving data to GPU
                     if self.config["use_cuda"]:
-                        data = place_on_gpu(data)
-                    loss += float(loss_fn(*data).detach())
+                        d = place_on_gpu(d)
+                    loss += float(loss_fn(*d).detach())
                     # Using average validation loss
-                    score = -loss / (batch_num + 1)
+                score = -loss / samples
                 scores.append(score)
             if verbose:
                 print(f"{metric.capitalize()}: {score:.3f}")
