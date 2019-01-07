@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from metal.end_model import EndModel
-from metal.modules import LSTMModule
+from metal.modules import EmbeddingsEncoder, LSTMModule
 from metal.tuners.random_tuner import RandomSearchTuner
 from metal.utils import LogWriter
 
@@ -127,7 +127,6 @@ class RandomSearchModelTunerTest(unittest.TestCase):
 
         embed_size = 4
         hidden_size = 10
-        vocab_size = MAX_INT + 2
 
         # Set up RandomSearchTuner
         tuner = RandomSearchTuner(
@@ -152,11 +151,12 @@ class RandomSearchModelTunerTest(unittest.TestCase):
         module_args["input_module"] = (embed_size, hidden_size)
         module_kwargs = {}
         module_kwargs["input_module"] = {
-            "vocab_size": vocab_size,
             "seed": 123,
             "bidirectional": True,
             "verbose": False,
             "lstm_reduction": "attention",
+            "encoder_class": EmbeddingsEncoder,
+            "encoder_kwargs": {"vocab_size": MAX_INT + 2},
         }
 
         # Set up search space
