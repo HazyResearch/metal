@@ -58,7 +58,7 @@ class SliceDPModel(EndModel):
         r=1,
         rw=False,
         L_weights=None,
-        slice_weight=10,
+        slice_weight=0.5,
         middle_modules=None,
         verbose=True,
         **kwargs
