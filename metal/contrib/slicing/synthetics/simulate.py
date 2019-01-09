@@ -53,7 +53,7 @@ def train_models(X, L, accs, verbose=False, use_cuda=False):
 
     # baseline model, no attention
     r = 2
-    baseline_model = SliceDPModel(
+    uniform_model = SliceDPModel(
         LinearModule(d, r, bias=True),
         accs,
         r=r,
@@ -61,7 +61,7 @@ def train_models(X, L, accs, verbose=False, use_cuda=False):
         verbose=verbose,
         use_cuda=use_cuda,
     )
-    baseline_model.train_model((X_train, L_train), **train_kwargs)
+    uniform_model.train_model((X_train, L_train), **train_kwargs)
 
     # oracle, manual reweighting
     # currently hardcode weights so LF[-1] has double the weight
@@ -91,7 +91,7 @@ def train_models(X, L, accs, verbose=False, use_cuda=False):
     )
     attention_model.train_model((X_train, L_train), **train_kwargs)
 
-    return baseline_model, manual_model, attention_model
+    return uniform_model, manual_model, attention_model
 
 
 def eval_model(model, data, eval_dict):
@@ -159,7 +159,7 @@ def simulate(data_config, generate_data_fn, experiment_config):
             X, Y, C, L = generate_synthetic_data(data_config, var_name, x)
 
             # train the models
-            baseline_model, manual_model, attention_model = train_models(
+            uniform_model, manual_model, attention_model = train_models(
                 X, L, data_config["accs"]
             )
 
@@ -171,7 +171,7 @@ def simulate(data_config, generate_data_fn, experiment_config):
             )
             eval_dict = {"S0": S0_idx, "S1": S1_idx, "S2": S2_idx}
             baseline_scores[x].append(
-                eval_model(baseline_model, (X, Y), eval_dict)
+                eval_model(uniform_model, (X, Y), eval_dict)
             )
             manual_scores[x].append(eval_model(manual_model, (X, Y), eval_dict))
             attention_scores[x].append(
