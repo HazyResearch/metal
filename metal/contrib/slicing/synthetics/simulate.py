@@ -20,11 +20,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from synthetics_utils import generate_multi_mode_data, generate_label_matrix, plot_slice_scores
+from synthetics_utils import generate_synthetic_data, plot_slice_scores
 from metal.contrib.slicing.online_dp import LinearModule, MLPModule, SliceDPModel
 
 
-def train_models(X, L, accs, verbose=False):
+def train_models(X, L, accs, verbose=False, use_cuda=False):
     """
     Trains baseline, oracle, and attention model
     Args:
@@ -50,7 +50,7 @@ def train_models(X, L, accs, verbose=False):
 
     #baseline model, no attention
     r = 2
-    baseline_model = SliceDPModel(LinearModule(d, r, bias=True), accs, r=r, rw=False, verbose=verbose, use_cuda=True)
+    baseline_model = SliceDPModel(LinearModule(d, r, bias=True), accs, r=r, rw=False, verbose=verbose, use_cuda=use_cuda)
     baseline_model.train_model((X_train, L_train), **train_kwargs)
 
     #oracle, manual reweighting
@@ -58,12 +58,12 @@ def train_models(X, L, accs, verbose=False):
     weights = np.ones(m, dtype=np.float32)
     weights[-1] = 2.0
     r = 2
-    manual_model = SliceDPModel(LinearModule(d, r, bias=True), accs, r=r, rw=False, L_weights=weights, verbose=verbose, use_cuda=True)
+    manual_model = SliceDPModel(LinearModule(d, r, bias=True), accs, r=r, rw=False, L_weights=weights, verbose=verbose, use_cuda=use_cuda)
     manual_model.train_model((X_train, L_train), **train_kwargs)
 
     #our model, with attention
     r = 2
-    attention_model = SliceDPModel(LinearModule(d, r, bias=True), accs, r=r, rw=True, verbose=verbose, use_cuda=True)
+    attention_model = SliceDPModel(LinearModule(d, r, bias=True), accs, r=r, rw=True, verbose=verbose, use_cuda=use_cuda)
     attention_model.train_model((X_train, L_train), **train_kwargs)
 
     return baseline_model, manual_model, attention_model
@@ -95,9 +95,14 @@ def eval_model(model, data, eval_dict):
     slice_scores["overall"] = model.score(data, metric="accuracy", verbose=False)
     return slice_scores
 
-def simulate(config):
+def simulate(data_config, generate_data_fn, experiment_config):
     """Simulates models comparing baseline, manual, and attention models
     over the specified config.
+    
+    Args:
+        config: for data generation
+        generate_data_fn: data generation fn that accepts config, x_var, x_val for overwriting values
+    Returns: (baseline_scores, manual_scores, attention_scores)
     """
 
     # to collect scores for all models
@@ -105,47 +110,50 @@ def simulate(config):
         defaultdict(list), defaultdict(list), defaultdict(list)
    
     # get config variables
-    N = config["N"] 
-    mus = config["mus"] 
-    labels = config["labels"] 
-    props = config["props"] 
-    accs = config["accs"] 
-    covs = config["covs"] 
-    op = config["op"]
-    m = np.shape(config["accs"])[0]
-    num_trials = config["num_trials"]
-    x_range = config["x_range"]
-    var_name = config["x_var"]
+    num_trials = experiment_config["num_trials"]
+    x_range = experiment_config["x_range"]
+    var_name = experiment_config["x_var"]
 
     # for each value, run num_trials simulations
     for x in x_range:
         print (f"Simulating: {var_name}={x}")
         for _ in tqdm(range(num_trials)):
 
-            # overwrite default config with simulation var
-            if var_name == "op":
-                op = x
-            elif var_name == "acc":
-                accs[-1] = x
-            elif var_name == "cov":
-                covs[-1] = x 
-     
             # generate data
-            X, Y, C = generate_multi_mode_data(N, mus, props, labels)
-            L, overlap_idx = generate_label_matrix(N, accs, covs, Y, C, overlap_portion=op)
+            X, Y, C, L = generate_synthetic_data(data_config, var_name, x)
     
             # train the models
-            baseline_model, manual_model, attention_model = train_models(X, L, accs)
+            baseline_model, manual_model, attention_model = train_models(X, L, data_config['accs'])
     
             # score the models
             S0_idx, S1_idx, S2_idx = np.where(C==0)[0], np.where(C==1)[0], np.where(C==2)[0]
-            eval_dict = {'overlap': overlap_idx, 'S0': S0_idx, 'S1': S1_idx, 'S2':S2_idx}
+            eval_dict = {'S0': S0_idx, 'S1': S1_idx, 'S2':S2_idx}
             baseline_scores[x].append(eval_model(baseline_model, (X,Y), eval_dict))
             manual_scores[x].append(eval_model(manual_model, (X,Y), eval_dict))
             attention_scores[x].append(eval_model(attention_model, (X,Y), eval_dict))
 
     return baseline_scores, manual_scores, attention_scores
     
+
+data_config = {
+    # data generation
+    "N": 10000, # num data points
+    "mus": [
+        np.array([-3, 0]), # Mode 1: Y = -1
+        np.array([3, 0]), # Mode 2: Y = 1
+    ],
+    "labels": [-1, 1], # labels of each slice
+    "props": [0.25, 0.75], # proportion of data in each mode
+    "variances": [1, 2], # proportion of data in each mode
+    "head_config": {
+        "h": 4, # horizontal shift of slice
+        "k": 0, # vertical shift of slice
+        "r": 1 # radius of slice
+    },
+    
+    "accs": np.array([0.75, 0.75, 0.75]), # default accuracy of LFs
+    "covs": np.array([0.9, 0.9, 0.9]), # default coverage of LFs
+}
 
 if __name__ == '__main__':
     import warnings
@@ -164,26 +172,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # define simulation config
-    config = {
-        "N": 10000, # num data points
-        "mus": [ # centers of modes
-            np.array([-3, 0]), # Mode 1: Y = -1
-            np.array([3, 0]), # Mode 2: Y = 1
-            np.array([6, -3]) # Mode 3: Y = -1
-        ], 
-        "labels": [-1, 1, -1], # labels of each slice
-        "props": [0.25, 0.5, 0.25], # porportion of data in each slice
-        "accs": np.array([0.75, 0.75, 0.75]), # accuracy of LFs
-        "covs": np.array([0.9, 0.9, 0.9]), # coverage of LFs
-        "op": 0.05, # overlap proportion btwn head and torso
-        "num_trials": args.n, # num trials of simulation to run
-        "x_range": np.linspace(0, 1.0, 5) \
-            if args.x_range is None else list(args.x_range),
+    experiment_config = {
+        "num_trials": args.n,
+        "x_range": np.linspace(0, 1.0, 5) if args.x_range is None else list(args.x_range),
         "x_var": args.variable
     }
 
-    # run simulations
-    baseline_scores, manual_scores, attention_scores = simulate(config)
+   # run simulations
+    baseline_scores, manual_scores, attention_scores = \
+        simulate(data_config, generate_synthetic_data, experiment_config)
     
     # save scores and plot
     results = {
@@ -205,5 +202,4 @@ if __name__ == '__main__':
     plot_slice_scores(results, 'S1', xlabel=xlabel, save_dir=args.save_dir)
     plot_slice_scores(results, 'S0', xlabel=xlabel, save_dir=args.save_dir)
     plot_slice_scores(results, 'overall', xlabel=xlabel, save_dir=args.save_dir)
-    plot_slice_scores(results, 'overlap', xlabel=xlabel, save_dir=args.save_dir)
     
