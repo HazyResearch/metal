@@ -7,8 +7,7 @@ import numpy as np
 
 def shuffle_matrices(matrices):
     """Shuffle each member of a list of matrices having the same first dimension
-    (along first dimension) according o the same shuffling order."""
-
+    (along first dimension) according to the same shuffling order."""
     N = matrices[0].shape[0]
     idxs = list(range(N))
     shuffle(idxs)
@@ -158,6 +157,7 @@ def generate_synthetic_data(config, x_var=None, x_val=None):
         if x_var == "op"
         else config["head_config"]["r"]
     )
+    # modifies C and Y in place
     create_circular_slice(
         X,
         Y,

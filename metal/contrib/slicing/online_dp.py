@@ -43,7 +43,7 @@ class SliceDPModel(EndModel):
             model inputs to torch.Tensors. Defaults to IdentityModule.
         - accs: The LF accuracies, computed offline
         - r: Intermediate representation dimension
-        - rw: Whether to use reweighting of representation for Y_head
+        - reweight: Whether to use reweighting of representation for Y_head
         - L_weights: The m-dim vector of weights to use for the LF-head
                 loss weighting; defaults to all 1's.
         - slice-weight: Factor to multiply loss for L_heads in joint loss with
@@ -59,7 +59,7 @@ class SliceDPModel(EndModel):
         input_module,
         accs,
         r=1,
-        rw=False,
+        reweight=False,
         L_weights=None,
         slice_weight=0.5,
         middle_modules=None,
@@ -69,7 +69,7 @@ class SliceDPModel(EndModel):
 
         self.m = len(accs)  # number of labeling sources
         self.r = r
-        self.rw = rw
+        self.reweight = reweight
         self.output_dim = 2  # NOTE: Fixed for binary setting
         self.slice_weight = slice_weight
 
@@ -106,7 +106,7 @@ class SliceDPModel(EndModel):
         self.L_head = modules[-1]
 
         # Attach the "DP head" which outputs the final prediction
-        y_d = 2 * self.r if self.rw else self.r
+        y_d = 2 * self.r if self.reweight else self.r
         self.Y_head = nn.Linear(y_d, self.output_dim, bias=False)
 
         # Start by getting the DP marginal probability of Y=1, using the
@@ -121,7 +121,7 @@ class SliceDPModel(EndModel):
 
         if self.config["verbose"]:
             print("Slice Heads:")
-            print("Reweighting:", self.rw)
+            print("Reweighting:", self.reweight)
             print("Slice Weight:", self.slice_weight)
             print("Input Network:", self.network)
             print("L_head:", self.L_head)
@@ -167,7 +167,7 @@ class SliceDPModel(EndModel):
         xr = self.network(x)
 
         # Concatenate with the LF attention-weighted representation as well
-        if self.rw:
+        if self.reweight:
 
             # A is the [bach_size, 1, m] Tensor representing the relative
             # "confidence" of each LF on each example

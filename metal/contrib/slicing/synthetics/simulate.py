@@ -57,7 +57,7 @@ def train_models(X, L, accs, verbose=False, use_cuda=False):
         LinearModule(d, r, bias=True),
         accs,
         r=r,
-        rw=False,
+        reweight=False,
         verbose=verbose,
         use_cuda=use_cuda,
     )
@@ -72,7 +72,7 @@ def train_models(X, L, accs, verbose=False, use_cuda=False):
         LinearModule(d, r, bias=True),
         accs,
         r=r,
-        rw=False,
+        reweight=False,
         L_weights=weights,
         verbose=verbose,
         use_cuda=use_cuda,
@@ -85,7 +85,7 @@ def train_models(X, L, accs, verbose=False, use_cuda=False):
         LinearModule(d, r, bias=True),
         accs,
         r=r,
-        rw=True,
+        reweight=True,
         verbose=verbose,
         use_cuda=use_cuda,
     )
