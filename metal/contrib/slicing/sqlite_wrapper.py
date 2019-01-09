@@ -26,7 +26,7 @@ class SnorkelDataset(Dataset):
         pretrained_word_dict=None,
         max_seq_len=125,
         L_train=None,
-        train_marginals=None
+        train_marginals=None,
     ):
         """
         Assumes a Snorkel database that is fully instantiated with:
@@ -107,7 +107,7 @@ class SnorkelDataset(Dataset):
                 for i, y in enumerate(sorted(np.unique(self.Y), reverse=1))
             }
             self.Y = torch.tensor([labels[y] for y in self.Y])
-        
+
         assert self.Y.shape[0] == len(self.X)
 
         # initialize LFs for slice reweighting
