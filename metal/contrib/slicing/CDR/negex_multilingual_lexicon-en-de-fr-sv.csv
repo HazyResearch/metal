@@ -1,0 +1,561 @@
+ITEM,EN RegEx,GE Dieter,,GE RegEx,alt1,alt2,alt3,alt4,alt5,CorrectSwedishTranslation1,CorrectSwedishTranslation2,CorrectSwedishTranslation3,CorrectSwedishTranslation4,CorrectSwedishTranslation5,CorrectSwedishTranslation6,CorrectSwedishTranslation7,CorrectSwedishTranslation8,CorrectSwedishTranslation9,CorrectSwedishTranslation10,CorrectSwedishTranslation11,CorrectSwedishTranslation12,CommentAboutSwedishTranslation,Swedish regexp corrected,FR Louise,alt1,alt2,alt3,alt4,alt5,CATEGORY,CLOSURE,EN (SV) ACTION,GE ACTION,Source-peFinder,Source-Original ConText,Source-criticlEventFinder-in addition to peFinder,Source-BioscopeAll,Source-BioscopeFiltered,Source-Development-Round1,Zogg's items,Source-Swedish-physician,Source-Swedish Guidelines,Ignore-ID from toCorrectReplacedRegEx_Final_toWendy.xlsx
+asserted as,,geltend gemacht,,(geltend\sgemacht|machte\ses\geltend),,behauptet,,,,bedömd som,,,,,,,,,,,,,,,,,,,,definiteExistence,,forward,backward,,,,,,,,,1,
+definite,,definitiv,,\b(definitiv|eindeutig)\b,eindeutig,,,,,bestämd,definitivt,,,,,,,,,,,,,,,,,,,definiteExistence,,forward,forward,1,,,,,,,,,324
+doubtless,,zweifellos,,(zweifellos|ohne\s(Bedenken|Zweifel)|bedenklos),bedenklos,ohne Zweifel,ohne Bedenken,,,otvivelaktigt,,,,,,,,,,,,,,,,,,,,definiteExistence,,forward,forward,,,,,,,,1,,
+evident,,offensichtlich,,"\b(offensichtlich.{0,2}|offenkundig.{0,2}|evident.{0,2})\b",evident,offenkundig,,,,uppenbar,,,,,,,,,,,,,,,,,,,,definiteExistence,,forward,forward,,,,,,,,1,,
+hence,,daher,,(daher\s|aus\sdiesem\sGrund),aus diesem Grund,,,,,således,,,,,,,,,,,,,,,,,,,,definiteExistence,,forward,forward,,,,,,,,,1,
+obvious,,offenschtlich,,,offenkundig,augenscheinlich,,,,uppenbart,,,,,,,,,,,,,,,,,,,,definiteExistence,,forward,forward,1,,,,,,,,,323
+positive examination for,,positives Prüfungsergebnis für,,,positives Untersuchungsergebnis für,positive Untersuchungsergebnisse für,positive Prüfungsergebnisse für,,,positiva prov för,positivt prov för,,,,,,,,,,,,,,,,,,,definiteExistence,,forward,forward,1,,,,,,,,,322
+positive study for,,positive Ergebnis für,,,positives Analyseergebnis für,,,,,positiv studie för,,,,,,,,,,,,,positiv(studie|examination|undersökning)(för),,,,,,,definiteExistence,,forward,forward,,,,,,,,,,325
+seen as,,gesehen als,,,verstanden als,,,,,betraktas som,,,,,,,,,,,,,,,,,,,,definiteExistence,,forward,forward,,,,,,,,1,,
+without doubt,,ohne Zweifel,,,zweifellos,,,,,utan tvivel,,,,,,,,,,,,,,,,,,,,definiteExistence,,bidirectional,bidirectional,,,,,,,,1,,
+adequate to rule the patient out against,,"angemessen, den Patienten davon auszuschließen",,"(angemessen|hinreichend|ausreichend|adäquat|richtig),(\s)?(den\sPatienten|die\sPatient(en|in|nen))\s(davon|von\s.*?)\s\bauszuschließen\b ::: (angemessen|hinreichend|ausreichend|adäquat|richtig),(\s)?(den\sPatienten|die\sPatient(en|in|nen))\s(nicht\sin\sBetracht\szu\sziehen|nicht\szu\sberücksichtigen)",,,,,,adekvat för att utesluta patienten mot,tillräckligt för att utesluta,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,4
+are ruled out,,werden ausgeschlossen,,(sind|werden|wird)\s(davon|von\s.*?)\s(\bausgeschlossen\b|auszuschließen) ::: (werden|wird)(\sdafür|\sfür\s.*?)?\s(nicht\sin\sBetracht\sgezogen|nicht\sin\sFrage\skommen|nicht\sberücksichtigt),werden nicht in Betracht gezogen,,,,,är uteslutna,,,,,,,,,,,,,,sont écartées,est écarté,"a été écartée, est écartée",a été écarté,,ont été écartées,definiteNegatedExistence,,backward,backward,1,,,,,,,,,82
+being ruled out,,wird ausgeschlossen,,,wird nicht in Betracht kommen,wird nicht in Frage kommen,,,,"inte är möjlig,",utesluts,,,,,,,,,,,,,"sont éliminés, sont éliminées",a été éliminé,"a été éliminée, est éliminé",ont été éliminés,,ont été éliminées,definiteNegatedExistence,,backward,backward,1,,,,,,,,,182
+can be ruled out,,kann ausgeschlossen werden,,(kann|können)\s(er|sie|es|der\sPatient|die\sPatien(ten|tinnen|tin))(\sdavon)?(\svons.*?)?\s\bausgeschlossen\swerden ::: (kann|können)\snicht\s(in\sFrage|in\sBetracht)\s(gezogen\swerden|kommen),kann nicht in Betracht kommen,kann nicht in Frage kommen,,,,kan uteslutas,,,,,,,,,,,,,,"peut être écartée, peut être écarté",peut être éliminée,"peut être éliminé, peuvent être écartées",peuvent être écartés,peuvent être éliminées,peuvent être éliminés,definiteNegatedExistence,,backward,discontinuous,1,1,,,,,,,,154
+can rule him out,,er kann ausgeschlossen werden,,,er kann nicht in Betracht kommen,er kann nicht in Frage kommen,,,,kan utesluta honom,kan utesluta att han,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,,,,,,,,,5
+can rule him out against,"r""""""can\srule\s(her|him)\sout\sagainst""""""",er kann davon ausgeschlossen werden,,,er kann dafür nicht in Betracht kommen,er kann dafür nicht in Frage kommen,,,,kan utesluta honom mot,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",kan\sutesluta\s(henne|honom)\smot,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,18
+can rule out,,kann man ausschließen,,,,,,,,kan utesluta,,,,,,,,,,,,,,peut éliminer,pouvons éliminer,peut écarter,pouvons écarter,,,definiteNegatedExistence,,forward,backward,1,,,,,,,,,1
+can rule out against,,kann man davon ausschließen,,,,,,,,kan utesluta mot,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,28
+can rule the patient out against,"r""""""can\srule\s(her|him)\sout\sagainst""""""",der Patient kann davon ausgeschlossen werden,,,,,,,,kan utesluta att patienten,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,17
+cannot,,kann nicht,,(kann|können)(\sman)?\snicht,kann man nicht,ist nicht möglich,,,,kan inte,,,,,,,,,,,,,,ne peut pas,ne peuvent pas,ne pouvons pas,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,93
+cleared of,,befreit von,,,,,,,,friad från,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,,,,,,,,1,,
+declined,,lehnte ab,,(\bbestreit(et|en)\b|\bbestrit(t|ten)\b|\blehn(|t|en|te|ten)\b\s.*?\bab\b|wies(en)?\s.*?\bzurück\b|\bvernein(en|t|te|ten)?\b|abgelehnt|zurückgewiesen|zurückweis(t|en)),zurückgewiesen,verneint,,,,minskade,avböjde,avtog,,,,,,,,,,wrong word,,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,1,,,,,,,,78
+declines,,lehnt ab,,,weist zurück,verneint,,,,avtar,avböja,minska,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,1,,,,,,,,79
+denied,,verneinte,,,bestritt,,,,,förnekade,nekade,,,,,,,,,,,tens,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,76
+denies,,verneint,,,bestreitet,,,,,förnekar,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,77
+deny,,verneinen,,,bestreiten,,,,,förneka,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,,,,,,,,,75
+did rule her out,,schloss sie aus,,schloss\s(sie|ihn|es|den\sPatienten|die\sPatient(en|in|innen))(\s(von\s.*?|davon\s))?\baus\b,,,,,,uteslöt henne,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,133
+did rule her out against,,,,,,,,,,uteslöt henne mot,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,,1,,,,,,,,,129
+did rule her out for,,schloss sie davon aus,,wurd(e|en)\s(sie|er|es|der\sPatient|die\sPatient(en|in|innen))(\s(von\s.*?|davon\s))?\bausgeschlossen\b,,,,,,uteslöt henne för,uteslöt henne mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,113
+did rule him out,,schloss ihn aus,,,,,,,,uteslöt honom,uteslöt honom mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,backward,1,,,,,,,,,126
+did rule him out against,,,,,,,,,,uteslöt honom,,,,,,,,,,,,"compound /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,,1,,,,,,,,,108
+did rule him out for,,schloss ihn davon aus,,hat(sie|ihn|es|den\sPatienten|die\sPatient(en|in|innen)(\s(davon\s|von\s.*?))?\bausgeschlossen\b,,,,,,uteslöt honom för,uteslöt honom mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,114
+did rule out,,schloss es aus,,,,,,,,uteslöt,,,,,,,,,,,,,,a éliminé / a  écarté,,avait éliminé / avait  écarté,avons éliminé / avons écarté,,avions éliminé /avions écarté,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,130
+did rule out against,,,,,,,,,,uteslöt mot,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,,1,,,,,,,,,112
+did rule out for,,wurde davon ausgeschlossen,,,,,,,,uteslöt,,,,,,,,,,,,prep,,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,107
+did rule the patient out,,hat den Patienten davon ausgeschlossen,,,,,,,,uteslöt patienten,uteslöt patienten mot,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,91
+did rule the patient out against,,,,,,,,,,uteslöt patienten för,uteslöt patienten mot,,,,,,,,,,,"compound /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,,1,,,,,,,,,99
+did rule the patient out for,,hat den Patienten davon ausgeschlossen,,,,,,,,uteslöt patienten för,uteslöt patienten mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,discontinuous,1,,,,,,,,,106
+excluded,,ausgeschlossen,,(ausgeschlossen|schloss(en)?\s.*?\baus\b),,,,,,stänga ute,uteslutna,exkluderade,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,bidirectional,bidirectional,,,,1,1,,,,,
+free,,ohne,,,frei,,,,,fri,fri från,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,bidirectional,forward,1,1,,,,,,,,26
+free of,,ohne,,,frei von,,,,,fri från,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,115
+has been ruled out,,wurde ausgeschlossen,,(wurde|ist)\s(ausgeschlossen(\sworden)?|nicht\sberücksichtigt(\sworden)?),wurde nicht berücksichtigt,,,,,har uteslutits,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,backward,backward,1,,,,,,,,,101
+have been ruled out,,wurden ausgeschlossen,,,,,,,,har uteslutits,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,backward,backward,1,,,,,,,,,135
+is absent,,ist nicht vorhanden,,(fehlt|ist\snicht\svorhanden|besteht\snicht|existiert\snicht),ist nicht vorhanden,existiert nicht,besteht nicht,,,,,,,,,,,,,,,,,n'apparaît pas,n'apparaissent pas,n'existe pas,,,,definiteNegatedExistence,,backward,backward,,1,,,,,,,,
+is negative,"r""(is|was) negative""",ist negativ,,,,,,,,är negativt,,,,,,,,,,,,,(är|var)negativt,,,,,,,definiteNegatedExistence,,backward,backward,1,,,,,,,,,95
+is ruled out,,wird ausgeschlossen,,wird(\s(davon|von\s.*?))?\s\bausgeschlossen\b(\swerden)?,,,,,,är utesluten,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,backward,backward,1,,,,,,,,,90
+negative examination for,"r""negative (examination|study|exam|evaluation) for""",negativer Befund für,,(Befund(e)?|Untersuchung(en)?|Ergebnis(e)?)(\s(ist|sind))?\s(für|in\sBezug\sauf|hinsichtlich|bezüglich|der|des|von|zu)\s.*?\bnegativ\b,die Untersuchung ist negativ,das Ergebnis ist negativ,,,,negativ undersökning för,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",negativ(undersökning|studie|examination|utvärdering)\sför,"être écartée, être écartées","être écarté, être écartés","être éliminée, être éliminées",être éliminé,être éliminés,,definiteNegatedExistence,,forward,forward,1,,,,,,,,,120
+negative for,,negativ in Bezug auf,,negativ\s(in\sBezug\sauf|hinsichtlich|bezüglich),,,,,,negativa för,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,94
+neither,,weder,,,,,,,,inte heller,heller inte,ej heller,heller ej,,,,,,,,,,,ni de,ni,,,,,definiteNegatedExistence,,forward,forward,,,,,,,,1,,
+never developed,,entwickelte sich nie,,entwickelte\ssich\s(niemals|nie|überhaupt\snicht),entwickelte sich überhaupt nicht,entwickelte sich niemals,,,,utvecklade aldrig,,,,,,,,,,,,,,jamais développé,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,132
+never had,,hatte niemals,,(hatte|war)\s(sich)?(nie(mals)?),war niemals,war nie,hatte nie,,,aldrig haft,,,,,,,,,,,,,,jamais eu,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,98
+no,"r""\bno\b""",kein,,"\b(kein.{0,2}|nicht|nein)\b",nicht,nein,,,,ingen,,,,,,,,,,,,wrong word sens,(\bingen\b|\binga\b|\binget\b),aucun,aucune,aucuns,pas de,pas d',aucunes,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,127
+no evidence,,keinen Beweis,,"\bkein.{0,2}\b\s(Daten|Information(en)?|Anhaltspunkt(e)?|Hinweis(e)?|Evidenz(en)?|Beweis(e)?|Nachweis(e)?)",keinen Anghaltspunkt,keine Evidenz,keine Anzeichen,keinen Nachweis,keine Informationen,inga tecken på,inga bevis på,inga bevis,,,,,,,,,,wrong word,,sans preuve de,sans preuve d',sans preuve,,,,definiteNegatedExistence,,forward,forward,1,1,,1,1,,,,,67
+no new,,keine neue,,"kein.{0,2}\sneue.{0,2}",,,,,,ingen ny,,,,,,,,,,,,,,pas de nouveau,pas de nouvel,pas de nouvelle,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,110
+no other,"r""""""no[\s]*other""""""",keine anderen,,"kein.{0,2}\s(andere.{0,1})",,,,,,inga andra,inga övriga,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,88
+no support for,,keinen Hinweis auf,,"kein.{0,2}\s(Hinweis|Andeutung)\s(auf|für|in\sBezug\sauf|hinsichtlich|bezüglich)",keine Andeutung,,,,,inga belägg för,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,,,,,,,,,1,
+no suspicion of,,kein Verdacht auf,,,,,,,,ingen misstanke på,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,,,,,,,,,1,
+not,"r""\bnot\b""", nicht,,,,,,,,inte,,,,,,,,,,,,,(\binte\b|\bej\b),,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,97
+not exhibit,,nicht zu sehen,,,nicht präsent,nicht vorhanden,,,,inte uppvisar,uppvisar inte,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,21
+not had,,hatte nicht,,"(hatt.{0,2}\s(nicht|kein.{0,2})",hatte keinen,,,,,inte hade,,,,,,,,,,,,,,n'avait pas,n'a pas,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,104
+not have,,nicht gehabt,,,,,,,,inte har,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,116
+not seen,,nicht gesehen,,,,,,,,,inte sågs,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,backward,backward,,1,,,,,,,,
+nothing,,nichts,,,,,,,,ingenting,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,,,,,,,,,20
+patient was not,,Patienten war nicht,,"(Patient.{0,2}\s(war|waren)\s(nicht|kein)",,,,,,patient var inte,patienten var inte,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,100
+reject,,lehnt ab,,"(ablehnen|lehn.{0,2}\s.*?\bab\b)",,,,,,avfärda,avfärdar,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,discontinuous,,,,1,1,,,,,
+rejected,,lehnte ab,,"(ablehnt.{0,2}|lehnt.{0,2}\s.*?\bab\b)",,,,,,avfärdades,avfärdad,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,discontinuous,,,,1,1,,,,,
+resolved,,Erklärung gefunden,,"(erklärt.{0,2}|löst{0,2})\bsich\b)",löste sich,Erklärung gefunden,,,,löst,borta,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,backward,bidirectional,1,1,,,,,,,,124
+ruled her out,,traf für sie nicht zu,,,,,,,,uteslöt henne,,,,,,,,,,,,wrong word sens,,elle exclue,,,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,85
+ruled her out against,"""""ruled\s(him|her)\sout\sagainst""""",,,,,,,,,uteslöt henne mot,,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,elle a statué contre,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,84
+ruled her out for,,,,,,,,,,uteslöt henne,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,elle exclue pour,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,111
+ruled him out,,traf für ihn nicht zu,,,,,,,,uteslöt honom,,,,,,,,,,,,"compound /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,l'a exclu,,,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,109
+ruled him out against,,,,,,,,,,uteslöt honom mot,,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,a exclu contre,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,80
+ruled him out for,,,,,,,,,,uteslöt honom mot,uteslöt honom mot,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,l'a exclu de,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,92
+ruled out,,traf nicht zu,,,,,,,,uteslöt honom för,uteslöt honom mot,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,exclu,écarté,éliminé,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,125
+ruled out against,,,,,,,,,,uteslöt,,,,,,,,,,,,tens,,exclu contre,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,118
+ruled out for,,,,,,,,,,uteslöt mot,uteslöt mot,,,,,,,,,,,tens,,exclu pour,élimine,éliminons,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,119
+ruled the patient out,,traf für den Patienten nicht zu,,,traf für die Patientin nicht zu,,,,,uteslutas för,uteslöt mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,a statué sur le patient,patient n'était pas,,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,123
+ruled the patient out against,,,,,,,,,,uteslöt patienten,,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,a statué sur le patient contre,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,117
+ruled the patient out for,,,,,,,,,,uteslöt patienten för,uteslöt patienten mot,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,a statué sur le patient pour,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,89
+rules her out,,trifft für sie nicht zu,,,,,,,,uteslöt patienten för,uteslöt patienten mot,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,elle exclut,,,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,131
+rules her out for,"r""""""rules\s(him|her)\sout\sfor""""""",,,,,,,,,utesluter henne,utesluter henne,,,,,,,,,,,wrong word,,elle exclut pour,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,122
+rules him out,"r""""""rules\s(him|her)\sout""""""",trifft für ihn nicht zu,,,,,,,,utesluter henne för,utesluter henne mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,lui écarte,,,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,102
+rules him out for,"r""""""rules\s(him|her)\sout\sfor""""""",schloss sie davon aus,,,,,,,,utesluter honom,,,,,,,,,,,,wrong word,,lui écarte pour,,,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,105
+rules out,,trifft nicht zu,,,,,,,,utesluter honom för,utesluter honom mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,exclut,écarte,écartons,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,86
+rules out for,,,,,,,,,,utesluter,,,,,,,,,,,,,,exclut pour,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,87
+rules the patient out,,trifft für den Patienten nicht zu,,,trifft für die Patientin nicht zu,,,,,utesluter för,utesluter mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,backward,1,1,,,,,,,,121
+rules the patient out for,,,,,,,,,,utesluter patienten ut för,utesluter patienten mot,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,definiteNegatedExistence,,forward,,1,1,,,,,,,,83
+was ruled out,,wurde ausgeschlossen,,,wurden ausgeschlossen,,,,,uteslöts,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,backward,backward,1,1,,,,,,,,128
+with no,,mit keinem,,"(mit\skein.{0,2})",,,,,,utan,med inga,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,103
+without,,ohne,,,,,,,,utan,,,,,,,,,,,,,,,,,,,,definiteNegatedExistence,,forward,forward,1,1,,,,,,,,134
+aunt,,Tante,,(Tante|Tantes),,,,,,faster,moster,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+aunt's,,Tantes,,,,,,,,fasters,mosters,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+brother,,Bruder,,(Bruder|Bruders),,,,,,bror,broder,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+brother's,,Bruders,,,,,,,,brors,broders,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+dad,,Vater,,(Vater|Vati|Papa|Papi),,,,,,pappa,fader,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+dad's,,Vaters,,(Vaters|Vatis|Papas|Papis),,,,,,pappas,faders,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+family history,,Krankengeschichte,,\b(Familienanamnese|Familienkrankengeschichte|Familiengeschichte|Krankengeschichte\sders\Familie)\b,,,,,,släkthistoria,heriditet,ärftlighet,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+father's,,Vaters,,,,,,,,fars,,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+grandfather,,Großvater,,\b(Großvater|Opa|Großvaters|Opas\b,,,,,,farfar,morfar,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+grandfather's,,Großvaters,,,,,,,,farfars,morfars,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+grandmother,,Großmutter,,\b(Großmutter|Oma|Großmutters|Omas\b,,,,,,mormor,farmor,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+grandmother's,,Großmutters,,,,,,,,mormors,farmors,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+husband,,Mann,,\b(Ehemann|Ehegatte|Gatte|Mann|Partner)\b,,,,,,man,make,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+husband's,,Manns,,\b(Ehemanns|Ehegatten|Gatten|Manns|Partners)\b,,,,,,mans,makens,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+mom,,Mutti,,\b(Mutter|Mama|Mutti|Mutters|Mamas|Muttis)\b,,,,,,mamma,mor,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+mom's,,Muttis,,,,,,,,mammas,,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+mother's,,Mutters,,,,,,,,mors,,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+roommate,,Mitbewohner,,,Zimmergenosse,Wohnpartner,,,,rumskamrat,,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+roommate's,,Mitbewohners,,,,,,,,rumskamrats,,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+sister,,Schwester,,,,,,,,syster,,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+sister's,,Schwesters,,,,,,,,systers,,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+uncle,,Onkel,,,,,,,,morbror,farbror,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+uncle's,,Onkels,,,,,,,,farbrors,morbrors,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+wife,,Frau,,,Ehefrau,Gattin,Ehegattin,,,fru,hustru,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+wife's,,Fraus,,,Ehefraus,Gattins,Ehegattins,,,fruns,hustruns,,,,,,,,,,,,,,,,,,,experiencer,,forward,forward,,1,,,,,,,,
+as needed,,je nach Bedarf,,nach\s(Bedarf|Notwendigkeit),falls erforderlich,,,,,efter behov,,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+at risk for,"r""""""at\srisk\s(in\sthe\sfuture\s)?for""""""",ein Risiko für,,(ein|eine|die)\s(Risiko|Gefahr),gefährdet für,,,,,med risk för,,,,,,,,,,,,,,,,,,,,future,,forward,forward,,,1,,,,,,,
+call,,anrufen,,"(ruf.{0,2}\s.*?\ban\b|angerufen|telefonier.{0,2})",,,,,,ringa,,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+come back for,,kommt wieder,,"(komm.{0,2}\swieder)",,,,,,komma tillbaka för,återvända för,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+come back to,,"kommt wieder, um",,"(komm.{0,2}\swieder\s(zurück)?,\sum",,,,,,komma tillbaka till,återvända till,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+if,,wenn,,,falls,"im Fall, dass",,,,om,,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+if clinical concern for,"r""""""if\sclinical\s(concern|suspicion)\sfor""""""",falls klinische Bedenken,,(wenn|falls)(\ses)?\sklinische\sBedenken),wenn klinische Bedenken für,"im Fall, dass klinische Bedenken für",,,,om klinisk oro för,om det finns klinisk oro,,,,,,,,,,,,,,,,,,,future,,forward,forward,,,1,,,,,,,
+if there is concern for,,falls es Bedenken gibt,,,,,,,,om det finns oro för,om det finns anledning till,,,,,,,,,,,,,,,,,,,future,,forward,forward,,,1,,,,,,,
+look out for,,achten Sie auf,,"acht.{0,2}\s((Sie\sauf|Ihr\sauf|auf)",,,,,,utkik efter,uppmärksamma,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+return,,kehrt zurück,,(kehrt\s.*?\bzurück\b|kommt\s.*?\bzurück\b),zurückkommen,,,,,återvända,,,,,,,,,,,,,,,,,,,,future,,forward,discontinuous,,1,,,,,,,,
+returning,,,,,,,,,,återvänder,,,,,,,,,,,,,,,,,,,,future,,forward,,,1,,,,,,,,
+should he,,sollte er,,,,,,,,skulle han,,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+should she,,sollte sie,,,,,,,,skulle hon,,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+should the,,sollte die,,,,,,,,skulle,,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+should there,,sollte dort,,sollt(e|en)\s(dort|da|es),,,,,,bör det,,,,,,,,,,,,,,,,,,,,future,,forward,forward,,1,,,,,,,,
+again noted,,nochmals darauf hingewiesen,,nochmals\s(darauf)?(hingewiesen|angemerkt),nochmals angemerkt,nochmals festgestellt,,,,noteras igen,noterades igen,återigen noteras,,,,,,,,,,word order + inflection,,,,,,,,historical,,bidirectional,bidirectional,1,,,,,,,,,207
+change in,,Veränderung bei,,,Änderung bei,,,,,förändring av,,,,,,,,,,,,preposition,,,,,,,,historical,,forward,forward,1,1,,,,,,,,204
+changing,,ändern,,,,,,,,ändrande,ändras,,,,,,,,,,,infleciton,,,,,,,,historical,,forward,forward,1,1,,,,,,,,203
+chronic,,chronisch,,"\bchronisch.{0,2}\b",,,,,,kronisk,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,1,1,,,,,,,,194
+clinical history,,Krankengeschichte,,,Anamnese,Vorgeschichte,,,,anamnes,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,1,1,,,,,,,,201
+decrease in,,geht zurück,,,verringert sich,,,,,minskning,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,,1,,,,,,,
+diminished,,verminderte sich,,,verschwand,,,,,minskad,minskade,,,,,,,,,,,,,,,,,,,historical,,bidirectional,backward,1,1,,,,,,,,206
+documented,,dokumentiert,,"(dokumentiert.{0,2}|belegt.{0,2})",belegten,,,,,dokumenterad,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,1,1,,,,,,,,192
+evolving,,entwickelnde,,"\bentwickelnd.{0,2}\b",,,,,,utvecklas,utvecklar,,,,,,,,,,,,,,,,,,,historical,,bidirectional,bidirectional,,,1,,,,,,,
+experiences,,Erfahrungen,,\b(Erfahr(ung|ungen)|Kenntni(s|sse))\b,Kenntnisse,,,,,erfarenheter,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,1,,,,,,,,
+family history of,,Krankengeschichte zu,,,Familiengeschichte zu,,,,,släkthistoria av,hereditet för,ärftlighet,i släkten,,,,,,,,,,,,,,,,,historical,,forward,forward,,1,,,,,,,,
+healing,"r""\b(healing|healed)\b""",Heilung,,"\b(Heilung.{0,2}|Heilungsprozess.{0,2}|Gesundungsprozess.{0,2}\b)",Heilungsprozess,Gesundungsprozess,,,,läkning,läker,,,,,,,,,,,,,,,,,,,historical,,bidirectional,bidirectional,,,1,,,,,,,
+history,,Krankengsechichte,,,Anamnese,,,,,historik,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,1,,,,,,,,
+in the past for,,in der Vergangenheit für,,,,,,,,i det förflutna för,tidigare,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,1,,,,,,,,
+interval change,,Intervallwechsel,,\bIntervall(wechsel|änderung|veränderung)\b,Intervalländerung,Intervallveränderung,,,,intervallförändring,,,,,,,,,,,,,,,,,,,,historical,,bidirectional,bidirectional,1,1,,,,,,,,199
+known to have,,"bekannt, dies zu haben",,"bekannt,\sein.{0,2}.*?\bzu\b\shaben",,,,,,kända för att ha,känt att,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,1,,,,,,,,
+old,,alt,,,,,,,,gamla,gammal,,,,,,,,,,,,,,,,,,,historical,,bidirectional,bidirectional,,,1,,,,,,,
+persistent,,hartnäckig,,,beharrlich,persistent,anhaltend,,,ihållande,persisterande,,,,,,,,,,,,,,,,,,,historical,,bidirectional,bidirectional,,,1,,,,,,,
+pre-existing,,bereits bestehend,,,bereits existierend,,,,,preexisterande,tidigare,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,1,,,,,,,,
+previous,,vorhergehend,,"(zuvor\serwähnt.{0,2}|vorhergehend.{0,2}|vorausgehend.{0,2})",zuvor erwähnten,vorausgehend,,,,tidigare,föregående,,,,,,,,,,,,,,,,,,,historical,,forward,forward,1,1,,,,,,,,195
+prior,,vorher,,"\b(prior.{0,2}|früh.{0,2}|pior.{0,2}|vorhergehend.{0,2}|vorausgehend.{0,2})\b",vorhergehend,vorausgehend,prior,,,tidigare,tidigare,,,,,,,,,,,word sens,,,,,,,,historical,,bidirectional,bidirectional,1,1,,,,,,,,205
+prior study,,vorausgehende Studien,,"((vorausgehend.{0,2}|vorhergehend.{0,2}\sStudi(e|en))|Vorstudi(e|en))",vorhergehende Studie,vorausgehende Untersuchungen,vorhergehende Untersuchung,,,tidigare studie,,,,,,,,,,,,,,,,,,,,historical,,bidirectional,bidirectional,1,1,,,,,,,,209
+progression of,"r""""""progression\s(of|in)""""""",Zunahme von,,(Zunahme|Progression|Fortschreiten)\s(des|der|einer|eines|von|dieses|dieser),Fortschreiten von,Progression von,,,,progression av,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,,1,,,,,,,
+redemonstration of,,erneute Darstellung,,"((erneut.{0,2}|neulich.{0,2}|wiederholt.{0,2})\s(Nachweis|Darstellung|Beweis)\s(der|des|von)",erneuter Nachweis,,,,,redemonstration av,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,,1,,,,,,,
+resolution of,,Lösung von,,Lösung\s(des|der|dieses|dieser|von),,,,,,upplösning av,,,,,,,,,,,,is only valid for PE,,,,,,,,historical,,forward,forward,1,1,,,,,,,,200
+resolved,,gelöst,,,,,,,,upplösta,upplöst,,,,,,,,,,,is only valid for PE,,,,,,,,historical,,backward,backward,1,1,,,,,,,,197
+resolving,,lösen,,,,,,,,upplösa,upplöses,,,,,,,,,,,is only valid for PE,,,,,,,,historical,,forward,forward,1,1,,,,,,,,196
+s/p,,Status danach,,,s/p,,,,,status post,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,1,,,,,,,,
+sequelae of,,Folgeerscheinung von,,,Spätkomplikationen von,Komplikationen von,,,,följdtillstånd av,följdtillstånd efter,,,,,,,,,,,preposition,,,,,,,,historical,,forward,forward,1,1,,,,,,,,208
+status post,,Status danach,,,Status post,,,,,status efter,status post,,,,,,,,,,,,,,,,,,,historical,,forward,forward,,1,,,,,,,,
+subacute,,subakut,,"subakut.{0,2}",,,,,,subakut,,,,,,,,,,,,,,,,,,,,historical,,forward,forward,1,1,,,,,,,,193
+unchanged,,unverändert,,,,,,,,oförändrad,,,,,,,,,,,,,,,,,,,,historical,,bidirectional,bidirectional,1,1,,,,,,,,202
+assessment for,,Prüfung für,,(Prüfung|Beurteilung|Evaluierung)s\für,Beurteilung für,,,,,bedömning,,,,,,,,,,,,,,,,,,,,indication,,forward,forward,,,1,,,,,,,
+be ruled out,,ausgeschlossen werden,,kommt\snicht\s(in(Frage|Betracht)),kommt nicht in Betracht,kommt nicht in Frage,,,,utesluten,,,,,,,,,,,,inflection,,,,,,,,indication,,backward,backward,1,,,,,,,,,162
+be ruled out for,,,,,,,,,,uteslutas för,,,,,,,,,,,,,,,,,,,,indication,,forward,,1,,,,,,,,,190
+checked for,,untersucht auf,,,geprüft auf,,,,,kontrolleras för,undersöks för,,,,,,,,,,,"patient som kontrolleras för >sjukdom<, kan vara allt från känd sjukdom till preb neg sjukdom, snarare anväds uttrycket för kändsjukdom som pat redan har",,,,,,,,indication,,forward,forward,1,1,,,,,,,,22
+evaluate,,bewerten,,,prüfen,beurteilen,,,,evaluera,,,,,,,,,,,,,,,,,,,,indication,,forward,forward,,,,1,1,,,,,
+evaluate for,,"bewerten, um",,"(bewert.{0,3}|prüf.{0,3}|beurteil.{0,3}),\s(um|damit)","prüfen, um","beurteilen, um",,,,utvärdera av,utvärdera för,utreda om,utvärdera om,undersöka om,,,,,,,,"patient som kontrolleras för >sjukdom<, kan vara allt från känd sjukdom till prob neg sjukdom, snarare anväds uttrycket för kändsjukdom som pat redan har",,,,,,,,indication,,forward,forward,1,1,,1,1,,,,,23
+evaluation,,Bewertung,,,Prüfung,Beurteilung,,,,utvärdering,,,,,,,,,,,,,,,,,,,,indication,,bidirectional,bidirectional,1,,,,,,,,,181
+examination,"r""\b(examination|exam|study)\b""",Untersuchung,,"(\bUntersuchung.{0,2}|Prüfung.{0,2}|Analyse.{0,2}\b)",Analyse,Prüfung,,,,granskning,undersökning,,,,,,,,,,,,,,,,,,,indication,,bidirectional,bidirectional,1,,,,,,,,,186
+investigate,,untersuchen,,"(untersuch.{0,2}|analysier.{0,2}|prüf.{0,2})",analysieren,prüfen,,,,utreda,,,,,,,,,,,,,,,,,,,,indication,,forward,forward,,,,,,9,,,,
+investigation,,Untersuchung,,"(Untersuchung.{0,2}|Analyse.{0,2}|Prüfung.{0,2})",Analyse,Prüfung,,,,utredning,,,,,,,,,,,,,,,,,,,,indication,,forward,forward,,,,,,11,,,,
+is more sensitive,"r""""""is more sensitive""""""",ist empfindlicher,,,ist sensitiver,,,,,är mer känsliga,,,,,,,,,,,,,,,,,,,,indication,,forward,forward,,,1,,,,,,,
+is to be ruled out,,wird ausgeschlossen werden,,,,,,,,skall uteslutas,,,,,,,,,,,,,,,,,,,,indication,,backward,backward,1,,,,,,,,,172
+is to be ruled out for,,wird davon ausgeschlossen werden,,,,,,,,skall uteslutas för,,,,,,,,,,,,,,,,,,,,indication,,backward,backward,1,,,,,,,,,171
+may be ruled out,,dürfte ausgeschlossen werden,,(dürfte|mag|kann)\svon\s.*?\s\bausgeschlossen\b\swerden,,,,,,kanske kan uteslutas,,,,,,,,,,,,strength hedging,,,,,,,,indication,,backward,backward,1,,,,,,,,,170
+may be ruled out for,,dürfte davon ausgeschlossen werden,,(dürfte|mag|kann)\s(davon|von\s.*?)\s\bausgeschlossen\b\swerden,könnte davon ausgeschlossen werden,,,,,kanske kan uteslutas för,,,,,,,,,,,,strength hedging,,,,,,,,indication,,forward,backward,1,,,,,,,,,169
+might be ruled out,,könnte ausgeschlossen werden,,(könnte\s.*\sausgeschlossen\swerden),,,,,,kan uteslutas,,,,,,,,,,,,,,,,,,,,indication,,backward,backward,1,,,,,,,,,178
+might be ruled out for,,könnte davon ausgeschlossen werden,,,,,,,,kan uteslutas för,,,,,,,,,,,,,,,,,,,,indication,,forward,discontinuous,1,,,,,,,,,174
+must be ruled out,,muss ausgeschlossen werden,,,,,,,,måste uteslutas,,,,,,,,,,,,,,,,,,,,indication,,backward,backward,1,,,,,,,,,164
+must be ruled out for,,,,(muss|müssen)\s(davon|von\s.*?)\s\bausgeschlossen\b\swerden,,,,,,måste uteslutas för,,,,,,,,,,,,,,,,,,,,indication,,forward,,1,,,,,,,,,165
+not been ruled out,,nicht ausgeschlossen werden,,,,,,,,inte uteslutas,inte uteslutet,,,,,,,,,,,,,,,,,,,indication,,bidirectional,backward,1,,,,,,,,,177
+ought to be ruled out,,sollte ausgeschlossen werden,,(sollte|sollten)\sausgeschlossen\swerden,,,,,,borde uteslutas,,,,,,,,,,,,,,,,,,,,indication,,backward,backward,1,,,,,,,,,166
+ought to be ruled out for,,,,,,,,,,borde uteslutas för,,,,,,,,,,,,,,,,,,,,indication,,forward,,1,,,,,,,,,161
+protocol,,Protokoll,,,Versuchsplan,,,,,protokoll,,,,,,,,,,,,,,,,,,,,indication,,backward,backward,1,,,,,,,,,187
+question,,Frage,,,,,,,,frågeställningen,fråga,frågeställning,,,,,,,,,,,,,,,,,,indication,,forward,forward,,,,,,7,,,,
+risk factors for,,Risikofaktoren für,,Risikofaktoren\sfür\s(in\sBezug\sauf|hinsichtlich|bezüglich),,,,,,riskfaktorer för,,,,,,,,,,,,,,,,,,,,indication,,forward,forward,1,,,,,,,,,150
+rule her out,,wird für sie ausgeschlossen,,,,,,,,utesluta henne,,,,,,,,,,,,,,,,,,,,indication,,forward,backward,1,,,,,,,,,176
+rule him out,,wird für ihn ausgeschlossen,,,,,,,,utesluter honom,utesluta honom,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,indication,,forward,backward,1,,,,,,,,,173
+rule him out for,,wird er davon ausgeschloissen werden,,schließt\s(sie|ihn|es|den\sPatienten|die\sPatientin)\s(davon|dagegen|gegen\s.*?|von\s.*?)\s\baus\b,,,,,,utesluta honom för,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,indication,,forward,backward,1,,,,,,,,,168
+rule out,"r""(r/o|rule out|\br o\b|r\.o\.|\bro\b)""",ausschließen,,,,,,,,uteslut,att utesluta,,,,,,,,,,,tens,,,,,,,,indication,,forward,discontinuous,1,,,,,,,,,158
+rule out for,,,,,,,,,,utesluter,utesluta mot,,,,,,,,,,,prep I don't like for,,,,,,,,indication,,forward,,1,,,,,,,,,189
+rule patient out for,"r""rule (him|her|patient|the patient|subject) out for""",,,,,,,,,utesluta patient för,utesluta patienten mot,,,,,,,,,,,"wrong word sens /swedish: we don't rule out patient against disorde, we rule out disorder for patient",utesluta\s(honom|henne|patientens|patienten)\sför,,,,,,,indication,,forward,,1,,,,,,,,,179
+rule the patient out,,,,,,,,,,utesluta patienten,utesluta patienten mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,indication,,forward,,1,,,,,,,,,188
+rule the patient out for,,den Patienten davon ausschließen,,,,,,,,utesluta att patienten har,utesluta patienten mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,indication,,forward,discontinuous,1,,,,,,,,,191
+should be ruled out,,sollte ausgeschlossen werden,,,sollte nicht in Betracht gezogen werden,sollte nicht erwogen werden,,,,bör uteslutas,,,,,,,,,,,,,,,,,,,,indication,,backward,backward,1,,,,,,,,,156
+should be ruled out for,,sollte davon ausgeschlossen werden,,sollt(e|en)\s(für|von)\s.*?\bausgeschlossen\b\swerden,sollte dafür nicht in Betracht gezogen werden,sollte dafür nicht erwogen werden,,,,bör uteslutas för,,,,,,,,,,,,,,,,,,,,indication,,forward,discontinuous,1,,,,,,,,,175
+study for detection,,Erkennungsstudie,,\b(Erkennungsstudie|Detektionsstudie|Erkennungsuntersuchung|Detektionsuntersuchung)\b,Erkennungsuntersuchung,,,,,undersökning för detektering,,,,,,,,,,,,,,,,,,,,indication,,forward,forward,1,,,,,,,,,185
+to exclude,,auszuschließen,,um\s.*?\bauszuschließen\b,,,,,,för att utesluta,,,,,,,,,,,,,,,,,,,,indication,,forward,backward,,,,,,,,,1,
+what must be ruled out is,,"was ausgeschlossen werden muss, ist",,(was\sman\sausschließen\smuss|was\sman\sauszuschließen\shat|was\sauszuschließen\sist),,,,,,vad som måste uteslutas är,det som måste uteslutas är,,,,,,,,,,,,,,,,,,,indication,,forward,forward,1,,,,,,,,,183
+will be ruled out,,wird ausgeschlossen werden,,,,,,,,kommer att uteslutas,,,,,,,,,,,,,,,,,,,,indication,,backward,backward,1,,,,,,,,,153
+will be ruled out for,,wird davon ausgeschlossen werden,,wird\svon\s.*?\bausgeschlossen\b\swerden,,,,,,kommer att uteslutas för,,,,,,,,,,,,,,,,,,,,indication,,forward,discontinuous,1,,,,,,,,,155
+acts as,,wirkt wie,,(wirkt|fungiert)\s(wie|als),fungiert wie,,,,,ter sig som,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+and/or,,und/oder,,(und/oder|und\s/\soder),,,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,,,,1,1,,,,,
+apparent,,offensichtlich,,(offensichtlich|offenkundig|augenscheinlich|obgleich|erweck(t|en)\sden\sEindruck|mach(te|ten)\sden\sEindruck),offenkundig,erweckt den Eindruck,macht den Eindruck,,,uppenbar,synlig,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+apparently,,scheinbar,,,offenbar,,,,,såvitt man kan se,synbarligen,uppenbarligen,nog,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+appear,"""""\bappear\b""""",scheint,,(erschein(t|en)|scheinbar|hat\sden\sAnschein),hat den Anschein,,,,,visas vara,verkar vara,syns,framgå,framstå,framträda,förefalla,,,,,,wrong word,,,,,,,,probableExistence,,forward,forward,1,,,1,1,,,,,306
+appearing,,,,,,,,,,framstår,framträder,förefaller,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,,1,,,1,1,,,,,
+appears,,scheint,,,erscheint,sieht so aus,,,,synes vara,ger intryck av,ter sig,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,1,,,1,1,,,,,308
+assume,,vermuten,,(nimmt\s.*?\s\ban\b|nehmens\s.*?\ban\b|unterstell(t|en)),annehmen,unterstellen,,,,förmodar,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+assuming,,,,,annehmend,,,,,anta,förutsätta,förmoda,ponera,ta för givet,,,,,,,,,,,,,,,,probableExistence,,forward,,,,,1,,,,,,
+believe,,glauben,,"\b(glaub.{0,2}\b",,,,,,tro,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+but rather,,vielmehr,,,,,,,,utan snarare,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,96,,,,
+can,,kann,,\b(kann|kannst|können|könnt)\b,,,,,,kan,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,,,,,,
+can be,,kann sein,,(kann\ssein|kann\swerden|ist\smöglich),ist möglich,,,,,kan vara,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,bidirectional,,,,,,,,1,,
+clinical picture as in,,klinisches Krankheitsbild wie in,,klinisches\s(Krankheitsbild|Bild)\swie\s(bei|in),,,,,,klinisk bild som vid,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+clinical picture in line with,,klinisches Krankheitsbild entsprechend,,klinisches\s(Krankheitsbild|Bild)s\(entsprechend|gemäß),,,,,,klinisk bild förenlig med,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+clinical suspicion of,,klinischer Verdacht auf,,,,,,,,klinisk misstanke på,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+compatible with,,vergleichbar mit,,(vergleich(end|bar)\smit|kompatibel\smit|im\sVergleich\s(zu|mit)),kompatibel mit,,,,,kompatibel med,förenligt med,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,1,,,,,95,,,,
+conceivable,,vorstellbar,,,denkbar,absehbar,,,,tänkbar,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+concerning for,,bedenken,,"(bedenk.{0,2}|((hat|haben)\sBedenken))",,,,,,angående,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,1,,,,,,,
+consider,,berücksichtigen,,"(berücksichtig.{0,2}|zieh.{0,2}\sin\sBetracht)",zieht in Betracht,,,,,reflektera,ta i betraktande,ta under övervägande,överväga,betänka,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+considerations,,Überlegungen,,"\b(Berücksichtigung.{0,2})|Überlegung.{0,2}))\b",Berücksichtigungen,,,,,beaktande,,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,,,,1,1,,,,,
+considerations include,,Überlegungen umfassen,,"Überlegung.{0,2}\s(bezieh.{0,2}\ssich\sauf|umfassen|schließ.{0,2}\s.*?\s\bein\b)",,,,,,överväganden,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+consistent with,,stimmt überein,,stimmt\smit\s.*?\s\büberein\b|ist\smit\s.*?\bkompatibel\b),konsistent mit,,,,,överensstämmer med,som vid,förenlig,stämmer överens,överensstämmer med,,,,,,,,,,,,,,,,probableExistence,,forward,forward,1,,,,,110,,,,
+convincing,,überzeugend,,,,,,,,övertygande,,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,1,,,,,,,,,310
+could,,könnte,,,,,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+could be,,könnte sein,,könnte\s.*?\s\bsein\b,,,,,,kunde vara,kan visa sig vara,skulle kunna vara,,,,,,,,,,,,,,,,,,probableExistence,,forward,discontinuous,,,,,,,,1,,
+differential diagnosis would include,"r""differential\s((diagnosis|considerations)\s)?((would|could)\sinclud[a-z]*)?""",die Differenzialdiagnose würde,,die\sDifferenzialdiagnose\swürde(umfassen|einschließen),,,,,,differentialdiagnos skulle innefatta,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,1,,,,,,,
+eventual,,schließlich,,,letztendlich,,,,,eventuellt,ev,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,26,,,,
+everything pointing at,,alles läßt darauf schließen,,alles(deutet|läßt|weist)\s(darauf|darauf\shin|schließen|auf\s.*?\s\bhin\b),alles deutet darauf hin,alles weist darauf hin,,,,allt pekar på,allt tyder på,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+evidence,,Evidenz,,\b(Eviden(z|en)|Prüf(ung|ungen)|Beurteil(ung|ungen))\b,Beweis,Nachweis,,,,bevis,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,1,,,,,,,,,304
+favor,,begünstigen,,,,,,,,understödja,förespråka,likna,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+feels like,,gefühlsmäßig,,(gefühlsmäßig)|dem\sGefühl\snach)|fühlt\ssich\san\swie|fühlt\ssich\swie\s.*?\s\ban\b),dem Gefühl nach,fühlt sich an wie,,,,det känns som,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,8,,,,
+felt,,fühlte,,"\b(fühlt.{0,2})\b",,,,,,känna,märka,ha en känsla av,känna av,anse,känna sig,känna sig,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+guess,,vermuten,,"(vermut.{0,2}|rat.{0,2}|nehmen\s.*?\s\ban\b|nimmt\s.*?\san)",annehmen,raten,,,,gissar,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+I believe,,Ich glaube,,ich\s(glaube|denke|vermute|nehme\s.*?\s\ban\b|bin\sder\sMeinung|bin\sder\sÜberzeugung),Ich denke,Ich bin der Meinung,Ich bin der Überzeugung,Ich vermute,Ich nehme an,jag tror,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,19,,,,
+identified,,identifiziert,,,festgestellt,,,,,identifierad,,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,1,,,,,,,,,316
+implied,,implizierte,,"(impliziert.{0,2)|miteinschließ.{0,2)|miteinschloss.{0,2)|schloss\s.*?\s\bmitein\b)",,,,,,implicerad,,,,,,,,,,,,Diabetes is implied/ It is implied that he has diabetes.,,,,,,,,probableExistence,,bidirectional,bidirectional,,,,,,,,1,,
+implies,,impliziert,,,,,,,,implicerar,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+in line with,,in Übereinstimmung mit,,in\sÜbereinstimmung\smit|gemäß|in\sAnlehnung\san),gemäß,in Anlehnung an,,,,förenlig med,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+indicate,,zeigen,,"(zeig.{0,2}|deut.{0,2}\s.*?\s\ban\b)|((weist|wies|weisen)\s(darauf\shin|auf\s.*?\s\bhin\b))",,,,,,visa,peka på,vittna om,tyda på,indicera,indikera,indikera,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+indicated,,zeigte,,,,,,,,antydd,antyder,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,,,,,,,,1,,
+indicates,,zeigt,,,,,,,,visa,vittna om,tyda på,indicerar,tyder på,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+interpreted as,,verstanden als,,"(verstand.{0,2|interpretiert.{0,2)\sals",interpretiert als,,,,,tolkar som,tolkas som,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+is in the differential,"r""is\sin\sthe\sdifferential""",liegt bei den einzelnen,,(ist\sin|liegt\sbei|befindet\ssich\sbei)\s(der|den)\s(differentiellen|einzelnen|unterschiedlichen),befindet sich bei den unterschiedlichen,ist bei den unterschiedlichen,,,,är i differentialdiagnosen,,,,,,,,,,,,,,,,,,,,probableExistence,,backward,backward,,,1,,,,,,,
+is understood as,,wird in dem Sinne verstanden,,wird\sals\s.*?\s\bverstanden\b|in\sdem\sSinne)\sverstanden,,,,,,får förstås som,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,backward,,,,,,,,1,,
+likely,,wahrscheinlich,,,vermutlich,,,,,sannolikt,sannolik,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,1,,,,,,,,,318
+looks like,,sieht so aus wie,,sieht\sso\saus\swie|sieht\saus\swie|ähnelt\s(dem|der|den),sieht aus wie,ähnelt dem,,,,ser ut att,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,76,,,,
+may,,dürfen,,"\b(dürf.{0,2}|mag|mögen|kann|können)\b",,,,,,skulle kunna,kunna,kan tänkas,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,,,,,,
+may be,,mag sein,,(dürfte|mag|könnte)\ssein,,,,,,skulle kunna vara,kanske,kanhända,,,måhända,,kanhända,,,,,,,,,,,,,probableExistence,,forward,discontinuous,,,,,,,,1,,
+may represent,"r""""""(may|might)\srepresent""""""",dürfte widerspiegeln,,(dürfte|mag)\s.*?\b(widerspiegeln|darstellen|repräsentiern)\b,darstellen,repräsentieren,,,,skulle kunna representera,,,,,,,,,,,,strength: may/can,(skulle kunna|kan)\srepresentera,,,,,,,probableExistence,,forward,discontinuous,1,,,,,,,,,307
+not certain,,nicht sicher,,,unsicher,,,,,inte säker,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,discontinuous,1,1,,,,,,,,142
+not exclude,,nicht ausschließen,,nicht\sausschließen|schließt\s.*?\bnicht\b\saus),,,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,discontinuous,,,,1,1,,,,,
+not excluded,"r""""""not\s(excluded|ruled\sout)""""""",nicht ausgeschlossen,,nicht\sausgeschlossen|schloss\s.*?\bnicht\b\saus),,,,,,utesluts inte,uteslöts inte,inte utesluten,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,discontinuous,,,1,1,1,,,,,
+not improbable,,nicht unwahrscheinlich,,,,,,,,ej osannolik,,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,backward,,,,,,,,,1,
+not sure,,nicht sicher,,,,,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+noted,,bemerkte,,(bemerkt|bemerkt(e|en)|stellt(e|en)\s.*?\bfest\b|merkt(e|en)\s.*?\ban\b,festgestellt,angemerkt,,,,möjligt,möjlig,möjliga,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,1,,,,,,,,,320
+or,,oder,,,bzw.,beziehungsweise,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,,,,,,
+perceived as,,verstanden,,als\s.*?\b(verstanden|aufgefasst|wahrgenommen)\b,aufgefasst,,,,,uppfattas som,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+perhaps,,vielleicht,,,eventuell,,,,,eventuellt,måhända,möjligen,kanhända,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+points to,,weist auf,,(weist|weisen|deuten|deutet)\sauf\s.*?\bhin\b?,deutet auf,,,,,pekar,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,89,,,,
+possible,,möglich,,,kann sein,,,,,möjlig,eventuell,vettig,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,1,,
+possibly,,möglicherweise,,,,,,,,möjligen,möjligtvis,det är möjligt,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,1,
+potential,,Potenzial,,,Potential,Möglichkeit,Chance,,,potentiell,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+preliminary,,vorläufg,,"(vorläufg.{0,2}|temporär.{0,2}|zeitweilig.{0,2})",temporär,zweitweilig,,,,preliminärt,prel,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,,,,,,20,,,,
+presumably,,vermutlich,,,wahrscheinlich,evetuell,,,,antagligen,förmodligen,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+presumed,,mutmaßlich,,(unter\sder\sVoraussetzung|vorausgesetzt|voraussetzend|mutmaßlich|präsumptiv),vorausgesetzt,unter der Voraussetzung,,,,förmoda,förmodade,förmodligen,troligen,antog,presumtiv,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+presumptive,,voraussetzend,,"\bpräsumptiv.{0,2}\b",präsumptiv,,,,,presumtiv,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+probable,,wahrscheinlich,,,,,,,,trolig,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+probable cause,,wahrscheinliche Ursache,,"(wahrscheinlich.{0,2}|vermutlich.{0,2})\s(Ursache|Grund)",wahrscheinlicher Grund,,,,,möjlig orsak,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,54,,,,
+probably,,wahrscheinlich,,"(wahrscheinlich.{0,2}|vermutlich.{0,2})",vermutich,,,,,troligen,troligtvis,sannolik,probabel,trolig,troliga,troligt,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+question,,Frage,,,,,,,,betvivlar,fråga sig,fråga,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+questionable,,fragwürdig,,"\b(fragwürdig.{0,2}|fraglich.{0,2}\b",fraglich,,,,,misstänkt,ifrågasättas,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,,,,1,1,,,,,
+raise the question of,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,,,,,1,1,,,,,
+raises question of,,wirft die Frage auf,,((wirft|werfen)\sdie?s\Frag(e|en)\sauf|(stellt|stellen)\ssich\sdies\Frage),,,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+raises the question of,,wirft die Frage nach,,,,,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,bidirectional,,,,1,1,,,,,
+raising the possibility of,,ergibt sich die Möglichkeit,,((ergibt|ergeben)\ssich\sdie\sMöglich(keit|keiten))|(ist|sind)\sdie\sMöglich(keit|keiten)\sgegeben),,,,,,möjligheten att,väcker förslaget,föreslår,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+raising the question of,,stellt sich die Frage zu,,,,,,,,ta upp frågeställningen,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+reasonable,,angemessen,,,sinnvoll,,,,,rimlig,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+reportedly,,,,,,,,,,enligt vad som påstås,tydligen,enligt uppgift,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,,,,,1,1,,,,,
+representing,,vertreten,,,repräsentieren,,,,,representerande,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+represents,,vertritt,,,repräsentiert,,,,,representerar,,,representerar,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,1,,,,,,,,,311
+seems like,,scheint wie,,(erscheint|scheint)\s(wie|als),erscheint wie,sieht aus wie,,,,tyder på,ter det sig som,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,15,,,,
+seen,"r""(seen|visualized|observed)""",gesehen,,,verstanden,,,,,sett,observerade,,,,,,,,,,,,,,,,,,,probableExistence,,backward,backward,1,,,,,,,,,314
+seen best,,bestens zu sehen,,,am besten zu sehen,,,,,ses bäst,,,,,,,,,,,,,,,,,,,,probableExistence,,backward,backward,1,,,,,,,,,302
+should,,sollte,,,,,,,,borde,skulle,torde,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,,,,,,
+should be considered,,sollte berücksichtigt werden,,,sollte in Betracht gezogen werden,sollte erwogen werden,,,,bör övervägas,,,,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,backward,,,1,,,,,,,
+signs of,,Anzeichen von,,(Anzeichen\svon|Hinweise\sauf),Hinweise auf,,,,,tecken på,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,68,,,,
+somewhat suspected,,irgendwie in Verdacht,,,etwas verdächtig,,,,,viss misstanke,,,,,,,,,,,,,,,,,,,,probableExistence,,backward,backward,,,,,,,,,1,
+speaks for,,spricht für,,,,,,,,talar för,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+strong suspicion,,starker Verdacht,,((stark(er|en)|ernsthaft(er|en))\sVerdacht|stark\sverdächtig),ernster Verdacht,stark verdächtig,,,,stark misstanke,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+suggest,"r""""""\bsuggest\b""""""",vorschlagen,,(schlagen)s.*?\bvor\b,,,,,,framkastar,låta förstå,påminna om,påminner om,påstå,påstår,,,,,,,,,,,,,,,probableExistence,,forward,discontinuous,1,,,1,1,,,,,
+suggested,,schlug vor,,(schlugen|schlug)s.*?\bvor\b,,,,,,föreslagen,föreslog,påminde om,påstod,,,,,,,,,,,,,,,,,probableExistence,,bidirectional,discontinuous,,,,1,1,,,1,,
+suggestion,,Vorschlag,,,,,,,,antydan,antagande,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+suggestive,,suggestiv,,"(suggestiv.{0,2})",,,,,,antyder,indikerar,tankeväckande,,,,,,,,,,wrong word,,,,,,,,probableExistence,,forward,forward,1,,,1,1,,,,,305
+suggests,"r""""""\bsuggests\b""""""",schlägt vor,,(schlägt)s.*?\bvor\b,,,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,discontinuous,1,,,1,1,,,,,
+supporting,,unterstützend,,,,,,,,stödjer,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+suppose,,annehmen,,(nimmt\s.*?\ban\b|annehmen),,,,,,förmodar,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,1,,
+suspect,,vermuten,,,verdächtigen,mutmaßlichen,,,,suspekt,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+suspected,,vermuteten,,"\b(vermutet.{0,2}|verdächtigt.{0,2})|mutmaßlich.{0,2}\b",verdächtigten,,,,,misstänkt,suspekt,men det är bra ttriggrar,,,antyda,väcka tanken på,väcka associationer till,låta ana,antydan,,,,,,,,,,,probableExistence,,bidirectional,bidirectional,,,,1,1,,,,,
+suspicion,,Verdacht,,,,,,,,misstanke,misstanken,,,,,,,,,,,as a compound word with diagnosis,,,,,,,,probableExistence,,forward,forward,,,,,,,,,1,
+suspicion for,,Verdacht auf,,,,,,,,misstanke om,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+suspicious,,verdächtig,,,misstrauisch,,,,,,misstänkta,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,1,,,1,1,,,,,313
+the possibility,,die Möglichkeit,,,die Chance,die Option,,,,,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+thought,,dachte,,,glaubte,vermutete,,,,fundering,funderingar,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+unclear,,unklar,,,ambig,,,,,otydlig,otydliga,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+unsure,,unsicher,,,,,,,,osäker,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,1,,,,,
+was seen as,,wurde als interpretiert,,"wurd.{0,2}\s(interpretiert|angesehen|verstanden)",wurde angesehen,wurde verstanden,,,,uppfattades som,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,bidirectional,,,,,,,,1,,
+whether,,ob,,,,,,,,om,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,,,,,,
+worrisome,,besorgniserregend,,,bedenklich,,,,,oroande,,,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,1,,,,,,,,,315
+would,,würde,,\b(würde|würden)\b,,,,,,skulle vilja,kunde,torde,,,,,,,,,,,,,,,,,,probableExistence,,forward,forward,,,,1,,,,,,
+absence of,,auf Grund des Fehlens von,,(auf\sGrund|aufgrund|wegen|mit)\s(des|dem)\s(Fehlen(s)?|Ausbleiben(s)?)\s(des|der|von|dieses|dieser),mit dem Fehlen von,,,,,frånvaro av,,,,,,,,,,,,,,absence de,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,55
+adequate to rule her out,,,,,,,,,,tillräckligt för att utesluta henne,,,,,,,,,,,,"wrong word / swedish: we don't rule out patient against disorde, we rule out disorder for patient",,"devraient être écartées, devraient être écartés",devraient être éliminées,devraient être éliminés,devrait être écartée,devrait être écarté,"devrait être éliminée, devrait être éliminé",probableNegatedExistence,,forward,,1,,,,,,,,,56
+adequate to rule her out for,"r""""""adequate\sto\srule\s(her|him)\sout\sfor""""""","angemessen, sie davon auszuschließen",,"(angemessen|hinreichend|adäquat)(,\s|\s)?(sie|ihn|es|den\sPatienten|\sdie\sPatient(en|in|innen))\s(davon|dafür|deswegen|von\s.*?)\s\b(auszuschließen|nicht\zu\sberücksichtigen|nicht\sin\sBetracht\szu\sziehen)",,,,,,adekvat att utesluta henne,,,,,,,,,,,,adequate and sufficient are both translated to tillräckligt. I'm not sure that's right.,adekvat\satt\sutesluta\s(henne|honom),,,,,,,probableNegatedExistence,,forward,discontinuous,1,,,,,,,,,14
+adequate to rule him out,,,,,,,,,,tillräckligt för att utesluta honom,adekvat att utesluta honom,,,,,,,,,,,adequate and sufficient are both translated to tillräckligt=enough.,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,10
+adequate to rule him out for,,,,,,,,,,adekvat för att utesluta honom,,,,,,,,,,,,"wrong word / swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,forward,1,,,,,,,,,36
+adequate to rule out,,,,,,,,,,adekvat att utesluta,,,,,,,,,,,,adequate and sufficient are both translated to tillräckligt. I'm not sure that's right.,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,16
+adequate to rule out for,,,,,,,,,,adekvat för att utesluta,,,,,,,,,,,,"wrong word / swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,43
+adequate to rule the patient out,,,,,,,,,,adekvat att utesluta patienten,,,,,,,,,,,,"wrong word / swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,32
+adequate to rule the patient out for,,,,,,,,,,adekvat för att utesluta att patienten,tillräckligt för att utesluta patienten mot,,,,,,,,,,,"wrong word / swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,64
+can rule her out,,,,,sie kann nicht in Betracht kommen,sie kommt nicht in Frage,,,,kan utesluta henne,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,33
+can rule her out against,"r""""""can\srule\s(her|him)\sout\sagainst""""""",sie kann davon ausgeschlossen werden,,(sie|er|es|der\sPatient|die\sPatient(en|in|innen))\s(kann|können)(\s(davon|dafür|deswegen|durch|auf\sGrund\von|von))?(\s.*?)?\s(ausgeschlossen|nicht\sberücksichtigt|nicht\sin\sBetracht\sgezogen)\swerden,sie kann dafür nicht in Betracht kommen,sie kann dafür nicht in Frage kommen,,,,kan utesluta henne mot,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",kan\sutesluta\s(henne|honom)\smot,,,,,,,probableNegatedExistence,,forward,discontinuous,1,,,,,,,,,69
+can rule her out for,,,,,,,,,,kan utesluta henne för,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,42
+can rule him out for,,,,,,,,,,kan utesluta att han,kan utesluta honom mot,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,57
+can rule out for,,,,,,,,,,kan utesluta,,,,,,,,,,,,missing preposition,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,41
+can rule the patient out,,,,,,,,,,kan utesluta att patienten har,,,,,,,,,,,,compound,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,24
+can rule the patient out for,,,,,,,,,,kan utesluta patienten,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,13
+cannot be excluded,"r""""""(cannot|can\snot)\sbe\sexcluded""""""",kann nicht ausgeschlossen werden,,(kann|können)(\sman)?\snicht(\svollkommen)?\s(ausgeschlossen|ausschließen)(\swerden)?,,,,,,kan inte uteslutas,kan inte exkluderas,kan ej exkluderas,kan ej uteslutas,,,,,,,,,,,,,,,,,probableNegatedExistence,,backward,backward,1,,,1,1,,,,,2
+cannot exclude,"r""cannot\sexclude""",kann man nicht ausschließen,,,,,,,,kan inte utesluta,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,backward,,,1,,,,,,,
+cannot see,,kann nicht gesehen,,(kann|können)(\sman)?\snicht\s(gefunden|gesehen|finden|sehen),kann man nicht sehen,,,,,kan inte se,,,,,,,,,,,,,,ne peut pas voir,ne peuvent pas voir,ne pouvons pas voir,,,,probableNegatedExistence,,forward,backward,1,1,,,,,,,,65
+could be ruled out,,könnte ausgeschlossen werden,,"(könnt.{0,2}|können|kann)(\sman)(\snicht)?\s(ausgeschlossen|ausschließen|in\sBetracht\sgezogen|unberücksichtigt(\sbleiben)?|berücksichtigt(\sbleiben)?)(\swerden)?",,,,,,kan uteslutas,kunde uteslutas,,,,,,,,,,,,,"pourraient être écartées, pourraient être écartés","pourraient être éliminées, pourraient être éliminés","pourrait être écartée, pourrait être écarté",pourrait être éliminée,pourrait être éliminé,,probableNegatedExistence,,bidirectional,backward,1,,,,,,,,,159
+could not exclude,,könnte nicht ausgeschlossen werden,,,,,,,,,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,backward,,,,1,1,,,,,
+denying,,verneinen,,(vernein(t|en|end|test)|bestreit(et|en|end|est)|weist\s.*?\bzurück|zurückweisend|lehn(t|en|st)\s.*?\bab\b|ablehnend),bestreiten,zurückweisen,,,,förnekar,,,,,,,,,,,,tens,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,58
+do not think these findings speak for,,"denken Sie nicht, dass diese Ergebnisse dafür sprechen",,"\b(denk.{0,2}|glaub.{0,2}|nehm.{0,2})\b\s(sie|Sie)?\snicht(\s.*?\ban\b)?,\sdass\s(d(ie|as|er|iese|ieses))\s(Befund|Ergebni(s|se)|Resulta(t|te)|Daten)\bdafür\b\ssprechen\b",,,,,,ej tycker att dessa fynd talar för,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,,,,5,,,,
+doubt,,Zweifel,,\b(Zweifel|Bedenken|Unsicherheit)\b,Bedenken,Unsicherheit,,,,betvivla,tvivla,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,,,,,,1,,
+doubtful,,zweifelhaft,,\b(zweifelhaft|fraglich|bedenklich|unsicher)\b,fraglich,unsicher,bedenklich,,,tvivlar,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,bidirectional,bidirectional,,,,1,1,,,,,
+exclude,,schließt man aus,,"\bschließ.{0,2}\b(\s.*?)?(\s(man|es))?\s\baus\b",,,,,,undanta,exkludera,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,discontinuous,,,,1,1,,,,,
+fails to reveal,,zeigt sich nicht,,(zeigt\ssichs\nicht|kommt\snicht\szum\sVorschein),kommt nicht zum Vorschein,,,,,misslyckas att visa,går inte att visa,,,,,,,,,,,wrong word sense,,,ne révèlent pas,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,45
+is not excluded,"r""""""(is|was|are|were)\snot\sexcluded""""""",wird nicht ausgeschlossen,,,,,,,,är inte uteslutet,är inte exkluderat,,,,,,,,,,,,(är|var)\sinte\suteslutet,,,,,,,probableNegatedExistence,,backward,backward,1,,,,,,,,,3
+is not indicated,,deutet sich nicht an,,((weist|weisen)\snicht(\sdarauf)?(\sauf\s.*?)?\s\bhin\b|(wird|werden)\snicht\sindiziert|deutet\ssich\snicht(\s.*?)?\san),wird nicht indiziert,weist nicht darauf hin,,,,ej är indicerad,,,,,,,,,,,,,,pas d'indice,,,,,,probableNegatedExistence,,backward,backward,,,,,,4,,,,
+low probability,,geringe Wahrscheinlichkeit,,"\b(gering.{0,2}|niedrig.{0,2})\b\s(Wahrscheinlichkeit(en)?|Chance(n)?)",geringe Chance,,,,,låg sannolikhet,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,1,,,,,,,
+no abnormal,,keine abnormale,,"\bkein.{0,2}\b\s(abnormale(n)?|unnormale(n)?|atypische(n)?|untypische(n)?)",keine unnormale,keine untypische,,,,ingen onormal,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,60
+no cause of,,keine Ursache für,,"\bkein.{0,2}\b\s(Grund|Gründe|Ursache(n)?)\sfür",kein Grund für,,,,,ingen orsak,ingen orsak till,,,,,,,,,,,,,ne cause pas,ne causent pas,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,66
+no complaints of,,keine Beschwerden zu,,"\bkein.{0,2}\b\s(Beschwerde(n)?|Klage(n)?|Einwände(n)?)\s(zu|über|hinsichtlich|gegen|in\sBezug\sauf|bezüglich|in\sHinsicht\sauf)",keine Einwände gegen,keine Klagen zu,,,,inga besvär av,inget besvär av,,,,,,,,,,,,,ne se plaint pas de,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,39
+no definite,"r""""""no[\s]*definite""""""",keine eindeutige,,"\bkein.{0,2}\b\s(definitiv(e|en)|eindeutig(e|en))",keine definitive,,,,,inga definitiva,ingen definitiv,,,,,ingen säker,inga säkra,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,,,,,,,,,30
+no demonstrated,,nicht nachgewiesen,,,nicht nachweisbar,,,,,ingen påvisad,,,,,,,,,,,,,,pas de preuve,,,,,,probableNegatedExistence,,forward,backward,,,,,,161,,,,
+no findings of,,keinen Hinweis auf,,"\bkein.{0,2}\b\s(Hinweis(e)?|Resultat(e)?|Beleg(e)?|Anzeichen|Nachweis(e)?|Nachweis(e)?)\s(auf|für|zu|über|gegen)",kein Anzeichen für,kein Nachweis für,,,,inga fynd av,inga slutsatser,,,,,,,,,,,wrong word,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,7
+no findings to indicate,,"keine Ergebnisse, die es andeuten",,"\bkein.{0,2}\b\s(Hinweis(e)?|Resultat(e)?|Beleg(e)?|Anzeichen|Nachweis(e)?|Nachweis(e)?)(,)?(\s)?(d(ie|as|er)|welche(s|r)?)\s(andeute(t|n)|verdeutlich(t|en)|darauf\shinweisen|auf\s.*?\s\bhinweisen\b)","kein Resultat, das darauf hinweist","kein Ergebnisse, die verdeutlichen",,,,inga fynd som tyder på,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,discontinuous,1,1,,,,,,,,25
+no grounds for,,kein Beleg für,,"\bkein.{0,2}\b\s(Beleg|Belege|Gründe|Grund)\sfür",keine Belege für,kein Grund für,keine Gründe für,,,inga hållpunkter för,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,,,,,,,1,
+no indication of,,keinen Hinweis auf,,"\bkein.{0,2}\b\s(Hinweis|Hinweise|Indiz|Indizien|Verdacht|Anhaltspunkt|Anzeichen|Zeichen|Informationen)\s(zu|von|über|hinsichtlich|gegen|in\sBezug\sauf|bezüglich|in\sHinsicht\sauf)",kein Indiz für,keine Hinweise für,keine Indizien für,keine Anzeichen für,,inget tyder på,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,,,,,,,1,
+no obvious,,kein offensichtlicher,,"\bkein.{0,2}\b\soffensichtlich.{0,2}\b",keine offensichtliche,keine offensichtlichen,,,,ingen uppenbar,,,,,,,,,,,,,,ne manifeste pas,,,,,,probableNegatedExistence,,forward,forward,1,,,,,,,,,38
+no sign of,,kein Zeichen,,kein Anzeichen von,"\bkein.{0,2}\b\s(Anzeichen|Zeichen)\svon",kein Anzeichen von,keine Anzeichen von,keine Zeichen von,,inga tecken på,,,,,,,,,,,,,,pas de signe de,pas de signe d',,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,29
+no significant,,keine signifikante,,"\bkein.{0,2}\b\s(signifikant{0,2}|deutlich{0,2}|wesentlich{0,2}|maßgeblich{0,2})",kein signifikanter,keinen signifikanten,,,,ingen signifikant,inget signifikant,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,35
+no signs of,,keine Anzeichen von,,,keine Anzeichen für,,,,,inga tecken på,,,,,,,,,,,,,,pas de signes de,pas de signes d',,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,59
+no suggestion of,,keinen Hinweis auf,,"\bkein.{0,2}\b\s(Hinweis|Hinweise|Indiz|Indizien|Verdacht|Anhaltspunkt|Anzeichen|Zeichen|Informationen)\s(zu|von|über|hinsichtlich|gegen|in\sBezug\sauf|bezüglich|in\sHinsicht\sauf)",,,,,,ingen antydan om,inga tecken på,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,9
+no sure,,nicht sicher,,(unsicher|ungewiss|nicht\ssicher),,,,,,inga säkra,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,,,,70,,,,
+not a sure,,nicht eine sichere,,"(nicht\sein.{0,2}\s\bsicher.{0,2}\b|ein.{0.2}\sunsicher.{0,2}|ein.{0.2}\sunsicher.{0,2})",nicht ein sicherer,,,,,ingen säker,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,,,,,,,1,
+not appreciate,,schätzen nicht,,"(schätz.{0,2}|würdig.{0,2}|achte.{0,2}|begrüß.{0,2})\snicht",achten nicht,würdigen nicht,begrüßen nicht,,,inte uppskattar,inte uppskatta,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,50
+not associated with,,keine Assoziation mit,,"(\bkein.{0,2}\b\sAssoziation\smit|nicht\smit\s.*?\b(assoziiert|verbunden)\b|steht\snicht\sim\sZusammenhang\mit|kein.{0,2}\s(Zusammenhang|Zusammenhänge|Verbindung)\smit)",nicht verbunden mit,,,,,inte är associerade med,inte associerad med,ej associerad med,,,,,,,,,,,,pas associé avec,pas associée avec,pas associés avec,pas associées avec,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,40
+not complain of,,keine Beschwerden,,"\bkein.{0,2}\b\s(Beschwerden|Klagen|Einwand|Einwände)\s(zu|über|in\sBezug\shinsichtlich\sbezüglich)",keine Klagen,,,,,inte klaga på,inte klagar på,,,,,,,,,,,tens,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,51
+not demonstrate,,zeigt kein,,"(nicht\s(angezeigt|nachweisbar|demonstriert)|zeigt\skein.{0,2})",nicht angezeigt,,,,,inte påvisa,,,,,,,,,,,,,,ne montre pas,ne montrent pas,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,52
+not feel,,nicht das Gefühl,,,fühlt sich nicht,,,,,inte känna,känner inte,,,,,,,,,,,,,ne ressent pas,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,37
+not know of,,nicht bekannt,,"(kein.{0,2}\s(Kentnis(se)?|Wissen)\s(über|von|zu|zum)",keine Kenntnis über,kein Wissen über,,,,inte känner till,utan kännedom,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,6
+not known to have,,"nicht bekannt, dass sie dies hat",,"(nicht\sbekannt|wissen nicht|keine\s(Kenntnis(se)?|Wissen)\sdarüber)(,)?(\s)?(\b(ein.{0,2}\s.*?|d.{0,2}\s.*?)\b)?(\s.*?)?zu\shaben ::: (nicht|keine\s(Kenntnis(se)?|Wissen)\sdarüber)(,)?(\s)?(sie|er|es|der\sPatient|die\sPatienten(in|innen)?)\s.*?\b(hat|haben)\b",,,,,,inte kända för att ha,inte känd att ha,inte känd för att ha,,,,,,,,,,wrong inflektion,,,,,,,,probableNegatedExistence,,forward,discontinuous,1,1,,,,,,,,68
+not reveal,,zeigt keinen,,"(zeig.{0,2})\skeine|komm.{0.2}\snicht\szum\sVorschein)",kommt nicht zum Vorschein,,,,,inte avslöja,inte påvisa,inte att avslöja,avslöjar inte,avslöjade inte,påvisade inte,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,12
+not ruled out,,nicht ausgeschlossen werden,,,,,,,,,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,backward,backward,,,,1,1,,,,,
+not see,,sehen nicht,,"(sieht|sehen|erkenn.{0,2}|find.{0,2})\s(nicht|kein.{0,2})",erkennen nicht,finden nicht,,,,inte se,,,,,,,,,,,,wrong word,,ne voit pas,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,44
+not think,,denkt nicht,,"(denk.{0,2}|glaub.{0,2}|nehm.{0,2}|nimmt)\snicht(\san)?",glaubt nicht,,,,,tycker inte,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,,,,8,,,,
+not to be,,nicht sein,,,,,,,,inte vara,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,backward,1,1,,,,,,,,53
+rather than,,eher,,eher\s.*?\bals\b,,,,,,snarare än,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,19
+sufficient to rule her out,,"ausreichend, um sie davon auszuschließen",,"(ausreichend|hinreichend|genügend)(\s.*?)?,(\s)?um\s(sie|ihn|es|den\sPatienten|die\sPatient(en|in|innen)?)\s((von|für|gegen|in\sBezug\sauf|bezüglich|hinsichtlich)\s.*?)?(auszuschließen|nicht\sin\sBetracht\szu\sziehen|nicht\szu\sberücksichtigen|unberücksichtigt\szu\slassen)","hinreichend, um sie nicht zu berücksichtigen","ausreichend, um sie nicht in Betracht zu ziehen",,,,tillräckligt för att utesluta henne,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,discontinuous,1,,,,,,,,,63
+sufficient to rule her out against,,,,,,,,,,tillräckligt för att utesluta henne mot,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,8
+sufficient to rule her out for,"r""""""sufficient\sto\srule\s(her|him)\sout\sfor""""""",,,,,,,,,tillräckligt för att utesluta henne för,tillräckligt för att utesluta henne mot,,,,,,,,,,,,tillräckligt\sför\satt\sutesluta\s(henne|honom)\sför,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,70
+sufficient to rule him out,,,,,,,,,,tillräckligt för att utesluta honom,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,27
+sufficient to rule him out against,"r""""""sufficient\sto\srule\s(him|her)\sout\sagainst""""""",,,,,,,,,tillräckligt för att utesluta honom,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",tillräckligt\sför\satt\sutesluta\s(henne|honom),,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,11
+sufficient to rule him out for,,,,,,,,,,tillräckligt för att utesluta honom,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,34
+sufficient to rule out,,,,,,,,,,tillräckligt för att utesluta,,,,,,,,,,,,,,suffisant pour éliminer,suffisant pour écarter,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,48
+sufficient to rule out against,,,,,,,,,,tillräckligt för att utesluta,,,,,,,,,,,,preposition,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,72
+sufficient to rule out for,,,,,,,,,,tillräckligt för att utesluta för,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,73
+sufficient to rule the patient out,,,,,,,,,,tillräckligt för att utesluta patienten,tillräckligt för att utesluta patienten mot,,,,,,,,,,,"compound / swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,61
+sufficient to rule the patient out against,,,,,,,,,,tillräckligt för att utesluta patienten mot,,,,,,,,,,,,compound,,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,71
+sufficient to rule the patient out for,,,,,,,,,,tillräckligt för att utesluta patienten för,,,,,,,,,,,,"swedish: we don't rule out patient against disorde, we rule out disorder for patient",,,,,,,,probableNegatedExistence,,forward,,1,,,,,,,,,47
+test for,,Test auf,,(Test(s)?|Untersuchung(en)?)\s(gegen|für|auf|zum|zu|zur),Untersuchung auf,,,,,test för,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,74
+to exclude,,um es auszuschließen,,(um\s.*?\s(nicht\sin\sBetracht\szu\sziehen|um\sauszuschließen|nicht\szu\sberücksichtigen|unberücksichtigt\szu\slassen),,,,,,att utesluta,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,discontinuous,1,1,,,,,,,,46
+unable to adequately assess,,"nicht fähig, dies angemessen zu beurteilen",,"(nicht(\sdazu)?\sin\sder\sLage|nicht(\sdazu)?\s fähig),(\s\s.*?)(\szu)?\s(beurteilen|prüfen|analysieren|untersuchen|angemessen|adäquat|sachlich|hinreichend|zufriedenstellend)(\szu)?","nicht in der Lage, dies angemessen zu beurteilen",,,,,oförmögen att korrekt bedöma,kan inte bedöma adekvat,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,discontinuous,,,1,,,,,,,
+unable to assess,,,,,"nicht in der Lage, dies zu beurteilen",,,,,kan inte bedöma,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,,,,1,,,,,,,
+unlikely,,unwahrscheinlich,,,nicht wahrscheinlich,,,,,osannolikt,otroligt,,,,,,,,,,,,,peu probable,,,,,,probableNegatedExistence,,backward,backward,1,1,,,,,,,,54
+unremarkable for,,nicht auffällig in Bezug auf,,,,,,,,ej anmärkningsvärd,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,49
+very little that speaks for,,"sehr wenig, was für dies spricht",,"sehr\swenig,\swas\sfür\s.*?\bspricht\b)",,,,,,mycket lite som talar för,,,,,,,,,,,,,,,,,,,,probableNegatedExistence,,forward,forward,,,,,,64,,,,
+without indication of,,ohne Angabe von,,"ohne(\s(ein.{0,2}|d.{0,2}))?\s(Verdacht|Angabe(n)?|Anzeichen|Information(en)?|Hinweis(e)?|Indikation(en))\s(von|d.{0,2}|ein.{0,2}|auf|zu|über)",ohne Verdacht auf,ohne Informationen zu,ohne einen Hinweis auf,,,utan indikation av,utan indikation på,utan indikation för,,,,,,,,,,word sense,,sans indication de,sans indication d',,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,62
+without sign of,,ohne ein Anzeichen von,,,ohne einen Hinweis auf,,,,,utan tecken på,,,,,,,,,,,,,,sans signe de,sans signe d',sans signe,,,,probableNegatedExistence,,forward,forward,1,1,,,,,,,,31
+by her husband,,von ihrem Mann,,von\s(ihrem|ihrer|seinem|seiner)\s(Mann|Ehemann|Gatte|Ehegatte|Frau|Ehefrau|Gattin|Ehegattin),von Ihrem Ehemann,,,,,av sin man,hennes man,sin man,,,,,,,,,,,,,,,,,,pseudoExperiencer,,forward,forward,,1,,,,,,,,
+by his wife,,von seiner Frau,,,von seiner Ehefrau,,,,,av sin hustru,av sin fru,hans fru,,,,,,,,,,,,,,,,,,pseudoExperiencer,,forward,forward,,1,,,,,,,,
+if negative,,falls negativ,,,wenn negativ,"im Fall, dass es negativ",,,,om negativ,,,,,,,,,,,,,,,,,,,,pseudoFuture,,forward,forward,,1,,,,,,,,
+know if,,"wissen, ob",,,,,,,,vet om,,,,,,,,,,,,,,,,,,,,pseudoFuture,,forward,forward,,1,,,,,,,,
+clinical history,,Krankengeschichte,,,Anamnese,,,,,anamnes,,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+day history of,,tägliches Krankheitsbild von,,täglich(e|es)\s(Anamnese|Krankheits(bild|geschichte)\s(des|der|von|dieser|dieses)),tägliche Anamnese von,,,,,dagars anamnes av,,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+detailed history,,ausführliche Krankheitsgeschichte,,"(ausführlich.{0,2}|detailliert.{0,2})\s(Krankheitsgeschicht.{0,2})|Anamnes.{0,2}))",detaillierte Krankheitsgeschichte,,,,,detaljerad historik,detaljerad anamnes,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+history and,,Krankengeschichte und,,,Anamnese und,Geschichte und,,,,historia och,anamnes och,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+history and examination,,Krankengeschichte und Untersuchung,,,Anamnese und Untersuchung,Geschichte und Untersuchung,,,,historia och undersökning,anamnes och undersökning,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+history and physical,,Krankengeschichte und ärztliche Untersuchung,,,Anamnese und ärztliche Untersuchung,Geschichte und ärztliche Untersuchung,,,,historia och fysiska,anamnes och fysiska,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+history from,,Krankengeschichte von,,(Geschichte|Krankengeschichte|Anamnese)\s(der|des|dieser|dieses|von),Anamnese von,,,,,historia från,anamnes från,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+history of chief complaint,,Krankengeschichte der Hauptbeschwerden,,(Geschichte|Krankengeschichte|Anamnese\s(der\smeisten\sBeschwerden|der\sHauptbeschwerden)),,,,,,historia av huvudsakliga klagomål,anamnes med huvudsakliga klagomål,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+history of present illness,,Krankengeschichte der aktuellen Krankheit,,(Geschichte|Krankengeschichte|Anamnese)\sder\s(aktuellen|gegenwärtigen|jetzigen|untersuchten)\sKrankheit,,Geschichte der aktuellen Krankheit,,,,historia av nuvarande sjukdom,nuvarande sjukdomar,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+history taking,,aufgenomme Krankengeschichte,,aufgenommene\s(Krankengeschichte|Anamnese|Geschichte),aufgenomme Anamnese,aufgenomme Geschichte,,,,anamnestagande,,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+"history, and",,"Krankengeschichte, und",,"(Krankengeschichte|Anamnese|Geschichte),(\s)?und","Anamnese, und","Geschichte, und",,,,historia och,anamnes och,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+"history, physical",,"Geschichte, ärztliche Untersuchung",,"(Krankengeschichte|Anamnese|Geschichte),(\s)?ärztliche\sUntersuchung",,"Krankengeschichte, ärztliche\ Untersuchung","Anamnese, ärztliche Untersuchung",,,"historia, fysisk","anamnes, fysisk",,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+patient history,,Patientengeschichte,,,Krankheitsgschichte des Patienten,Krankheitsgschichte der Patientin,Geschichte des Patienten,Anamnese der Patientin,,anamnes,,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+poor history,,lückenhafte Krankengeschichte,,(lückenhafte|mangelhafte|unzureichende)\s(Anamnese|Krankengeschichte|Geschichte),lückenhafte Anamnese,mangelhafte Krankheitsgeschichte,mangelhafte Berichte,,,dålig anamnes,tunn anamnes,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+social history,,sozialer Hintergrund,,(soziale(r|en|es)\s(Hintergrund|Geschichte|Umstände|Bedingungen|Milieu),soziale Umstände,soziale Geschichte,sozialen Bedingungen,soziales Milieu,,social historia,social anamnes,,,,,,,,,,,,,,,,,,,pseudoHistorical,,forward,forward,,1,,,,,,,,
+gram negative,,gramnegativ,,"\b(gram(-)?negativ.{0,2}\b",gramnegative,,,,,gramnegativ,,,,,,,,,,,,,,,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,148
+no change,,keine Änderung,,"kein.{0,2}(\s(definitive{0,1}|eindeutige.{0,1}))?\s(Veränderung(en)?|Änderung(en)?)",keine Veränderung,,,,,ingen förändring,,,,,,,,,,,,,,pas de changement,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,149
+no definite change,,keine eindeutige Änderung,,,keine eindeutige Veränderung,,,,,ingen bestämd förändring,,,,,,,,,,,,,,,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,137
+no increase,,keine Zunahme,,"kein.{0,2}\s(Zunahme|Anstieg|Erhöhung)",keine Erhöhung,keine Steigerung,kein Anstieg,,,ingen ökning,,,,,,,,,,,,,,pas d'augmentation,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,145
+no significant change,,keine Auffälligkeit,,"(keine\sAuffälligkeit)|kein.{0,2}\s(signifikant.{0,2}|deutlich.{0,2}|wesentlich.{0,2}|maßgeblich.{0,2})\s(Änderung.{0,2}|Veränderung.{0,2})",keine signifikante Änderung,keine deutliche Veränderung,keine signifikante Veränderung,,,ingen signifikant förändring,,,,,,,,,,,,,,pas de changement significatif,pas de changement net,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,143
+no significant interval change,,kein deutlicher Intervallwechsel,,"kein.{0,2}\s(signifikant.{0,2}|deutlich.{0,2}|wesentlich.{0,2})|maßgeblich.{0,2})\sIntervallwechsel",kein signifikanter Intervallwechsel,,,,,ingen signifikant intervallförändring,,,,,,,,,,,,,,,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,146
+no suspicious change,,keine verdächtige Veränderung,,"kein.{0,2}(\s.*?)?\s(Auffälligkeit(en)?|Änderung(en)?|Veränderung(en)?)",keine Auffälligkeiten,,,,,ingen misstänkt förändring,,,,,,,,,,,,,,,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,144
+not cause,,keine Ursache,,"(nicht|keine)\s(verursacht|ausgelöst|(ein.{0,2}\s)?Ursache(en)?\sfür|(von|durch|mittels|auf\sGrund|aufgrund)\s.*?\b(verursacht|ausgelöst))",,,,,,inte orsaka,,,,,,,,,,,,,,,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,138
+not drain,,keinen Abfluss,,"(fließt\snicht\sab|nicht\sabfließen|kein.{0,2}\sAbfluss)",,,,,,inte dränera,,,,,,,,,,,,,,,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,147
+not extend,,verlängert sich nicht,,"(nicht\s(verlängert|ausgedehnt)|kein.{0,2}\sVerlängerung)",,,,,,inte utvidga,,,,,,,,,,,,,,,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,140
+not necessarily,,nicht notwendigerweise,,,nicht unbedingt,nicht zwangsläufig,,,,inte nödvändigtvis,,,,,,,,,,,,,,pas nécessairement,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,141
+not only,,nicht nur,,,nicht ausschließlich,,,,,inte bara,,,,,,,,,,,,,,pas seulement,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,136
+positive study for,"r""positive (study|exam|examination)( for)""",positives Ergebnis für,,"positiv.{0,2}\s(Studie|Diagnose|Analyse|Untersuchung)\s(von|für|in\sBezug|auf|bezüglich|hinsichtlich)",positive Diagnose für,,,,,# positiv studie för,,,,,,,,,,,,,positiv(studie|examination|undersökning)(för),,,,,,,pseudoNegation,,forward,forward,1,,,,,,,,,152
+without difficulty,,ohne Schwierigkeit,,"ohne\s(Schwierigkeit.{0,2}|Problem.{0,2}|problemlos.{0,2})",problemlos,ohne Probleme,,,,utan svårighet,,,,,,,,,,,,,,sans difficulté,,,,,,pseudoNegation,,forward,forward,1,1,,,,,,,,139
+difficult to assess,,schwer nachzuweisen,,(schwierig|schwer)(s\zu)(\s.*?\s)(beurteilen|prüfen|zu\süberprüfen),schwer zu prüfen,schwer zu beurteilen,,,,svårbedömt huruvida,,,,,,,,,,,,,,,,,,,,uncertain,,forward,discontinuous,,,,,,50,,,,
+either,,entweder,,,,,,,,någondera,antingen,,,,,,,,,,,,,,,,,,,uncertain,,forward,forward,,,,1,1,,,,,
+equivocal,,ambig,,\b(ambig|zweideutig|doppeldeutig)\b,doppeldeutig,zweideutig,,,,tvetydig,,,,,,,,,,,,,,,,,,,,uncertain,,bidirectional,bidirectional,1,,,,,,,,,321
+uncertain,,unsicher,,,vage,,,,,tveksam,inte säker,oviss,,,,,,,,,,,,,,,,,,uncertain,,forward,forward,,,,1,1,,,,,
+versus,,versus,,(versus|vs.|vs|gegenüber),vs.,gegenüber,,,,versus,antingen,,,,,,,,,,,not an uncertainty marker,versus|\bvs\b|antingen,,,,,,,uncertain,,bidirectional,bidirectional,1,,,,,,,,,319
+although,,obwohl,,,wenngleich,obgleich,wenn auch,,,även om,,,,,,,,,,,,word sens,,,,,,,,,but_group,terminate,terminate,1,1,1,,,,,,,254
+apart from,,unabhängig davon,,(außer|unabhängig\s(davon|von)|mit\sAusnahme\s(davon|von)),außer dass,mit Ausnahme von,,,,bortsett från,,,,,,,,,,,,,,,,,,,,,but_group,terminate,terminate,1,1,1,,,,,,,289
+as a cause for,,als Ursache für,,als\s(Ursache|Grund|Quelle|Ätiologie|Ausgangspunkt|Krankheitsursache)\s(für|der|des|dieser|dieses|von),,,,,,som en orsak till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,251
+as a cause of,,als Ursache von,,,,,,,,som en orsak till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,225
+as a reason for,,als Grund für,,,,,,,,som skäl för,som orsak till,som anledning för,,,,,,,,,,word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,279
+as a reason of,,als Grund von,,,,,,,,som en följd av,som en orsak till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,266
+as a secondary cause for,,als zweite Ursache für,,,als Nebeneffekt für,,,,,som en sekundär orsak for,som en sekundär källa till,,,,,,,,,,,oldfashioned,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,212
+as a secondary cause of,,als zweite Ursache von,,,als Nebeneffekt von,,,,,som en sekundär orsak,som en sekundär orsak till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,233
+as a secondary etiology for,,als zweite Krankheitsursache für,,,,,,,,som en sekundär etiologi,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,273
+as a secondary etiology of,,als zweite Krankheitsursache von,,,,,,,,som en sekundär etiologi,som en sekundär etiologi till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,300
+as a secondary origin for,,als zweiter Ausgangspunkt für,,,,,,,,som sekundärt ursprung för,som en sekundär källa till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,230
+as a secondary origin of,,als zweiter Ausgangspunkt von,,,,,,,,som ett sekundärt ursprung,som en sekundär källa till,,,,,,,,,,,inflection,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,242
+as a secondary reason for,,als zweiter Grund für,,,,,,,,såsom en sekundär orsak till,som en sekundär orsak till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,297
+as a secondary reason of,,als zweiter Grund von,,,,,,,,som en sekundär följd av,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,259
+as a secondary source for,,als zweiter Anlass für,,,,,,,,som en sekundär orsak till,,,,,,,,,,,,word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,288
+as a secondary source of,,als zweiter Anlass von,,,,,,,,som en sekundär orsak till,,,,,,,,,,,,oldfashioned + prep,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,214
+as a source for,,als eine Quelle für,,,,,,,,som en källa för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,240
+as a source of,,als eine Quelle von,,,,,,,,som en källa till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,226
+as an cause for,,als eine Ursache für,,,,,,,,som en orsak till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,257
+as an cause of,,als eine Ursache von,,,,,,,,som en orsak till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,264
+as an etiology for,,als eine Krankheitsursache für,,,,,,,,som en etiologi för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,229
+as an etiology for,,als eine Ätiologie für,,,,,,,,som en etiologi för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,245
+as an etiology of,,als eine Krankheitsursache von,,,,,,,,som en etiologi,som en etiologi av,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,269
+as an etiology of,,als eine Ätiologie von,,,,,,,,som en etiologi,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,215
+as an origin for,,als ein Ausgangspunkt für,,,,,,,,som ett ursprung för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,241
+as an origin of,,als ein Ausgangspunkt von,,,,,,,,som ett ursprung för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,293
+as an reason for,,als ein Grund für,,,,,,,,som en orsak till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,228
+as an reason of,,als ein Grund von,,,,,,,,som en följd av,som en orsak till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,249
+as an secondary cause for,,als eine zweite Ursache für,,,als Nebeneffekt für,,,,,som en sekundär källa till,som en sekundär orsak till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,265
+as an secondary cause of,,als eine zweite Ursache von,,als\s(eine|die)?\s(Nebenursache|Nebenursachen|Nebengrund|Nebengründe)\s(für|d(er|es|ieser|ieses)|von),als Nebeneffekt von ,,,,,som en sekundär orsak,som en sekundär orsak till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,280
+as an secondary etiology for,,als eine zweite Krankheitsursache für,,,,,,,,som en sekundär etiologi för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,298
+as an secondary etiology of,,als eine zweite Krankheitsursache von,,,,,,,,som en sekundär etiologi,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,262
+as an secondary origin for,,als ein zweiter Ausgangspunkt für,,,,,,,,som sekundärt ursprung för,som en sekundär källa till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,291
+as an secondary origin of,,als ein zweiter Ausgangspunkt von,,,,,,,,som ett sekundärt ursprung,som en sekundär orsak till,,,,,,,,,,,inflection,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,301
+as an secondary reason for,,als ein zweiter Grund für,,,,,,,,som en sekundär orsak till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,218
+as an secondary reason of,,als ein zweiter Grund von,,,,,,,,som en sekundär följd av,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,219
+as an secondary source for,,als eine zweite Quelle für,,,,,,,,som sekundärt upphov till,,,,,,,,,,,,word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,294
+as an secondary source of,,als eine zweite Quelle von,,,,,,,,som en sekundär källa till,,,,,,,,,,,,prep,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,255
+as an source for,,als eine Quelle für,,,,,,,,som ett upphov till,,,,,,,,,,,,alternate word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,261
+as an source of,,als eine Quelle von,,,,,,,,som en källa till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,256
+as the cause for,,als die Ursache für,,als\sd(ie|er)\s(Ursache|Grund|Krankheitsursache|Ätiologie|Quelle|Ausgangspunkt|Anlass)\s(für|d(er|es|ieser|ieses)|von),,,,,,som orsaken till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,282
+as the cause of,,als die Ursache von,,,,,,,,som orsak till,som orsaken till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,299
+as the etiology for,,als die Krankheitsursache für,,,,,,,,såsom etiologin för,som etiologin för,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,243
+as the etiology of,,als die Krankheitsursache von,,,,,,,,såsom etiologi,som etiologin av,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,260
+as the origin for,,als der Ausgangspunkt für,,,,,,,,som ursprung för,som ursprung till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,274
+as the origin of,,als der Ausgangspunkt von,,,,,,,,som ursprung för,som ursprung till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,235
+as the reason for,,als der Grund für,,,,,,,,som orsaken till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,275
+as the reason of,,als der Grund von,,,,,,,,som följd av,som orsaken till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,277
+as the secondary cause for,,als die zweite Ursache für,,,als Nebeneffekt für ,,,,,som sekundär orsak för,som den sekundära orsaken till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,239
+as the secondary cause of,,als die zweite Ursache von,,,als Nebeneffekt von ,,,,,som den sekundära orsaken,som den sekundära orsaken till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,258
+as the secondary etiology for,,als die zweite Krankheitsursache für,,,,,,,,som den sekundära etiologin för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,213
+as the secondary etiology of,,als die zweite Krankheitsursache von,,,,,,,,som den sekundära etiologin av,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,227
+as the secondary origin for,,als der zweite Ausgangspunkt für,,,,,,,,som det sekundära ursprunget för,som den sekundära källan till,,,,,,,,,,,inflection,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,248
+as the secondary origin of,,als der zweite Ausgangspunkt von,,,,,,,,som sekundärt ursprung,som den sekundära källan till,,,,,,,,,,,inflection,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,217
+as the secondary reason for,,als der zweite Grund für,,,,,,,,som den sekundära orsaken till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,247
+as the secondary reason of,,als der zweite Grund von,,,,,,,,som den sekundära orsaken till,,,,,,,,,,,,word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,216
+as the secondary source for,,als die zweite Quelle für,,,,,,,,som den sekundära källan för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,296
+as the secondary source of,,als die zweite Quelle von,,,,,,,,som den sekundära orsaken till,som den sekundära källan till,,,,,,,,,,,word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,268
+as the source for,,als die Quelle für,,,,,,,,som orsak för,som källan för,,,,,,,,,,,word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,284
+as the source of,,als die Quelle von,,,,,,,,som orsak till,som källan till,,,,,,,,,,,word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,1,,,,,,,,283
+aside from,,abgesehen von,,(abgesehen\svon|abgesehen\sdavon|außer|unabhängig\sdavon|unabhängig\svon),unabhängig davon,außer,,,,bortsett från,,,,,,,,,,,,,,,,,,,,,but_group,terminate,terminate,1,1,,,,,,,,234
+because,,weil,,\b(weil|da)\b,da,,,,,eftersom,pga,på grund av,,,,,,,,,,,,,,,,,,,because_group,terminate,terminate,,1,,,,,,,,
+but,,aber,,,jedoch,dennoch,,,,men,,,,,,,,,,,,,,,,,,,,,but_group,terminate,terminate,1,1,,,,,,,,267
+cause for,,Ursache für,,"(Grund|Gründ.{0,2}|Anlass|Anlässen}|Ursach.{0,2} |Auslöser)\s(für|von|d(es|er|ieser|ieses))",Auslöser für,,,,,orsak till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,278
+cause of,,Ursache von,,,Auslöser von,Ursache von,,,,orsak,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,238
+causes for,,Ursachen für,,,Gründe für,Anlässe für,,,,orsaker till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,271
+causes of,,Ursachen von,,,Ursachen der,,,,,orsakerna till,orsaker till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,286
+comes in with,,kommt mit,,"(komm.{0,2})\smit",,,,,,kommer in med,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+coming in with,,,,,,,,,,kommer in med,inkommer med,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+complaining,,beschwerdend,,,klagend,,,,,klagar,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+complains,,beschwert sich,,"(beschwer.{0,2}|beklag.{0,2}\ssich",beklagt sich,,,,,klagar,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+currently,,gegenwärtig,,(gegenwärtig|zur\sZeit|z.Zt.|z.\sZt.|momentan|zum\sgegenwärtigen\sZeitpunkt),zur Zeit,z.Zt.,momentan,,,nuvaande,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+ED,,Notfallabteilung,,\b(Notfallabteilung|Notaufnahme|ER|ED)\b,Notaufnahme,,,,,akutmottagning,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+emergency department,,Notfallabteilung,,\b(Notfallabteilung|Notaufnahme|ER|ED)\b,Notaufnahme,,,,,akutmottagningen,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+etiology for,,Ätiologie des,,Ätiologie\s(des|der|von|vom|zu|zum|dieses|dieser),Krankheitsursache des,,,,,etiologi för,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,231
+etiology of,,,,,Krankheitsursache,,,,,etiologin av,etiologi av,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,224
+except,,außer,,\b(außer|mit\sAusnahmes\von)\b,mit Ausnahme von,,,,,utom,förutom,,,,,,,,,,,,,,,,,,,,but_group,terminate,terminate,1,1,,,,,,,,223
+for this reason,,aus diesem Grund,,(aus\sdiesem\sGrun(d|de)|weswegen|deshalb),deshalb,weswegen,,,,varför,,,,,,,,,,,,,,,,,,,,,because_group,terminate,terminate,,,,,,63,,,,
+her,,ihr,,"(\b(ihr.{0,2}\b)",,,,,,hennes,,,,,,,,,,,,,,,,,,,,,patient_group,terminate,terminate,,1,,,,,,,,
+his,,sein,,"(\bsein.{0,2})\b)",,,,,,hans,,,,,,,,,,,,,,,,,,,,,patient_group,terminate,terminate,,1,,,,,,,,
+however,,jedoch,,,aber,dennoch,,,,men,,,,,,,,,,,,,,,,,,,,,but_group,terminate,terminate,1,1,,,,,,,,252
+involving,,miteinbeziehen,,"(miteinbezieh.{0,2}|involviert.{0,2})",involvieren,,,,,involverande,innefattar,,,,,,,,,,,wrong word,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,211
+nevertheless,,dennoch,,,trotzdem,,,,,ändå,,,,,,,,,,,,,,,,,,,,,but_group,terminate,terminate,1,1,,,,,,,,295
+noted,,angemerkt,,,,,,,,noteras,noterades,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+origin for,,Grunde für,,(Ausgangspunkt|Quelle|Grund)\sfür,Quelle für,Ausgangspunkt für,,,,ursprung,ursprung till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,250
+origin of,,Grunde des,,(Ausgangspunkt|Quelle|Grund)\s(d(er|ieser|es|ieser)|von),Quelle des,Ausgangspunkt des,,,,ursprung,ursprung av,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,285
+origins for,,Gründe für,,(Ausgangspunkte|Quellen|Gründe)\sfür,Quellen für,Ausgangspunkte für,,,,ursprunget för,ursprung för,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,246
+origins of,,Gründe des,,(Ausgangspunkte|Quellen|Gründe)\s(d(er|ieser|es|ieser)|von),Gründe der,,,,,ursprung till,ursprunget till,ursprungen till,,,,,,,,,,prep+infelciton,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,292
+other possibilities of,,andere Möglichkeiten der,,andere\s(Möglichkeiten|Optionen)\s(d(er|ieser|es|ieser)|von),andere Optionen der,,,,,andra möjligheter,andra möjligheter till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,244
+patient,,Patient,,\bPatien(t|tin)\b,,,,,,patienten,,,,,,,,,,,,,,,,,,,,,patient_group,terminate,terminate,,1,,,,,,,,
+patient's,,Patienten,,,,,,,,patientens,,,,,,,,,,,,,,,,,,,,,patient_group,terminate,terminate,,1,,,,,,,,
+presented,,dargestellt,,,präsentiert,,,,,presenteras,presenterades,presenterade,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+presenting,,darstellend,,,präsentierend,,,,,presentera,debuterade,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+presents,,präsentiert,,(stellt\s.*?\b(dar|vor)\b),vorstellen,,,,,presenterar,debuterar,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+reason for,,Grund für,,(Grund|Anlass|Gründe|Anlässe)\s(für|zu|des|der|dieser|dieses),Anlass für,,,,,anledningen till,anledning till,,,,,,,,,,,,,,,,,,,,,terminate,terminate,1,,,,,,,,,220
+reason of,,Grund des,,(Anlass|Grund)\s(des|der),Anlass des,,,,,på grund av,orsak till,,,,,,,,,,,,,,,,,,,,,terminate,terminate,1,,,,,,,,,270
+reasons for,,Gründe für,,,Anlässe für,,,,,skäl till,,,,,,,,,,,,prep,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,232
+reasons of,,Gründe des,,(Anlässe|Gründe)\s(des|der),Anlässe des,,,,,anledning till,anledningar till,,,,,,,,,,,missing word,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,263
+recent,,kürzlich,,,neulich,jüngst,,,,nyligen,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+reported,,berichtete,,,dokumentierte,gemeldete,,,,rapporterade,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+reports,,Berichte,,,,,,,,rapporterar,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+secondary to,,sekundär,,,zweitrangig,,,,,sekundärt till,sekundär till,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,253
+since,,weil,,,da,aus diesem Grund,,,,sedan,,,,,,,,,,,,,,,,,,,,,because_group,terminate,terminate,,1,,,,,,,,
+source for,,Quelle für,,(Quelle|Quellen|Grund|Gründe)\s(für|des|der)),Grund für,,,,,orsak till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,290
+source of,,Quelle des,,,Grund des,,,,,källa till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,222
+sources for,,Quellen für,,,Gründe für,,,,,orsakerna till,källor till,,,,,,,,,,,word sens,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,287
+sources of,,Quellen des,,,Gründe des,,,,,källor till,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,281
+stated,,behauptete,,(gab\s.*?\s\ban\b|behauptete),postulierte,,,,,angivna,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+states,,behauptet,,,postuliert,,,,,anger,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+still,,noch,,,immer noch,,,,,fortfarande,ändå,,,,,,,,,,,word sens,,,,,,,,,but_group,terminate,terminate,1,1,,,,,,,,221
+sudden onset of,,plötzliches Auftreten von,,,,,,,,plötslig debut av,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,276
+though,,obwohl,,,,,,,,men,,,,,,,,,,,,,,,,,,,,,but_group,terminate,terminate,1,1,,,,,,,,236
+today,,heute,,,,,,,,idag,,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+trigger event for,,Auslöser für,,,,,,,,,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,1,,,,,,,,,
+was found,,wurde gefunden,,"(wurd.{0,2}\s(gefunden|ermittelt|entdeckt))",wurde entdeckt,wurde ermittelt,,,,befanns,hittades,,,,,,,,,,,,,,,,,,,,presentation_group,terminate,terminate,,1,,,,,,,,
+which,,dass,,",\s(der|die|das|den|dem|welch.{0,2})",welche,,,,,som,,,,,,,,,,,,,,,,,,,,,which_group,terminate,terminate,1,1,,,,,,,,237
+who,,der,,,die,das,,,,vilken,,,,,,,,,,,,,,,,,,,,,patient_group,terminate,terminate,,1,,,,,,,,
+with,,mit,,,,,,,,påföljande,,,,,,,,,,,,,,,,,,,,,secondaryTo_group,terminate,terminate,,,,,,92,,,,
+yet,,noch,,,dennoch,jedoch,schon,jetzt noch,noch immer,ännu,,,,,,,,,,,,,,,,,,,,,but_group,terminate,terminate,1,1,,,,,,,,272
+did not rule out,,wurde nicht ausgeschlossen,,,,,,,,,,,,,,,,,,,,,,n'a pas exclu (Zogg),n'a pas écarté,n'a pas éliminé,"pas écartée, pas écarté","pas écartées, pas écartés","pas éliminé, pas éliminés",pseudoNegation,,forward,backward,,,,,,,1,,,
+no evidence to suggest,,keinen Hinweis darauf anzunehmen,,"\bkein.{0,2}\b\s(Daten|Information(en)?|Auffälligkeit(en)?|Anhaltspunkt(e)?|Hinweis(e)?|Evidenz(en)?|Beweis(e)?|Nachweis(e)?)(,)?\sanzunehmen",,,,,,,,,,,,,,,,,,,,aucune preuve pour suggérer (Zogg),pas d'indice suggérant,pas de preuve suggérant,pas d'indice qui suggère,,,definiteNegatedExistence,,forward,forward,,,,,,,1,,,
+no interval change,,keinen Intervallwechsel,,"\bkein.{0,2}\b)\sIntervallwechsel",,,,,,,,,,,,,,,,,,,,pas de changement d'intervalle (Zogg),,,,,,definiteNegatedExistence,,forward,forward,,,,,,,1,,,
+no mammographic evidence of,,Mammografie zeigt keine Auffälligkeiten,,(Mammo(grafie(n)?|graphie(n)?)\szeigt(e|en)?\skeine\sAuffälligkeit(en)?|kein(e|en)?\smammo(grafischen|graphischen)\s(Hinweis(e)?|Anhaltspunkt(e)?|Beweis(e)?|Evidenz(en)?)),kein mammografischer Hinweis,,,,,,,,,,,,,,,,,,,aucune preuve de mammographie (Zogg),,,,,,definiteNegatedExistence,,forward,forward,,,,,,,1,,,
+no new evidence,,keine neuen Hinweise,,"\bkein.{0,2}\s(neue(en)?|weitere(n)?|radio(grafische(n)?|graphische(n)?))\s(Auffälligkeit(en)?|Daten|Information(en)?|Anhaltspunkt(e)?|Hinweis(e)?|Evidenz(en)?|Beweis(e)?|Nachweis(e)?)",,,,,,,,,,,,,,,,,,,,aucun élément nouveau (Zogg),pas de nouvelle preuve,,,,,definiteNegatedExistence,,forward,forward,,,,,,,1,,,
+no other evidence,,keine weiteren Hinweise,,,,,,,,,,,,,,,,,,,,,,aucune autre preuve (Zogg),pas d'autre indice,,,,,definiteNegatedExistence,,forward,forward,,,,,,,1,,,
+no radiographic evidence of,,keine radiografischer Hinweis,,,,,,,,,,,,,,,,,,,,,,aucune preuve radiographique de (Zogg),,,,,,definiteNegatedExistence,,forward,forward,,,,,,,1,,,
+not appear,,scheinen nicht,,\bschein(t|en)\b\snicht,,,,,,,,,,,,,,,,,,,,semble pas (Zogg),ne présente pas,,,,,probableNegatedExistence,,backward,backward,,,,,,,1,,,
+ro,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,bidirectional,,,,,,,,1,,,
+without any evidence of,,ohne Verdacht auf,,\bohne\s(Verdacht(s\auf)?|Information(en)?|Auffälligkeit(en)?|Anhaltspunkt(e)?|Hinweis(e)?|Evidenz(en)?|Beweis(e)?|Nachweis(e)?),ohne Auffälligkeiten zu,ohne Hinweise auf,ohne Anhaltspunkte zu,,,,,,,,,,,,,,,,,sans aucune preuve de (Zogg),sans indice de,sans indice d',sans indice,,,definiteNegatedExistence,,forward,forward,,,,,,,1,,,
+without evidence,,ohne Verdacht,,,ohne Auffälligkeiten,ohne Hinweise,ohne Anhaltspunkte,,,,,,,,,,,,,,,,,sans preuve (Zogg),,,,,,definiteNegatedExistence,,forward,forward,,,,,,,1,,,

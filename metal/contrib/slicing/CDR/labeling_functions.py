@@ -3,6 +3,7 @@
 import bz2
 import re
 
+from negex import NegEx
 from six.moves.cPickle import load
 from snorkel.lf_helpers import (
     get_tagged_text,
@@ -12,6 +13,47 @@ from snorkel.lf_helpers import (
     rule_regex_search_btw_BA,
     rule_regex_search_tagged_text,
 )
+
+####### Negation #######
+
+
+negex = NegEx()
+
+
+def cand_1_negation_left(c):
+    negated = negex.is_negated(c[0], "definite", "left", window=8)
+    if negated is False:
+        return -1
+    else:
+        return 0
+
+
+def cand_1_negation_right(c):
+    negated = negex.is_negated(c[0], "definite", "right", window=8)
+    if negated is False:
+        return -1
+    else:
+        return 0
+
+
+def cand_2_negation_left(c):
+    negated = negex.is_negated(c[1], "definite", "left", window=8)
+    if negated is False:
+        return -1
+    else:
+        return 0
+
+
+def cand_2_negation_right(c):
+    negated = negex.is_negated(c[1], "definite", "right", window=8)
+    if negated is False:
+        return -1
+    else:
+        return 0
+
+
+####### Negation #######
+
 
 with bz2.BZ2File("data/ctd.pkl.bz2", "rb") as ctd_f:
     ctd_unspecified, ctd_therapy, ctd_marker = load(ctd_f)
@@ -363,4 +405,10 @@ LFs = [
     LF_treat_d,
     LF_uncertain,
     LF_weak_assertions,
+    ####### Negation #######
+    cand_1_negation_left,
+    cand_1_negation_right,
+    cand_2_negation_left,
+    cand_2_negation_right,
+    ####### Negation #######
 ]
