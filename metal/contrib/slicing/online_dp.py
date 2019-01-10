@@ -66,7 +66,6 @@ class SliceDPModel(EndModel):
         verbose=True,
         **kwargs
     ):
-
         self.m = len(accs)  # number of labeling sources
         self.r = r
         self.reweight = reweight
@@ -88,7 +87,7 @@ class SliceDPModel(EndModel):
             **kwargs
         )
 
-        # Set reset "verbose" in config
+        # Set "verbose" in config
         self.update_config({"verbose": verbose})
 
         # Redefine loss fn
@@ -163,21 +162,21 @@ class SliceDPModel(EndModel):
 
     def forward_Y(self, x):
         """Returns the output of the Y head only, over re-weighted repr."""
-        b = x.shape[0]
+        batchsize = x.shape[0]
         xr = self.network(x)
 
         # Concatenate with the LF attention-weighted representation as well
         if self.reweight:
 
-            # A is the [bach_size, 1, m] Tensor representing the relative
+            # A is the [batch_size, 1, m] Tensor representing the relative
             # "confidence" of each LF on each example
             # NOTE: Should we be taking an absolute value / centering somewhere
             # before here to capture the "confidence" vs. prediction...?
-            A = F.softmax(self.forward_L(x)).unsqueeze(1)
+            A = F.softmax(abs(self.forward_L(x))).unsqueeze(1)
 
             # We then project the A weighting onto the respective features of
             # the L_head layer, and add these attention-weighted features to Xr
-            W = self.L_head.weight.repeat(b, 1, 1)
+            W = self.L_head.weight.repeat(batchsize, 1, 1)
             xr = torch.cat([xr, torch.bmm(A, W).squeeze()], 1)
 
         # Return the list of head outputs + DP head
