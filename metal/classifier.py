@@ -307,7 +307,7 @@ class Classifier(nn.Module):
                 optimizer.step()
 
                 # Keep running sum of losses
-                epoch_loss += loss.item()
+                epoch_loss += loss.item() * len(data[0])
 
                 # tqdm output
                 running_loss = epoch_loss / (len(data[0]) * (batch_num + 1))
@@ -521,11 +521,11 @@ class Classifier(nn.Module):
                 loss = 0
                 samples = 0
                 for batch_num, d in enumerate(data):
-                    samples += len(d)
+                    samples += len(d[0])
                     # Moving data to GPU
                     if self.config["use_cuda"]:
                         d = place_on_gpu(d)
-                    loss += float(loss_fn(*d).detach())
+                    loss += float(loss_fn(*d).detach()) * len(d[0])
                     # Using average validation loss
                 score = -loss / samples
                 scores.append(score)
