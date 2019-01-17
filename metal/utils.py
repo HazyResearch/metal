@@ -436,6 +436,7 @@ def place_on_gpu(data):
 
 #
 # LOGGING
+# TODO: move to separate logging.py file
 #
 class LogWriter(object):
     """Class for writing simple JSON logs at end of runs, with interface for
