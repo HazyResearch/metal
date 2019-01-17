@@ -22,3 +22,6 @@ build/
 # Local data and notebooks
 data/*
 notebooks/local/*
+
+# Logs
+events.out.tfevents*
