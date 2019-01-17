@@ -60,7 +60,17 @@ class DependencyLearner():
         for i,j in deps_all:
             if i < j:
                 deps.append((i,j))
-        return self._force_singleton(deps)
+        #return self._force_singleton(deps)
+        return deps
+
+    def NON_edges_from_rpca(self,thresh=1e-2):
+        non_deps_all = self._rpca(thresh)
+        non_deps = []
+        for i,j in non_deps_all:
+            if i < j:
+                non_deps.append((i,j))
+        #return self._force_singleton(deps)
+        return non_deps
     
     def _rpca(self,thresh=1.0,delta=1e-5):
         lam = 1/np.sqrt(self.m)
