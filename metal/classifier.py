@@ -195,7 +195,11 @@ class Classifier(nn.Module):
             model_class, **checkpoint_config, verbose=self.config["verbose"]
         )
 
-    def get_loss_fn(self):
+    def _get_loss_fn(self):
+        """
+        Unimplemented because this is an abstract class -- should be
+        completed in subclass to add appropriate loss function.
+        """
         raise NotImplementedError
 
     def _train_model(
@@ -325,8 +329,6 @@ class Classifier(nn.Module):
                     "validation_scoring_kwargs"
                 ]
                 self.eval()
-
-                # Adding loss function to support validating on loss
 
                 # Getting dev score
                 dev_score = self.score(
