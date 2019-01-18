@@ -436,6 +436,13 @@ class Classifier(nn.Module):
                 **optimizer_config["sgd_config"],
                 weight_decay=l2,
             )
+        elif opt == "rmsprop":
+            optimizer = optim.RMSprop(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                **optimizer_config["rmsprop_config"],
+                weight_decay=l2,
+            )
         elif opt == "adam":
             optimizer = optim.Adam(
                 parameters,
@@ -443,6 +450,16 @@ class Classifier(nn.Module):
                 **optimizer_config["adam_config"],
                 weight_decay=l2,
             )
+        elif opt == "sparseadam":
+            optimizer = optim.SparseAdam(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                **optimizer_config["adam_config"],
+            )
+            if l2:
+                raise Exception(
+                    "SparseAdam optimizer does not support weight_decay (l2 penalty)."
+                )
         else:
             raise ValueError(f"Did not recognize optimizer option '{opt}''")
         return optimizer

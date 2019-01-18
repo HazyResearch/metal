@@ -56,6 +56,8 @@ em_default_config = {
             "sgd_config": {"momentum": 0.9},
             # Optimizer - Adam
             "adam_config": {"betas": (0.9, 0.999)},
+            # Optimizer - RMSProp
+            "rmsprop_config": {},  # Use defaults
         },
         # Scheduler
         "scheduler_config": {
