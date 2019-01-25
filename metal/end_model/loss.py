@@ -11,7 +11,7 @@ class SoftCrossEntropyLoss(nn.Module):
             the kwarg name 'weight' is used to match CrossEntropyLoss
         reduction: how to combine the elmentwise losses
             'none': return an unreduced list of elementwise losses
-            'elementwise_mean': return the mean loss per elements
+            'mean': return the mean loss per elements
             'sum': return the sum of the elementwise losses
 
     Accepts:
@@ -19,7 +19,7 @@ class SoftCrossEntropyLoss(nn.Module):
         target: An [n, k] float tensor of target probabilities
     """
 
-    def __init__(self, weight=None, reduction="elementwise_mean"):
+    def __init__(self, weight=None, reduction="mean"):
         super().__init__()
         # Register as buffer is standard way to make sure gets moved /
         # converted with the Module, without making it a Parameter
@@ -42,7 +42,7 @@ class SoftCrossEntropyLoss(nn.Module):
             cum_losses += target[:, y].float() * y_loss
         if self.reduction == "none":
             return cum_losses
-        elif self.reduction == "elementwise_mean":
+        elif self.reduction == "mean":
             return cum_losses.mean()
         elif self.reduction == "sum":
             return cum_losses.sum()

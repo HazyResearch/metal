@@ -33,8 +33,8 @@ class LossTest(unittest.TestCase):
                 sce(Y_ps, Y_s).numpy(), ce(Y_ps, Y - 1).numpy(), places=5
             )
 
-        sce = SoftCrossEntropyLoss(reduction="elementwise_mean")
-        ce = nn.CrossEntropyLoss(reduction="elementwise_mean")
+        sce = SoftCrossEntropyLoss(reduction="mean")
+        ce = nn.CrossEntropyLoss(reduction="mean")
         for _ in range(10):
             Y_ps = torch.rand_like(Y_s)
             Y_ps = Y_ps / Y_ps.sum(dim=1).reshape(-1, 1)
