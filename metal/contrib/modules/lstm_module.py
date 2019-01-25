@@ -56,7 +56,6 @@ class EmbeddingsEncoder(Encoder):
 
         # Load provided embeddings or randomly initialize new ones
         if embeddings is None:
-
             # Note: Need to set seed here for deterministic init
             if seed is not None:
                 self._set_seed(seed)

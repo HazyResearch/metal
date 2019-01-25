@@ -4,8 +4,8 @@ import torch.nn.functional as F
 
 from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_default_config
+from metal.end_model.identity_module import IdentityModule
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.modules import IdentityModule
 from metal.utils import MetalDataset, hard_to_soft, recursive_merge_dicts
 
 

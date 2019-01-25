@@ -1,10 +1,11 @@
-from .loss import SoftCrossEntropyLoss
 from .end_model import EndModel
-from .baselines import LogisticRegression, SparseLogisticRegression
+from .identity_module import IdentityModule
+from .logreg import LogisticRegression
+from .loss import SoftCrossEntropyLoss
 
 __all__ = [
-    "SoftCrossEntropyLoss",
     "EndModel",
+    "IdentityModule",
     "LogisticRegression",
-    "SparseLogisticRegression",
+    "SoftCrossEntropyLoss",
 ]

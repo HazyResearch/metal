@@ -1,10 +1,14 @@
+import json
 import unittest
+from shutil import rmtree
 
 import numpy as np
 import torch
 
+from metal.contrib.modules import EmbeddingsEncoder, LSTMModule
 from metal.end_model import EndModel
-from metal.modules import EmbeddingsEncoder, Encoder, LSTMModule
+from metal.tuners.random_tuner import RandomSearchTuner
+from metal.utils import LogWriter
 
 n = 1000
 SEQ_LEN = 5
@@ -38,7 +42,7 @@ class LSTMTest(unittest.TestCase):
             bidirectional=False,
             verbose=False,
             lstm_reduction="attention",
-            encoder=EmbeddingsEncoder,
+            encoder_class=EmbeddingsEncoder,
             encoder_kwargs={"vocab_size": MAX_INT + 1},
         )
         em = EndModel(
@@ -75,7 +79,7 @@ class LSTMTest(unittest.TestCase):
             bidirectional=True,
             verbose=False,
             lstm_reduction="attention",
-            encoder=EmbeddingsEncoder,
+            encoder_class=EmbeddingsEncoder,
             encoder_kwargs={"vocab_size": MAX_INT + 2},
         )
         em = EndModel(
@@ -112,7 +116,7 @@ class LSTMTest(unittest.TestCase):
                 embed_size,
                 hidden_size,
                 verbose=False,
-                encoder=EmbeddingsEncoder,
+                encoder_class=EmbeddingsEncoder,
                 encoder_kwargs={
                     "vocab_size": MAX_INT + 2,
                     "freeze": freeze_embs,
@@ -200,7 +204,7 @@ class LSTMTest(unittest.TestCase):
             bidirectional=True,
             verbose=False,
             lstm_reduction="attention",
-            encoder=EmbeddingsEncoder,
+            encoder_class=EmbeddingsEncoder,
             encoder_kwargs={"vocab_size": MAX_INT + 2},
         )
         em = EndModel(
@@ -228,7 +232,7 @@ class LSTMTest(unittest.TestCase):
             bidirectional=True,
             verbose=False,
             lstm_reduction="attention",
-            encoder=EmbeddingsEncoder,
+            encoder_class=EmbeddingsEncoder,
             encoder_kwargs={"vocab_size": MAX_INT + 2},
         )
         em_2 = EndModel(
@@ -244,6 +248,82 @@ class LSTMTest(unittest.TestCase):
         )
         score_3 = em_2.score((Xs[2], Ys[2]), verbose=False)
         self.assertEqual(score_1, score_3)
+
+    def test_tuner_with_lstm(self):
+        """Test basic functionality *and* determinism/seeding of the tuner
+        with a more complex EndModel having an input module"""
+        # From tests/metal/modules/test_lstm.py; TODO: Refactor this
+        n = 1000
+        SEQ_LEN = 5
+        MAX_INT = 8
+        X = torch.randint(1, MAX_INT + 1, (n, SEQ_LEN)).long()
+        Y = torch.zeros(n).long()
+        needles = np.random.randint(1, SEQ_LEN - 1, n)
+        for i in range(n):
+            X[i, needles[i]] = MAX_INT + 1
+            Y[i] = X[i, needles[i] + 1]
+        Xs = [X[:800], X[800:900], X[900:]]
+        Ys = [Y[:800], Y[800:900], Y[900:]]
+
+        embed_size = 4
+        hidden_size = 10
+
+        # Set up RandomSearchTuner
+        tuner = RandomSearchTuner(
+            EndModel,
+            module_classes={"input_module": LSTMModule},
+            log_writer_class=LogWriter,
+            seed=123,
+        )
+
+        # EndModel init kwargs
+        init_kwargs = {
+            "seed": 123,
+            "batchnorm": True,
+            "k": MAX_INT,
+            "layer_out_dims": [hidden_size * 2, MAX_INT],
+            "input_batchnorm": True,
+            "verbose": False,
+        }
+
+        # LSTMModule args & kwargs
+        module_args = {}
+        module_args["input_module"] = (embed_size, hidden_size)
+        module_kwargs = {}
+        module_kwargs["input_module"] = {
+            "seed": 123,
+            "bidirectional": True,
+            "verbose": False,
+            "lstm_reduction": "attention",
+            "encoder_class": EmbeddingsEncoder,
+            "encoder_kwargs": {"vocab_size": MAX_INT + 2},
+        }
+
+        # Set up search space
+        # NOTE: No middle layers here, so these should return the same scores!
+        search_space = {"middle_dropout": [0.0, 1.0]}
+
+        # Run random grid search
+        tuner.search(
+            search_space,
+            (Xs[1], Ys[1]),
+            init_kwargs=init_kwargs,
+            train_args=[(Xs[0], Ys[0])],
+            train_kwargs={"n_epochs": 2},
+            module_args=module_args,
+            module_kwargs=module_kwargs,
+            verbose=False,
+        )
+
+        # Load the log
+        with open(tuner.report_path, "r") as f:
+            tuner_report = json.load(f)
+
+        # Confirm determinism
+        self.assertEqual(tuner_report[0]["score"], tuner_report[1]["score"])
+
+        # Clean up
+        rmtree(tuner.log_rootdir)
 
 
 if __name__ == "__main__":

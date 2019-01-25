@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from metal.end_model.identity_module import IdentityModule
 from metal.metrics import METRICS
-from metal.modules import IdentityModule
 from metal.multitask import MTEndModel, TaskGraph, TaskHierarchy
 
 
