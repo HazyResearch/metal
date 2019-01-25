@@ -92,7 +92,7 @@ class DependencyLearner():
             iterative_deps_mask.append(max_ind)
         return mu, iterative_deps_mask
 
-    def _run_optimization(self,O_inv, delta, lam, obj_option='default', const_option='default'): 
+    def _run_optimization(self,O_inv=None, delta=1e-5, lam=0.01, O=None, obj_option='default', const_option='default'): 
         """ Runs Robust PCA using over matrix O_inv given hyperparameters
             delta: noise control
             lambda: sparsity control
@@ -110,12 +110,12 @@ class DependencyLearner():
         # objective and constraint definition
         if obj_option == 'default':
             objective = cp.Minimize(cp.norm(L, "nuc") + lam*cp.pnorm(S,1))
-        if obj_option == 'no_diag':
+        if obj_option == 'likelihood':
             objective = cp.Minimize(cp.norm(L, "nuc") + lam*cp.pnorm(S-cp.diag(cp.diag(S)),1))
 
         if const_option == 'default':
             constraints = [cp.norm(O_inv-L-S, "fro") <= delta]
-        if const_option == 'no_diag':
+        if const_option == 'likelihood':
             constraints = [cp.norm(O_inv-L-S-cp.diag(cp.diag(S)), "fro") <= delt]
 
         # solve cvxpy problem

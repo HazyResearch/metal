@@ -81,8 +81,8 @@ class DataGenerator(object):
         class_balance="random",
         deps_graph=None,
         param_ranges={
-            "theta_acc_range": (-0.25, 1),
-            "theta_edge_range": (-1, 1),
+            "theta_acc_range": (0.0, 0.0),
+            "theta_edge_range": (0.5,0.5),
         },
         higher_order_cliques=True,
         **kwargs,
