@@ -1,22 +1,22 @@
 Author: Braden Hancock (github: bhancock8)  
 Last Updated: 11/20/18  
-MeTaL Version: 0.3.2  
+MeTaL Version: 0.4.0 
 
 # The MeTaL Commandments
 - [The MeTaL Commandments](#the-metal-commandments)
-	- [MeTaL Design Principles](#metal-design-principles)
-		- [Boundaries](#boundaries)
-		- [Single-task vs. Multi-task](#single-task-vs-multi-task)
-		- [Contrib](#contrib)
-		- [Dependencies](#dependencies)
-		- [Tests](#tests)
-		- [Config files](#config-files)
-		- [Classifiers](#classifiers)
-		- [Model Tuning](#model-tuning)
-	- [MeTaL Types and Terminology](#metal-types-and-terminology)
-	- [MeTaL Style](#metal-style)
-		- [Style guide](#style-guide)
-		- [Versioning:](#versioning)
+  - [MeTaL Design Principles](#metal-design-principles)
+    - [Boundaries](#boundaries)
+    - [Single-task vs. Multi-task](#single-task-vs-multi-task)
+    - [Contrib](#contrib)
+    - [Dependencies](#dependencies)
+    - [Tests](#tests)
+    - [Config files](#config-files)
+    - [Classifiers](#classifiers)
+    - [Model Tuning](#model-tuning)
+  - [MeTaL Types and Terminology](#metal-types-and-terminology)
+  - [MeTaL Style](#metal-style)
+    - [Style guide](#style-guide)
+    - [Versioning:](#versioning)
 
 ---
 ## MeTaL Design Principles
