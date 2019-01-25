@@ -24,4 +24,5 @@ data/*
 notebooks/local/*
 
 # Logs
+checkpoints/
 events.out.tfevents*
