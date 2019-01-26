@@ -11,8 +11,9 @@ from scipy.sparse import issparse
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
 from metal.analysis import confusion_matrix
+from metal.logging import Checkpointer, Logger
 from metal.metrics import metric_score
-from metal.utils import Checkpointer, place_on_gpu, recursive_merge_dicts
+from metal.utils import place_on_gpu, recursive_merge_dicts
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -126,7 +127,7 @@ class Classifier(nn.Module):
         self.apply(self._reset_module)
 
     def resume_training(self, train_data, model_path, dev_data=None):
-        """This model resume training of a classifier by reloading the appropiate state_dicts for each model
+        """This model resume training of a classifier by reloading the appropriate state_dicts for each model
 
         Args:
            train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
@@ -135,10 +136,7 @@ class Classifier(nn.Module):
             dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
         """
-        checkpointer = self._create_checkpointer(
-            self.config["train_config"]["checkpoint_config"]
-        )
-        restore_state = checkpointer.restore(model_path)
+        restore_state = self.checkpointer.restore(model_path)
         loss_fn = self._get_loss_fn()
         self.train()
         self._train_model(
@@ -193,12 +191,6 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError
 
-    def _create_checkpointer(self, checkpoint_config):
-        model_class = type(self).__name__
-        return Checkpointer(
-            model_class, **checkpoint_config, verbose=self.config["verbose"]
-        )
-
     def _train_model(
         self,
         train_data,
@@ -215,18 +207,12 @@ class Classifier(nn.Module):
             loss_fn: the loss function to minimize (maps *data -> loss)
             dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
-            log_writer: a metal.utils.LogWriter object for logging
             restore_state: a dictionary containing model weights (optimizer, main network) and training information
 
         If dev_data is not provided, then no checkpointing or
         evaluation on the dev set will occur.
         """
         train_config = self.config["train_config"]
-        evaluate_dev = dev_data is not None
-
-        # Add config to log_writer if provided
-        if log_writer is not None:
-            log_writer.add_config(self.config)
 
         # Convert data to DataLoaders
         train_loader = self._create_data_loader(train_data)
@@ -241,6 +227,10 @@ class Classifier(nn.Module):
                 print("Using GPU...")
             self.cuda()
 
+        # Set the logger (w/ tensorboard writer) and checkpointer
+        logger = Logger(self.config["logger_config"])
+        checkpointer = Checkpointer(self.config["checkpointer_config"])
+
         # Set the optimizer
         optimizer = self._set_optimizer(train_config)
 
@@ -248,24 +238,12 @@ class Classifier(nn.Module):
         scheduler_config = train_config["scheduler_config"]
         lr_scheduler = self._set_scheduler(scheduler_config, optimizer)
 
-        # Create the checkpointer if applicable
-        if evaluate_dev and train_config["checkpoint"]:
-            checkpointer = self._create_checkpointer(
-                train_config["checkpoint_config"]
-            )
-
         # which iteration to start with
         start_iteration = 0
 
         if len(restore_state) > 0:
-            # Check to see if dev set and checkpointing was turned on.
-            checkpointer = (
-                checkpointer
-                if evaluate_dev and train_config["checkpoint"]
-                else None
-            )
             self._restore_training_state(
-                restore_state, optimizer, lr_scheduler, checkpointer
+                restore_state, optimizer, lr_scheduler, self.checkpointer
             )
 
         # Train the model
@@ -281,6 +259,7 @@ class Classifier(nn.Module):
             )
 
             for batch_num, data in t:
+                batch_size = len(data[0])
 
                 # Moving data to GPU
                 if self.config["use_cuda"]:
@@ -289,7 +268,7 @@ class Classifier(nn.Module):
                 # Zero the parameter gradients
                 optimizer.zero_grad()
 
-                # Forward pass to calculate outputs
+                # Forward pass to calculate the average loss per example
                 loss = loss_fn(*data)
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
@@ -298,17 +277,23 @@ class Classifier(nn.Module):
                 # Backward pass to calculate gradients
                 loss.backward()
 
-                # TODO: restore this once it has unit tests
-                # Clip gradients
-                # if grad_clip:
-                #     torch.nn.utils.clip_grad_norm(
-                #        self.net.parameters(), grad_clip)
-
                 # Perform optimizer step
                 optimizer.step()
 
                 # Keep running sum of losses
                 epoch_loss += loss.item()
+
+                # Check if it's time to log/checkpoint
+                log_time, valid_time = self.logger.check(epoch, batch_size)
+                if log_time:
+                    log_metrics = self.calculate_log_metrics(dev_loader)
+                if valid_time:
+                    valid_metrics = self.calculate_valid_metrics(dev_loader)
+                    # Print metrics and (optionally) write to Tensorboard
+                    logger.record(metrics)
+                    # Save the best performing model so far
+                    if self.checkpointer:
+                        self.checkpoint(metrics)
 
                 # tqdm output
                 running_loss = epoch_loss / (len(data[0]) * (batch_num + 1))
@@ -319,72 +304,68 @@ class Classifier(nn.Module):
             # mistake of averaging batch losses when the last batch is an orphan
             train_loss = epoch_loss / len(train_loader.dataset)
 
-            # Checkpoint performance on dev
-            if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
-                val_metric = train_config["validation_metric"]
-                validation_scoring_kwargs = train_config[
-                    "validation_scoring_kwargs"
-                ]
-                self.eval()
-                dev_score = self.score(
-                    dev_loader,
-                    metric=val_metric,
-                    verbose=False,
-                    print_confusion_matrix=False,
-                    **validation_scoring_kwargs,
-                )
-                self.train()
+            # TODO: Uncomment and deal with me!
+            # # Checkpoint performance on dev
+            # if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
+            #     val_metric = train_config["validation_metric"]
+            #     validation_scoring_kwargs = train_config[
+            #         "validation_scoring_kwargs"
+            #     ]
+            #     self.eval()
+            #     dev_score = self.score(
+            #         dev_loader,
+            #         metric=val_metric,
+            #         verbose=False,
+            #         print_confusion_matrix=False,
+            #         **validation_scoring_kwargs,
+            #     )
+            #     self.train()
 
-                if train_config["checkpoint"]:
-                    checkpointer.checkpoint(
-                        self, epoch, dev_score, optimizer, lr_scheduler
-                    )
+            #     if train_config["checkpoint"]:
+            #         checkpointer.checkpoint(
+            #             self, epoch, dev_score, optimizer, lr_scheduler
+            #         )
 
-            # Apply learning rate scheduler
-            if (
-                lr_scheduler is not None
-                and epoch + 1 >= scheduler_config["lr_freeze"]
-            ):
-                if scheduler_config["scheduler"] == "reduce_on_plateau":
-                    if evaluate_dev:
-                        lr_scheduler.step(dev_score)
-                else:
-                    lr_scheduler.step()
+            # # Apply learning rate scheduler
+            # if (
+            #     lr_scheduler is not None
+            #     and epoch + 1 >= scheduler_config["lr_freeze"]
+            # ):
+            #     if scheduler_config["scheduler"] == "reduce_on_plateau":
+            #         if evaluate_dev:
+            #             lr_scheduler.step(dev_score)
+            #     else:
+            #         lr_scheduler.step()
 
-            # Report progress
-            if self.config["verbose"] and (
-                epoch % train_config["print_every"] == 0
-                or epoch == train_config["n_epochs"] - 1
-            ):
-                msg = f"[E:{epoch}]\tTrain Loss: {train_loss:.3f}"
-                if evaluate_dev:
-                    msg += f"\tDev {val_metric}: {dev_score:.3f}"
-                print(msg)
+            # # Report progress
+            # if self.config["verbose"] and (
+            #     epoch % train_config["print_every"] == 0
+            #     or epoch == train_config["n_epochs"] - 1
+            # ):
+            #     msg = f"[E:{epoch}]\tTrain Loss: {train_loss:.3f}"
+            #     if evaluate_dev:
+            #         msg += f"\tDev {val_metric}: {dev_score:.3f}"
+            #     print(msg)
 
-            # Also write train loss (+ dev score) to log_writer if available
-            if log_writer is not None and (
-                epoch % train_config["print_every"] == 0
-                or epoch == train_config["n_epochs"] - 1
-            ):
-                log_writer.add_scalar("train-loss", train_loss, epoch)
-                if evaluate_dev:
-                    log_writer.add_scalar("dev-score", dev_score, epoch)
-                log_writer.write()
+            # # Also write train loss (+ dev score) to log_writer if available
+            # if log_writer is not None and (
+            #     epoch % train_config["print_every"] == 0
+            #     or epoch == train_config["n_epochs"] - 1
+            # ):
+            #     log_writer.add_scalar("train-loss", train_loss, epoch)
+            #     log_writer.write()
 
         # Training complete- set model back to eval mode
         self.eval()
 
         # Restore best model if applicable
-        if evaluate_dev and train_config["checkpoint"]:
+        if self.checkpointer:
             checkpointer.load_best_model(model=self)
-
-            if log_writer is not None:
-                log_writer.log["checkpoint_iter"] = checkpointer.best_iteration
 
         # Print confusion matrix if applicable
         if self.config["verbose"]:
             print("Finished Training")
-            if evaluate_dev:
+            if dev_loader is not None:
                 self.score(
                     dev_loader,
                     metric=train_config["validation_metric"],
@@ -395,6 +376,19 @@ class Classifier(nn.Module):
         # Close log_writer if available
         if log_writer is not None:
             log_writer.close()
+
+    def calculate_metrics(self, dev_loader):
+        raise NotImplementedError
+
+    def checkpoint(self, metrics):
+        model = self
+        iteration = self.logger.unit_total
+        score = metrics["checkpoint_metric"]
+        optimizer = self.optimizer
+        scheduler = self.scheduler
+        self.checkpointer.checkpoint(
+            model, iteration, score, optimizer, scheduler
+        )
 
     def _create_dataset(self, *data):
         """Converts input data to the appropriate Dataset"""
