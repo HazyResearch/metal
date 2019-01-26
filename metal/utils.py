@@ -4,8 +4,6 @@ import os
 import random
 import shutil
 from collections import defaultdict
-from subprocess import check_output
-from time import strftime
 
 import numpy as np
 import torch
@@ -32,101 +30,6 @@ class MetalDataset(Dataset):
 
     def __len__(self):
         return len(self.X)
-
-
-class Checkpointer(object):
-    def __init__(
-        self,
-        model_class,
-        checkpoint_min=-1,
-        checkpoint_runway=0,
-        verbose=True,
-        checkpoint_destination="checkpoints",
-    ):
-        """Saves checkpoints as applicable based on a reported metric.
-
-        Args:
-            checkpoint_min (float): the initial "best" score to beat
-            checkpoint_runway (int): don't save any checkpoints for the first
-                this many iterations
-            checkpoint_destination(str): the path to save each training checkpoint
-        """
-        self.model_class = model_class
-        self.best_model = None
-        self.best_iteration = None
-        self.best_score = checkpoint_min
-        self.checkpoint_runway = checkpoint_runway
-        self.checkpoint_destination = checkpoint_destination
-        self.verbose = verbose
-        self.state = {}
-
-        if checkpoint_runway and verbose:
-            print(
-                f"No checkpoints will be saved in the first "
-                f"checkpoint_runway={checkpoint_runway} iterations."
-            )
-
-    def checkpoint(self, model, iteration, score, optimizer, lr_scheduler):
-        if iteration >= self.checkpoint_runway:
-            self.state["epoch"] = iteration
-            self.state["model"] = model.state_dict()
-            self.state["optimizer"] = optimizer.state_dict()
-            self.state["lr_scheduler"] = (
-                lr_scheduler.state_dict() if lr_scheduler else None
-            )
-            self.state["score"] = score
-
-            is_best = score > self.best_score
-            if is_best:
-                if self.verbose:
-                    print(
-                        f"Saving model at iteration {iteration} with best "
-                        f"score {score:.3f}"
-                    )
-                self.best_model = True
-                self.best_iteration = iteration
-                self.best_score = score
-                self.state["best_iteration"] = iteration
-                self.state["best_score"] = score
-
-            if not os.path.exists(self.checkpoint_destination):
-                os.makedirs(self.checkpoint_destination)
-
-            torch.save(
-                self.state,
-                f"{self.checkpoint_destination}/model_checkpoint_{iteration}.pth",
-            )
-
-            # Copies the model's best iteration (checkpoint) to a seperate file to reload after training
-            if is_best:
-                shutil.copyfile(
-                    f"{self.checkpoint_destination}/model_checkpoint_{iteration}.pth",
-                    f"{self.checkpoint_destination}/best_model.pth",
-                )
-
-    def load_best_model(self, model):
-        if self.best_model is None:
-            raise Exception(
-                f"Best model was never found. Best score = "
-                f"{self.best_score}"
-            )
-        if self.verbose:
-            print(
-                f"Restoring best model from iteration {self.best_iteration} "
-                f"with score {self.best_score:.3f}"
-            )
-            state = torch.load(
-                f"{self.checkpoint_destination}/best_model.pth",
-                map_location=torch.device("cpu"),
-            )
-            self.best_iteration = state["epoch"]
-            self.best_score = state["score"]
-            model.load_state_dict(state["model"])
-            return model
-
-    def restore(self, destination):
-        state = torch.load(f"{destination}")
-        return state
 
 
 def rargmax(x, eps=1e-8):
@@ -432,67 +335,3 @@ def place_on_gpu(data):
         return data.cuda()
     else:
         return ValueError(f"Data type {type(data)} not recognized.")
-
-
-#
-# LOGGING
-# TODO: move to separate logging.py file
-#
-class LogWriter(object):
-    """Class for writing simple JSON logs at end of runs, with interface for
-    storing per-iter data as well.
-
-    Args:
-        log_dir: (str) The path to the base log directory, or defaults to
-            current working directory.
-        run_dir: (str) The name of the sub-directory, or defaults to the date,
-            strftime("%Y_%m_%d").
-        run_name: (str) The name of the run + the time, or defaults to the time,
-            strftime("%H_%M_%S).
-
-        Log is saved to 'log_dir/run_dir/{run_name}_H_M_S.json'
-    """
-
-    def __init__(self, log_dir=None, run_dir=None, run_name=None):
-        start_date = strftime("%Y_%m_%d")
-        start_time = strftime("%H_%M_%S")
-
-        # Set logging subdirectory + make sure exists
-        log_dir = log_dir or os.getcwd()
-        run_dir = run_dir or start_date
-        self.log_subdir = os.path.join(log_dir, run_dir)
-        if not os.path.exists(self.log_subdir):
-            os.makedirs(self.log_subdir)
-
-        # Set JSON log path
-        if run_name is not None:
-            run_name = f"{run_name}_{start_time}"
-        else:
-            run_name = start_time
-        self.log_path = os.path.join(self.log_subdir, f"{run_name}.json")
-
-        # Initialize log
-        # Note we have a separate section for during-run metrics
-        commit = check_output(["git", "rev-parse", "--short", "HEAD"]).strip()
-        self.log = {
-            "start-date": start_date,
-            "start-time": start_time,
-            "commit": str(commit),
-            "config": None,
-            "run-log": defaultdict(list),
-        }
-
-    def add_config(self, config):
-        self.log["config"] = config
-
-    def add_scalar(self, name, val, i):
-        # Note: Does not handle deduplication of (name, val) entries w same i
-        self.log["run-log"][name].append((i, val))
-
-    def write(self):
-        """Dump JSON to file"""
-        with open(self.log_path, "w") as f:
-            json.dump(self.log, f, indent=1)
-
-    def close(self):
-        self.write()

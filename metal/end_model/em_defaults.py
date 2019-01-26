@@ -78,7 +78,7 @@ em_default_config = {
         # Checkpointer
         "checkpoint": True,
         "checkpoint_config": {
-            "checkpoint_min": -1,
+            "checkpoint_min": -1,  # DROP this
             # The initial best score to beat to merit checkpointing
             "checkpoint_runway": 0,
             # Don't start taking checkpoints until after this many epochs
