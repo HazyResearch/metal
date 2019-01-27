@@ -74,8 +74,8 @@ class HyperbandTuner(ModelTuner):
             # Print a message indicating what the below schedule means
             print(
                 "Table consists of tuples of "
-                "(num configs, num_resources_per_config)"
-                "which specify how many configs to run and"
+                "(num configs, num_resources_per_config) "
+                "which specify how many configs to run and "
                 "for how many epochs. "
             )
             print(

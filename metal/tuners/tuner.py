@@ -6,6 +6,7 @@ from itertools import cycle, product
 from time import strftime, time
 
 import numpy as np
+import pandas as pd
 
 from metal.utils import recursive_merge_dicts
 
@@ -207,6 +208,16 @@ class ModelTuner(object):
     def _save_report(self):
         with open(self.report_path, "w") as f:
             json.dump(self.run_stats, f, indent=1)
+
+    def run_stats_df(self):
+        """Returns self.run_stats over search params as pandas dataframe."""
+
+        run_stats_df = []
+        for x in self.run_stats:
+            search_results = {**x["search_params"]}
+            search_results["score"] = x["score"]
+            run_stats_df.append(search_results)
+        return pd.DataFrame(run_stats_df)
 
     def search(
         self,
