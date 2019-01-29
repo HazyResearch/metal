@@ -68,9 +68,11 @@ class Checkpointer(object):
                 self.best_iteration = iteration
                 self.best_score = score
 
-            # Save the checkpoint, overriding previous best if it exists
-            self.update_state(score, iteration, model, optimizer, lr_scheduler)
-            torch.save(self.state, f"{self.checkpoint_dir}/best_model.pth")
+                # Save the checkpoint, overriding previous best if it exists
+                self.update_state(
+                    score, iteration, model, optimizer, lr_scheduler
+                )
+                torch.save(self.state, f"{self.checkpoint_dir}/best_model.pth")
 
     def is_best(self, score):
         if self.best_score is None:
