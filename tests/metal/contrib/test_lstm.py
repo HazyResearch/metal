@@ -7,8 +7,8 @@ import torch
 
 from metal.contrib.modules import EmbeddingsEncoder, LSTMModule
 from metal.end_model import EndModel
+from metal.logging import LogWriter
 from metal.tuners.random_tuner import RandomSearchTuner
-from metal.utils import LogWriter
 
 n = 1000
 SEQ_LEN = 5

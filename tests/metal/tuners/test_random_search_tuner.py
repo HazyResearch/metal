@@ -6,8 +6,8 @@ import numpy as np
 import torch
 
 from metal.end_model import EndModel
+from metal.logging import LogWriter
 from metal.tuners.random_tuner import RandomSearchTuner
-from metal.utils import LogWriter
 
 
 class RandomSearchModelTunerTest(unittest.TestCase):
