@@ -1,4 +1,3 @@
-import re
 import time
 
 from metal.logging.tensorboard import TensorBoardWriter
@@ -6,9 +5,7 @@ from metal.metrics import METRICS as standard_metrics, metric_score
 
 
 class Logger(object):
-    """
-    TODO
-    """
+    """Tracks when it is time to calculate train/valid metrics and logs them"""
 
     def __init__(self, config, tb_config=None):
         # Strip split name from config keys
@@ -27,15 +24,22 @@ class Logger(object):
         else:
             self.tb_writer = None
 
+        assert isinstance(self.config["log_train_every"], int)
+        assert isinstance(self.config["log_valid_every"], int)
+        assert not (
+            self.config["log_valid_every"] % self.config["log_train_every"]
+        )
+
     def check(self, epoch, batch_size):
         """Returns True if the logging frequency has been met."""
         self.increment(epoch, batch_size)
         return self.unit_count >= self.config["log_train_every"]
 
     def increment(self, epoch, batch_size):
+        """Update the total and relative unit counts"""
         if self.log_unit == "seconds":
-            self.unit_count = self.timer.elapsed()
-            self.unit_total = self.timer.total()
+            self.unit_count = int(self.timer.elapsed())
+            self.unit_total = int(self.timer.total_elapsed())
         elif self.log_unit == "examples":
             self.unit_count += batch_size
             self.unit_total += batch_size
@@ -53,7 +57,7 @@ class Logger(object):
     def calculate_metrics(
         self, model, train_loader, valid_loader, metrics_dict
     ):
-        """TODO"""
+        """Add standard and custom metrics to metrics_dict"""
         # Check whether or not it's time for validation as well
         self.log_count += 1
         log_valid = not (self.log_count % self.valid_every_X)
@@ -113,23 +117,21 @@ class Logger(object):
         return standard_metrics_dict
 
     def log(self, metrics_dict):
-        """TODO"""
+        """Print calculated metrics and optionally write to Tensorboard"""
         if self.tb_writer:
-            for metric, value in metrics_dict.items():
-                if (
-                    self.tb_writer.tb_metrics is None
-                    or metric in self.tb_writer.tb_metrics
-                ):
-                    self.tb_writer.add_scalar(
-                        self, metric, value, self.log_unit
-                    )
-        # TODO: add print_freq control (can log more frequently than we print?)
+            self.write_to_tensorboard(metrics_dict)
+
         self.print(metrics_dict)
         self.reset()
 
     def print(self, metrics_dict):
         score_strings = []
         for metric, value in metrics_dict.items():
+            if (
+                metric not in self.config["log_train_metrics"]
+                and metric not in self.config["log_valid_metrics"]
+            ):
+                continue
             if isinstance(value, float):
                 score_strings.append(f"{metric}={value:0.3f}")
             else:
@@ -138,27 +140,40 @@ class Logger(object):
             f"[{self.unit_total} {self.log_unit}]: {', '.join(score_strings)}"
         )
 
+    def write_to_tensorboard(self, metrics_dict):
+        for metric, value in metrics_dict.items():
+            if (
+                self.tb_writer.tb_metrics is None
+                or metric in self.tb_writer.tb_metrics
+            ):
+                self.tb_writer.add_scalar(self, metric, value, self.log_unit)
+
     def reset(self):
         self.unit_count = 0
+        if self.timer is not None:
+            self.timer.update()
 
 
 class Timer(object):
     """Computes elapsed time."""
 
     def __init__(self):
-        """Initialize timer."""
+        """Initialize timer"""
         self.reset()
 
     def reset(self):
-        """Reset timer to zero."""
+        """Reset timer, completely obliterating history"""
         self.start = time.time()
-        self.click = self.start
+        self.update()
+
+    def update(self):
+        """Update timer with most recent click point"""
+        self.click = time.time()
 
     def elapsed(self):
-        """Get time elapsed since last click (elapsed() or reset())."""
+        """Get time elapsed since last recorded click"""
         elapsed = time.time() - self.click
-        self.click = time.time()
         return elapsed
 
-    def total(self):
+    def total_elapsed(self):
         return time.time() - self.start

@@ -216,6 +216,7 @@ class Classifier(nn.Module):
             start_iteration = 0
 
         # Train the model
+        metrics_hist = {}  # The most recently seen value for all metrics
         for epoch in range(start_iteration, train_config["n_epochs"]):
             # t = tqdm(
             #     enumerate(train_loader),
@@ -251,16 +252,16 @@ class Classifier(nn.Module):
                 self.optimizer.step()
 
                 # Calculate metrics, log, and checkpoint as necessary
-                self._execute_logging(
+                metrics_dict = self._execute_logging(
                     train_loader, valid_loader, loss, epoch, batch_size
                 )
+                metrics_hist.update(metrics_dict)
 
                 # tqdm output
                 # t.set_postfix(avg_loss=float(running_loss))
 
             # Apply learning rate scheduler
-            # print(metrics_hist)
-            # self._update_scheduler(lr_scheduler, epoch, metrics_hist)
+            self._update_scheduler(epoch, metrics_hist)
 
         self.eval()
 
@@ -470,8 +471,8 @@ class Classifier(nn.Module):
         self.optimizer = optimizer
 
     def _set_scheduler(self, train_config):
+        lr_scheduler = train_config["lr_scheduler"]
         lr_scheduler_config = train_config["lr_scheduler_config"]
-        lr_scheduler = lr_scheduler_config["lr_scheduler"]
         if lr_scheduler is None:
             lr_scheduler = None
         elif lr_scheduler == "exponential":
@@ -488,18 +489,19 @@ class Classifier(nn.Module):
             )
         self.lr_scheduler = lr_scheduler
 
-    def _update_scheduler(self, lr_scheduler, epoch, metrics_dict):
+    def _update_scheduler(self, epoch, metrics_dict):
         train_config = self.config["train_config"]
         lr_scheduler_config = train_config["lr_scheduler_config"]
-        if lr_scheduler is not None:
+        if self.lr_scheduler is not None:
             if epoch + 1 >= lr_scheduler_config["lr_freeze"]:
-                if lr_scheduler_config["lr_scheduler"] == "reduce_on_plateau":
+                if train_config["lr_scheduler"] == "reduce_on_plateau":
                     checkpoint_config = train_config["checkpoint_config"]
                     metric_name = checkpoint_config["checkpoint_metric"]
-                    score = metrics_dict[metric_name]
-                    lr_scheduler.step(score)
+                    score = metrics_dict.get(metric_name, None)
+                    if score is not None:
+                        self.lr_scheduler.step(score)
                 else:
-                    lr_scheduler.step()
+                    self.lr_scheduler.step()
 
     def _execute_logging(
         self, train_loader, valid_loader, loss, epoch, batch_size
@@ -508,8 +510,13 @@ class Classifier(nn.Module):
         self.running_loss += loss.item() * batch_size
         self.running_examples += batch_size
 
-        # Initialize metrics dict w/ average loss for current epoch
-        metrics_dict = {"train/loss": self.running_loss / self.running_examples}
+        # Initialize metrics dict
+        metrics_dict = {}
+        # Add average loss for current epoch if applicable (don't recalculate)
+        if "train/loss" in self.logger.config["log_train_metrics"]:
+            metrics_dict["train/loss"] = (
+                self.running_loss / self.running_examples
+            )
 
         if self.logger.check(epoch, batch_size):
             logger_metrics = self.logger.calculate_metrics(
@@ -525,6 +532,7 @@ class Classifier(nn.Module):
             self.running_loss = 0.0
             self.running_examples = 0
         self.train()
+        return metrics_dict
 
     def _checkpoint(self, metrics_dict):
         if self.checkpointer is None:

@@ -10,8 +10,8 @@ import torch.nn as nn
 
 from metal.end_model import EndModel, LogisticRegression
 from metal.end_model.identity_module import IdentityModule
+from metal.logging import LogWriter
 from metal.metrics import METRICS
-from metal.utils import LogWriter
 
 
 class EndModelTest(unittest.TestCase):

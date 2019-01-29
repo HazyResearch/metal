@@ -58,11 +58,11 @@ em_default_config = {
             # Optimizer - RMSProp
             "rmsprop_config": {},  # Use defaults
         },
-        # Scheduler (for learning rate)
+        # LR Scheduler (for learning rate)
+        "lr_scheduler": "reduce_on_plateau",
+        # [None, 'exponential', 'reduce_on_plateau']
+        # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
         "lr_scheduler_config": {
-            "lr_scheduler": "reduce_on_plateau",
-            # ['constant', 'exponential', 'reduce_on_plateau']
-            # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
             # Freeze learning rate initially this many epochs
             "lr_freeze": 0,
             # Scheduler - exponential
@@ -82,11 +82,13 @@ em_default_config = {
             "log_train_every": 1,  # How often train metrics are calculated (optionally logged to TB)
             "log_train_metrics": [
                 "train/loss"
-            ],  # Can include built-in and user-defined metrics
-            "log_train_metrics_func": None,  # A function that maps a model + dataloader to a dictionary of metrics
+            ],  # Metrics to calculate and report every `log_train_every` units. This can include built-in and user-defined metrics.
+            "log_train_metrics_func": None,  # A function that maps a model + train_loader to a dictionary of custom metrics
             "log_valid_every": 1,  # How frequently to evaluate on valid set (must be multiple of log_freq)
-            "log_valid_metrics": ["valid/accuracy"],
-            "log_valid_metrics_func": None,
+            "log_valid_metrics": [
+                "valid/accuracy"
+            ],  # Metrics to calculate and report every `log_valid_every` units; this can include built-in and user-defined metrics
+            "log_valid_metrics_func": None,  # A function that maps a model + valid_loader to a dictionary of custom metrics
         },
         # Tensorboard
         "tensorboard": False,  # If True, write certain metrics to Tensorboard
