@@ -158,7 +158,7 @@ class HyperbandTuner(ModelTuner):
     def search(
         self,
         search_space,
-        dev_data,
+        valid_data,
         init_args=[],
         train_args=[],
         init_kwargs={},
@@ -182,7 +182,7 @@ class HyperbandTuner(ModelTuner):
         Args:
             init_args: (list) positional args for initializing the model
             train_args: (list) positional args for training the model
-            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+            valid_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
             search_space: see ModelTuner's config_generator() documentation
             max_search: see ModelTuner's config_generator() documentation
@@ -233,7 +233,7 @@ class HyperbandTuner(ModelTuner):
                     score, model = self._test_model_config(
                         f"{band_index}_{i}",
                         configuration,
-                        dev_data,
+                        valid_data,
                         init_args=init_args,
                         train_args=train_args,
                         init_kwargs=init_kwargs,

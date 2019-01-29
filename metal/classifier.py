@@ -79,406 +79,33 @@ class Classifier(nn.Module):
         # By default, put model in eval mode; switch to train mode in training
         self.eval()
 
-    def _set_seed(self, seed):
-        self.seed = seed
-        if torch.cuda.is_available():
-            # TODO: confirm this works for gpus without knowing gpu_id
-            # torch.cuda.set_device(self.config['gpu_id'])
-            torch.backends.cudnn.enabled = True
-            torch.cuda.manual_seed(seed)
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
-
-    @staticmethod
-    def _reset_module(m):
-        """An initialization method to be applied recursively to all modules"""
-        raise NotImplementedError
-
-    def update_config(self, update_dict):
-        """Updates self.config with the values in a given update dictionary"""
-        self.config = recursive_merge_dicts(self.config, update_dict)
-
-    def save(self, destination, **kwargs):
-        """Serialize and save a model.
-
-        Example:
-            end_model = EndModel(...)
-            end_model.train_model(...)
-            end_model.save('my_end_model.pkl')
-        """
-        with open(destination, "wb") as f:
-            torch.save(self, f, **kwargs)
-
-    @staticmethod
-    def load(source, **kwargs):
-        """Deserialize and load a model.
-
-        Example:
-            end_model = EndModel.load('my_end_model.pkl')
-            end_model.score(...)
-        """
-        with open(source, "rb") as f:
-            return torch.load(f, **kwargs)
-
-    def reset(self):
-        """Initializes all modules in a network"""
-        # The apply(f) method recursively calls f on itself and all children
-        self.apply(self._reset_module)
-
-    def resume_training(self, train_data, model_path, dev_data=None):
-        """This model resume training of a classifier by reloading the appropriate state_dicts for each model
-
+    def predict_proba(self, X, **kwargs):
+        """Predicts soft probabilistic labels for an input X on all tasks
         Args:
-           train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
-                X (data) and Y (labels) for the train split
-            model_path: the path to the saved checpoint for resuming training
-            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
-                X (data) and Y (labels) for the dev split
-        """
-        restore_state = self.checkpointer.restore(model_path)
-        loss_fn = self._get_loss_fn()
-        self.train()
-        self._train_model(
-            train_data=train_data,
-            loss_fn=loss_fn,
-            dev_data=dev_data,
-            restore_state=restore_state,
-        )
-
-    def _restore_training_state(
-        self, restore_state, optimizer, lr_scheduler, checkpointer
-    ):
-        """Restores the model and optimizer states
-
-        This helper function restores the model's weight matricies as well as certain flags/variables
-        for a given training epoch. The idea is to allow a user to resume training at any epoch.
-
-        Args:
-            restore_state: the dictionary containing necessary data struicutres to resume training
-            optimizer: the optimizer object to load the state dict
-            lr_scheduler: the lr_scheduler object to load the state dict
-            checkpointer: The checkpointer needed to save the best model and iteration
-        """
-        if not restore_state:
-            return
-        else:
-            self.load_state_dict(restore_state["model"])
-            optimizer.load_state_dict(restore_state["optimizer"])
-            lr_scheduler.load_state_dict(restore_state["lr_scheduler"])
-            start_iteration = (
-                restore_state["epoch"] + 1
-            )  # start from next epooch
-            msg = f"Restored Checkpoint: Starting Epoch: {start_iteration}"
-
-            if "best_score" in restore_state:
-                checkpointer.best_iteration = restore_state["best_iteration"]
-                checkpointer.best_score = restore_state["best_score"]
-                checkpointer.best_model = True
-                msg += f"\t Best Iteration: {checkpointer.best_iteration}\t Best Dev Score:{checkpointer.best_score:.3f}"
-
-            print(msg)
-            return start_iteration
-
-    def train_model(self, *args, **kwargs):
-        """Trains a classifier
-
-        Take care to initialize weights outside the training loop and zero out
-        gradients at the beginning of each iteration inside the loop.
-
-        NOTE: self.train() is a method in nn.Module class, so we name this
-        method `train_model` so as not to conflict.
+            X: An appropriate input for the child class of Classifier
+        Returns:
+            An [n, k] np.ndarray of soft predictions
         """
         raise NotImplementedError
 
-    def _train_model(
-        self,
-        train_data,
-        loss_fn,
-        dev_data=None,
-        log_writer=None,
-        restore_state={},
-    ):
-        """The internal training routine called by train_model() after setup
+    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
+        """Predicts hard (int) labels for an input X on all tasks
 
         Args:
-            train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
-                X (data) and Y (labels) for the train split
-            loss_fn: the loss function to minimize (maps *data -> loss)
-            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
-                X (data) and Y (labels) for the dev split
-            restore_state: a dictionary containing model weights (optimizer, main network) and training information
+            X: The input for the predict_proba method
+            break_ties: A tie-breaking policy (see Classifier._break_ties())
+            return_probs: Return the predicted probabilities as well
 
-        If dev_data is not provided, then no checkpointing or
-        evaluation on the dev set will occur.
+        Returns:
+            Y_p: An n-dim np.ndarray of predictions in {1,...k}
+            [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
         """
-        train_config = self.config["train_config"]
-
-        # Convert data to DataLoaders
-        train_loader = self._create_data_loader(train_data)
-        dev_loader = self._create_data_loader(dev_data)
-
-        # Set model to train mode
-        self.train()
-
-        # Moving model to GPU
-        if self.config["use_cuda"]:
-            if self.config["verbose"]:
-                print("Using GPU...")
-            self.cuda()
-
-        # Set the logger (w/ tensorboard writer) and checkpointer
-        logger = Logger(self.config["logger_config"])
-        checkpointer = Checkpointer(self.config["checkpointer_config"])
-
-        # Set the optimizer
-        optimizer = self._set_optimizer(train_config)
-
-        # Set the lr scheduler
-        scheduler_config = train_config["scheduler_config"]
-        lr_scheduler = self._set_scheduler(scheduler_config, optimizer)
-
-        # which iteration to start with
-        start_iteration = 0
-
-        if len(restore_state) > 0:
-            self._restore_training_state(
-                restore_state, optimizer, lr_scheduler, self.checkpointer
-            )
-
-        # Train the model
-        for epoch in range(start_iteration, train_config["n_epochs"]):
-            epoch_loss = 0.0
-            t = tqdm(
-                enumerate(train_loader),
-                total=len(train_loader),
-                disable=(
-                    train_config["disable_prog_bar"]
-                    or not self.config["verbose"]
-                ),
-            )
-
-            for batch_num, data in t:
-                batch_size = len(data[0])
-
-                # Moving data to GPU
-                if self.config["use_cuda"]:
-                    data = place_on_gpu(data)
-
-                # Zero the parameter gradients
-                optimizer.zero_grad()
-
-                # Forward pass to calculate the average loss per example
-                loss = loss_fn(*data)
-                if torch.isnan(loss):
-                    msg = "Loss is NaN. Consider reducing learning rate."
-                    raise Exception(msg)
-
-                # Backward pass to calculate gradients
-                loss.backward()
-
-                # Perform optimizer step
-                optimizer.step()
-
-                # Keep running sum of losses
-                epoch_loss += loss.item()
-
-                # Check if it's time to log/checkpoint
-                log_time, valid_time = self.logger.check(epoch, batch_size)
-                if log_time:
-                    log_metrics = self.calculate_log_metrics(dev_loader)
-                if valid_time:
-                    valid_metrics = self.calculate_valid_metrics(dev_loader)
-                    # Print metrics and (optionally) write to Tensorboard
-                    logger.record(metrics)
-                    # Save the best performing model so far
-                    if self.checkpointer:
-                        self.checkpoint(metrics)
-
-                # tqdm output
-                running_loss = epoch_loss / (len(data[0]) * (batch_num + 1))
-                t.set_postfix(avg_loss=float(running_loss))
-
-            # Calculate average loss per training example
-            # Saving division until this stage protects against the potential
-            # mistake of averaging batch losses when the last batch is an orphan
-            train_loss = epoch_loss / len(train_loader.dataset)
-
-            # TODO: Uncomment and deal with me!
-            # # Checkpoint performance on dev
-            # if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
-            #     val_metric = train_config["validation_metric"]
-            #     validation_scoring_kwargs = train_config[
-            #         "validation_scoring_kwargs"
-            #     ]
-            #     self.eval()
-            #     dev_score = self.score(
-            #         dev_loader,
-            #         metric=val_metric,
-            #         verbose=False,
-            #         print_confusion_matrix=False,
-            #         **validation_scoring_kwargs,
-            #     )
-            #     self.train()
-
-            #     if train_config["checkpoint"]:
-            #         checkpointer.checkpoint(
-            #             self, epoch, dev_score, optimizer, lr_scheduler
-            #         )
-
-            # # Apply learning rate scheduler
-            # if (
-            #     lr_scheduler is not None
-            #     and epoch + 1 >= scheduler_config["lr_freeze"]
-            # ):
-            #     if scheduler_config["scheduler"] == "reduce_on_plateau":
-            #         if evaluate_dev:
-            #             lr_scheduler.step(dev_score)
-            #     else:
-            #         lr_scheduler.step()
-
-            # # Report progress
-            # if self.config["verbose"] and (
-            #     epoch % train_config["print_every"] == 0
-            #     or epoch == train_config["n_epochs"] - 1
-            # ):
-            #     msg = f"[E:{epoch}]\tTrain Loss: {train_loss:.3f}"
-            #     if evaluate_dev:
-            #         msg += f"\tDev {val_metric}: {dev_score:.3f}"
-            #     print(msg)
-
-            # # Also write train loss (+ dev score) to log_writer if available
-            # if log_writer is not None and (
-            #     epoch % train_config["print_every"] == 0
-            #     or epoch == train_config["n_epochs"] - 1
-            # ):
-            #     log_writer.add_scalar("train-loss", train_loss, epoch)
-            #     log_writer.write()
-
-        # Training complete- set model back to eval mode
-        self.eval()
-
-        # Restore best model if applicable
-        if self.checkpointer:
-            checkpointer.load_best_model(model=self)
-
-        # Print confusion matrix if applicable
-        if self.config["verbose"]:
-            print("Finished Training")
-            if dev_loader is not None:
-                self.score(
-                    dev_loader,
-                    metric=train_config["validation_metric"],
-                    verbose=True,
-                    print_confusion_matrix=True,
-                )
-
-        # Close log_writer if available
-        if log_writer is not None:
-            log_writer.close()
-
-    def calculate_metrics(self, dev_loader):
-        raise NotImplementedError
-
-    def checkpoint(self, metrics):
-        model = self
-        iteration = self.logger.unit_total
-        score = metrics["checkpoint_metric"]
-        optimizer = self.optimizer
-        scheduler = self.scheduler
-        self.checkpointer.checkpoint(
-            model, iteration, score, optimizer, scheduler
-        )
-
-    def _create_dataset(self, *data):
-        """Converts input data to the appropriate Dataset"""
-        # Make sure data is a tuple of dense tensors
-        data = [self._to_torch(x, dtype=torch.FloatTensor) for x in data]
-        return TensorDataset(*data)
-
-    def _create_data_loader(self, data, **kwargs):
-        """Converts input data into a DataLoader"""
-        if data is None:
-            return None
-
-        # Set DataLoader config
-        # NOTE: Not applicable if data is already a DataLoader
-        config = {
-            **self.config["train_config"]["data_loader_config"],
-            **kwargs,
-            "pin_memory": self.config["use_cuda"],
-        }
-
-        # Return data as DataLoader
-        if isinstance(data, (tuple, list)):
-            return DataLoader(self._create_dataset(*data), **config)
-        elif isinstance(data, Dataset):
-            return DataLoader(data, **config)
-        elif isinstance(data, DataLoader):
-            return data
+        Y_s = self._to_numpy(self.predict_proba(X, **kwargs))
+        Y_p = self._break_ties(Y_s, break_ties).astype(np.int)
+        if return_probs:
+            return Y_p, Y_s
         else:
-            raise ValueError("Input data type not recognized.")
-
-    def _set_optimizer(self, train_config):
-        optimizer_config = train_config["optimizer_config"]
-        opt = optimizer_config["optimizer"]
-
-        # We set L2 here if the class does not implement its own L2 reg
-        l2 = 0 if self.implements_l2 else train_config.get("l2", 0)
-
-        parameters = filter(lambda p: p.requires_grad, self.parameters())
-        if opt == "sgd":
-            optimizer = optim.SGD(
-                parameters,
-                **optimizer_config["optimizer_common"],
-                **optimizer_config["sgd_config"],
-                weight_decay=l2,
-            )
-        elif opt == "rmsprop":
-            optimizer = optim.RMSprop(
-                parameters,
-                **optimizer_config["optimizer_common"],
-                **optimizer_config["rmsprop_config"],
-                weight_decay=l2,
-            )
-        elif opt == "adam":
-            optimizer = optim.Adam(
-                parameters,
-                **optimizer_config["optimizer_common"],
-                **optimizer_config["adam_config"],
-                weight_decay=l2,
-            )
-        elif opt == "sparseadam":
-            optimizer = optim.SparseAdam(
-                parameters,
-                **optimizer_config["optimizer_common"],
-                **optimizer_config["adam_config"],
-            )
-            if l2:
-                raise Exception(
-                    "SparseAdam optimizer does not support weight_decay (l2 penalty)."
-                )
-        else:
-            raise ValueError(f"Did not recognize optimizer option '{opt}''")
-        return optimizer
-
-    def _set_scheduler(self, scheduler_config, optimizer):
-        scheduler = scheduler_config["scheduler"]
-        if scheduler is None:
-            lr_scheduler = None
-        elif scheduler == "exponential":
-            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, **scheduler_config["exponential_config"]
-            )
-        elif scheduler == "reduce_on_plateau":
-            lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, **scheduler_config["plateau_config"]
-            )
-        else:
-            raise ValueError(
-                f"Did not recognize scheduler option '{scheduler}''"
-            )
-        return lr_scheduler
+            return Y_p
 
     def score(
         self,
@@ -530,6 +157,383 @@ class Classifier(nn.Module):
         else:
             return scores
 
+    def train_model(self, *args, **kwargs):
+        """Trains a classifier
+
+        Take care to initialize weights outside the training loop and zero out
+        gradients at the beginning of each iteration inside the loop.
+
+        NOTE: self.train() is a method in nn.Module class, so we name this
+        method `train_model` so as not to conflict.
+        """
+        raise NotImplementedError
+
+    def _train_model(
+        self,
+        train_data,
+        loss_fn,
+        valid_data=None,
+        log_writer=None,
+        restore_state={},
+    ):
+        """The internal training routine called by train_model() after setup
+
+        Args:
+            train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the train split
+            loss_fn: the loss function to minimize (maps *data -> loss)
+            valid_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the dev split
+            restore_state: a dictionary containing model weights (optimizer, main network) and training information
+
+        If valid_data is not provided, then no checkpointing or
+        evaluation on the dev set will occur.
+        """
+        # Set model to train mode
+        self.train()
+        train_config = self.config["train_config"]
+
+        # Convert data to DataLoaders
+        train_loader = self._create_data_loader(train_data)
+        valid_loader = self._create_data_loader(valid_data)
+
+        # Move model to GPU
+        if self.config["use_cuda"]:
+            if self.config["verbose"]:
+                print("Using GPU...")
+            self.cuda()
+
+        # Set training components
+        self._set_optimizer(train_config)
+        self._set_scheduler(train_config)
+        self._set_logger(train_config)
+        self._set_checkpointer(train_config)
+
+        # Restore model if necessary
+        if len(restore_state) > 0:
+            start_iteration = self._restore_training_state(restore_state)
+        else:
+            start_iteration = 0
+
+        # Train the model
+        for epoch in range(start_iteration, train_config["n_epochs"]):
+            # t = tqdm(
+            #     enumerate(train_loader),
+            #     total=len(train_loader),
+            #     disable=(
+            #         train_config["disable_prog_bar"]
+            #         or not self.config["verbose"]
+            #     ),
+            # )
+            self.running_loss = 0.0
+            self.running_examples = 0
+            for batch_num, data in enumerate(train_loader):
+                # NOTE: actual batch_size may not equal config"s target batch_size
+                batch_size = len(data[0])
+
+                # Moving data to GPU
+                if self.config["use_cuda"]:
+                    data = place_on_gpu(data)
+
+                # Zero the parameter gradients
+                self.optimizer.zero_grad()
+
+                # Forward pass to calculate the average loss per example
+                loss = loss_fn(*data)
+                if torch.isnan(loss):
+                    msg = "Loss is NaN. Consider reducing learning rate."
+                    raise Exception(msg)
+
+                # Backward pass to calculate gradients
+                loss.backward()
+
+                # Perform optimizer step
+                self.optimizer.step()
+
+                # Calculate metrics, log, and checkpoint as necessary
+                self._execute_logging(
+                    train_loader, valid_loader, loss, epoch, batch_size
+                )
+
+                # tqdm output
+                # t.set_postfix(avg_loss=float(running_loss))
+
+            # Apply learning rate scheduler
+            # print(metrics_hist)
+            # self._update_scheduler(lr_scheduler, epoch, metrics_hist)
+
+        self.eval()
+
+        # Restore best model if applicable
+        if self.checkpointer:
+            self.checkpointer.load_best_model(model=self)
+
+        # Print confusion matrix if applicable
+        if self.config["verbose"]:
+            print("Finished Training")
+            if valid_loader is not None:
+                self.score(
+                    valid_loader,
+                    metric=train_config["validation_metric"],
+                    verbose=True,
+                    print_confusion_matrix=True,
+                )
+
+    def save(self, destination, **kwargs):
+        """Serialize and save a model.
+
+        Example:
+            end_model = EndModel(...)
+            end_model.train_model(...)
+            end_model.save("my_end_model.pkl")
+        """
+        with open(destination, "wb") as f:
+            torch.save(self, f, **kwargs)
+
+    @staticmethod
+    def load(source, **kwargs):
+        """Deserialize and load a model.
+
+        Example:
+            end_model = EndModel.load("my_end_model.pkl")
+            end_model.score(...)
+        """
+        with open(source, "rb") as f:
+            return torch.load(f, **kwargs)
+
+    def update_config(self, update_dict):
+        """Updates self.config with the values in a given update dictionary"""
+        self.config = recursive_merge_dicts(self.config, update_dict)
+
+    def reset(self):
+        """Initializes all modules in a network"""
+        # The apply(f) method recursively calls f on itself and all children
+        self.apply(self._reset_module)
+
+    @staticmethod
+    def _reset_module(m):
+        """An initialization method to be applied recursively to all modules"""
+        raise NotImplementedError
+
+    def resume_training(self, train_data, model_path, valid_data=None):
+        """This model resume training of a classifier by reloading the appropriate state_dicts for each model
+
+        Args:
+           train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the train split
+            model_path: the path to the saved checpoint for resuming training
+            valid_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the dev split
+        """
+        restore_state = self.checkpointer.restore(model_path)
+        loss_fn = self._get_loss_fn()
+        self.train()
+        self._train_model(
+            train_data=train_data,
+            loss_fn=loss_fn,
+            valid_data=valid_data,
+            restore_state=restore_state,
+        )
+
+    def _restore_training_state(self, restore_state):
+        """Restores the model and optimizer states
+
+        This helper function restores the model"s weight matricies as well as certain flags/variables
+        for a given training epoch. The idea is to allow a user to resume training at any epoch.
+
+        Args:
+            restore_state: the dictionary containing necessary data struicutres to resume training
+            optimizer: the optimizer object to load the state dict
+            lr_scheduler: the lr_scheduler object to load the state dict
+            checkpointer: The checkpointer needed to save the best model and iteration
+        """
+        if not restore_state:
+            return
+        else:
+            self.load_state_dict(restore_state["model"])
+            self.optimizer.load_state_dict(restore_state["optimizer"])
+            self.lr_scheduler.load_state_dict(restore_state["lr_scheduler"])
+            start_iteration = (
+                restore_state["epoch"] + 1
+            )  # start from next epooch
+            msg = f"Restored Checkpoint: start_iteration={start_iteration}"
+
+            if "best_score" in restore_state:
+                self.checkpointer.best_iteration = restore_state[
+                    "best_iteration"
+                ]
+                self.checkpointer.best_score = restore_state["best_score"]
+                self.checkpointer.best_model = True
+                msg += (
+                    f"\t Best Iteration: {self.checkpointer.best_iteration}"
+                    f"\t Best Dev Score:{self.checkpointer.best_score:.3f}"
+                )
+
+            print(msg)
+            return start_iteration
+
+    def _create_dataset(self, *data):
+        """Converts input data to the appropriate Dataset"""
+        # Make sure data is a tuple of dense tensors
+        data = [self._to_torch(x, dtype=torch.FloatTensor) for x in data]
+        return TensorDataset(*data)
+
+    def _create_data_loader(self, data, **kwargs):
+        """Converts input data into a DataLoader"""
+        if data is None:
+            return None
+
+        # Set DataLoader config
+        # NOTE: Not applicable if data is already a DataLoader
+        config = {
+            **self.config["train_config"]["data_loader_config"],
+            **kwargs,
+            "pin_memory": self.config["use_cuda"],
+        }
+
+        # Return data as DataLoader
+        if isinstance(data, (tuple, list)):
+            return DataLoader(self._create_dataset(*data), **config)
+        elif isinstance(data, Dataset):
+            return DataLoader(data, **config)
+        elif isinstance(data, DataLoader):
+            return data
+        else:
+            raise ValueError("Input data type not recognized.")
+
+    def _set_seed(self, seed):
+        self.seed = seed
+        if torch.cuda.is_available():
+            # TODO: confirm this works for gpus without knowing gpu_id
+            # torch.cuda.set_device(self.config["gpu_id"])
+            torch.backends.cudnn.enabled = True
+            torch.cuda.manual_seed(seed)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+
+    def _set_logger(self, train_config):
+        if train_config["tensorboard"]:
+            tb_config = train_config["tensorboard_config"]
+        else:
+            tb_config = None
+
+        self.logger = Logger(train_config["logger_config"], tb_config)
+
+    def _set_checkpointer(self, train_config):
+        if train_config["checkpoint"]:
+            self.checkpointer = Checkpointer(train_config["checkpoint_config"])
+        else:
+            self.checkpointer = None
+
+    def _set_optimizer(self, train_config):
+        optimizer_config = train_config["optimizer_config"]
+        opt = optimizer_config["optimizer"]
+
+        # We set L2 here if the class does not implement its own L2 reg
+        l2 = 0 if self.implements_l2 else train_config.get("l2", 0)
+
+        parameters = filter(lambda p: p.requires_grad, self.parameters())
+        if opt == "sgd":
+            optimizer = optim.SGD(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                **optimizer_config["sgd_config"],
+                weight_decay=l2,
+            )
+        elif opt == "rmsprop":
+            optimizer = optim.RMSprop(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                **optimizer_config["rmsprop_config"],
+                weight_decay=l2,
+            )
+        elif opt == "adam":
+            optimizer = optim.Adam(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                **optimizer_config["adam_config"],
+                weight_decay=l2,
+            )
+        elif opt == "sparseadam":
+            optimizer = optim.SparseAdam(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                **optimizer_config["adam_config"],
+            )
+            if l2:
+                raise Exception(
+                    "SparseAdam optimizer does not support weight_decay (l2 penalty)."
+                )
+        else:
+            raise ValueError(f"Did not recognize optimizer option '{opt}'")
+        self.optimizer = optimizer
+
+    def _set_scheduler(self, train_config):
+        lr_scheduler_config = train_config["lr_scheduler_config"]
+        lr_scheduler = lr_scheduler_config["lr_scheduler"]
+        if lr_scheduler is None:
+            lr_scheduler = None
+        elif lr_scheduler == "exponential":
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                self.optimizer, **lr_scheduler_config["exponential_config"]
+            )
+        elif lr_scheduler == "reduce_on_plateau":
+            lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer, **lr_scheduler_config["plateau_config"]
+            )
+        else:
+            raise ValueError(
+                f"Did not recognize lr_scheduler option '{lr_scheduler}'"
+            )
+        self.lr_scheduler = lr_scheduler
+
+    def _update_scheduler(self, lr_scheduler, epoch, metrics_dict):
+        train_config = self.config["train_config"]
+        lr_scheduler_config = train_config["lr_scheduler_config"]
+        if lr_scheduler is not None:
+            if epoch + 1 >= lr_scheduler_config["lr_freeze"]:
+                if lr_scheduler_config["lr_scheduler"] == "reduce_on_plateau":
+                    checkpoint_config = train_config["checkpoint_config"]
+                    metric_name = checkpoint_config["checkpoint_metric"]
+                    score = metrics_dict[metric_name]
+                    lr_scheduler.step(score)
+                else:
+                    lr_scheduler.step()
+
+    def _execute_logging(
+        self, train_loader, valid_loader, loss, epoch, batch_size
+    ):
+        self.eval()
+        self.running_loss += loss.item() * batch_size
+        self.running_examples += batch_size
+
+        # Initialize metrics dict w/ average loss for current epoch
+        metrics_dict = {"train/loss": self.running_loss / self.running_examples}
+
+        if self.logger.check(epoch, batch_size):
+            logger_metrics = self.logger.calculate_metrics(
+                self, train_loader, valid_loader, metrics_dict
+            )
+            metrics_dict.update(logger_metrics)
+            self.logger.log(metrics_dict)
+
+            # Checkpoint if applicable
+            self._checkpoint(metrics_dict)
+
+            # Reset running loss and examples counts
+            self.running_loss = 0.0
+            self.running_examples = 0
+        self.train()
+
+    def _checkpoint(self, metrics_dict):
+        if self.checkpointer is None:
+            return
+        iteration = self.logger.unit_total
+        self.checkpointer.checkpoint(
+            metrics_dict, iteration, self, self.optimizer, self.lr_scheduler
+        )
+
     def _get_predictions(
         self, data, break_ties="random", return_probs=False, **kwargs
     ):
@@ -574,43 +578,15 @@ class Classifier(nn.Module):
         else:
             return Y_p, Y
 
-    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
-        """Predicts hard (int) labels for an input X on all tasks
-
-        Args:
-            X: The input for the predict_proba method
-            break_ties: A tie-breaking policy (see Classifier._break_ties())
-            return_probs: Return the predicted probabilities as well
-
-        Returns:
-            Y_p: An n-dim np.ndarray of predictions in {1,...k}
-            [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
-        """
-        Y_s = self._to_numpy(self.predict_proba(X, **kwargs))
-        Y_p = self._break_ties(Y_s, break_ties).astype(np.int)
-        if return_probs:
-            return Y_p, Y_s
-        else:
-            return Y_p
-
-    def predict_proba(self, X, **kwargs):
-        """Predicts soft probabilistic labels for an input X on all tasks
-        Args:
-            X: An appropriate input for the child class of Classifier
-        Returns:
-            An [n, k] np.ndarray of soft predictions
-        """
-        raise NotImplementedError
-
     def _break_ties(self, Y_s, break_ties="random"):
         """Break ties in each row of a tensor according to the specified policy
 
         Args:
             Y_s: An [n, k] np.ndarray of probabilities
             break_ties: A tie-breaking policy:
-                'abstain': return an abstain vote (0)
-                'random': randomly choose among the tied options
-                    NOTE: if break_ties='random', repeated runs may have
+                "abstain": return an abstain vote (0)
+                "random": randomly choose among the tied options
+                    NOTE: if break_ties="random", repeated runs may have
                     slightly different results due to difference in broken ties
         """
         n, k = Y_s.shape
@@ -622,7 +598,7 @@ class Classifier(nn.Module):
             max_idxs = np.where(diffs[i, :] < TOL)[0]
             if len(max_idxs) == 1:
                 Y_h[i] = max_idxs[0] + 1
-            # Deal with 'tie votes' according to the specified policy
+            # Deal with "tie votes" according to the specified policy
             elif break_ties == "random":
                 Y_h[i] = np.random.choice(max_idxs) + 1
             elif break_ties == "abstain":

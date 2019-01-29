@@ -1,13 +1,10 @@
 import os
-import shutil
 
 import torch
 
 
 class Checkpointer(object):
-    def __init__(
-        self, checkpoint_dir="checkpoints", checkpoint_runway=0, verbose=True
-    ):
+    def __init__(self, config, verbose=True):
         """Saves checkpoints as applicable based on a reported metric.
 
         Args:
@@ -18,29 +15,50 @@ class Checkpointer(object):
         self.best_model = None
         self.best_iteration = None
         self.best_score = None
-        self.checkpoint_runway = checkpoint_runway
-        self.checkpoint_dir = checkpoint_dir
         self.verbose = verbose
         self.state = {}
 
-        if checkpoint_runway and verbose:
+        self.checkpoint_best = config["checkpoint_best"]
+        self.checkpoint_freq = config["checkpoint_freq"]
+        self.checkpoint_metric = config["checkpoint_metric"]
+        self.checkpoint_metric_mode = config["checkpoint_metric_mode"]
+        self.checkpoint_dir = config["checkpoint_dir"]
+        self.checkpoint_runway = config["checkpoint_runway"]
+
+        # If abbreviated metric name was used, expand here to valid/ by default
+        if "/" not in self.checkpoint_metric:
+            self.checkpoint_metric = "valid/" + self.checkpoint_metric
+
+        # Create checkpoint directory if necessary
+        if not os.path.exists(self.checkpoint_dir):
+            os.makedirs(self.checkpoint_dir)
+
+        # Remind about checkpoint runway
+        if self.checkpoint_runway and verbose:
             print(
                 f"No checkpoints will be saved in the first "
-                f"checkpoint_runway={checkpoint_runway} iterations."
+                f"checkpoint_runway={self.checkpoint_runway} iterations."
             )
 
-    def checkpoint(self, model, iteration, score, optimizer, lr_scheduler):
-        if iteration >= self.checkpoint_runway:
-            self.state["epoch"] = iteration
-            self.state["model"] = model.state_dict()
-            self.state["optimizer"] = optimizer.state_dict()
-            self.state["lr_scheduler"] = (
-                lr_scheduler.state_dict() if lr_scheduler else None
-            )
-            self.state["score"] = score
+    def checkpoint(
+        self, metrics_dict, iteration, model, optimizer, lr_scheduler
+    ):
+        # Return early if checkpoint_runway has not been met
+        if self.checkpoint_runway and iteration < self.checkpoint_runway:
+            return
 
-            is_best = score > self.best_score
-            if is_best:
+        if self.checkpoint_freq and iteration % self.checkpoint_freq == 0:
+            # Save the checkpoint regardless of performance
+            score = None
+            self.update_state(score, iteration, model, optimizer, lr_scheduler)
+            torch.save(
+                self.state,
+                f"{self.checkpoint_dir}/model_checkpoint_{iteration}.pth",
+            )
+
+        if self.checkpoint_best and self.checkpoint_metric in metrics_dict:
+            score = metrics_dict[self.checkpoint_metric]
+            if self.is_best(score):
                 if self.verbose:
                     print(
                         f"Saving model at iteration {iteration} with best "
@@ -49,23 +67,36 @@ class Checkpointer(object):
                 self.best_model = True
                 self.best_iteration = iteration
                 self.best_score = score
-                self.state["best_iteration"] = iteration
-                self.state["best_score"] = score
 
-            if not os.path.exists(self.checkpoint_dir):
-                os.makedirs(self.checkpoint_dir)
+            # Save the checkpoint, overriding previous best if it exists
+            self.update_state(score, iteration, model, optimizer, lr_scheduler)
+            torch.save(self.state, f"{self.checkpoint_dir}/best_model.pth")
 
-            torch.save(
-                self.state,
-                f"{self.checkpoint_dir}/model_checkpoint_{iteration}.pth",
+    def is_best(self, score):
+        if self.best_score is None:
+            return True
+        elif self.checkpoint_metric_mode == "max":
+            return score > self.best_score
+        elif self.checkpoint_metric_mode == "min":
+            return score < self.best_score
+        else:
+            msg = (
+                f"Did not recognize checkpoint_metric_mode: "
+                + f"{self.checkpoint_metric_mode}"
             )
+            raise ValueError(msg)
 
-            # Copies the model's best iteration (checkpoint) to a seperate file to reload after training
-            if is_best:
-                shutil.copyfile(
-                    f"{self.checkpoint_dir}/model_checkpoint_{iteration}.pth",
-                    f"{self.checkpoint_dir}/best_model.pth",
-                )
+    def update_state(self, score, iteration, model, optimizer, lr_scheduler):
+        # Save the state of the best model
+        self.state["epoch"] = iteration
+        self.state["model"] = model.state_dict()
+        self.state["optimizer"] = optimizer.state_dict()
+        self.state["lr_scheduler"] = (
+            lr_scheduler.state_dict() if lr_scheduler else None
+        )
+        self.state["score"] = score
+        self.state["best_iteration"] = iteration
+        self.state["best_score"] = score
 
     def load_best_model(self, model):
         if self.best_model is None:

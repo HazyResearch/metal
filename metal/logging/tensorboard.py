@@ -74,8 +74,11 @@ class TensorBoardWriter(LogWriter):
     Stores logs in log_dir/{YYYY}_{MM}_{DD}/{H}_{M}_{S}_run_name.json.
     """
 
-    def __init__(self, log_dir=None, run_dir=None, run_name=None):
+    def __init__(
+        self, log_dir=None, run_dir=None, run_name=None, tb_metrics=None
+    ):
         super().__init__(log_dir=log_dir, run_dir=run_dir, run_name=run_name)
+        self.tb_metrics = tb_metrics
 
         # Set up TensorBoard summary writer
         self.tb_writer = SummaryWriter(

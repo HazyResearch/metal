@@ -41,7 +41,7 @@ class GPUTest(unittest.TestCase):
         # Training model
         end_model.train_model(
             (Xs[0], Y_train_ps),
-            dev_data=(Xs[1], Ys[1]),
+            valid_data=(Xs[1], Ys[1]),
             l2=0.1,
             batch_size=256,
             n_epochs=3,
