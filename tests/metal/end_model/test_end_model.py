@@ -35,7 +35,7 @@ class EndModelTest(unittest.TestCase):
     def test_logreg(self):
         em = LogisticRegression(seed=1, input_dim=2, verbose=False)
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -57,7 +57,7 @@ class EndModelTest(unittest.TestCase):
             )
             Ys.append(Y)
         em.train_model(
-            (Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), lr=0.1, n_epochs=10
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), lr=0.1, n_epochs=10
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
@@ -74,7 +74,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -90,7 +90,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -110,7 +110,7 @@ class EndModelTest(unittest.TestCase):
         Xs, Ys = self.single_problem
         em.train_model(
             (Xs[0], Ys[0]),
-            dev_data=(Xs[1], Ys[1]),
+            valid_data=(Xs[1], Ys[1]),
             n_epochs=5,
             verbose=False,
             show_plots=False,
@@ -128,7 +128,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
         metrics = list(METRICS.keys())
         scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=False)
         for i, metric in enumerate(metrics):
@@ -144,7 +144,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
         test_model = copy.deepcopy(em.state_dict())
 
         # 0 indexed
@@ -177,11 +177,11 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
         em.resume_training(
             (Xs[0], Ys[0]),
             model_path="checkpoints/model_checkpoint_2.pth",
-            dev_data=(Xs[1], Ys[1]),
+            valid_data=(Xs[1], Ys[1]),
         )
 
     def test_determinism(self):
@@ -194,7 +194,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=1)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=1)
         score_1 = em.score((Xs[2], Ys[2]), verbose=False)
 
         # Test scoring determinism
@@ -209,7 +209,7 @@ class EndModelTest(unittest.TestCase):
             layer_out_dims=[2, 10, 2],
             verbose=False,
         )
-        em_2.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=1)
+        em_2.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=1)
         score_3 = em_2.score((Xs[2], Ys[2]), verbose=False)
         self.assertEqual(score_1, score_3)
 
@@ -228,7 +228,7 @@ class EndModelTest(unittest.TestCase):
         Xs, Ys = self.single_problem
         em.train_model(
             (Xs[0], Ys[0]),
-            dev_data=(Xs[1], Ys[1]),
+            valid_data=(Xs[1], Ys[1]),
             n_epochs=7,
             log_writer=log_writer,
         )
@@ -254,7 +254,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=3)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=3)
         score = em.score((Xs[2], Ys[2]), verbose=False)
 
         # Save model

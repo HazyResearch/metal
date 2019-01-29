@@ -50,7 +50,7 @@ class MTEndModelTest(unittest.TestCase):
         self.assertEqual(len(em.task_map[top_layer]), em.t)
         em.train_model(
             (self.Xs[0], self.Ys[0]),
-            dev_data=(self.Xs[1], self.Ys[1]),
+            valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
         )
@@ -74,7 +74,7 @@ class MTEndModelTest(unittest.TestCase):
         self.assertEqual(em.task_map[2][0], 1)
         em.train_model(
             (self.Xs[0], self.Ys[0]),
-            dev_data=(self.Xs[1], self.Ys[1]),
+            valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
         )
@@ -100,7 +100,7 @@ class MTEndModelTest(unittest.TestCase):
             Xs.append([X[:, 0], X[:, 1]])
         em.train_model(
             (Xs[0], self.Ys[0]),
-            dev_data=(Xs[1], self.Ys[1]),
+            valid_data=(Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
         )
@@ -123,7 +123,7 @@ class MTEndModelTest(unittest.TestCase):
         )
         em.train_model(
             (self.Xs[0], self.Ys[0]),
-            dev_data=(self.Xs[1], self.Ys[1]),
+            valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
         )
@@ -139,7 +139,7 @@ class MTEndModelTest(unittest.TestCase):
         )
         em.train_model(
             (self.Xs[0], self.Ys[0]),
-            dev_data=(self.Xs[1], self.Ys[1]),
+            valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=3,
             validation_task=0,

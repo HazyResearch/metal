@@ -94,7 +94,7 @@ class ModelTuner(object):
         self,
         idx,
         config,
-        dev_data,
+        valid_data,
         init_args=[],
         train_args=[],
         init_kwargs={},
@@ -159,13 +159,13 @@ class ModelTuner(object):
         model.train_model(
             *train_args,
             **train_kwargs,
-            dev_data=dev_data,
+            valid_data=valid_data,
             verbose=verbose,
             log_writer=log_writer,
         )
 
         score = model.score(
-            dev_data,
+            valid_data,
             metric=self.validation_metric,
             verbose=False,  # Score is already printed in train_model above
             **score_kwargs,
@@ -222,7 +222,7 @@ class ModelTuner(object):
     def search(
         self,
         search_space,
-        dev_data,
+        valid_data,
         init_args=[],
         train_args=[],
         init_kwargs={},
@@ -237,7 +237,7 @@ class ModelTuner(object):
         """
         Args:
             search_space: see config_generator() documentation
-            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+            valid_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
             init_args: (list) positional args for initializing the model
             train_args: (list) positional args for training the model

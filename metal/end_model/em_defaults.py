@@ -34,7 +34,6 @@ em_default_config = {
         # Loss function config
         "loss_fn_reduction": "sum",
         # Display
-        "print_every": 1,  # Print after this many epochs
         "disable_prog_bar": False,  # Disable progress bar each epoch
         # Dataloader
         "data_loader_config": {"batch_size": 32, "num_workers": 1},
@@ -59,10 +58,11 @@ em_default_config = {
             # Optimizer - RMSProp
             "rmsprop_config": {},  # Use defaults
         },
-        # Scheduler
-        "scheduler_config": {
-            "scheduler": "reduce_on_plateau",
-            # ['constant', 'exponential', 'reduce_on_plateu']
+        # Scheduler (for learning rate)
+        "lr_scheduler_config": {
+            "lr_scheduler": "reduce_on_plateau",
+            # ['constant', 'exponential', 'reduce_on_plateau']
+            # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
             # Freeze learning rate initially this many epochs
             "lr_freeze": 0,
             # Scheduler - exponential
@@ -75,14 +75,38 @@ em_default_config = {
                 "min_lr": 1e-4,
             },
         },
+        # Loggers
+        "logger": True,
+        "logger_config": {
+            "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
+            "log_train_every": 1,  # How often train metrics are calculated (optionally logged to TB)
+            "log_train_metrics": [
+                "train/loss"
+            ],  # Can include built-in and user-defined metrics
+            "log_train_metrics_func": None,  # A function that maps a model + dataloader to a dictionary of metrics
+            "log_valid_every": 1,  # How frequently to evaluate on valid set (must be multiple of log_freq)
+            "log_valid_metrics": ["valid/accuracy"],
+            "log_valid_metrics_func": None,
+        },
+        # Tensorboard
+        "tensorboard": False,  # If True, write certain metrics to Tensorboard
+        "tensorboard_config": {
+            "tensorboard_config": {  # Event file stored at log_dir/run_dir/run_name (see slicing)
+                "tb_metrics": None,  # Must be a subset of log_metrics; defaults to all of them
+                "log_dir": "tensorboard",
+                "run_dir": None,
+                "run_name": None,
+            }
+        },
         # Checkpointer
-        "checkpoint": True,
+        "checkpoint": True,  # If True, checkpoint models when certain conditions are met
         "checkpoint_config": {
-            "checkpoint_min": -1,  # DROP this
-            # The initial best score to beat to merit checkpointing
+            "checkpoint_best": True,
+            "checkpoint_freq": None,  # uses log_valid_unit for units; if not None, checkpoint this often regardless of performance
+            "checkpoint_metric": "valid/accuracy",  # Must be in metrics dict
+            "checkpoint_metric_mode": "max",  # ['max', 'min']
+            "checkpoint_dir": "checkpoints",
             "checkpoint_runway": 0,
-            # Don't start taking checkpoints until after this many epochs
-            "checkpoint_destination": "checkpoints",
         },
     },
 }

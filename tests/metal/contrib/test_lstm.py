@@ -54,7 +54,7 @@ class LSTMTest(unittest.TestCase):
             seed=1,
             verbose=False,
         )
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=10)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=10)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -91,7 +91,10 @@ class LSTMTest(unittest.TestCase):
             verbose=False,
         )
         em.train_model(
-            (Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=15, verbose=False
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=15,
+            verbose=False,
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
@@ -132,7 +135,7 @@ class LSTMTest(unittest.TestCase):
             before = lstm_module.encoder.embeddings.weight.clone()
             em.train_model(
                 (Xs[0], Ys[0]),
-                dev_data=(Xs[1], Ys[1]),
+                valid_data=(Xs[1], Ys[1]),
                 n_epochs=15,
                 verbose=False,
             )
@@ -178,7 +181,7 @@ class LSTMTest(unittest.TestCase):
             seed=1,
             verbose=False,
         )
-        em.train_model((Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=15)
+        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=15)
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -216,7 +219,7 @@ class LSTMTest(unittest.TestCase):
             verbose=False,
         )
         em.train_model(
-            (Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=2, verbose=False
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=2, verbose=False
         )
         score_1 = em.score((Xs[2], Ys[2]), verbose=False)
 
@@ -244,7 +247,7 @@ class LSTMTest(unittest.TestCase):
             verbose=False,
         )
         em_2.train_model(
-            (Xs[0], Ys[0]), dev_data=(Xs[1], Ys[1]), n_epochs=2, verbose=False
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=2, verbose=False
         )
         score_3 = em_2.score((Xs[2], Ys[2]), verbose=False)
         self.assertEqual(score_1, score_3)

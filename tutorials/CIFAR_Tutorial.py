@@ -174,7 +174,7 @@ def train_model():
     # Train end model
     end_model.train_model(
         train_data=train_loader,
-        dev_data=test_loader,
+        valid_data=test_loader,
         l2=args.weight_decay,
         lr=args.lr,
         n_epochs=args.epochs,
