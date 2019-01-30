@@ -149,11 +149,12 @@ class ModelTuner(object):
         # Initialize a new LogWriter and train the model, returning the score
         log_writer = None
         if self.log_writer_class is not None:
-            log_writer = self.log_writer_class(
-                log_dir=self.log_subdir,
-                run_dir=".",
-                run_name=f"model_search_{idx}",
-            )
+            writer_config = {
+                "log_dir": self.log_subdir,
+                "run_dir": ".",
+                "run_name": f"model_search_{idx}",
+            }
+            log_writer = self.log_writer_class(writer_config)
 
         model.train_model(
             *train_args,

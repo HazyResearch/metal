@@ -43,7 +43,6 @@ class MTEndModelTest(unittest.TestCase):
             task_graph=tg,
             seed=1,
             verbose=False,
-            dropout=0.0,
             task_head_layers="top",
         )
         top_layer = len(em.config["layer_out_dims"]) - 1
@@ -53,6 +52,7 @@ class MTEndModelTest(unittest.TestCase):
             valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
@@ -67,7 +67,6 @@ class MTEndModelTest(unittest.TestCase):
             task_graph=tg,
             seed=1,
             verbose=False,
-            dropout=0.0,
             task_head_layers=[1, 2],
         )
         self.assertEqual(em.task_map[1][0], 0)
@@ -77,6 +76,7 @@ class MTEndModelTest(unittest.TestCase):
             valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
@@ -91,7 +91,6 @@ class MTEndModelTest(unittest.TestCase):
             task_graph=tg,
             seed=1,
             verbose=False,
-            dropout=0.0,
             input_modules=[IdentityModule(), IdentityModule()],
             task_head_layers="top",
         )
@@ -103,6 +102,7 @@ class MTEndModelTest(unittest.TestCase):
             valid_data=(Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
@@ -117,7 +117,6 @@ class MTEndModelTest(unittest.TestCase):
             task_graph=tg,
             seed=1,
             verbose=False,
-            dropout=0.0,
             head_modules=[nn.Linear(8, 2), nn.Linear(4, 2)],
             task_head_layers=[1, 2],
         )
@@ -126,6 +125,7 @@ class MTEndModelTest(unittest.TestCase):
             valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
@@ -142,6 +142,7 @@ class MTEndModelTest(unittest.TestCase):
             valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=3,
+            checkpoint=False,
             validation_task=0,
         )
         tasks = [0, 1]

@@ -24,30 +24,24 @@ lm_default_config = {
             "sgd_config": {"momentum": 0.9},
         },
         # Scheduler
-        "lr_scheduler_config": {"lr_scheduler": None},
+        "lr_scheduler": None,
         # Train loop
         "n_epochs": 100,
         "print_every": 10,
         "disable_prog_bar": True,  # Disable progress bar each epoch
-        # Loggers
-        "train_logger_config": {
-            "log_train_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
-            "log_train_every": 1,  # How often train metrics are calculated (optionally logged to TB)
-            "log_train_print_freq": None,  # None: use log_freq, 0: never print, X: print every X units
-            "log_train_metrics": [
-                "loss"
-            ],  # Can include built-in and user-defined metrics
-            "log_train_metrics_func": None,  # A function that maps a model + dataloader to a dictionary of metrics
-        },
-        "valid_logger_config": {
-            "log_valid_unit": "epochs",
+        # Logger
+        "logger": True,
+        "logger_config": {
+            "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
+            "log_train_every": 1,  # How often train loss is reported
+            "log_train_metrics": ["train/loss"],
+            "log_train_metrics_func": None,
             "log_valid_every": 1,
-            "log_valid_print_freq": None,
-            "log_valid_metrics": ["accuracy"],
+            "log_valid_metrics": [],
             "log_valid_metrics_func": None,
         },
-        # Tensorboard
-        "tensorboard": False,
+        # Writer
+        "writer": None,
         # Checkpointer
         "checkpoint": False,
     },

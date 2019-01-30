@@ -75,7 +75,7 @@ em_default_config = {
                 "min_lr": 1e-4,
             },
         },
-        # Loggers
+        # Logger
         "logger": True,
         "logger_config": {
             "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
@@ -90,15 +90,14 @@ em_default_config = {
             ],  # Metrics to calculate and report every `log_valid_every` units; this can include built-in and user-defined metrics
             "log_valid_metrics_func": None,  # A function that maps a model + valid_loader to a dictionary of custom metrics
         },
-        # Tensorboard
-        "tensorboard": False,  # If True, write certain metrics to Tensorboard
-        "tensorboard_config": {
-            "tensorboard_config": {  # Event file stored at log_dir/run_dir/run_name (see slicing)
-                "tb_metrics": None,  # Must be a subset of log_metrics; defaults to all of them
-                "log_dir": "tensorboard",
-                "run_dir": None,
-                "run_name": None,
-            }
+        # LogWriter/Tensorboard
+        "writer": None,  # [None, "json", "tensorboard"]
+        "writer_config": {  # Log (or event) file stored at log_dir/run_dir/run_name
+            "log_dir": None,
+            "run_dir": None,
+            "run_name": None,
+            "writer_metrics": None,  # May specify a subset of metrics in metrics_dict to be written
+            "include_config": True,  # If True, include model config in log
         },
         # Checkpointer
         "checkpoint": True,  # If True, checkpoint models when certain conditions are met
