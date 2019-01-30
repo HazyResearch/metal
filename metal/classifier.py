@@ -219,17 +219,21 @@ class Classifier(nn.Module):
         # Train the model
         metrics_hist = {}  # The most recently seen value for all metrics
         for epoch in range(start_iteration, train_config["n_epochs"]):
-            # t = tqdm(
-            #     enumerate(train_loader),
-            #     total=len(train_loader),
-            #     disable=(
-            #         train_config["disable_prog_bar"]
-            #         or not self.config["verbose"]
-            #     ),
-            # )
+            disable_prog_bar = (
+                train_config["disable_prog_bar"]
+                or not self.config["verbose"]
+                or self.logger.log_unit != "epochs"
+            )
+
+            t = tqdm(
+                enumerate(train_loader),
+                total=len(train_loader),
+                disable=disable_prog_bar,
+            )
+
             self.running_loss = 0.0
             self.running_examples = 0
-            for batch_num, data in enumerate(train_loader):
+            for batch_num, data in t:
                 # NOTE: actual batch_size may not equal config"s target batch_size
                 batch_size = len(data[0])
 
@@ -259,7 +263,7 @@ class Classifier(nn.Module):
                 metrics_hist.update(metrics_dict)
 
                 # tqdm output
-                # t.set_postfix(avg_loss=float(running_loss))
+                t.set_postfix(loss=metrics_dict["train/loss"])
 
             # Apply learning rate scheduler
             self._update_scheduler(epoch, metrics_hist)

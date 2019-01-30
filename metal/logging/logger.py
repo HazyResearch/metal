@@ -29,9 +29,15 @@ class Logger(object):
 
         assert isinstance(self.config["log_train_every"], int)
         assert isinstance(self.config["log_valid_every"], int)
-        assert not (
-            self.config["log_valid_every"] % self.config["log_train_every"]
-        )
+        if (
+            self.config["log_valid_every"] < self.config["log_train_every"]
+            or self.config["log_valid_every"] % self.config["log_train_every"]
+        ):
+            raise Exception(
+                f"Setting log_valid_every ({self.config['log_valid_every']}) "
+                f"must be a multiple of log_train_every "
+                f"({self.config['log_train_every']})."
+            )
 
     def check(self, batch_size):
         """Returns True if the logging frequency has been met."""
