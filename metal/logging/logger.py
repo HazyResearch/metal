@@ -1,28 +1,31 @@
 import time
 
-from metal.logging.tensorboard import TensorBoardWriter
 from metal.metrics import METRICS as standard_metrics, metric_score
 
 
 class Logger(object):
     """Tracks when it is time to calculate train/valid metrics and logs them"""
 
-    def __init__(self, config, tb_config=None):
+    def __init__(self, config, writer={}, epoch_size=None, verbose=True):
         # Strip split name from config keys
         self.config = config
+        self.writer = writer
+        self.verbose = verbose
         self.log_unit = self.config["log_unit"]
         self.unit_count = 0
         self.unit_total = 0
-        self.timer = Timer() if self.log_unit == "seconds" else None
         self.log_count = 0  # Count how many times logging has occurred
         self.valid_every_X = int(
             self.config["log_valid_every"] / self.config["log_train_every"]
         )
 
-        if tb_config is not None:
-            self.tb_writer = TensorBoardWriter
-        else:
-            self.tb_writer = None
+        # Specific to log_unit == "seconds"
+        self.timer = Timer() if self.log_unit == "seconds" else None
+
+        # Specific to log_unit == "epochs"
+        self.epoch_size = epoch_size
+        self.example_count = 0
+        self.example_total = 0
 
         assert isinstance(self.config["log_train_every"], int)
         assert isinstance(self.config["log_valid_every"], int)
@@ -30,12 +33,12 @@ class Logger(object):
             self.config["log_valid_every"] % self.config["log_train_every"]
         )
 
-    def check(self, epoch, batch_size):
+    def check(self, batch_size):
         """Returns True if the logging frequency has been met."""
-        self.increment(epoch, batch_size)
+        self.increment(batch_size)
         return self.unit_count >= self.config["log_train_every"]
 
-    def increment(self, epoch, batch_size):
+    def increment(self, batch_size):
         """Update the total and relative unit counts"""
         if self.log_unit == "seconds":
             self.unit_count = int(self.timer.elapsed())
@@ -47,8 +50,11 @@ class Logger(object):
             self.unit_count += 1
             self.unit_total += 1
         elif self.log_unit == "epochs":
-            # TODO: consider calculating epoch by example count instead?
-            if epoch != self.unit_total:
+            # Track epoch by example count because otherwise we only know when
+            # a new epoch starts, not when an epoch ends
+            self.example_count += batch_size
+            self.example_total += batch_size
+            if self.example_count >= self.epoch_size:
                 self.unit_count += 1
                 self.unit_total += 1
         else:
@@ -60,7 +66,9 @@ class Logger(object):
         """Add standard and custom metrics to metrics_dict"""
         # Check whether or not it's time for validation as well
         self.log_count += 1
-        log_valid = not (self.log_count % self.valid_every_X)
+        log_valid = valid_loader is not None and not (
+            self.log_count % self.valid_every_X
+        )
 
         # Calculate custom metrics
         if self.config["log_train_metrics_func"] is not None:
@@ -75,15 +83,13 @@ class Logger(object):
             metrics_dict.update(custom_valid_metrics)
 
         # Calculate standard metrics
-        # Only calculate if there are other metrics besides default train/loss
-        if len(self.config["log_train_metrics"]) > 1:
-            target_metrics = self.config["log_train_metrics"]
-            standard_train_metrics = self._calculate_standard_metrics(
-                model, train_loader, target_metrics, metrics_dict, "train"
-            )
-            metrics_dict.update(standard_train_metrics)
+        target_metrics = self.config["log_train_metrics"]
+        standard_train_metrics = self._calculate_standard_metrics(
+            model, train_loader, target_metrics, metrics_dict, "train"
+        )
+        metrics_dict.update(standard_train_metrics)
 
-        if log_valid and len(self.config["log_valid_metrics"]) > 0:
+        if log_valid:
             target_metrics = self.config["log_valid_metrics"]
             standard_valid_metrics = self._calculate_standard_metrics(
                 model, valid_loader, target_metrics, metrics_dict, "valid"
@@ -95,36 +101,52 @@ class Logger(object):
     def _calculate_standard_metrics(
         self, model, data_loader, target_metrics, metrics_dict, split
     ):
-        Y_preds, Y, Y_probs = model._get_predictions(
-            data_loader, return_probs=True
-        )
-        standard_metrics_dict = {}
+        metrics_list = []
+        metrics_full_list = []
         for full_name in target_metrics:
             metric_name = full_name[full_name.find("/") + 1 :]
-            if full_name in metrics_dict:
-                # Don't overwrite train/loss or a clashing custom metric
-                continue
-            elif metric_name in standard_metrics:
-                standard_metrics_dict[full_name] = metric_score(
-                    Y, Y_preds, metric_name, probs=Y_probs
-                )
-            else:
-                msg = (
-                    f"Metric name '{metric_name}' could not be found in "
-                    f"standard metrics or custom metrics for {split} split."
-                )
-                raise Exception(msg)
-        return standard_metrics_dict
+            if metric_name in standard_metrics:
+                metrics_list.append(metric_name)
+                metrics_full_list.append(full_name)
+
+        if metrics_list:
+            scores = model.score(data_loader, metrics_list, verbose=False)
+            scores = scores if isinstance(scores, list) else [scores]
+            return {metric: s for metric, s in zip(metrics_full_list, scores)}
+        else:
+            return {}
+
+        # Y_preds, Y, Y_probs = model._get_predictions(
+        #     data_loader, return_probs=True
+        # )
+        # standard_metrics_dict = {}
+        # for full_name in target_metrics:
+        #     metric_name = full_name[full_name.find("/") + 1 :]
+        #     if full_name in metrics_dict:
+        #         # Don't overwrite train/loss or a clashing custom metric
+        #         continue
+        #     elif metric_name in standard_metrics:
+        #         standard_metrics_dict[full_name] = metric_score(
+        #             Y, Y_preds, metric_name, probs=Y_probs
+        #         )
+        #     else:
+        #         msg = (
+        #             f"Metric name '{metric_name}' could not be found in "
+        #             f"standard metrics or custom metrics for {split} split."
+        #         )
+        #         raise Exception(msg)
+        # return standard_metrics_dict
 
     def log(self, metrics_dict):
-        """Print calculated metrics and optionally write to Tensorboard"""
-        if self.tb_writer:
-            self.write_to_tensorboard(metrics_dict)
+        """Print calculated metrics and optionally write to file (json/tb)"""
+        if self.writer:
+            self.write_to_file(metrics_dict)
 
-        self.print(metrics_dict)
+        if self.verbose:
+            self.print_to_screen(metrics_dict)
         self.reset()
 
-    def print(self, metrics_dict):
+    def print_to_screen(self, metrics_dict):
         score_strings = []
         for metric, value in metrics_dict.items():
             if (
@@ -140,16 +162,13 @@ class Logger(object):
             f"[{self.unit_total} {self.log_unit}]: {', '.join(score_strings)}"
         )
 
-    def write_to_tensorboard(self, metrics_dict):
+    def write_to_file(self, metrics_dict):
         for metric, value in metrics_dict.items():
-            if (
-                self.tb_writer.tb_metrics is None
-                or metric in self.tb_writer.tb_metrics
-            ):
-                self.tb_writer.add_scalar(self, metric, value, self.log_unit)
+            self.writer.add_scalar(metric, value, self.log_unit)
 
     def reset(self):
         self.unit_count = 0
+        self.example_count = 0
         if self.timer is not None:
             self.timer.update()
 

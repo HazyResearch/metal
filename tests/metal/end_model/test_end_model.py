@@ -35,7 +35,12 @@ class EndModelTest(unittest.TestCase):
     def test_logreg(self):
         em = LogisticRegression(seed=1, input_dim=2, verbose=False)
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=5,
+            checkpoint=False,
+        )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -57,7 +62,11 @@ class EndModelTest(unittest.TestCase):
             )
             Ys.append(Y)
         em.train_model(
-            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), lr=0.1, n_epochs=10
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            lr=0.1,
+            n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
@@ -74,7 +83,12 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=5,
+            checkpoint=False,
+        )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -90,7 +104,12 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=5,
+            checkpoint=False,
+        )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
@@ -113,6 +132,7 @@ class EndModelTest(unittest.TestCase):
             valid_data=(Xs[1], Ys[1]),
             n_epochs=5,
             verbose=False,
+            checkpoint=False,
             show_plots=False,
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
@@ -128,7 +148,12 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=5,
+            checkpoint=False,
+        )
         metrics = list(METRICS.keys())
         scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=False)
         for i, metric in enumerate(metrics):
@@ -144,11 +169,16 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=5,
+            checkpoint=True,
+            checkpoint_freq=1,
+        )
         test_model = copy.deepcopy(em.state_dict())
 
-        # 0 indexed
-        new_model = torch.load("checkpoints/model_checkpoint_3.pth")
+        new_model = torch.load("checkpoints/model_checkpoint_4.pth")
         self.assertFalse(
             torch.all(
                 torch.eq(
@@ -157,8 +187,7 @@ class EndModelTest(unittest.TestCase):
                 )
             )
         )
-
-        new_model = torch.load("checkpoints/model_checkpoint_4.pth")
+        new_model = torch.load("checkpoints/model_checkpoint_5.pth")
         self.assertTrue(
             torch.all(
                 torch.eq(
@@ -177,11 +206,17 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5)
+        em.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=5,
+            checkpoint=True,
+            checkpoint_freq=1,
+        )
         em.resume_training(
             (Xs[0], Ys[0]),
-            model_path="checkpoints/model_checkpoint_2.pth",
             valid_data=(Xs[1], Ys[1]),
+            model_path="checkpoints/model_checkpoint_2.pth",
         )
 
     def test_determinism(self):
@@ -194,7 +229,12 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=1)
+        em.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=1,
+            checkpoint=False,
+        )
         score_1 = em.score((Xs[2], Ys[2]), verbose=False)
 
         # Test scoring determinism
@@ -209,13 +249,24 @@ class EndModelTest(unittest.TestCase):
             layer_out_dims=[2, 10, 2],
             verbose=False,
         )
-        em_2.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=1)
+        em_2.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=1,
+            checkpoint=False,
+        )
         score_3 = em_2.score((Xs[2], Ys[2]), verbose=False)
         self.assertEqual(score_1, score_3)
 
-    def test_logging(self):
+    def test_writer(self):
         """Test the basic LogWriter class"""
-        log_writer = LogWriter(run_dir="test_dir", run_name="test")
+        log_dir = os.path.join(os.environ["METALHOME"], "tests/logs/")
+        writer_kwargs = {
+            "log_dir": log_dir,
+            "run_dir": "test_dir",
+            "run_name": "test",
+        }
+
         em = EndModel(
             seed=1,
             input_batchnorm=False,
@@ -230,17 +281,19 @@ class EndModelTest(unittest.TestCase):
             (Xs[0], Ys[0]),
             valid_data=(Xs[1], Ys[1]),
             n_epochs=7,
-            log_writer=log_writer,
+            checkpoint=False,
+            writer="json",
+            **writer_kwargs,
         )
-
         # Load the log
-        with open(log_writer.log_path, "r") as f:
-            run_log = json.load(f)
-        self.assertEqual(run_log["config"]["train_config"]["n_epochs"], 7)
-        self.assertEqual(len(run_log["run-log"]["train-loss"]), 7)
+        with open(em.writer.log_path, "r") as f:
+            log_dict = json.load(f)
+
+        self.assertEqual(log_dict["config"]["train_config"]["n_epochs"], 7)
+        self.assertEqual(len(log_dict["run_log"]["train/loss"]), 7)
 
         # Clean up
-        rmtree(log_writer.log_subdir)
+        rmtree(em.writer.log_subdir)
 
     def test_save_and_load(self):
         """Test basic saving and loading"""
@@ -254,7 +307,12 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         Xs, Ys = self.single_problem
-        em.train_model((Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=3)
+        em.train_model(
+            (Xs[0], Ys[0]),
+            valid_data=(Xs[1], Ys[1]),
+            n_epochs=3,
+            checkpoint=True,
+        )
         score = em.score((Xs[2], Ys[2]), verbose=False)
 
         # Save model

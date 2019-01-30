@@ -1,5 +1,4 @@
 import os
-import pickle
 import random
 import warnings
 
@@ -11,7 +10,7 @@ from scipy.sparse import issparse
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
 from metal.analysis import confusion_matrix
-from metal.logging import Checkpointer, Logger
+from metal.logging import Checkpointer, Logger, LogWriter, TensorBoardWriter
 from metal.metrics import metric_score
 from metal.utils import place_on_gpu, recursive_merge_dicts
 
@@ -196,6 +195,7 @@ class Classifier(nn.Module):
         # Convert data to DataLoaders
         train_loader = self._create_data_loader(train_data)
         valid_loader = self._create_data_loader(valid_data)
+        epoch_size = len(train_loader.dataset)
 
         # Move model to GPU
         if self.config["use_cuda"]:
@@ -204,13 +204,14 @@ class Classifier(nn.Module):
             self.cuda()
 
         # Set training components
+        self._set_writer(train_config)
+        self._set_logger(train_config, epoch_size)
+        self._set_checkpointer(train_config)
         self._set_optimizer(train_config)
         self._set_scheduler(train_config)
-        self._set_logger(train_config)
-        self._set_checkpointer(train_config)
 
         # Restore model if necessary
-        if len(restore_state) > 0:
+        if restore_state:
             start_iteration = self._restore_training_state(restore_state)
         else:
             start_iteration = 0
@@ -253,7 +254,7 @@ class Classifier(nn.Module):
 
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(
-                    train_loader, valid_loader, loss, epoch, batch_size
+                    train_loader, valid_loader, loss, batch_size
                 )
                 metrics_hist.update(metrics_dict)
 
@@ -268,6 +269,12 @@ class Classifier(nn.Module):
         # Restore best model if applicable
         if self.checkpointer:
             self.checkpointer.load_best_model(model=self)
+
+        # Write log if applicable
+        if self.writer:
+            if self.writer.include_config:
+                self.writer.add_config(self.config)
+            self.writer.close()
 
         # Print confusion matrix if applicable
         if self.config["verbose"]:
@@ -339,39 +346,33 @@ class Classifier(nn.Module):
     def _restore_training_state(self, restore_state):
         """Restores the model and optimizer states
 
-        This helper function restores the model"s weight matricies as well as certain flags/variables
-        for a given training epoch. The idea is to allow a user to resume training at any epoch.
+        This helper function restores the model's state to a given iteration so
+        that a user can resume training at any epoch.
 
         Args:
-            restore_state: the dictionary containing necessary data struicutres to resume training
-            optimizer: the optimizer object to load the state dict
-            lr_scheduler: the lr_scheduler object to load the state dict
-            checkpointer: The checkpointer needed to save the best model and iteration
+            restore_state: a state_dict dictionary
         """
-        if not restore_state:
-            return
-        else:
-            self.load_state_dict(restore_state["model"])
-            self.optimizer.load_state_dict(restore_state["optimizer"])
-            self.lr_scheduler.load_state_dict(restore_state["lr_scheduler"])
-            start_iteration = (
-                restore_state["epoch"] + 1
-            )  # start from next epooch
-            msg = f"Restored Checkpoint: start_iteration={start_iteration}"
+        self.load_state_dict(restore_state["model"])
+        self.optimizer.load_state_dict(restore_state["optimizer"])
+        self.lr_scheduler.load_state_dict(restore_state["lr_scheduler"])
+        start_iteration = restore_state["iteration"] + 1
+        if self.config["verbose"]:
+            print(f"Restored checkpoint to iteration {start_iteration}.")
 
-            if "best_score" in restore_state:
-                self.checkpointer.best_iteration = restore_state[
-                    "best_iteration"
-                ]
-                self.checkpointer.best_score = restore_state["best_score"]
-                self.checkpointer.best_model = True
-                msg += (
-                    f"\t Best Iteration: {self.checkpointer.best_iteration}"
-                    f"\t Best Dev Score:{self.checkpointer.best_score:.3f}"
+        if restore_state["best_model_found"]:
+            # Update checkpointer with appropriate information about best model
+            # Note that the best model found so far may not be the model in the
+            # checkpoint that is currently being loaded.
+            self.checkpointer.best_model_found = True
+            self.checkpointer.best_iteration = restore_state["best_iteration"]
+            self.checkpointer.best_score = restore_state["best_score"]
+            if self.config["verbose"]:
+                print(
+                    f"Updated checkpointer: "
+                    f"best_score={self.checkpointer.best_score:.3f}, "
+                    f"best_iteration={self.checkpointer.best_iteration}"
                 )
-
-            print(msg)
-            return start_iteration
+        return start_iteration
 
     def _create_dataset(self, *data):
         """Converts input data to the appropriate Dataset"""
@@ -391,14 +392,13 @@ class Classifier(nn.Module):
             **kwargs,
             "pin_memory": self.config["use_cuda"],
         }
-
         # Return data as DataLoader
-        if isinstance(data, (tuple, list)):
-            return DataLoader(self._create_dataset(*data), **config)
+        if isinstance(data, DataLoader):
+            return data
         elif isinstance(data, Dataset):
             return DataLoader(data, **config)
-        elif isinstance(data, DataLoader):
-            return data
+        elif isinstance(data, (tuple, list)):
+            return DataLoader(self._create_dataset(*data), **config)
         else:
             raise ValueError("Input data type not recognized.")
 
@@ -413,17 +413,30 @@ class Classifier(nn.Module):
         np.random.seed(seed)
         random.seed(seed)
 
-    def _set_logger(self, train_config):
-        if train_config["tensorboard"]:
-            tb_config = train_config["tensorboard_config"]
+    def _set_writer(self, train_config):
+        if train_config["writer"] is None:
+            self.writer = None
+        elif train_config["writer"] == "json":
+            self.writer = LogWriter(train_config["writer_config"])
+        elif train_config["writer"] == "tensorboard":
+            self.writer = TensorBoardWriter(train_config["writer_config"])
         else:
-            tb_config = None
+            raise Exception(f"Unrecognized writer: {train_config['writer']}")
 
-        self.logger = Logger(train_config["logger_config"], tb_config)
+    def _set_logger(self, train_config, epoch_size):
+        self.logger = Logger(
+            train_config["logger_config"],
+            self.writer,
+            epoch_size,
+            verbose=self.config["verbose"],
+        )
 
     def _set_checkpointer(self, train_config):
         if train_config["checkpoint"]:
-            self.checkpointer = Checkpointer(train_config["checkpoint_config"])
+            self.checkpointer = Checkpointer(
+                train_config["checkpoint_config"],
+                verbose=self.config["verbose"],
+            )
         else:
             self.checkpointer = None
 
@@ -472,27 +485,28 @@ class Classifier(nn.Module):
 
     def _set_scheduler(self, train_config):
         lr_scheduler = train_config["lr_scheduler"]
-        lr_scheduler_config = train_config["lr_scheduler_config"]
         if lr_scheduler is None:
             lr_scheduler = None
-        elif lr_scheduler == "exponential":
-            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                self.optimizer, **lr_scheduler_config["exponential_config"]
-            )
-        elif lr_scheduler == "reduce_on_plateau":
-            lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer, **lr_scheduler_config["plateau_config"]
-            )
         else:
-            raise ValueError(
-                f"Did not recognize lr_scheduler option '{lr_scheduler}'"
-            )
+            lr_scheduler_config = train_config["lr_scheduler_config"]
+            if lr_scheduler == "exponential":
+                lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                    self.optimizer, **lr_scheduler_config["exponential_config"]
+                )
+            elif lr_scheduler == "reduce_on_plateau":
+                lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    self.optimizer, **lr_scheduler_config["plateau_config"]
+                )
+            else:
+                raise ValueError(
+                    f"Did not recognize lr_scheduler option '{lr_scheduler}'"
+                )
         self.lr_scheduler = lr_scheduler
 
     def _update_scheduler(self, epoch, metrics_dict):
         train_config = self.config["train_config"]
-        lr_scheduler_config = train_config["lr_scheduler_config"]
         if self.lr_scheduler is not None:
+            lr_scheduler_config = train_config["lr_scheduler_config"]
             if epoch + 1 >= lr_scheduler_config["lr_freeze"]:
                 if train_config["lr_scheduler"] == "reduce_on_plateau":
                     checkpoint_config = train_config["checkpoint_config"]
@@ -503,9 +517,7 @@ class Classifier(nn.Module):
                 else:
                     self.lr_scheduler.step()
 
-    def _execute_logging(
-        self, train_loader, valid_loader, loss, epoch, batch_size
-    ):
+    def _execute_logging(self, train_loader, valid_loader, loss, batch_size):
         self.eval()
         self.running_loss += loss.item() * batch_size
         self.running_examples += batch_size
@@ -518,19 +530,20 @@ class Classifier(nn.Module):
                 self.running_loss / self.running_examples
             )
 
-        if self.logger.check(epoch, batch_size):
+        if self.logger.check(batch_size):
             logger_metrics = self.logger.calculate_metrics(
                 self, train_loader, valid_loader, metrics_dict
             )
             metrics_dict.update(logger_metrics)
             self.logger.log(metrics_dict)
 
-            # Checkpoint if applicable
-            self._checkpoint(metrics_dict)
-
             # Reset running loss and examples counts
             self.running_loss = 0.0
             self.running_examples = 0
+
+        # Checkpoint if applicable
+        self._checkpoint(metrics_dict)
+
         self.train()
         return metrics_dict
 

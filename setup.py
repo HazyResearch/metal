@@ -44,10 +44,10 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
     install_requires=[
-        "networkx>=2",
+        "networkx>=2.2",
         "numpy",
         "pandas",
-        "torch>=0.4.1",
+        "torch>=1.0",
         "scipy",
         "tqdm",
         "scikit-learn",

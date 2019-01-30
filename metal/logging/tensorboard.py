@@ -1,6 +1,6 @@
 from tensorboardX import SummaryWriter
 
-from metal.logging.logwriter import LogWriter
+from metal.logging.writer import LogWriter
 
 
 class TensorBoardWriter(LogWriter):
@@ -11,10 +11,18 @@ class TensorBoardWriter(LogWriter):
     """
 
     def __init__(
-        self, log_dir=None, run_dir=None, run_name=None, tb_metrics=None
+        self,
+        log_dir="tensorboard",
+        run_dir=None,
+        run_name=None,
+        writer_metrics=None,
     ):
-        super().__init__(log_dir=log_dir, run_dir=run_dir, run_name=run_name)
-        self.tb_metrics = tb_metrics
+        super().__init__(
+            log_dir=log_dir,
+            run_dir=run_dir,
+            run_name=run_name,
+            writer_metrics=writer_metrics,
+        )
 
         # Set up TensorBoard summary writer
         self.tb_writer = SummaryWriter(
@@ -22,8 +30,8 @@ class TensorBoardWriter(LogWriter):
         )
 
     def add_scalar(self, name, val, i):
-        super().add_scalar(name, val, i)
-        self.tb_writer.add_scalar(name, val, i)
+        if super().add_scalar(name, val, i):
+            self.tb_writer.add_scalar(name, val, i)
 
     def close(self):
         self.write()

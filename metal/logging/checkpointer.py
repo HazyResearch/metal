@@ -12,11 +12,10 @@ class Checkpointer(object):
                 this many iterations
             checkpoint_dir (str): the directory for saving checkpoints
         """
-        self.best_model = None
+        self.best_model_found = None
         self.best_iteration = None
         self.best_score = None
         self.verbose = verbose
-        self.state = {}
 
         self.checkpoint_best = config["checkpoint_best"]
         self.checkpoint_freq = config["checkpoint_freq"]
@@ -47,14 +46,20 @@ class Checkpointer(object):
         if self.checkpoint_runway and iteration < self.checkpoint_runway:
             return
 
-        if self.checkpoint_freq and iteration % self.checkpoint_freq == 0:
+        if (
+            self.checkpoint_freq
+            and iteration > 0
+            and iteration % self.checkpoint_freq == 0
+        ):
             # Save the checkpoint regardless of performance
             score = None
-            self.update_state(score, iteration, model, optimizer, lr_scheduler)
-            torch.save(
-                self.state,
-                f"{self.checkpoint_dir}/model_checkpoint_{iteration}.pth",
+            state = self.bundle_state(
+                iteration, score, model, optimizer, lr_scheduler
             )
+            checkpoint_path = (
+                f"{self.checkpoint_dir}/model_checkpoint_{iteration}.pth"
+            )
+            torch.save(state, checkpoint_path)
 
         if self.checkpoint_best and self.checkpoint_metric in metrics_dict:
             score = metrics_dict[self.checkpoint_metric]
@@ -64,15 +69,16 @@ class Checkpointer(object):
                         f"Saving model at iteration {iteration} with best "
                         f"score {score:.3f}"
                     )
-                self.best_model = True
+                self.best_model_found = True
                 self.best_iteration = iteration
                 self.best_score = score
 
                 # Save the checkpoint, overriding previous best if it exists
-                self.update_state(
-                    score, iteration, model, optimizer, lr_scheduler
+                state = self.bundle_state(
+                    iteration, score, model, optimizer, lr_scheduler
                 )
-                torch.save(self.state, f"{self.checkpoint_dir}/best_model.pth")
+                checkpoint_path = f"{self.checkpoint_dir}/best_model.pth"
+                torch.save(state, checkpoint_path)
 
     def is_best(self, score):
         if self.best_score is None:
@@ -88,20 +94,23 @@ class Checkpointer(object):
             )
             raise ValueError(msg)
 
-    def update_state(self, score, iteration, model, optimizer, lr_scheduler):
+    def bundle_state(self, iteration, score, model, optimizer, lr_scheduler):
         # Save the state of the best model
-        self.state["epoch"] = iteration
-        self.state["model"] = model.state_dict()
-        self.state["optimizer"] = optimizer.state_dict()
-        self.state["lr_scheduler"] = (
-            lr_scheduler.state_dict() if lr_scheduler else None
-        )
-        self.state["score"] = score
-        self.state["best_iteration"] = iteration
-        self.state["best_score"] = score
+        state = {
+            "iteration": iteration,
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "lr_scheduler": lr_scheduler.state_dict() if lr_scheduler else None,
+            "score": score,
+        }
+        if self.best_model_found:
+            state["best_model_found"] = True
+            state["best_iteration"] = self.best_iteration
+            state["best_score"] = self.best_score
+        return state
 
     def load_best_model(self, model):
-        if self.best_model is None:
+        if self.best_model_found is None:
             raise Exception(
                 f"Best model was never found. Best score = "
                 f"{self.best_score}"
@@ -115,8 +124,8 @@ class Checkpointer(object):
                 f"{self.checkpoint_dir}/best_model.pth",
                 map_location=torch.device("cpu"),
             )
-            self.best_iteration = state["epoch"]
-            self.best_score = state["score"]
+            self.best_iteration = state["best_iteration"]
+            self.best_score = state["best_score"]
             model.load_state_dict(state["model"])
             return model
 

@@ -36,12 +36,12 @@ class LabelModelTest(unittest.TestCase):
 
         # Test label prediction accuracy
         if test_acc:
-            score = label_model.score((data.L, data.Y))
+            score = label_model.score((data.L, data.Y), verbose=False)
             self.assertGreater(score, 0.95)
 
             # Test against baseline
             mv = MajorityLabelVoter()
-            mv_score = mv.score((data.L, data.Y))
+            mv_score = mv.score((data.L, data.Y), verbose=False)
             self.assertGreater(score, mv_score)
 
     def test_no_deps(self):

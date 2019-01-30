@@ -53,9 +53,9 @@ class MTEndModel(MTClassifier, EndModel):
     ):
 
         kwargs["layer_out_dims"] = layer_out_dims
-        kwargs["input_modules"] = input_modules
-        kwargs["middle_modules"] = middle_modules
-        kwargs["head_modules"] = head_modules
+        # kwargs["input_modules"] = input_modules
+        # kwargs["middle_modules"] = middle_modules
+        # kwargs["head_modules"] = head_modules
 
         config = recursive_merge_dicts(
             em_default_config, mt_em_default_config, misses="insert"

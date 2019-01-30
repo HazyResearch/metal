@@ -40,6 +40,42 @@ class MTClassifier(Classifier):
         self.multitask = True
         self.K = K
 
+    def predict_proba(self, X, **kwargs):
+        """Predicts soft probabilistic labels for an input X on all tasks
+        Args:
+            X: An appropriate input for the child class of Classifier
+        Returns:
+            A t-length list of [n, K_t] np.ndarrays of soft predictions
+        """
+        raise NotImplementedError
+
+    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
+        """Predicts hard (int) labels for an input X on all tasks
+
+        Args:
+            X: The input for the predict_proba method
+            break_ties: A tie-breaking policy
+            return_probs: Return the predicted probabilities as well
+
+        Returns:
+            Y_p: A t-length list of n-dim np.ndarrays of predictions in [1, K_t]
+            [Optionally: Y_s: A t-length list of [n, K_t] np.ndarrays of
+                predicted probabilities]
+        """
+        Y_s = self.predict_proba(X, **kwargs)
+        self._check(Y_s, typ=list)
+        self._check(Y_s[0], typ=np.ndarray)
+
+        Y_p = []
+        for Y_ts in Y_s:
+            Y_tp = self._break_ties(Y_ts, break_ties)
+            Y_p.append(Y_tp.astype(np.int))
+
+        if return_probs:
+            return Y_p, Y_s
+        else:
+            return Y_p
+
     def score(
         self,
         data,
@@ -75,7 +111,9 @@ class MTClassifier(Classifier):
         # TODO: Handle multiple metrics...
         metric_list = metric if isinstance(metric, list) else [metric]
         if len(metric_list) > 1:
-            raise NotImplementedError("Multiple metrics for multi-task.")
+            raise NotImplementedError(
+                "Multiple metrics for multi-task score() not yet supported."
+            )
         metric = metric_list[0]
 
         # Return score for task t only.
@@ -115,42 +153,6 @@ class MTClassifier(Classifier):
                 print(f"{metric.capitalize()}: {score:.3f}")
 
         return score
-
-    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
-        """Predicts hard (int) labels for an input X on all tasks
-
-        Args:
-            X: The input for the predict_proba method
-            break_ties: A tie-breaking policy
-            return_probs: Return the predicted probabilities as well
-
-        Returns:
-            Y_p: A t-length list of n-dim np.ndarrays of predictions in [1, K_t]
-            [Optionally: Y_s: A t-length list of [n, K_t] np.ndarrays of
-                predicted probabilities]
-        """
-        Y_s = self.predict_proba(X, **kwargs)
-        self._check(Y_s, typ=list)
-        self._check(Y_s[0], typ=np.ndarray)
-
-        Y_p = []
-        for Y_ts in Y_s:
-            Y_tp = self._break_ties(Y_ts, break_ties)
-            Y_p.append(Y_tp.astype(np.int))
-
-        if return_probs:
-            return Y_p, Y_s
-        else:
-            return Y_p
-
-    def predict_proba(self, X, **kwargs):
-        """Predicts soft probabilistic labels for an input X on all tasks
-        Args:
-            X: An appropriate input for the child class of Classifier
-        Returns:
-            A t-length list of [n, K_t] np.ndarrays of soft predictions
-        """
-        raise NotImplementedError
 
     def score_task(self, X, Y, t=0, metric="accuracy", verbose=True, **kwargs):
         """Scores the predictive performance of the Classifier on task t

@@ -1,5 +1,6 @@
 from .checkpointer import Checkpointer
 from .logger import Logger, Timer
-from .logwriter import LogWriter
+from .tensorboard import TensorBoardWriter
+from .writer import LogWriter
 
-__all__ = ["Checkpointer", "Logger", "LogWriter", "Timer"]
+__all__ = ["Checkpointer", "Logger", "LogWriter", "TensorBoardWriter", "Timer"]
