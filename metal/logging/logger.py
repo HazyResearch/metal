@@ -12,6 +12,9 @@ class Logger(object):
         self.writer = writer
         self.verbose = verbose
         self.log_unit = self.config["log_unit"]
+        self.epoch_size = epoch_size
+        self.example_count = 0
+        self.example_total = 0
         self.unit_count = 0
         self.unit_total = 0
         self.log_count = 0  # Count how many times logging has occurred
@@ -21,11 +24,6 @@ class Logger(object):
 
         # Specific to log_unit == "seconds"
         self.timer = Timer() if self.log_unit == "seconds" else None
-
-        # Specific to log_unit == "epochs"
-        self.epoch_size = epoch_size
-        self.example_count = 0
-        self.example_total = 0
 
         assert isinstance(self.config["log_train_every"], int)
         assert isinstance(self.config["log_valid_every"], int)
@@ -46,20 +44,20 @@ class Logger(object):
 
     def increment(self, batch_size):
         """Update the total and relative unit counts"""
+        self.example_count += batch_size
+        self.example_total += batch_size
         if self.log_unit == "seconds":
             self.unit_count = int(self.timer.elapsed())
             self.unit_total = int(self.timer.total_elapsed())
         elif self.log_unit == "examples":
-            self.unit_count += batch_size
-            self.unit_total += batch_size
+            self.unit_count = self.example_count
+            self.unit_total = self.example_total
         elif self.log_unit == "batches":
             self.unit_count += 1
             self.unit_total += 1
         elif self.log_unit == "epochs":
             # Track epoch by example count because otherwise we only know when
             # a new epoch starts, not when an epoch ends
-            self.example_count += batch_size
-            self.example_total += batch_size
             if self.example_count >= self.epoch_size:
                 self.unit_count += 1
                 self.unit_total += 1
@@ -122,27 +120,6 @@ class Logger(object):
         else:
             return {}
 
-        # Y_preds, Y, Y_probs = model._get_predictions(
-        #     data_loader, return_probs=True
-        # )
-        # standard_metrics_dict = {}
-        # for full_name in target_metrics:
-        #     metric_name = full_name[full_name.find("/") + 1 :]
-        #     if full_name in metrics_dict:
-        #         # Don't overwrite train/loss or a clashing custom metric
-        #         continue
-        #     elif metric_name in standard_metrics:
-        #         standard_metrics_dict[full_name] = metric_score(
-        #             Y, Y_preds, metric_name, probs=Y_probs
-        #         )
-        #     else:
-        #         msg = (
-        #             f"Metric name '{metric_name}' could not be found in "
-        #             f"standard metrics or custom metrics for {split} split."
-        #         )
-        #         raise Exception(msg)
-        # return standard_metrics_dict
-
     def log(self, metrics_dict):
         """Print calculated metrics and optionally write to file (json/tb)"""
         if self.writer:
@@ -164,9 +141,11 @@ class Logger(object):
                 score_strings.append(f"{metric}={value:0.3f}")
             else:
                 score_strings.append(f"{metric}={value}")
-        print(
-            f"[{self.unit_total} {self.log_unit}]: {', '.join(score_strings)}"
-        )
+        header = f"{self.unit_total} {self.log_unit[:3]}"
+        if self.log_unit != "epochs":
+            epochs = self.example_total / self.epoch_size
+            header += f" ({epochs:0.2f} epo)"
+        print(f"[{header}]: {', '.join(score_strings)}")
 
     def write_to_file(self, metrics_dict):
         for metric, value in metrics_dict.items():
