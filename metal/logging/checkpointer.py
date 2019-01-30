@@ -18,7 +18,7 @@ class Checkpointer(object):
         self.verbose = verbose
 
         self.checkpoint_best = config["checkpoint_best"]
-        self.checkpoint_freq = config["checkpoint_freq"]
+        self.checkpoint_every = config["checkpoint_every"]
         self.checkpoint_metric = config["checkpoint_metric"]
         self.checkpoint_metric_mode = config["checkpoint_metric_mode"]
         self.checkpoint_dir = config["checkpoint_dir"]
@@ -47,9 +47,9 @@ class Checkpointer(object):
             return
 
         if (
-            self.checkpoint_freq
+            self.checkpoint_every
             and iteration > 0
-            and iteration % self.checkpoint_freq == 0
+            and iteration % self.checkpoint_every == 0
         ):
             # Save the checkpoint regardless of performance
             score = None

@@ -174,7 +174,7 @@ class EndModelTest(unittest.TestCase):
             valid_data=(Xs[1], Ys[1]),
             n_epochs=5,
             checkpoint=True,
-            checkpoint_freq=1,
+            checkpoint_every=1,
         )
         test_model = copy.deepcopy(em.state_dict())
 
@@ -211,7 +211,7 @@ class EndModelTest(unittest.TestCase):
             valid_data=(Xs[1], Ys[1]),
             n_epochs=5,
             checkpoint=True,
-            checkpoint_freq=1,
+            checkpoint_every=1,
         )
         em.resume_training(
             (Xs[0], Ys[0]),

@@ -103,7 +103,7 @@ em_default_config = {
         "checkpoint": True,  # If True, checkpoint models when certain conditions are met
         "checkpoint_config": {
             "checkpoint_best": True,
-            "checkpoint_freq": None,  # uses log_valid_unit for units; if not None, checkpoint this often regardless of performance
+            "checkpoint_every": None,  # uses log_valid_unit for units; if not None, checkpoint this often regardless of performance
             "checkpoint_metric": "valid/accuracy",  # Must be in metrics dict
             "checkpoint_metric_mode": "max",  # ['max', 'min']
             "checkpoint_dir": "checkpoints",
