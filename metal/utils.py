@@ -1,8 +1,5 @@
 import copy
-import json
-import os
 import random
-import shutil
 from collections import defaultdict
 
 import numpy as np
@@ -12,7 +9,7 @@ from torch.utils.data import Dataset
 
 
 class MetalDataset(Dataset):
-    """A dataset that group each item in X with it label from Y
+    """A dataset that group each item in X with its label from Y
 
     Args:
         X: an n-dim iterable of items
@@ -30,6 +27,23 @@ class MetalDataset(Dataset):
 
     def __len__(self):
         return len(self.X)
+
+
+class SlicingDataset(Dataset):
+    """A dataset that returns one item from each iterable in the input data
+
+    Args:
+        data: some number of iterables
+    """
+
+    def __init__(self, *data):
+        self.data = data
+
+    def __getitem__(self, index):
+        return tuple([dtype[index] for dtype in self.data])
+
+    def __len__(self):
+        return len(self.data[0])
 
 
 def rargmax(x, eps=1e-8):
@@ -139,6 +153,28 @@ def categorical_to_plusminus(Y):
     return convert_labels(Y, "categorical", "plusminus")
 
 
+def label_matrix_to_one_hot(L, k=None):
+    """Converts a 2D [n,m] label matrix into an [n,m,k] one hot 3D tensor
+
+    Note that in the returned 3D matrix, abstains votes continue to be
+    represented by 0s, not 1s.
+
+    Args:
+        L: a [n,m] label matrix with categorical labels (0 = abstain)
+        k: the number of classes that could appear in L
+            if None, k is inferred as the max element in L
+    """
+    n, m = L.shape
+    if k is None:
+        k = L.max()
+    L_onehot = torch.zeros(n, m, k + 1)
+    for i, row in enumerate(L):
+        for j, k in enumerate(row):
+            if k > 0:
+                L_onehot[i, j, k - 1] = 1
+    return L_onehot
+
+
 def recursive_merge_dicts(x, y, misses="report", verbose=None):
     """
     Merge dictionary y into a copy of x, overwriting elements of x when there
@@ -205,6 +241,15 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
     z = copy.deepcopy(x)
     recurse(z, y, misses, verbose)
     return z
+
+
+def recursive_transform(x, test_func, transform):
+    for k, v in x.items():
+        if test_func(v):
+            x[k] = transform(v)
+        if isinstance(v, dict):
+            recursive_transform(v, test_func, transform)
+    return x
 
 
 def split_data(
