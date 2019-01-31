@@ -29,23 +29,6 @@ class MetalDataset(Dataset):
         return len(self.X)
 
 
-class SlicingDataset(Dataset):
-    """A dataset that returns one item from each iterable in the input data
-
-    Args:
-        data: some number of iterables
-    """
-
-    def __init__(self, *data):
-        self.data = data
-
-    def __getitem__(self, index):
-        return tuple([dtype[index] for dtype in self.data])
-
-    def __len__(self):
-        return len(self.data[0])
-
-
 def rargmax(x, eps=1e-8):
     """Argmax with random tie-breaking
 
@@ -156,7 +139,7 @@ def categorical_to_plusminus(Y):
 def label_matrix_to_one_hot(L, k=None):
     """Converts a 2D [n,m] label matrix into an [n,m,k] one hot 3D tensor
 
-    Note that in the returned 3D matrix, abstains votes continue to be
+    Note that in the returned 3D matrix, abstain votes continue to be
     represented by 0s, not 1s.
 
     Args:
