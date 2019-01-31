@@ -285,8 +285,8 @@ class ConfusionMatrix(object):
         k = max([max(tup) for tup in self.counter.keys()]) + 1  # include 0
 
         mat = np.zeros((k, k), dtype=int)
-        for (p, y), v in self.counter.items():
-            mat[p, y] = v
+        for (y, l), v in self.counter.items():
+            mat[l, y] = v
 
         if trim and not self.null_pred:
             mat = mat[1:, :]
