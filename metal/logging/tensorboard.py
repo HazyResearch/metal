@@ -16,12 +16,14 @@ class TensorBoardWriter(LogWriter):
         run_dir=None,
         run_name=None,
         writer_metrics=None,
+        include_config=True,
     ):
         super().__init__(
             log_dir=log_dir,
             run_dir=run_dir,
             run_name=run_name,
             writer_metrics=writer_metrics,
+            include_config=include_config,
         )
 
         # Set up TensorBoard summary writer

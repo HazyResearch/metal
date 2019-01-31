@@ -81,7 +81,7 @@ class Logger(object):
             )
             metrics_dict.update(custom_train_metrics)
         if self.config["log_valid_metrics_func"] is not None and log_valid:
-            custom_valid_metrics = self.config["log_train_metrics_func"](
+            custom_valid_metrics = self.config["log_valid_metrics_func"](
                 model, valid_loader
             )
             metrics_dict.update(custom_valid_metrics)
@@ -149,7 +149,7 @@ class Logger(object):
 
     def write_to_file(self, metrics_dict):
         for metric, value in metrics_dict.items():
-            self.writer.add_scalar(metric, value, self.log_unit)
+            self.writer.add_scalar(metric, value, self.unit_total)
 
     def reset(self):
         self.unit_count = 0

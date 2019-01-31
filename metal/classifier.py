@@ -251,6 +251,7 @@ class Classifier(nn.Module):
                     raise Exception(msg)
 
                 # Backward pass to calculate gradients
+                # Loss is an average loss per example
                 loss.backward()
 
                 # Perform optimizer step
@@ -290,6 +291,14 @@ class Classifier(nn.Module):
                     verbose=True,
                     print_confusion_matrix=True,
                 )
+
+    def _get_loss_fn(self):
+        """Returns a loss function"""
+        msg = (
+            "Abstract class: _get_loss_fn() must be implemented by a child "
+            "class of Classifier."
+        )
+        raise NotImplementedError(msg)
 
     def save(self, destination, **kwargs):
         """Serialize and save a model.
@@ -421,9 +430,9 @@ class Classifier(nn.Module):
         if train_config["writer"] is None:
             self.writer = None
         elif train_config["writer"] == "json":
-            self.writer = LogWriter(train_config["writer_config"])
+            self.writer = LogWriter(**(train_config["writer_config"]))
         elif train_config["writer"] == "tensorboard":
-            self.writer = TensorBoardWriter(train_config["writer_config"])
+            self.writer = TensorBoardWriter(**(train_config["writer_config"]))
         else:
             raise Exception(f"Unrecognized writer: {train_config['writer']}")
 
@@ -506,6 +515,56 @@ class Classifier(nn.Module):
                     f"Did not recognize lr_scheduler option '{lr_scheduler}'"
                 )
         self.lr_scheduler = lr_scheduler
+
+    # TEMPORARY FOR SLICING PROJECT; there may be a better way to do this
+    def score_on_slice(
+        self,
+        data,
+        selected_idx,
+        metric=["f1"],
+        break_ties="random",
+        verbose=True,
+        **kwargs,
+    ):
+        """Returns the slice-specific score as defined by given indexes.
+
+        Args:
+            data: a pytorch DataLoader, Dataset or tuple with Tensors (X,Y)
+            metric: A metric (string) with which to score performance or a list
+                of such metrics
+            verbose: The verbosity for this score method; it will not update the
+                class config
+
+        Returns:
+            scores: A (float) score of list of such scores if kwarg metric
+                is a list
+        """
+
+        # no overlap, return 1.0
+        if len(selected_idx) == 0:
+            scores = [1.0] * len(metric)
+
+        # otherwise, compute score at overlap
+        else:
+            # Filter preds/gt by selected_idx
+            Y_p, Y, Y_s = self._get_predictions(
+                data, break_ties=break_ties, return_probs=True, **kwargs
+            )
+            Y_p, Y, Y_s = Y_p[selected_idx], Y[selected_idx], Y_s[selected_idx]
+
+            # Evaluate on selected metrics
+            metric_list = metric if isinstance(metric, list) else [metric]
+            scores = []
+            for metric in metric_list:
+                score = metric_score(
+                    Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0]
+                )
+                scores.append(score)
+
+        if isinstance(scores, list) and len(scores) == 1:
+            return scores[0]
+        else:
+            return scores
 
     def _update_scheduler(self, epoch, metrics_dict):
         train_config = self.config["train_config"]
@@ -613,6 +672,7 @@ class Classifier(nn.Module):
                 "random": randomly choose among the tied options
                     NOTE: if break_ties="random", repeated runs may have
                     slightly different results due to difference in broken ties
+                [int]: ties will be broken by using this label
         """
         n, k = Y_s.shape
         Y_h = np.zeros(n)
@@ -628,6 +688,8 @@ class Classifier(nn.Module):
                 Y_h[i] = np.random.choice(max_idxs) + 1
             elif break_ties == "abstain":
                 Y_h[i] = 0
+            elif isinstance(break_ties, int):
+                Y_h[i] = break_ties
             else:
                 ValueError(f"break_ties={break_ties} policy not recognized.")
         return Y_h

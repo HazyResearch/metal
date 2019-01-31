@@ -1,8 +1,11 @@
+import copy
 import json
 import os
 from collections import defaultdict
 from subprocess import check_output
 from time import strftime
+
+from metal.utils import recursive_transform
 
 
 class LogWriter(object):
@@ -22,27 +25,33 @@ class LogWriter(object):
         Log is saved to 'log_dir/run_dir/{run_name}_H_M_S.json'
     """
 
-    def __init__(self, config={}):
-        self.config = config
+    def __init__(
+        self,
+        log_dir="logs",
+        run_dir=None,
+        run_name=None,
+        writer_metrics=None,
+        include_config=True,
+    ):
         start_date = strftime("%Y_%m_%d")
         start_time = strftime("%H_%M_%S")
 
         # Set logging subdirectory + make sure exists
-        log_dir = config.get("log_dir") or os.getcwd()
-        run_dir = config.get("run_dir") or start_date
+        log_dir = log_dir or os.getcwd()
+        run_dir = run_dir or start_date
         self.log_subdir = os.path.join(log_dir, run_dir)
         if not os.path.exists(self.log_subdir):
             os.makedirs(self.log_subdir)
 
         # Set JSON log path
-        if config.get("run_name") is not None:
-            run_name = f"{config['run_name']}_{start_time}"
+        if run_name is not None:
+            run_name = f"{run_name}_{start_time}"
         else:
             run_name = start_time
         self.log_path = os.path.join(self.log_subdir, f"{run_name}.json")
 
-        self.writer_metrics = config.get("writer_metrics")
-        self.include_config = config.get("include_config", True)
+        self.writer_metrics = writer_metrics
+        self.include_config = include_config
 
         # Initialize log
         # Note we have a separate section for during-run metrics
@@ -56,6 +65,10 @@ class LogWriter(object):
         }
 
     def add_config(self, config):
+        config = copy.deepcopy(config)
+        is_func = lambda x: callable(x)
+        replace_with_name = lambda f: f.__name__
+        config = recursive_transform(config, is_func, replace_with_name)
         self.log_dict["config"] = config
 
     def add_scalar(self, name, val, i):

@@ -32,7 +32,7 @@ em_default_config = {
     # TRAINING
     "train_config": {
         # Loss function config
-        "loss_fn_reduction": "sum",
+        "loss_fn_reduction": "mean",
         # Display
         "disable_prog_bar": False,  # Disable progress bar each epoch
         # Dataloader
@@ -100,7 +100,7 @@ em_default_config = {
             "include_config": True,  # If True, include model config in log
         },
         # Checkpointer
-        "checkpoint": False,  # If True, checkpoint models when certain conditions are met
+        "checkpoint": True,  # If True, checkpoint models when certain conditions are met
         "checkpoint_config": {
             "checkpoint_best": True,
             "checkpoint_every": None,  # uses log_valid_unit for units; if not None, checkpoint this often regardless of performance
