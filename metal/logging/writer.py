@@ -39,17 +39,18 @@ class LogWriter(object):
         # Set logging subdirectory + make sure exists
         log_dir = log_dir or os.getcwd()
         run_dir = run_dir or start_date
-        self.log_subdir = os.path.join(log_dir, run_dir)
-        if not os.path.exists(self.log_subdir):
-            os.makedirs(self.log_subdir)
-
-        # Set JSON log path
         if run_name is not None:
             run_name = f"{run_name}_{start_time}"
         else:
             run_name = start_time
+        self.log_subdir = os.path.join(log_dir, run_dir, run_name)
+        if not os.path.exists(self.log_subdir):
+            os.makedirs(self.log_subdir)
+
+        # Set JSON log path
         self.log_path = os.path.join(self.log_subdir, f"{run_name}.json")
 
+        # Save other settings
         self.writer_metrics = writer_metrics
         self.include_config = include_config
 
