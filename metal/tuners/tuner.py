@@ -155,7 +155,7 @@ class ModelTuner(object):
                 "run_dir": ".",
                 "run_name": f"model_search_{idx}",
             }
-            log_writer = self.log_writer_class(writer_config)
+            log_writer = self.log_writer_class(**writer_config)
 
         model.train_model(
             *train_args,
