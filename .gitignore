@@ -25,4 +25,6 @@ notebooks/local/*
 
 # Logs
 checkpoints/
+tensorboard/
+logs/
 events.out.tfevents*
