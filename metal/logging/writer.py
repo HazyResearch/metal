@@ -69,7 +69,7 @@ class LogWriter(object):
         config = copy.deepcopy(config)
         # Replace individual functions
         is_func = lambda x: callable(x)
-        replace_with_name = lambda f: f.__name__
+        replace_with_name = lambda f: str(f)
         config = recursive_transform(config, is_func, replace_with_name)
         # Replace lists of functions
         is_func_list = lambda x: isinstance(x, list) and all(
