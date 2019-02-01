@@ -90,14 +90,18 @@ class Logger(object):
         # Calculate custom metrics
         if self.config["log_train_metrics_func"] is not None:
             func = self.config["log_train_metrics_func"]
-            metrics_dict = self._calculate_custom_metrics(
-                model, train_loader, func, metrics_dict, split="train"
-            )
+            func_list = func if isinstance(func, list) else [func]
+            for func in func_list:
+                metrics_dict = self._calculate_custom_metrics(
+                    model, train_loader, func, metrics_dict, split="train"
+                )
         if self.config["log_valid_metrics_func"] is not None and log_valid:
             func = self.config["log_valid_metrics_func"]
-            metrics_dict = self._calculate_custom_metrics(
-                model, valid_loader, func, metrics_dict, split="valid"
-            )
+            func_list = func if isinstance(func, list) else [func]
+            for func in func_list:
+                metrics_dict = self._calculate_custom_metrics(
+                    model, valid_loader, func, metrics_dict, split="valid"
+                )
 
         # Calculate standard metrics
         metrics_dict = self._calculate_standard_metrics(

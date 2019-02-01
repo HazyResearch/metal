@@ -83,12 +83,12 @@ em_default_config = {
             "log_train_metrics": [
                 "loss"
             ],  # Metrics to calculate and report every `log_train_every` units. This can include built-in and user-defined metrics.
-            "log_train_metrics_func": None,  # A function that maps a model + train_loader to a dictionary of custom metrics
+            "log_train_metrics_func": None,  # A function or list of functions that map a model + train_loader to a dictionary of custom metrics
             "log_valid_every": 1,  # How frequently to evaluate on valid set (must be multiple of log_freq)
             "log_valid_metrics": [
                 "accuracy"
             ],  # Metrics to calculate and report every `log_valid_every` units; this can include built-in and user-defined metrics
-            "log_valid_metrics_func": None,  # A function that maps a model + valid_loader to a dictionary of custom metrics
+            "log_valid_metrics_func": None,  # A function or list of functions that maps a model + valid_loader to a dictionary of custom metrics
         },
         # LogWriter/Tensorboard
         "writer": None,  # [None, "json", "tensorboard"]
