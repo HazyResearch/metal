@@ -132,20 +132,30 @@ class Logger(object):
     def _calculate_standard_metrics(
         self, model, data_loader, target_metrics, metrics_dict, split
     ):
-        standard_metrics_list = []
+        target_standard_metrics = []
         for split_metric in target_metrics:
             metric = self.remove_split_prefix(split_metric)
             if metric in standard_metric_names:
-                standard_metrics_list.append(metric)
+                target_standard_metrics.append(metric)
 
         # Only calculate predictions if at least one standard metric requires it
-        if standard_metrics_list:
-            Y_preds, Y, Y_probs = model._get_predictions(
-                data_loader, return_probs=True
-            )
-            for metric in standard_metrics_list:
-                score = metric_score(Y, Y_preds, metric, probs=Y_probs)
-                metrics_dict[self.add_split_prefix(metric, split)] = score
+        if target_standard_metrics:
+            if model.multitask:
+                # For multitask models, use score method for aggregation
+                # This may cause inefficiency if there are multiple desired metrics
+                # and we re-predict for each one.
+                for metric in target_standard_metrics:
+                    score = model.score(data_loader, metric, verbose=False)
+                    metrics_dict[self.add_split_prefix(metric, split)] = score
+            else:
+                # For singletask models, predict once and use Y_probs/Y_preds
+                # for all metrics calculations
+                Y_preds, Y, Y_probs = model._get_predictions(
+                    data_loader, return_probs=True
+                )
+                for metric in target_standard_metrics:
+                    score = metric_score(Y, Y_preds, metric, probs=Y_probs)
+                    metrics_dict[self.add_split_prefix(metric, split)] = score
         return metrics_dict
 
     @staticmethod
