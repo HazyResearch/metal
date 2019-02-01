@@ -96,7 +96,7 @@ class Logger(object):
         if self.config["log_valid_metrics_func"] is not None and log_valid:
             func = self.config["log_valid_metrics_func"]
             metrics_dict = self._calculate_custom_metrics(
-                model, train_loader, func, metrics_dict, split="valid"
+                model, valid_loader, func, metrics_dict, split="valid"
             )
 
         # Calculate standard metrics
@@ -185,10 +185,10 @@ class Logger(object):
 
         if score_strings["train"]:
             train_scores = f"{', '.join(score_strings['train'])}"
-            string += f" TRAIN: [{train_scores}]"
+            string += f" TRAIN:[{train_scores}]"
         if score_strings["valid"]:
             valid_scores = f"{', '.join(score_strings['valid'])}"
-            string += f" VALID: [{valid_scores}]"
+            string += f" VALID:[{valid_scores}]"
         print(string)
 
     def write_to_file(self, metrics_dict):
