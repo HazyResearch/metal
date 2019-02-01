@@ -109,7 +109,7 @@ class Classifier(nn.Module):
     def score(
         self,
         data,
-        metric=["accuracy"],
+        metric="accuracy",
         break_ties="random",
         verbose=True,
         print_confusion_matrix=True,
@@ -139,6 +139,7 @@ class Classifier(nn.Module):
         )
 
         # Evaluate on the specified metrics
+        return_list = isinstance(metric, list)
         metric_list = metric if isinstance(metric, list) else [metric]
         scores = []
         for metric in metric_list:
@@ -151,7 +152,8 @@ class Classifier(nn.Module):
         if print_confusion_matrix and verbose:
             confusion_matrix(Y_p, Y, pretty_print=True)
 
-        if isinstance(scores, list) and len(scores) == 1:
+        # If a single metric was given as a string (not list), return a float
+        if len(scores) == 1 and not return_list:
             return scores[0]
         else:
             return scores
