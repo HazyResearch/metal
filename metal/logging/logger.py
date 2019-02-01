@@ -1,6 +1,7 @@
 import time
+from collections import defaultdict
 
-from metal.metrics import METRICS as standard_metrics, metric_score
+from metal.metrics import METRICS as standard_metric_names, metric_score
 
 
 class Logger(object):
@@ -24,6 +25,16 @@ class Logger(object):
 
         # Specific to log_unit == "seconds"
         self.timer = Timer() if self.log_unit == "seconds" else None
+
+        # Normalize all target metric names to include split prefix
+        self.log_train_metrics = [
+            self.add_split_prefix(m, "train")
+            for m in self.config["log_train_metrics"]
+        ]
+        self.log_valid_metrics = [
+            self.add_split_prefix(m, "valid")
+            for m in self.config["log_valid_metrics"]
+        ]
 
         assert isinstance(self.config["log_train_every"], int)
         assert isinstance(self.config["log_valid_every"], int)
@@ -74,51 +85,77 @@ class Logger(object):
             self.log_count % self.valid_every_X
         )
 
+        metrics_dict = {}
+
         # Calculate custom metrics
         if self.config["log_train_metrics_func"] is not None:
-            custom_train_metrics = self.config["log_train_metrics_func"](
-                model, train_loader
+            func = self.config["log_train_metrics_func"]
+            metrics_dict = self._calculate_custom_metrics(
+                model, train_loader, func, metrics_dict, split="train"
             )
-            metrics_dict.update(custom_train_metrics)
         if self.config["log_valid_metrics_func"] is not None and log_valid:
-            custom_valid_metrics = self.config["log_valid_metrics_func"](
-                model, valid_loader
+            func = self.config["log_valid_metrics_func"]
+            metrics_dict = self._calculate_custom_metrics(
+                model, train_loader, func, metrics_dict, split="valid"
             )
-            metrics_dict.update(custom_valid_metrics)
 
         # Calculate standard metrics
-        target_metrics = self.config["log_train_metrics"]
-        standard_train_metrics = self._calculate_standard_metrics(
-            model, train_loader, target_metrics, metrics_dict, "train"
+        metrics_dict = self._calculate_standard_metrics(
+            model, train_loader, self.log_train_metrics, metrics_dict, "train"
         )
-        metrics_dict.update(standard_train_metrics)
 
         if log_valid:
-            target_metrics = self.config["log_valid_metrics"]
-            standard_valid_metrics = self._calculate_standard_metrics(
-                model, valid_loader, target_metrics, metrics_dict, "valid"
+            metrics_dict = self._calculate_standard_metrics(
+                model,
+                valid_loader,
+                self.log_valid_metrics,
+                metrics_dict,
+                "valid",
             )
-            metrics_dict.update(standard_valid_metrics)
 
+        return metrics_dict
+
+    def _calculate_custom_metrics(
+        self, model, data_loader, func, metrics_dict, split
+    ):
+        custom_metrics = func(model, data_loader)
+        # Normalize all custom metrics to include split prefix
+        for metric, value in custom_metrics.items():
+            metric = self.add_split_prefix(metric, split)
+            metrics_dict[metric] = value
         return metrics_dict
 
     def _calculate_standard_metrics(
         self, model, data_loader, target_metrics, metrics_dict, split
     ):
-        metrics_list = []
-        metrics_full_list = []
-        for full_name in target_metrics:
-            metric_name = full_name[full_name.find("/") + 1 :]
-            if metric_name in standard_metrics:
-                metrics_list.append(metric_name)
-                metrics_full_list.append(full_name)
+        standard_metrics_list = []
+        for split_metric in target_metrics:
+            metric = self.remove_split_prefix(split_metric)
+            if metric in standard_metric_names:
+                standard_metrics_list.append(metric)
 
-        if metrics_list:
-            scores = model.score(data_loader, metrics_list, verbose=False)
-            scores = scores if isinstance(scores, list) else [scores]
-            return {metric: s for metric, s in zip(metrics_full_list, scores)}
-        else:
-            return {}
+        # Only calculate predictions if at least one standard metric requires it
+        if standard_metrics_list:
+            Y_preds, Y, Y_probs = model._get_predictions(
+                data_loader, return_probs=True
+            )
+            for metric in standard_metrics_list:
+                score = metric_score(Y, Y_preds, metric, probs=Y_probs)
+                metrics_dict[self.add_split_prefix(metric, split)] = score
+        return metrics_dict
+
+    @staticmethod
+    def add_split_prefix(metric, split):
+        """Prepend "{split}/" to the metric name if it is not already present"""
+        if not metric.startswith(f"{split}/"):
+            metric = f"{split}/{metric}"
+        return metric
+
+    @staticmethod
+    def remove_split_prefix(metric):
+        """Remove "{split}/" from begininng of metric name if it is present"""
+        split, metric = metric.split("/", 1)
+        return metric
 
     def log(self, metrics_dict):
         """Print calculated metrics and optionally write to file (json/tb)"""
@@ -130,22 +167,29 @@ class Logger(object):
         self.reset()
 
     def print_to_screen(self, metrics_dict):
-        score_strings = []
-        for metric, value in metrics_dict.items():
-            if (
-                metric not in self.config["log_train_metrics"]
-                and metric not in self.config["log_valid_metrics"]
-            ):
-                continue
+        """Print all metrics in metrics_dict to screen"""
+        score_strings = defaultdict(list)
+        for split_metric, value in metrics_dict.items():
+            split, metric = split_metric.split("/", 1)
+
             if isinstance(value, float):
-                score_strings.append(f"{metric}={value:0.3f}")
+                score_strings[split].append(f"{metric}={value:0.3f}")
             else:
                 score_strings.append(f"{metric}={value}")
+
         header = f"{self.unit_total} {self.log_unit[:3]}"
         if self.log_unit != "epochs":
             epochs = self.example_total / self.epoch_size
             header += f" ({epochs:0.2f} epo)"
-        print(f"[{header}]: {', '.join(score_strings)}")
+        string = f"[{header}]:"
+
+        if score_strings["train"]:
+            train_scores = f"{', '.join(score_strings['train'])}"
+            string += f" TRAIN: [{train_scores}]"
+        if score_strings["valid"]:
+            valid_scores = f"{', '.join(score_strings['valid'])}"
+            string += f" VALID: [{valid_scores}]"
+        print(string)
 
     def write_to_file(self, metrics_dict):
         for metric, value in metrics_dict.items():

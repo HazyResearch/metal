@@ -28,7 +28,7 @@ lm_default_config = {
         # Train loop
         "n_epochs": 100,
         "print_every": 10,
-        "disable_prog_bar": True,  # Disable progress bar each epoch
+        "progress_bar": False,
         # Logger
         "logger": True,
         "logger_config": {

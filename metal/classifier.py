@@ -219,16 +219,16 @@ class Classifier(nn.Module):
         # Train the model
         metrics_hist = {}  # The most recently seen value for all metrics
         for epoch in range(start_iteration, train_config["n_epochs"]):
-            disable_prog_bar = (
-                train_config["disable_prog_bar"]
-                or not self.config["verbose"]
-                or self.logger.log_unit != "epochs"
+            progress_bar = (
+                train_config["progress_bar"]
+                and self.config["verbose"]
+                and self.logger.log_unit == "epochs"
             )
 
             t = tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
-                disable=disable_prog_bar,
+                disable=(not progress_bar),
             )
 
             self.running_loss = 0.0
@@ -587,11 +587,8 @@ class Classifier(nn.Module):
 
         # Initialize metrics dict
         metrics_dict = {}
-        # Add average loss for current epoch if applicable (don't recalculate)
-        if "train/loss" in self.logger.config["log_train_metrics"]:
-            metrics_dict["train/loss"] = (
-                self.running_loss / self.running_examples
-            )
+        # Always add average loss
+        metrics_dict["train/loss"] = self.running_loss / self.running_examples
 
         if self.logger.check(batch_size):
             logger_metrics = self.logger.calculate_metrics(
