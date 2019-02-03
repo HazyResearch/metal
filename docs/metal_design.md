@@ -12,6 +12,7 @@ MeTaL Version: 0.4.0
     - [Tests](#tests)
     - [Config files](#config-files)
     - [Classifiers](#classifiers)
+    - [Logging](#logging)
     - [Model Tuning](#model-tuning)
   - [MeTaL Types and Terminology](#metal-types-and-terminology)
   - [MeTaL Style](#metal-style)
@@ -28,22 +29,27 @@ There are too many data types and formats out there to create a one-size-fits-al
 
 ### Single-task vs. Multi-task
 **Rule:** All multi-task models, tools, utilities must be in metal/multitask/
+
 MeTaL supports multi-task workflows, but we recognize that the majority of people using it will be in single-task mode. A single-task user should not need to wade through multi-task code, so we keep it in a separate directory that single-task users can be blissfully unaware of. No code in metal/ outside of metal/multitask/ should import from it.
 
 ### Contrib
 **Rule:** Nothing in the main repo can rely on code in contrib/
+
 metal/contrib/ is a place for putting code that may be helpful for specific use cases of MeTaL. It is made available as a convenience, but comes with no guarantees of correctness/support. Consequently, no core code should depend on it. If you think it needs to, then you should consider if what you’re doing belongs in contrib or if that code in contrib should be elevated to core status (in which case, open an issue to discuss it). If a file in contrib has additional dependencies beyond those required by the MetaL core, those should be stored in a requirements.txt file within that directory of contrib/.
 
 ### Dependencies
 **Rule:** Keep dependencies light and simple
+
 We want MeTaL to be easily importable to other projects. There’s no quicker way to find yourself in dependency hell than to make your project rely on a bunch of relatively uncommon libraries (which you rely on only for one or two methods anyway) with varying dependencies of their own. If you really need that one function, see if you can find it in a more standard library or implement it simply yourself. (See the [contrib](contrib) section for an additional note on contrib-specific dependencies.)
 
 ### Tests
 **Rule:** All new code gets a test, and no new code goes in until it passes all tests
+
 The tests/ directory contains unit tests mirroring the structure of the metal/ repo. Whenever a new class, method, or feature is added to the repo, it should come with a corresponding unit tests. Before merging in any PR, it must pass all unit tests. All tests can be run easily by executing the command ‘nosetests’ from the directory home.
 
 ### Config files
 **Rule:** Prefer config dicts to kwargs, and config dicts contain settings only, no data
+
 In a complex codebase with lots of inheritance, passing kwargs all the way down to the functions where they are used can result in the same kwarg appearing in 5 or 6 different method signatures (possibly with different default values) despite only being used in one. This approach is hard to maintain and error prone. Instead, we define a config dict (configuration dictionary) for each object, pulling values from it where necessary and allowing for easy updates to it. This also makes logging simple, as it writing to file a single python dict stores the complete settings for your model.
 
 Config dicts should contain only settings. All problem-specific data will be passed directly to the individual methods that use them, so we never need to store it, and the model and data remain modular.
@@ -52,6 +58,7 @@ Each model (LabelModel and EndModel) has its own config dict with default values
 
 ### Classifiers
 **Rule:** Use the right Classifier method for predictions/scoring
+
 All models in MeTaL (both LabelModels and EndModels) are descended from the Classifier class, which implements a number of important in-common methods, including all evaluation methods. There are few things quite so pernicious as evaluation bugs; do yourself a favor and use the corrected provided method rather than rounding probabilistic predictions or calculating metrics on your own! We follow the convention of scikit-learn classifiers (for familiarity as well as  cross-compatibility for analysis tools):
 
 predict_proba() - returns soft (probabilistic) predictions
@@ -71,8 +78,19 @@ In the multi-task setting, additional task-specific versions of these are also i
 	*predict_proba    <- 	predict_task_proba
 ```
 
+### Logging
+**Rule:** The logger fills the metrics dict, checkpointing and validating pull from it
+
+Logging consists of three primary components: 
+- Logger: With some user-specified frequency (optionally different for training and validation data), the logger calculates the requested metrics (including custom user-provided ones)and stores them in the metrics dictionary.
+- Checkpointer: At some (potentially different) frequency, the checkpointer pulls the value for the assigned checkpointing metric and stores a checkpoint of the model if it is the best seen so far.
+- LogWriter: The Logger prints a subset of the metrics to the screen; the LogWriter writes them to file---either a json or a TensorBoard event file.
+
+Importantly, the process for filling the metrics dict and pulling from it are separated, so arbitrary user-specified metrics may be used as the basis for logging and checkpointing.
+
 ### Model Tuning
 **Rule:** The ModelTuner searches over config dicts, so all config settings are searchable
+
 MeTaL comes with a ModelTuner that converts a user-provided search space into separate complete config dicts, which are then used to instantiate and train a model. Consequently, any setting in the config dict (i.e., all the model settings) can be searched over.
 
 
