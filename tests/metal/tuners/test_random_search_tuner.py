@@ -81,8 +81,7 @@ class RandomSearchModelTunerTest(unittest.TestCase):
         )
         self.assertEqual(len(configs), 20)
         self.assertGreater(
-            np.mean([c["c"] for c in configs]),
-            np.mean([c["d"] for c in configs]),
+            np.mean([c["c"] for c in configs]), np.mean([c["d"] for c in configs])
         )
 
     def test_tuner_and_logging(self):

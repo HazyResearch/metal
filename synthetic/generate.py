@@ -220,8 +220,7 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
 
         # Convert Y to a t-length list of n-length vectors
         self.Y = [
-            np.array([fs[y - 1] for y in self.Y]).T[t]
-            for t in range(self.task_graph.t)
+            np.array([fs[y - 1] for y in self.Y]).T[t] for t in range(self.task_graph.t)
         ]
 
 
@@ -230,9 +229,7 @@ class HierarchicalMultiTaskTreeDepsGenerator(SingleTaskTreeDepsGenerator):
 ################################################################################
 
 
-def gaussian_bags_of_words(
-    Y, vocab=vocab1k, sigma=1, bag_size=[25, 50], **kwargs
-):
+def gaussian_bags_of_words(Y, vocab=vocab1k, sigma=1, bag_size=[25, 50], **kwargs):
     """
     Generate Gaussian bags of words based on label assignments
 
@@ -265,9 +262,7 @@ def gaussian_bags_of_words(
     X = []
     items = []
     for i, (y, length) in enumerate(zip(Y, bag_sizes)):
-        x = torch.from_numpy(
-            np.random.choice(num_words, length, p=word_dists[y])
-        )
+        x = torch.from_numpy(np.random.choice(num_words, length, p=word_dists[y]))
         X.append(x)
         items.append(" ".join(vocab[j] for j in x))
 

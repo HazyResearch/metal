@@ -67,11 +67,7 @@ class LossTest(unittest.TestCase):
         Y = torch.tensor([1, 1, 2], dtype=torch.long)
         Y_s = hard_to_soft(Y, k=3)
         Y_ps = torch.tensor(
-            [
-                [-100.0, 100.0, -100.0],
-                [-100.0, 100.0, -100.0],
-                [-100.0, 100.0, -100.0],
-            ]
+            [[-100.0, 100.0, -100.0], [-100.0, 100.0, -100.0], [-100.0, 100.0, -100.0]]
         )
         weight1 = torch.tensor([1, 2, 1], dtype=torch.float)
         weight2 = torch.tensor([10, 20, 10], dtype=torch.float)

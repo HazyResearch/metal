@@ -1,10 +1,5 @@
 from .end_model import EndModel
-from .label_model import (
-    LabelModel,
-    MajorityClassVoter,
-    MajorityLabelVoter,
-    RandomVoter,
-)
+from .label_model import LabelModel, MajorityClassVoter, MajorityLabelVoter, RandomVoter
 from .tuners import RandomSearchTuner
 
 __all__ = [

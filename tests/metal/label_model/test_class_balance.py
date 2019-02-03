@@ -76,9 +76,7 @@ class ClassBalanceModelTest(unittest.TestCase):
             print(f"Estimated class balance: {model.class_balance}")
         self.assertLess(np.mean(np.abs(p_Y - model.class_balance)), tol)
 
-    def _test_class_balance_estimation(
-        self, k, m, abstains=False, verbose=True
-    ):
+    def _test_class_balance_estimation(self, k, m, abstains=False, verbose=True):
         model = ClassBalanceModel(k, abstains=abstains)
         p_Y = self._generate_class_balance(k)
         C = self._generate_cond_probs(k, m, bias_diag=True, abstains=abstains)

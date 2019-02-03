@@ -107,12 +107,8 @@ class ModelTuner(object):
 
         # Integrating generated config into init kwargs and train kwargs
         init_kwargs["verbose"] = verbose
-        init_kwargs = recursive_merge_dicts(
-            init_kwargs, config, misses="insert"
-        )
-        train_kwargs = recursive_merge_dicts(
-            train_kwargs, config, misses="insert"
-        )
+        init_kwargs = recursive_merge_dicts(init_kwargs, config, misses="insert")
+        train_kwargs = recursive_merge_dicts(train_kwargs, config, misses="insert")
 
         # Also make sure train kwargs includes validation metric
         train_kwargs["validation_metric"] = self.validation_metric
@@ -321,9 +317,7 @@ class ModelTuner(object):
                 maxi = np.log(maxi)
                 func = lambda rand: np.exp(mini + (maxi - mini) * rand)
             else:
-                raise ValueError(
-                    f"Unrecognized scale '{scale}' for " "parameter {k}"
-                )
+                raise ValueError(f"Unrecognized scale '{scale}' for " "parameter {k}")
             return func
 
         discretes = {}

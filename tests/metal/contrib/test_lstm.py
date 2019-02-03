@@ -91,10 +91,7 @@ class LSTMTest(unittest.TestCase):
             verbose=False,
         )
         em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=15,
-            verbose=False,
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=15, verbose=False
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
@@ -120,10 +117,7 @@ class LSTMTest(unittest.TestCase):
                 hidden_size,
                 verbose=False,
                 encoder_class=EmbeddingsEncoder,
-                encoder_kwargs={
-                    "vocab_size": MAX_INT + 2,
-                    "freeze": freeze_embs,
-                },
+                encoder_kwargs={"vocab_size": MAX_INT + 2, "freeze": freeze_embs},
             )
             em = EndModel(
                 k=MAX_INT,
@@ -134,10 +128,7 @@ class LSTMTest(unittest.TestCase):
 
             before = lstm_module.encoder.embeddings.weight.clone()
             em.train_model(
-                (Xs[0], Ys[0]),
-                valid_data=(Xs[1], Ys[1]),
-                n_epochs=15,
-                verbose=False,
+                (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=15, verbose=False
             )
             after = lstm_module.encoder.embeddings.weight.clone()
 

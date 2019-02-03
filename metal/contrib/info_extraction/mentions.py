@@ -171,14 +171,9 @@ class RelationMention(object):
 
     def __repr__(self):
         entities = ", ".join(
-            [
-                f'"{e.entity}"({e.char_start}:{e.char_end})'
-                for e in self.entities
-            ]
+            [f'"{e.entity}"({e.char_start}:{e.char_end})' for e in self.entities]
         )
-        return (
-            f"""RelationMention(doc_id={self.doc_id}: entities=({entities})"""
-        )
+        return f"""RelationMention(doc_id={self.doc_id}: entities=({entities})"""
 
     def __hash__(self):
         return hash((self.doc_id, tuple(self.entity_positions)))

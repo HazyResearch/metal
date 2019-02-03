@@ -131,9 +131,7 @@ class MTClassifier(Classifier):
 
         task_scores = []
         for t, Y_tp in enumerate(Y_p):
-            score = metric_score(
-                Y[t], Y_tp, metric, probs=Y_s[t], ignore_in_gold=[0]
-            )
+            score = metric_score(Y[t], Y_tp, metric, probs=Y_s[t], ignore_in_gold=[0])
             task_scores.append(score)
 
         # TODO: Other options for reduce, including scoring only certain

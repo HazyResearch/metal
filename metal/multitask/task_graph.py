@@ -35,9 +35,7 @@ class TaskGraph(object):
         self.G.add_edges_from(edges)
 
         # Pre-compute parents, children, and leaf nodes
-        self.leaf_nodes = [
-            i for i in self.G.nodes() if self.G.out_degree(i) == 0
-        ]
+        self.leaf_nodes = [i for i in self.G.nodes() if self.G.out_degree(i) == 0]
         self.parents = {t: self.get_parent(t) for t in range(self.t)}
         self.children = {t: self.get_children(t) for t in range(self.t)}
 

@@ -54,9 +54,7 @@ class RandomSearchTuner(ModelTuner):
         self.search_space = search_space
 
         # Generate configs
-        configs = self.config_generator(
-            search_space, max_search, self.rng, shuffle
-        )
+        configs = self.config_generator(search_space, max_search, self.rng, shuffle)
 
         # Commence search
         for i, config in enumerate(configs):

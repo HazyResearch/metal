@@ -215,12 +215,7 @@ def error_buckets(gold, pred, X=None):
 
 
 def confusion_matrix(
-    gold,
-    pred,
-    null_pred=False,
-    null_gold=False,
-    normalize=False,
-    pretty_print=True,
+    gold, pred, null_pred=False, null_gold=False, normalize=False, pretty_print=True
 ):
     """A shortcut method for building a confusion matrix all at once.
 
@@ -296,9 +291,7 @@ class ConfusionMatrix(object):
         self.mat = mat
         return mat
 
-    def display(
-        self, normalize=False, indent=0, spacing=2, decimals=3, mark_diag=True
-    ):
+    def display(self, normalize=False, indent=0, spacing=2, decimals=3, mark_diag=True):
         mat = self.compile(trim=False)
         m, n = mat.shape
         tab = " " * spacing

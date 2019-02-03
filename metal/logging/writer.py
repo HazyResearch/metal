@@ -72,9 +72,7 @@ class LogWriter(object):
         replace_with_name = lambda f: str(f)
         config = recursive_transform(config, is_func, replace_with_name)
         # Replace lists of functions
-        is_func_list = lambda x: isinstance(x, list) and all(
-            is_func(f) for f in x
-        )
+        is_func_list = lambda x: isinstance(x, list) and all(is_func(f) for f in x)
         replace_with_names = lambda x: [replace_with_name(f) for f in x]
         config = recursive_transform(config, is_func_list, replace_with_names)
         self.log_dict["config"] = config

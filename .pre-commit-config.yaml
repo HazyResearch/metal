@@ -11,10 +11,10 @@ repos:
     rev: stable
     hooks:
     - id: black
-      args: [--line-length, '80']
+      args: [--line-length, '88']
       language_version: python3.6
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: master
     hooks:
     - id: flake8
-      args: [--ignore, 'E203,E266,E501,E731,E741,W503,W605,F403,F401'] 
+      args: [--ignore, 'E203,E266,E501,E731,E741,W503,W605,F403,F401']

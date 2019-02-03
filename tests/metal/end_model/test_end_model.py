@@ -36,30 +36,20 @@ class EndModelTest(unittest.TestCase):
         em = LogisticRegression(seed=1, input_dim=2, verbose=False)
         Xs, Ys = self.single_problem
         em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=5,
-            checkpoint=False,
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5, checkpoint=False
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
 
     def test_softmax(self):
-        em = LogisticRegression(
-            seed=1, input_dim=2, output_dim=3, verbose=False
-        )
+        em = LogisticRegression(seed=1, input_dim=2, output_dim=3, verbose=False)
         Xs, _ = self.single_problem
         Ys = []
         for X in Xs:
             class1 = X[:, 0] < X[:, 1]
             class2 = X[:, 0] > X[:, 1] + 0.5
             class3 = X[:, 0] > X[:, 1]
-            Y = (
-                torch.argmax(
-                    torch.stack([class1, class2, class3], dim=1), dim=1
-                )
-                + 1
-            )
+            Y = torch.argmax(torch.stack([class1, class2, class3], dim=1), dim=1) + 1
             Ys.append(Y)
         em.train_model(
             (Xs[0], Ys[0]),
@@ -84,10 +74,7 @@ class EndModelTest(unittest.TestCase):
         )
         Xs, Ys = self.single_problem
         em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=5,
-            checkpoint=False,
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5, checkpoint=False
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
@@ -105,10 +92,7 @@ class EndModelTest(unittest.TestCase):
         )
         Xs, Ys = self.single_problem
         em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=5,
-            checkpoint=False,
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5, checkpoint=False
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
         self.assertGreater(score, 0.95)
@@ -149,10 +133,7 @@ class EndModelTest(unittest.TestCase):
         )
         Xs, Ys = self.single_problem
         em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=5,
-            checkpoint=False,
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=5, checkpoint=False
         )
         metrics = list(METRICS.keys())
         scores = em.score((Xs[2], Ys[2]), metric=metrics, verbose=False)
@@ -230,10 +211,7 @@ class EndModelTest(unittest.TestCase):
         )
         Xs, Ys = self.single_problem
         em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=1,
-            checkpoint=False,
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=1, checkpoint=False
         )
         score_1 = em.score((Xs[2], Ys[2]), verbose=False)
 
@@ -250,10 +228,7 @@ class EndModelTest(unittest.TestCase):
             verbose=False,
         )
         em_2.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=1,
-            checkpoint=False,
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=1, checkpoint=False
         )
         score_3 = em_2.score((Xs[2], Ys[2]), verbose=False)
         self.assertEqual(score_1, score_3)
@@ -261,11 +236,7 @@ class EndModelTest(unittest.TestCase):
     def test_writer(self):
         """Test the basic LogWriter class"""
         log_dir = os.path.join(os.environ["METALHOME"], "tests/logs/")
-        writer_kwargs = {
-            "log_dir": log_dir,
-            "run_dir": "test_dir",
-            "run_name": "test",
-        }
+        writer_kwargs = {"log_dir": log_dir, "run_dir": "test_dir", "run_name": "test"}
 
         em = EndModel(
             seed=1,
@@ -308,10 +279,7 @@ class EndModelTest(unittest.TestCase):
         )
         Xs, Ys = self.single_problem
         em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=3,
-            checkpoint=True,
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=3, checkpoint=True
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
 

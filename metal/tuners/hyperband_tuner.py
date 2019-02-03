@@ -61,9 +61,7 @@ class HyperbandTuner(ModelTuner):
         # Print the search schedule
         self.pretty_print_schedule(self.hyperband_schedule)
 
-    def pretty_print_schedule(
-        self, hyperband_schedule, describe_hyperband=True
-    ):
+    def pretty_print_schedule(self, hyperband_schedule, describe_hyperband=True):
         """
         Prints scheduler for user to read.
         """
@@ -256,9 +254,7 @@ class HyperbandTuner(ModelTuner):
                 # Successively halve the configurations
                 if band_index + 1 < len(bracket):
                     n_to_keep, _ = bracket[band_index + 1]
-                    configurations = [x[2] for x in scored_configurations][
-                        :n_to_keep
-                    ]
+                    configurations = [x[2] for x in scored_configurations][:n_to_keep]
 
         print("=" * 60)
         print(f"[SUMMARY]")

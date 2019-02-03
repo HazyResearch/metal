@@ -80,10 +80,7 @@ def arraylike_to_numpy(array_like):
     elif not isinstance(array_like, np.ndarray):
         array_like = np.array(array_like)
     else:
-        msg = (
-            f"Input of type {orig_type} could not be converted to 1d "
-            "np.ndarray"
-        )
+        msg = f"Input of type {orig_type} could not be converted to 1d " "np.ndarray"
         raise ValueError(msg)
 
     # Correct shape
@@ -180,10 +177,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
                 found = True
                 if isinstance(x[k], dict):
                     if not isinstance(v, dict):
-                        msg = (
-                            f"Attempted to overwrite dict {k} with "
-                            f"non-dict: {v}"
-                        )
+                        msg = f"Attempted to overwrite dict {k} with " f"non-dict: {v}"
                         raise ValueError(msg)
                     recurse(x[k], v, misses, verbose)
                 else:
@@ -197,9 +191,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
             else:
                 for kx, vx in x.items():
                     if isinstance(vx, dict):
-                        found = recurse(
-                            vx, {k: v}, misses="ignore", verbose=verbose
-                        )
+                        found = recurse(vx, {k: v}, misses="ignore", verbose=verbose)
                     if found:
                         break
             if not found:
@@ -307,9 +299,7 @@ def split_data(
 
     elif all(isinstance(x, float) for x in splits):
         if not sum(splits) == 1.0:
-            raise ValueError(
-                f"Split fractions must sum to 1.0, not {sum(splits)}."
-            )
+            raise ValueError(f"Split fractions must sum to 1.0, not {sum(splits)}.")
         fracs = splits
 
     else:

@@ -62,9 +62,7 @@ def _get_conflicts_matrix(L, normalize=True):
         for j in range(m):
             # Get the overlapping non-zero indices
             overlaps = list(
-                set(np.where(L[:, i] != 0)[0]).intersection(
-                    np.where(L[:, j] != 0)[0]
-                )
+                set(np.where(L[:, i] != 0)[0]).intersection(np.where(L[:, j] != 0)[0])
             )
             C[i, j] = np.where(L[overlaps, i] != L[overlaps, j], 1, 0).sum()
 

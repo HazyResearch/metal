@@ -40,19 +40,11 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "-b",
-    "--batch-size",
-    default=128,
-    type=int,
-    help="mini-batch size (default: 10)",
+    "-b", "--batch-size", default=128, type=int, help="mini-batch size (default: 10)"
 )
 
 parser.add_argument(
-    "--lr",
-    "--learning-rate",
-    default=0.001,
-    type=float,
-    help="initial learning rate",
+    "--lr", "--learning-rate", default=0.001, type=float, help="initial learning rate"
 )
 
 parser.add_argument("--momentum", default=0.9, type=float, help="momentum")
@@ -101,18 +93,14 @@ def train_model():
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(
-                (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
-            ),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ]
     )
 
     transform_test = transforms.Compose(
         [
             transforms.ToTensor(),
-            transforms.Normalize(
-                (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
-            ),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ]
     )
 
@@ -183,9 +171,7 @@ def train_model():
     )
 
     # Test end model
-    end_model.score(
-        test_loader, metric=["accuracy", "precision", "recall", "f1"]
-    )
+    end_model.score(test_loader, metric=["accuracy", "precision", "recall", "f1"])
 
 
 if __name__ == "__main__":

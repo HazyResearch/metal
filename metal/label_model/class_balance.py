@@ -53,9 +53,7 @@ class ClassBalanceModel(nn.Module):
         n, m = L.shape
 
         # Convert from a (n,m) matrix of ints to a (k_lf, n, m) indicator tensor
-        LY = np.array(
-            [np.where(L == y, 1, 0) for y in range(self.k_0, self.k + 1)]
-        )
+        LY = np.array([np.where(L == y, 1, 0) for y in range(self.k_0, self.k + 1)])
 
         # Form the three-way overlaps matrix
         O = np.einsum("abc,dbe,fbg->cegadf", LY, LY, LY) / n
@@ -135,9 +133,7 @@ class ClassBalanceModel(nn.Module):
 
         # Re-order cps and p_y using assumption and store np.array values
         # Note: We take the *most common* ordering
-        vals, counts = np.unique(
-            cps_na.argmax(axis=2), axis=0, return_counts=True
-        )
+        vals, counts = np.unique(cps_na.argmax(axis=2), axis=0, return_counts=True)
         col_order = vals[counts.argmax()]
         self.class_balance = p_y[col_order]
         self.cond_probs = cps[col_order]

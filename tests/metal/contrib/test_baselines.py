@@ -17,9 +17,7 @@ def test_sparselogreg(self):
     X = torch.from_numpy(X).long()
     Y = torch.from_numpy(np.random.randint(1, 3, size=(N,)))
 
-    em = SparseLogisticRegression(
-        seed=1, input_dim=F, padding_idx=0, verbose=False
-    )
+    em = SparseLogisticRegression(seed=1, input_dim=F, padding_idx=0, verbose=False)
     em.train_model((X, Y), n_epochs=5, optimizer="sgd", lr=0.0005)
     self.assertEqual(float(em.network[-1].W.weight.data[0, :].sum()), 0.0)
     score = em.score((X, Y), verbose=False)

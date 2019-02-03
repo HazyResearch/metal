@@ -48,9 +48,7 @@ def coverage_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
     return np.sum(pred != 0) / len(pred)
 
 
-def precision_score(
-    gold, pred, pos_label=1, ignore_in_gold=[], ignore_in_pred=[]
-):
+def precision_score(gold, pred, pos_label=1, ignore_in_gold=[], ignore_in_pred=[]):
     """
     Calculate precision for a single class.
     Args:

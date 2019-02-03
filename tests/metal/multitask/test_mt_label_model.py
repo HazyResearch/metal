@@ -35,9 +35,7 @@ class MTLabelModelTest(unittest.TestCase):
     def test_multitask(self):
         for seed in range(self.n_iters):
             np.random.seed(seed)
-            data = HierarchicalMultiTaskTreeDepsGenerator(
-                self.n, self.m, edge_prob=0.0
-            )
+            data = HierarchicalMultiTaskTreeDepsGenerator(self.n, self.m, edge_prob=0.0)
             self._test_label_model(data, test_acc=True)
 
 

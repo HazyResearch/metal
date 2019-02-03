@@ -251,8 +251,6 @@ class LSTMModule(nn.Module):
         outputs, (h_t, c_t) = self.lstm(X_packed)
 
         # Unpack and reduce outputs
-        outputs_unpacked, _ = rnn_utils.pad_packed_sequence(
-            outputs, batch_first=True
-        )
+        outputs_unpacked, _ = rnn_utils.pad_packed_sequence(outputs, batch_first=True)
         reduced = self._reduce_output(outputs_unpacked, seq_lengths)
         return reduced[inv_perm_idx, :]

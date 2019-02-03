@@ -39,9 +39,7 @@ class Checkpointer(object):
                 f"checkpoint_runway={self.checkpoint_runway} iterations."
             )
 
-    def checkpoint(
-        self, metrics_dict, iteration, model, optimizer, lr_scheduler
-    ):
+    def checkpoint(self, metrics_dict, iteration, model, optimizer, lr_scheduler):
         # Return early if checkpoint_runway has not been met
         if self.checkpoint_runway and iteration < self.checkpoint_runway:
             return
@@ -53,12 +51,8 @@ class Checkpointer(object):
         ):
             # Save the checkpoint regardless of performance
             score = None
-            state = self.bundle_state(
-                iteration, score, model, optimizer, lr_scheduler
-            )
-            checkpoint_path = (
-                f"{self.checkpoint_dir}/model_checkpoint_{iteration}.pth"
-            )
+            state = self.bundle_state(iteration, score, model, optimizer, lr_scheduler)
+            checkpoint_path = f"{self.checkpoint_dir}/model_checkpoint_{iteration}.pth"
             torch.save(state, checkpoint_path)
 
         if self.checkpoint_best and self.checkpoint_metric in metrics_dict:
@@ -112,8 +106,7 @@ class Checkpointer(object):
     def load_best_model(self, model):
         if self.best_model_found is None:
             raise Exception(
-                f"Best model was never found. Best score = "
-                f"{self.best_score}"
+                f"Best model was never found. Best score = " f"{self.best_score}"
             )
         if self.verbose:
             print(

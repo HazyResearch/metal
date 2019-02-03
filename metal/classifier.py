@@ -170,12 +170,7 @@ class Classifier(nn.Module):
         raise NotImplementedError
 
     def _train_model(
-        self,
-        train_data,
-        loss_fn,
-        valid_data=None,
-        log_writer=None,
-        restore_state={},
+        self, train_data, loss_fn, valid_data=None, log_writer=None, restore_state={}
     ):
         """The internal training routine called by train_model() after setup
 
@@ -449,8 +444,7 @@ class Classifier(nn.Module):
     def _set_checkpointer(self, train_config):
         if train_config["checkpoint"]:
             self.checkpointer = Checkpointer(
-                train_config["checkpoint_config"],
-                verbose=self.config["verbose"],
+                train_config["checkpoint_config"], verbose=self.config["verbose"]
             )
         else:
             self.checkpointer = None
@@ -558,9 +552,7 @@ class Classifier(nn.Module):
             metric_list = metric if isinstance(metric, list) else [metric]
             scores = []
             for metric in metric_list:
-                score = metric_score(
-                    Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0]
-                )
+                score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0])
                 scores.append(score)
 
         if isinstance(scores, list) and len(scores) == 1:
@@ -617,9 +609,7 @@ class Classifier(nn.Module):
             metrics_dict, iteration, self, self.optimizer, self.lr_scheduler
         )
 
-    def _get_predictions(
-        self, data, break_ties="random", return_probs=False, **kwargs
-    ):
+    def _get_predictions(self, data, break_ties="random", return_probs=False, **kwargs):
         """Computes predictions in batch, given a labeled dataset
 
         Args:

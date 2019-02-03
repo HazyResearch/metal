@@ -46,9 +46,7 @@ class EndModel(Classifier):
 
         # Add layer_out_dims to kwargs so it will be merged into the config dict
         kwargs["layer_out_dims"] = layer_out_dims
-        config = recursive_merge_dicts(
-            em_default_config, kwargs, misses="insert"
-        )
+        config = recursive_merge_dicts(em_default_config, kwargs, misses="insert")
         super().__init__(k=layer_out_dims[-1], config=config)
 
         self._build(input_module, middle_modules, head_module)
@@ -197,14 +195,10 @@ class EndModel(Classifier):
             criteria = self.criteria
         # This self.preprocess_Y allows us to not handle preprocessing
         # in a custom dataloader, but decreases speed a bit
-        loss_fn = lambda X, Y: criteria(
-            self.forward(X), self._preprocess_Y(Y, self.k)
-        )
+        loss_fn = lambda X, Y: criteria(self.forward(X), self._preprocess_Y(Y, self.k))
         return loss_fn
 
-    def train_model(
-        self, train_data, valid_data=None, log_writer=None, **kwargs
-    ):
+    def train_model(self, train_data, valid_data=None, log_writer=None, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
 
         # If train_data is provided as a tuple (X, Y), we can make sure Y is in
@@ -212,9 +206,7 @@ class EndModel(Classifier):
         # NOTE: Better handling for if train_data is Dataset or DataLoader...?
         if isinstance(train_data, (tuple, list)):
             X, Y = train_data
-            Y = self._preprocess_Y(
-                self._to_torch(Y, dtype=torch.FloatTensor), self.k
-            )
+            Y = self._preprocess_Y(self._to_torch(Y, dtype=torch.FloatTensor), self.k)
             train_data = (X, Y)
 
         # Convert input data to data loaders

@@ -28,12 +28,10 @@ class Logger(object):
 
         # Normalize all target metric names to include split prefix
         self.log_train_metrics = [
-            self.add_split_prefix(m, "train")
-            for m in self.config["log_train_metrics"]
+            self.add_split_prefix(m, "train") for m in self.config["log_train_metrics"]
         ]
         self.log_valid_metrics = [
-            self.add_split_prefix(m, "valid")
-            for m in self.config["log_valid_metrics"]
+            self.add_split_prefix(m, "valid") for m in self.config["log_valid_metrics"]
         ]
 
         assert isinstance(self.config["log_train_every"], int)
@@ -75,9 +73,7 @@ class Logger(object):
         else:
             raise Exception(f"Unrecognized log_unit: {self.log_unit}")
 
-    def calculate_metrics(
-        self, model, train_loader, valid_loader, metrics_dict
-    ):
+    def calculate_metrics(self, model, train_loader, valid_loader, metrics_dict):
         """Add standard and custom metrics to metrics_dict"""
         # Check whether or not it's time for validation as well
         self.log_count += 1
@@ -110,18 +106,12 @@ class Logger(object):
 
         if log_valid:
             metrics_dict = self._calculate_standard_metrics(
-                model,
-                valid_loader,
-                self.log_valid_metrics,
-                metrics_dict,
-                "valid",
+                model, valid_loader, self.log_valid_metrics, metrics_dict, "valid"
             )
 
         return metrics_dict
 
-    def _calculate_custom_metrics(
-        self, model, data_loader, func, metrics_dict, split
-    ):
+    def _calculate_custom_metrics(self, model, data_loader, func, metrics_dict, split):
         custom_metrics = func(model, data_loader)
         # Normalize all custom metrics to include split prefix
         for metric, value in custom_metrics.items():

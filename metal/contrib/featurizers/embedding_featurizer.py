@@ -46,14 +46,11 @@ class EmbeddingFeaturizer(Featurizer):
         """
 
         def convert(tokens):
-            return torch.tensor(
-                [self.vocab.stoi[t] for t in tokens], dtype=torch.long
-            )
+            return torch.tensor([self.vocab.stoi[t] for t in tokens], dtype=torch.long)
 
         if self.vocab is None:
             raise Exception(
-                "Must run .fit() for .fit_transform() before "
-                "calling .transform()."
+                "Must run .fit() for .fit_transform() before " "calling .transform()."
             )
 
         seqs = sorted([convert(s) for s in sents], key=lambda x: -len(x))

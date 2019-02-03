@@ -102,9 +102,7 @@ class MTEndModel(MTClassifier, EndModel):
 
         if isinstance(input_modules, list):
             input_layer = [
-                self._make_layer(
-                    mod, "input", self.config["input_layer_config"]
-                )
+                self._make_layer(mod, "input", self.config["input_layer_config"])
                 for mod in input_modules
             ]
         else:
@@ -269,9 +267,7 @@ class MTEndModel(MTClassifier, EndModel):
             for t in self.task_map[i]:
                 head = self.heads[t]
                 # Optionally include as input the predictions of parent tasks
-                if self.config["pass_predictions"] and bool(
-                    self.task_graph.parents[t]
-                ):
+                if self.config["pass_predictions"] and bool(self.task_graph.parents[t]):
                     task_input = [x]
                     for p in self.task_graph.parents[t]:
                         task_input.append(head_outputs[p])
@@ -294,10 +290,7 @@ class MTEndModel(MTClassifier, EndModel):
             msg = f"Expected Y to be a t-length list (t={self.t}), not {len(Y)}"
             raise ValueError(msg)
 
-        return [
-            EndModel._preprocess_Y(self, Y_t, self.K[t])
-            for t, Y_t in enumerate(Y)
-        ]
+        return [EndModel._preprocess_Y(self, Y_t, self.K[t]) for t, Y_t in enumerate(Y)]
 
     def _get_loss_fn(self):
         """Returns the loss function to use in the train_model routine"""
@@ -313,8 +306,7 @@ class MTEndModel(MTClassifier, EndModel):
     def predict_proba(self, X):
         """Returns a list of t [n, K_t] tensors of soft (float) predictions."""
         return [
-            F.softmax(output, dim=1).data.cpu().numpy()
-            for output in self.forward(X)
+            F.softmax(output, dim=1).data.cpu().numpy() for output in self.forward(X)
         ]
 
     def predict_task_proba(self, X, t):
