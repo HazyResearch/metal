@@ -97,7 +97,7 @@ pip install snorkel-metal
 ```
 
 ## Developer Guidelines
-First, read the [MeTaL Commandments](https://github.com/HazyResearch/metal/blob/master/docs/metal_design.md), which describe the major design principles, terminology, and style guidelines for Snorkel MeTaL.
+First, read the [MeTaL Commandments](https://github.com/HazyResearch/metal/blob/master/docs/metal_commandments.md), which describe the major design principles, terminology, and style guidelines for Snorkel MeTaL.
 
 If you are interested in contributing to Snorkel MeTaL (and we welcome whole-heartedly contributions via pull requests!), follow the [setup](#setup) guidelines above, then run the following additional command:
 ```
