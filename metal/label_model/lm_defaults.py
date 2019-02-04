@@ -36,7 +36,7 @@ lm_default_config = {
             "log_train_every": 1,  # How often train loss is reported
             "log_train_metrics": ["train/loss"],
             "log_train_metrics_func": None,
-            "log_valid_every": 1,
+            "log_valid_every": 0,
             "log_valid_metrics": [],
             "log_valid_metrics_func": None,
         },

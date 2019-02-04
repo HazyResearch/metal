@@ -19,9 +19,6 @@ class Logger(object):
         self.unit_count = 0
         self.unit_total = 0
         self.log_count = 0  # Count how many times logging has occurred
-        self.valid_every_X = int(
-            self.config["log_valid_every"] / self.config["log_train_every"]
-        )
 
         # Specific to log_unit == "seconds"
         self.timer = Timer() if self.log_unit == "seconds" else None
@@ -33,6 +30,14 @@ class Logger(object):
         self.log_valid_metrics = [
             self.add_split_prefix(m, "valid") for m in self.config["log_valid_metrics"]
         ]
+
+        # Calculate how many log_train steps to take per log_valid steps
+        if self.config["log_valid_every"]:
+            self.valid_every_X = int(
+                self.config["log_valid_every"] / self.config["log_train_every"]
+            )
+        else:
+            self.valid_every_X = 0
 
         assert isinstance(self.config["log_train_every"], int)
         assert isinstance(self.config["log_valid_every"], int)
@@ -77,8 +82,10 @@ class Logger(object):
         """Add standard and custom metrics to metrics_dict"""
         # Check whether or not it's time for validation as well
         self.log_count += 1
-        log_valid = valid_loader is not None and not (
-            self.log_count % self.valid_every_X
+        log_valid = (
+            valid_loader is not None
+            and self.valid_every_X
+            and not (self.log_count % self.valid_every_X)
         )
 
         metrics_dict = {}
