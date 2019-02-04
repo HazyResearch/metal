@@ -75,7 +75,7 @@ em_default_config = {
                 "min_lr": 1e-4,
             },
         },
-        # Logger
+        # Logger (see metal/logging/logger.py for descriptions)
         "logger": True,
         "logger_config": {
             "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
@@ -90,7 +90,7 @@ em_default_config = {
             ],  # Metrics to calculate and report every `log_valid_every` units; this can include built-in and user-defined metrics
             "log_valid_metrics_func": None,  # A function or list of functions that maps a model + valid_loader to a dictionary of custom metrics
         },
-        # LogWriter/Tensorboard
+        # LogWriter/Tensorboard (see metal/logging/writer.py for descriptions)
         "writer": None,  # [None, "json", "tensorboard"]
         "writer_config": {  # Log (or event) file stored at log_dir/run_dir/run_name
             "log_dir": None,
@@ -99,7 +99,7 @@ em_default_config = {
             "writer_metrics": None,  # May specify a subset of metrics in metrics_dict to be written
             "include_config": True,  # If True, include model config in log
         },
-        # Checkpointer
+        # Checkpointer (see metal/logging/checkpointer.py for descriptions)
         "checkpoint": True,  # If True, checkpoint models when certain conditions are met
         "checkpoint_config": {
             "checkpoint_best": True,

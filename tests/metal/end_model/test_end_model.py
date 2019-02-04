@@ -1,8 +1,5 @@
-import copy
-import json
 import os
 import unittest
-from shutil import rmtree
 
 import numpy as np
 import torch
@@ -10,7 +7,6 @@ import torch.nn as nn
 
 from metal.end_model import EndModel, LogisticRegression
 from metal.end_model.identity_module import IdentityModule
-from metal.logging import LogWriter
 from metal.metrics import METRICS
 
 
@@ -140,66 +136,6 @@ class EndModelTest(unittest.TestCase):
         for i, metric in enumerate(metrics):
             self.assertGreater(scores[i], 0.95)
 
-    def test_checkpointing(self):
-        """Test the metrics whole way through"""
-        em = EndModel(
-            seed=1,
-            batchnorm=False,
-            dropout=0.0,
-            layer_out_dims=[2, 10, 2],
-            verbose=False,
-        )
-        Xs, Ys = self.single_problem
-        em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=5,
-            checkpoint=True,
-            checkpoint_every=1,
-        )
-        test_model = copy.deepcopy(em.state_dict())
-
-        new_model = torch.load("checkpoints/model_checkpoint_4.pth")
-        self.assertFalse(
-            torch.all(
-                torch.eq(
-                    test_model["network.1.0.weight"],
-                    new_model["model"]["network.1.0.weight"],
-                )
-            )
-        )
-        new_model = torch.load("checkpoints/model_checkpoint_5.pth")
-        self.assertTrue(
-            torch.all(
-                torch.eq(
-                    test_model["network.1.0.weight"],
-                    new_model["model"]["network.1.0.weight"],
-                )
-            )
-        )
-
-    def test_resume_training(self):
-        em = EndModel(
-            seed=1,
-            batchnorm=False,
-            dropout=0.0,
-            layer_out_dims=[2, 10, 2],
-            verbose=False,
-        )
-        Xs, Ys = self.single_problem
-        em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=5,
-            checkpoint=True,
-            checkpoint_every=1,
-        )
-        em.resume_training(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            model_path="checkpoints/model_checkpoint_2.pth",
-        )
-
     def test_determinism(self):
         """Test whether training and scoring is deterministic given seed"""
         em = EndModel(
@@ -233,39 +169,6 @@ class EndModelTest(unittest.TestCase):
         score_3 = em_2.score((Xs[2], Ys[2]), verbose=False)
         self.assertEqual(score_1, score_3)
 
-    def test_writer(self):
-        """Test the basic LogWriter class"""
-        log_dir = os.path.join(os.environ["METALHOME"], "tests/logs/")
-        writer_kwargs = {"log_dir": log_dir, "run_dir": "test_dir", "run_name": "test"}
-
-        em = EndModel(
-            seed=1,
-            input_batchnorm=False,
-            middle_batchnorm=False,
-            input_dropout=0.0,
-            middle_dropout=0.0,
-            layer_out_dims=[2, 10, 2],
-            verbose=False,
-        )
-        Xs, Ys = self.single_problem
-        em.train_model(
-            (Xs[0], Ys[0]),
-            valid_data=(Xs[1], Ys[1]),
-            n_epochs=7,
-            checkpoint=False,
-            writer="json",
-            **writer_kwargs,
-        )
-        # Load the log
-        with open(em.writer.log_path, "r") as f:
-            log_dict = json.load(f)
-
-        self.assertEqual(log_dict["config"]["train_config"]["n_epochs"], 7)
-        self.assertEqual(len(log_dict["run_log"]["train/loss"]), 7)
-
-        # Clean up
-        rmtree(em.writer.log_subdir)
-
     def test_save_and_load(self):
         """Test basic saving and loading"""
         em = EndModel(
@@ -279,7 +182,7 @@ class EndModelTest(unittest.TestCase):
         )
         Xs, Ys = self.single_problem
         em.train_model(
-            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=3, checkpoint=True
+            (Xs[0], Ys[0]), valid_data=(Xs[1], Ys[1]), n_epochs=3, checkpoint=False
         )
         score = em.score((Xs[2], Ys[2]), verbose=False)
 

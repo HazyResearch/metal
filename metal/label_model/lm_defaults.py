@@ -29,7 +29,7 @@ lm_default_config = {
         "n_epochs": 100,
         "print_every": 10,
         "progress_bar": False,
-        # Logger
+        # Logger (see metal/logging/writer.py for descriptions)
         "logger": True,
         "logger_config": {
             "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
