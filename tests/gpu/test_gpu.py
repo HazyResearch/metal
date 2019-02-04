@@ -33,7 +33,7 @@ class GPUTest(unittest.TestCase):
         Y_train_ps = label_model.predict_proba(Ls[0])
 
         # Creating a really large end model to use lots of memory
-        end_model = EndModel([1000, 100000, 2], seed=123, use_cuda=True)
+        end_model = EndModel([1000, 100000, 2], seed=123, device="cuda")
 
         # Getting initial GPU storage use
         initial_gpu_mem = GPUtil.getGPUs()[0].memoryUsed

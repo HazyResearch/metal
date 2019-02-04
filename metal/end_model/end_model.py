@@ -191,10 +191,7 @@ class EndModel(Classifier):
         return MetalDataset(*data)
 
     def _get_loss_fn(self):
-        if self.config["use_cuda"]:
-            criteria = self.criteria.cuda()
-        else:
-            criteria = self.criteria
+        criteria = self.criteria.to(self.config["device"])
         # This self.preprocess_Y allows us to not handle preprocessing
         # in a custom dataloader, but decreases speed a bit
         loss_fn = lambda X, Y: criteria(

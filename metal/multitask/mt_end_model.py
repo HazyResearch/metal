@@ -301,10 +301,7 @@ class MTEndModel(MTClassifier, EndModel):
 
     def _get_loss_fn(self):
         """Returns the loss function to use in the train_model routine"""
-        if self.config["use_cuda"]:
-            criteria = self.criteria.cuda()
-        else:
-            criteria = self.criteria
+        criteria = self.criteria.to(self.config["device"])
         loss_fn = lambda X, Y: sum(
             criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
         )

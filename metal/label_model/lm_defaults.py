@@ -3,8 +3,8 @@ lm_default_config = {
     "seed": None,
     "verbose": True,
     "show_plots": True,
-    # GPU
-    "use_cuda": False,
+    # Device (default GPU)
+    "device": "cpu",
     # TRAIN
     "train_config": {
         # Dataloader
