@@ -231,7 +231,7 @@ class Classifier(nn.Module):
             self.running_loss = 0.0
             self.running_examples = 0
             for batch_num, data in t:
-                # NOTE: actual batch_size may not equal config"s target batch_size
+                # NOTE: actual batch_size may not equal config's target batch_size
                 batch_size = len(data[0])
 
                 # Moving data to GPU
