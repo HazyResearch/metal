@@ -32,24 +32,7 @@ class Logger(object):
         ]
 
         # Calculate how many log_train steps to take per log_valid steps
-        if self.config["log_valid_every"]:
-            self.valid_every_X = int(
-                self.config["log_valid_every"] / self.config["log_train_every"]
-            )
-        else:
-            self.valid_every_X = 0
-
-        assert isinstance(self.config["log_train_every"], int)
-        assert isinstance(self.config["log_valid_every"], int)
-        if (
-            self.config["log_valid_every"] < self.config["log_train_every"]
-            or self.config["log_valid_every"] % self.config["log_train_every"]
-        ):
-            raise Exception(
-                f"Setting log_valid_every ({self.config['log_valid_every']}) "
-                f"must be a multiple of log_train_every "
-                f"({self.config['log_train_every']})."
-            )
+        self.valid_every_X = self._calculate_valid_frequency()
 
     def check(self, batch_size):
         """Returns True if the logging frequency has been met."""
@@ -167,6 +150,23 @@ class Logger(object):
         """Remove "{split}/" from begininng of metric name if it is present"""
         split, metric = metric.split("/", 1)
         return metric
+
+    def _calculate_valid_frequency(self):
+        assert isinstance(self.config["log_train_every"], int)
+        if self.config["log_valid_every"]:
+            assert isinstance(self.config["log_valid_every"], int)
+            if (
+                self.config["log_valid_every"] < self.config["log_train_every"]
+                or self.config["log_valid_every"] % self.config["log_train_every"]
+            ):
+                raise Exception(
+                    f"Parameter `log_valid_every` ({self.config['log_valid_every']}) "
+                    f"must be a multiple of `log_train_every` "
+                    f"({self.config['log_train_every']})."
+                )
+            return int(self.config["log_valid_every"] / self.config["log_train_every"])
+        else:
+            return 0
 
     def log(self, metrics_dict):
         """Print calculated metrics and optionally write to file (json/tb)"""
