@@ -5,7 +5,7 @@ import numpy as np
 import scipy.sparse as sparse
 import torch
 
-from metal.utils import hard_to_soft, rargmax, recursive_merge_dicts, split_data
+from metal.utils import pred_to_prob, rargmax, recursive_merge_dicts, split_data
 
 
 class UtilsTest(unittest.TestCase):
@@ -16,11 +16,11 @@ class UtilsTest(unittest.TestCase):
             sorted(list(set(rargmax(x) for _ in range(10)))), [0, 2]
         )
 
-    def test_hard_to_soft(self):
+    def test_pred_to_prob(self):
         x = torch.tensor([1, 2, 2, 1])
         target = torch.tensor([[1, 0], [0, 1], [0, 1], [1, 0]])
         self.assertTrue(
-            (hard_to_soft(x, 2).float() == target.float()).sum()
+            (pred_to_prob(x, 2).float() == target.float()).sum()
             == torch.prod(torch.tensor(target.shape))
         )
 

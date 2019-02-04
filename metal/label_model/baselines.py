@@ -16,7 +16,7 @@ class RandomVoter(LabelModel):
         Args:
             L: An [n, m] scipy.sparse matrix of labels
         Returns:
-            output: A [n, k] np.ndarray of soft predictions
+            output: A [n, k] np.ndarray of probabilistic labels
         """
         n = L.shape[0]
         Y_p = np.random.rand(n, self.k)

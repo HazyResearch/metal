@@ -4,12 +4,12 @@ import torch.nn.functional as F
 
 
 class SoftCrossEntropyLoss(nn.Module):
-    """Computes the CrossEntropyLoss while accepting soft (float) targets
+    """Computes the CrossEntropyLoss while accepting probabilistic (float) targets
 
     Args:
         weight: a tensor of relative weights to assign to each class.
             the kwarg name 'weight' is used to match CrossEntropyLoss
-        reduction: how to combine the elmentwise losses
+        reduction: how to combine the elementwise losses
             'none': return an unreduced list of elementwise losses
             'mean': return the mean loss per elements
             'sum': return the sum of the elementwise losses

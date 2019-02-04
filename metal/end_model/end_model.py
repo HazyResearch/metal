@@ -6,7 +6,7 @@ from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.identity_module import IdentityModule
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.utils import MetalDataset, hard_to_soft, recursive_merge_dicts
+from metal.utils import MetalDataset, pred_to_prob, recursive_merge_dicts
 
 
 class EndModel(Classifier):
@@ -179,12 +179,12 @@ class EndModel(Classifier):
         self.config = recursive_merge_dicts(self.config, update_dict)
 
     def _preprocess_Y(self, Y, k):
-        """Convert Y to soft labels if necessary"""
+        """Convert Y to prob labels if necessary"""
         Y = Y.clone()
 
-        # If hard labels, convert to soft labels
+        # If preds, convert to probs
         if Y.dim() == 1 or Y.shape[1] == 1:
-            Y = hard_to_soft(Y.long(), k=k)
+            Y = pred_to_prob(Y.long(), k=k)
         return Y
 
     def _create_dataset(self, *data):
@@ -226,5 +226,5 @@ class EndModel(Classifier):
         )
 
     def predict_proba(self, X):
-        """Returns a [n, k] tensor of soft (float) predictions."""
+        """Returns a [n, k] tensor of probs (probabilistic labels)."""
         return F.softmax(self.forward(X), dim=1).data.cpu().numpy()

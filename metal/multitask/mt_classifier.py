@@ -41,16 +41,16 @@ class MTClassifier(Classifier):
         self.K = K
 
     def predict_proba(self, X, **kwargs):
-        """Predicts soft probabilistic labels for an input X on all tasks
+        """Predicts probabilistic labels for an input X on all tasks
         Args:
             X: An appropriate input for the child class of Classifier
         Returns:
-            A t-length list of [n, K_t] np.ndarrays of soft predictions
+            A t-length list of [n, K_t] np.ndarrays of probabilistic labels
         """
         raise NotImplementedError
 
     def predict(self, X, break_ties="random", return_probs=False, **kwargs):
-        """Predicts hard (int) labels for an input X on all tasks
+        """Predicts int labels for an input X on all tasks
 
         Args:
             X: The input for the predict_proba method
@@ -178,20 +178,20 @@ class MTClassifier(Classifier):
         return score
 
     def predict_task(self, X, t=0, break_ties="random", **kwargs):
-        """Predicts hard (int) labels for an input X on task t
+        """Predicts int labels for an input X on task t
 
         Args:
             X: The input for the predict_task_proba method
             t: The task index to predict
         Returns:
-            An n-dim tensor of hard (int) predictions for the specified task
+            An n-dim tensor of int predictions for the specified task
         """
         Y_tp = self.predict_task_proba(X, t=t, **kwargs)
         Y_tph = self._break_ties(Y_tp, break_ties)
         return Y_tph
 
     def predict_task_proba(self, X, t=0, **kwargs):
-        """Predicts soft probabilistic labels for an input X on task t
+        """Predicts probabilistic labels for an input X on task t
 
         Args:
             X: The input for the predict_proba method

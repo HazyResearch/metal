@@ -282,7 +282,7 @@ class MTEndModel(MTClassifier, EndModel):
         return head_outputs
 
     def _preprocess_Y(self, Y, k=None):
-        """Convert Y to t-length list of soft labels if necessary"""
+        """Convert Y to t-length list of probabilistic labels if necessary"""
         # If not a list, convert to a singleton list
         if not isinstance(Y, list):
             if self.t != 1:
@@ -308,7 +308,7 @@ class MTEndModel(MTClassifier, EndModel):
         return loss_fn
 
     def predict_proba(self, X):
-        """Returns a list of t [n, K_t] tensors of soft (float) predictions."""
+        """Returns a list of t [n, K_t] tensors of probabilistic (float) predictions."""
         return [
             F.softmax(output, dim=1).data.cpu().numpy()
             for output in self.forward(X)

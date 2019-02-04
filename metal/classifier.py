@@ -79,16 +79,16 @@ class Classifier(nn.Module):
         self.eval()
 
     def predict_proba(self, X, **kwargs):
-        """Predicts soft probabilistic labels for an input X on all tasks
+        """Predicts probabilistic labels for an input X on all tasks
         Args:
             X: An appropriate input for the child class of Classifier
         Returns:
-            An [n, k] np.ndarray of soft predictions
+            An [n, k] np.ndarray of probabilities
         """
         raise NotImplementedError
 
     def predict(self, X, break_ties="random", return_probs=False, **kwargs):
-        """Predicts hard (int) labels for an input X on all tasks
+        """Predicts (int) labels for an input X on all tasks
 
         Args:
             X: The input for the predict_proba method
