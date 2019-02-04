@@ -104,7 +104,7 @@ def convert_labels(Y, source, dest):
     """Convert a matrix from one label type to another
 
     Args:
-        X: A np.ndarray or torch.Tensor of labels (ints)
+        Y: A np.ndarray or torch.Tensor of labels (ints)
         source: The convention the labels are currently expressed in
         dest: The convention to convert the labels to
 
@@ -119,8 +119,10 @@ def convert_labels(Y, source, dest):
         return Y
     if isinstance(Y, np.ndarray):
         Y = Y.copy()
+        assert isinstance(Y, int)
     elif isinstance(Y, torch.Tensor):
         Y = Y.clone()
+        assert (np.sum(Y.numpy() - Y.numpy().astype(int)) == 0.)
     else:
         raise ValueError("Unrecognized label data type.")
     negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}
