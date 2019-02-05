@@ -5,22 +5,20 @@ import numpy as np
 import scipy.sparse as sparse
 import torch
 
-from metal.utils import hard_to_soft, rargmax, recursive_merge_dicts, split_data
+from metal.utils import pred_to_prob, rargmax, recursive_merge_dicts, split_data
 
 
 class UtilsTest(unittest.TestCase):
     def test_rargmax(self):
         x = np.array([2, 1, 2])
         np.random.seed(1)
-        self.assertEqual(
-            sorted(list(set(rargmax(x) for _ in range(10)))), [0, 2]
-        )
+        self.assertEqual(sorted(list(set(rargmax(x) for _ in range(10)))), [0, 2])
 
-    def test_hard_to_soft(self):
+    def test_pred_to_prob(self):
         x = torch.tensor([1, 2, 2, 1])
         target = torch.tensor([[1, 0], [0, 1], [0, 1], [1, 0]])
         self.assertTrue(
-            (hard_to_soft(x, 2).float() == target.float()).sum()
+            (pred_to_prob(x, 2).float() == target.float()).sum()
             == torch.prod(torch.tensor(target.shape))
         )
 
@@ -77,17 +75,13 @@ class UtilsTest(unittest.TestCase):
             self.assertLess(abs(ratio0 - ratio2), 0.05)
 
         # Handles scipy.sparse matrices
-        Z = sparse.csr_matrix(
-            [[1, 0, 1, 2], [0, 3, 0, 3], [1, 2, 3, 4], [5, 4, 3, 2]]
-        )
+        Z = sparse.csr_matrix([[1, 0, 1, 2], [0, 3, 0, 3], [1, 2, 3, 4], [5, 4, 3, 2]])
         splits = [0.75, 0.25]
         Zs = split_data(Z, splits=splits, shuffle=True, seed=123)
         self.assertEqual(Zs[0].shape, (3, 4))
 
         # Handles torch.Tensors
-        W = torch.Tensor(
-            [[1, 0, 1, 2], [0, 3, 0, 3], [1, 2, 3, 4], [5, 4, 3, 2]]
-        )
+        W = torch.Tensor([[1, 0, 1, 2], [0, 3, 0, 3], [1, 2, 3, 4], [5, 4, 3, 2]])
         splits = [0.75, 0.25]
         Ws = split_data(W, splits=splits, shuffle=True, seed=123)
         self.assertEqual(Ws[0].shape, (3, 4))

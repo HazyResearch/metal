@@ -61,9 +61,7 @@ class HyperbandTuner(ModelTuner):
         # Print the search schedule
         self.pretty_print_schedule(self.hyperband_schedule)
 
-    def pretty_print_schedule(
-        self, hyperband_schedule, describe_hyperband=True
-    ):
+    def pretty_print_schedule(self, hyperband_schedule, describe_hyperband=True):
         """
         Prints scheduler for user to read.
         """
@@ -74,8 +72,8 @@ class HyperbandTuner(ModelTuner):
             # Print a message indicating what the below schedule means
             print(
                 "Table consists of tuples of "
-                "(num configs, num_resources_per_config)"
-                "which specify how many configs to run and"
+                "(num configs, num_resources_per_config) "
+                "which specify how many configs to run and "
                 "for how many epochs. "
             )
             print(
@@ -158,7 +156,7 @@ class HyperbandTuner(ModelTuner):
     def search(
         self,
         search_space,
-        dev_data,
+        valid_data,
         init_args=[],
         train_args=[],
         init_kwargs={},
@@ -182,7 +180,7 @@ class HyperbandTuner(ModelTuner):
         Args:
             init_args: (list) positional args for initializing the model
             train_args: (list) positional args for training the model
-            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+            valid_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
             search_space: see ModelTuner's config_generator() documentation
             max_search: see ModelTuner's config_generator() documentation
@@ -233,7 +231,7 @@ class HyperbandTuner(ModelTuner):
                     score, model = self._test_model_config(
                         f"{band_index}_{i}",
                         configuration,
-                        dev_data,
+                        valid_data,
                         init_args=init_args,
                         train_args=train_args,
                         init_kwargs=init_kwargs,
@@ -256,9 +254,7 @@ class HyperbandTuner(ModelTuner):
                 # Successively halve the configurations
                 if band_index + 1 < len(bracket):
                     n_to_keep, _ = bracket[band_index + 1]
-                    configurations = [x[2] for x in scored_configurations][
-                        :n_to_keep
-                    ]
+                    configurations = [x[2] for x in scored_configurations][:n_to_keep]
 
         print("=" * 60)
         print(f"[SUMMARY]")

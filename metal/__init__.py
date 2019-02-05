@@ -1,10 +1,5 @@
 from .end_model import EndModel
-from .label_model import (
-    LabelModel,
-    MajorityClassVoter,
-    MajorityLabelVoter,
-    RandomVoter,
-)
+from .label_model import LabelModel, MajorityClassVoter, MajorityLabelVoter, RandomVoter
 from .tuners import RandomSearchTuner
 
 __all__ = [
@@ -16,4 +11,4 @@ __all__ = [
     "RandomSearchTuner",
 ]
 
-__version__ = "0.3.3"
+__version__ = "0.4.0"

@@ -6,6 +6,7 @@ from itertools import cycle, product
 from time import strftime, time
 
 import numpy as np
+import pandas as pd
 
 from metal.utils import recursive_merge_dicts
 
@@ -93,7 +94,7 @@ class ModelTuner(object):
         self,
         idx,
         config,
-        dev_data,
+        valid_data,
         init_args=[],
         train_args=[],
         init_kwargs={},
@@ -106,12 +107,8 @@ class ModelTuner(object):
 
         # Integrating generated config into init kwargs and train kwargs
         init_kwargs["verbose"] = verbose
-        init_kwargs = recursive_merge_dicts(
-            init_kwargs, config, misses="insert"
-        )
-        train_kwargs = recursive_merge_dicts(
-            train_kwargs, config, misses="insert"
-        )
+        init_kwargs = recursive_merge_dicts(init_kwargs, config, misses="insert")
+        train_kwargs = recursive_merge_dicts(train_kwargs, config, misses="insert")
 
         # Also make sure train kwargs includes validation metric
         train_kwargs["validation_metric"] = self.validation_metric
@@ -149,22 +146,23 @@ class ModelTuner(object):
         # Initialize a new LogWriter and train the model, returning the score
         log_writer = None
         if self.log_writer_class is not None:
-            log_writer = self.log_writer_class(
-                log_dir=self.log_subdir,
-                run_dir=".",
-                run_name=f"model_search_{idx}",
-            )
+            writer_config = {
+                "log_dir": self.log_subdir,
+                "run_dir": ".",
+                "run_name": f"model_search_{idx}",
+            }
+            log_writer = self.log_writer_class(**writer_config)
 
         model.train_model(
             *train_args,
             **train_kwargs,
-            dev_data=dev_data,
+            valid_data=valid_data,
             verbose=verbose,
             log_writer=log_writer,
         )
 
         score = model.score(
-            dev_data,
+            valid_data,
             metric=self.validation_metric,
             verbose=False,  # Score is already printed in train_model above
             **score_kwargs,
@@ -208,10 +206,20 @@ class ModelTuner(object):
         with open(self.report_path, "w") as f:
             json.dump(self.run_stats, f, indent=1)
 
+    def run_stats_df(self):
+        """Returns self.run_stats over search params as pandas dataframe."""
+
+        run_stats_df = []
+        for x in self.run_stats:
+            search_results = {**x["search_params"]}
+            search_results["score"] = x["score"]
+            run_stats_df.append(search_results)
+        return pd.DataFrame(run_stats_df)
+
     def search(
         self,
         search_space,
-        dev_data,
+        valid_data,
         init_args=[],
         train_args=[],
         init_kwargs={},
@@ -226,7 +234,7 @@ class ModelTuner(object):
         """
         Args:
             search_space: see config_generator() documentation
-            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+            valid_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
             init_args: (list) positional args for initializing the model
             train_args: (list) positional args for training the model
@@ -309,9 +317,7 @@ class ModelTuner(object):
                 maxi = np.log(maxi)
                 func = lambda rand: np.exp(mini + (maxi - mini) * rand)
             else:
-                raise ValueError(
-                    f"Unrecognized scale '{scale}' for " "parameter {k}"
-                )
+                raise ValueError(f"Unrecognized scale '{scale}' for " "parameter {k}")
             return func
 
         discretes = {}

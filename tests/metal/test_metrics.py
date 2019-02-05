@@ -53,9 +53,7 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(score, 0.75)
         score = accuracy_score(gold, pred, ignore_in_gold=[1])
         self.assertAlmostEqual(score, 0.5)
-        score = accuracy_score(
-            gold, pred, ignore_in_gold=[2], ignore_in_pred=[0]
-        )
+        score = accuracy_score(gold, pred, ignore_in_gold=[2], ignore_in_pred=[0])
         self.assertAlmostEqual(score, 1.0)
 
     def test_coverage(self):
@@ -96,9 +94,7 @@ class MetricsTest(unittest.TestCase):
         pre = precision_score(gold, pred)
         rec = recall_score(gold, pred)
         self.assertEqual(pre, fbeta_score(gold, pred, beta=0))
-        self.assertAlmostEqual(
-            rec, fbeta_score(gold, pred, beta=1000), places=4
-        )
+        self.assertAlmostEqual(rec, fbeta_score(gold, pred, beta=1000), places=4)
 
     def test_roc_auc(self):
         gold = [1, 1, 2, 2]

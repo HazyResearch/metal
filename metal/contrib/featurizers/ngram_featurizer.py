@@ -75,9 +75,7 @@ class RelationNgramFeaturizer(Featurizer):
         for i, (word_start, word_end) in enumerate(word_positions):
             word_start -= offset
             word_end -= offset
-            tokens = (
-                tokens[:word_start] + [f"ENTITY_{i}"] + tokens[(word_end + 1) :]
-            )
+            tokens = tokens[:word_start] + [f"ENTITY_{i}"] + tokens[(word_end + 1) :]
             word_positions[i] = (word_start, word_start)
             offset += word_end - word_start
         return tokens, word_positions

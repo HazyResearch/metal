@@ -4,9 +4,9 @@ import torch.nn.functional as F
 
 from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_default_config
+from metal.end_model.identity_module import IdentityModule
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.modules import IdentityModule
-from metal.utils import MetalDataset, hard_to_soft, recursive_merge_dicts
+from metal.utils import MetalDataset, pred_to_prob, recursive_merge_dicts
 
 
 class EndModel(Classifier):
@@ -46,9 +46,7 @@ class EndModel(Classifier):
 
         # Add layer_out_dims to kwargs so it will be merged into the config dict
         kwargs["layer_out_dims"] = layer_out_dims
-        config = recursive_merge_dicts(
-            em_default_config, kwargs, misses="insert"
-        )
+        config = recursive_merge_dicts(em_default_config, kwargs, misses="insert")
         super().__init__(k=layer_out_dims[-1], config=config)
 
         self._build(input_module, middle_modules, head_module)
@@ -179,30 +177,25 @@ class EndModel(Classifier):
         self.config = recursive_merge_dicts(self.config, update_dict)
 
     def _preprocess_Y(self, Y, k):
-        """Convert Y to soft labels if necessary"""
+        """Convert Y to prob labels if necessary"""
         Y = Y.clone()
 
-        # If hard labels, convert to soft labels
+        # If preds, convert to probs
         if Y.dim() == 1 or Y.shape[1] == 1:
-            Y = hard_to_soft(Y.long(), k=k)
+            Y = pred_to_prob(Y.long(), k=k)
         return Y
 
     def _create_dataset(self, *data):
         return MetalDataset(*data)
 
     def _get_loss_fn(self):
-        if self.config["use_cuda"]:
-            criteria = self.criteria.cuda()
-        else:
-            criteria = self.criteria
+        criteria = self.criteria.to(self.config["device"])
         # This self.preprocess_Y allows us to not handle preprocessing
         # in a custom dataloader, but decreases speed a bit
-        loss_fn = lambda X, Y: criteria(
-            self.forward(X), self._preprocess_Y(Y, self.k)
-        )
+        loss_fn = lambda X, Y: criteria(self.forward(X), self._preprocess_Y(Y, self.k))
         return loss_fn
 
-    def train_model(self, train_data, dev_data=None, log_writer=None, **kwargs):
+    def train_model(self, train_data, valid_data=None, log_writer=None, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
 
         # If train_data is provided as a tuple (X, Y), we can make sure Y is in
@@ -210,9 +203,7 @@ class EndModel(Classifier):
         # NOTE: Better handling for if train_data is Dataset or DataLoader...?
         if isinstance(train_data, (tuple, list)):
             X, Y = train_data
-            Y = self._preprocess_Y(
-                self._to_torch(Y, dtype=torch.FloatTensor), self.k
-            )
+            Y = self._preprocess_Y(self._to_torch(Y, dtype=torch.FloatTensor), self.k)
             train_data = (X, Y)
 
         # Convert input data to data loaders
@@ -223,9 +214,9 @@ class EndModel(Classifier):
 
         # Execute training procedure
         self._train_model(
-            train_loader, loss_fn, dev_data=dev_data, log_writer=log_writer
+            train_loader, loss_fn, valid_data=valid_data, log_writer=log_writer
         )
 
     def predict_proba(self, X):
-        """Returns a [n, k] tensor of soft (float) predictions."""
+        """Returns a [n, k] tensor of probs (probabilistic labels)."""
         return F.softmax(self.forward(X), dim=1).data.cpu().numpy()

@@ -7,8 +7,8 @@ import torch.nn.functional as F
 
 from metal.end_model import EndModel
 from metal.end_model.em_defaults import em_default_config
+from metal.end_model.identity_module import IdentityModule
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.modules import IdentityModule
 from metal.multitask import MTClassifier, TaskGraph
 from metal.multitask.mt_em_defaults import mt_em_default_config
 from metal.utils import recursive_merge_dicts
@@ -53,9 +53,9 @@ class MTEndModel(MTClassifier, EndModel):
     ):
 
         kwargs["layer_out_dims"] = layer_out_dims
-        kwargs["input_modules"] = input_modules
-        kwargs["middle_modules"] = middle_modules
-        kwargs["head_modules"] = head_modules
+        # kwargs["input_modules"] = input_modules
+        # kwargs["middle_modules"] = middle_modules
+        # kwargs["head_modules"] = head_modules
 
         config = recursive_merge_dicts(
             em_default_config, mt_em_default_config, misses="insert"
@@ -102,9 +102,7 @@ class MTEndModel(MTClassifier, EndModel):
 
         if isinstance(input_modules, list):
             input_layer = [
-                self._make_layer(
-                    mod, "input", self.config["input_layer_config"]
-                )
+                self._make_layer(mod, "input", self.config["input_layer_config"])
                 for mod in input_modules
             ]
         else:
@@ -269,9 +267,7 @@ class MTEndModel(MTClassifier, EndModel):
             for t in self.task_map[i]:
                 head = self.heads[t]
                 # Optionally include as input the predictions of parent tasks
-                if self.config["pass_predictions"] and bool(
-                    self.task_graph.parents[t]
-                ):
+                if self.config["pass_predictions"] and bool(self.task_graph.parents[t]):
                     task_input = [x]
                     for p in self.task_graph.parents[t]:
                         task_input.append(head_outputs[p])
@@ -282,7 +278,7 @@ class MTEndModel(MTClassifier, EndModel):
         return head_outputs
 
     def _preprocess_Y(self, Y, k=None):
-        """Convert Y to t-length list of soft labels if necessary"""
+        """Convert Y to t-length list of probabilistic labels if necessary"""
         # If not a list, convert to a singleton list
         if not isinstance(Y, list):
             if self.t != 1:
@@ -294,27 +290,20 @@ class MTEndModel(MTClassifier, EndModel):
             msg = f"Expected Y to be a t-length list (t={self.t}), not {len(Y)}"
             raise ValueError(msg)
 
-        return [
-            EndModel._preprocess_Y(self, Y_t, self.K[t])
-            for t, Y_t in enumerate(Y)
-        ]
+        return [EndModel._preprocess_Y(self, Y_t, self.K[t]) for t, Y_t in enumerate(Y)]
 
     def _get_loss_fn(self):
         """Returns the loss function to use in the train_model routine"""
-        if self.config["use_cuda"]:
-            criteria = self.criteria.cuda()
-        else:
-            criteria = self.criteria
+        criteria = self.criteria.to(self.config["device"])
         loss_fn = lambda X, Y: sum(
             criteria(Y_tp, Y_t) for Y_tp, Y_t in zip(self.forward(X), Y)
         )
         return loss_fn
 
     def predict_proba(self, X):
-        """Returns a list of t [n, K_t] tensors of soft (float) predictions."""
+        """Returns a list of t [n, K_t] tensors of probabilistic (float) predictions."""
         return [
-            F.softmax(output, dim=1).data.cpu().numpy()
-            for output in self.forward(X)
+            F.softmax(output, dim=1).data.cpu().numpy() for output in self.forward(X)
         ]
 
     def predict_task_proba(self, X, t):

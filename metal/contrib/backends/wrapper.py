@@ -64,9 +64,7 @@ class SnorkelDataset(Dataset):
 
         # create markup sequences and labels
         markers = [
-            m.format(i)
-            for i in range(self.cardinality)
-            for m in ["~~[[{}", "{}]]~~"]
+            m.format(i) for i in range(self.cardinality) for m in ["~~[[{}", "{}]]~~"]
         ]
         self.X = (
             self.session.query(Candidate)
@@ -88,18 +86,13 @@ class SnorkelDataset(Dataset):
 
         # initalize labels (from either LFs or gold labels)
         if use_lfs:
-            self.Y = torch.tensor(
-                load_marginals(self.session, split=split).todense()
-            )
+            self.Y = torch.tensor(load_marginals(self.session, split=split).todense())
         else:
-            self.Y = load_gold_labels(
-                self.session, annotator_name="gold", split=split
-            )
+            self.Y = load_gold_labels(self.session, annotator_name="gold", split=split)
             self.Y = [int(y) for y in np.nditer(self.Y.todense())]
             # remap class labels to not include 0 (reserved by MeTaL)
             labels = {
-                y: i + 1
-                for i, y in enumerate(sorted(np.unique(self.Y), reverse=1))
+                y: i + 1 for i, y in enumerate(sorted(np.unique(self.Y), reverse=1))
             }
             self.Y = torch.tensor([labels[y] for y in self.Y])
 

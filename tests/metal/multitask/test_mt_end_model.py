@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from metal.end_model.identity_module import IdentityModule
 from metal.metrics import METRICS
-from metal.modules import IdentityModule
 from metal.multitask import MTEndModel, TaskGraph, TaskHierarchy
 
 
@@ -43,16 +43,16 @@ class MTEndModelTest(unittest.TestCase):
             task_graph=tg,
             seed=1,
             verbose=False,
-            dropout=0.0,
             task_head_layers="top",
         )
         top_layer = len(em.config["layer_out_dims"]) - 1
         self.assertEqual(len(em.task_map[top_layer]), em.t)
         em.train_model(
             (self.Xs[0], self.Ys[0]),
-            dev_data=(self.Xs[1], self.Ys[1]),
+            valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
@@ -67,16 +67,16 @@ class MTEndModelTest(unittest.TestCase):
             task_graph=tg,
             seed=1,
             verbose=False,
-            dropout=0.0,
             task_head_layers=[1, 2],
         )
         self.assertEqual(em.task_map[1][0], 0)
         self.assertEqual(em.task_map[2][0], 1)
         em.train_model(
             (self.Xs[0], self.Ys[0]),
-            dev_data=(self.Xs[1], self.Ys[1]),
+            valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
@@ -91,7 +91,6 @@ class MTEndModelTest(unittest.TestCase):
             task_graph=tg,
             seed=1,
             verbose=False,
-            dropout=0.0,
             input_modules=[IdentityModule(), IdentityModule()],
             task_head_layers="top",
         )
@@ -100,9 +99,10 @@ class MTEndModelTest(unittest.TestCase):
             Xs.append([X[:, 0], X[:, 1]])
         em.train_model(
             (Xs[0], self.Ys[0]),
-            dev_data=(Xs[1], self.Ys[1]),
+            valid_data=(Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
@@ -117,15 +117,15 @@ class MTEndModelTest(unittest.TestCase):
             task_graph=tg,
             seed=1,
             verbose=False,
-            dropout=0.0,
             head_modules=[nn.Linear(8, 2), nn.Linear(4, 2)],
             task_head_layers=[1, 2],
         )
         em.train_model(
             (self.Xs[0], self.Ys[0]),
-            dev_data=(self.Xs[1], self.Ys[1]),
+            valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=10,
+            checkpoint=False,
         )
         score = em.score((self.Xs[2], self.Ys[2]), reduce="mean", verbose=False)
         self.assertGreater(score, 0.95)
@@ -134,23 +134,19 @@ class MTEndModelTest(unittest.TestCase):
         edges = [(0, 1)]
         cards = [2, 2]
         tg = TaskHierarchy(cards, edges)
-        em = MTEndModel(
-            layer_out_dims=[2, 8, 4], task_graph=tg, seed=1, verbose=False
-        )
+        em = MTEndModel(layer_out_dims=[2, 8, 4], task_graph=tg, seed=1, verbose=False)
         em.train_model(
             (self.Xs[0], self.Ys[0]),
-            dev_data=(self.Xs[1], self.Ys[1]),
+            valid_data=(self.Xs[1], self.Ys[1]),
             verbose=False,
             n_epochs=3,
+            checkpoint=False,
             validation_task=0,
         )
         tasks = [0, 1]
         for metric in METRICS:
             all_scores = em.score(
-                (self.Xs[2], self.Ys[2]),
-                metric=metric,
-                reduce=None,
-                verbose=False,
+                (self.Xs[2], self.Ys[2]), metric=metric, reduce=None, verbose=False
             )
             task_specific_scores_score_method = [
                 em.score(

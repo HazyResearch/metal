@@ -1,11 +1,6 @@
 import copy
-import json
-import os
 import random
-import shutil
 from collections import defaultdict
-from subprocess import check_output
-from time import strftime
 
 import numpy as np
 import torch
@@ -14,12 +9,12 @@ from torch.utils.data import Dataset
 
 
 class MetalDataset(Dataset):
-    """A dataset that group each item in X with it label from Y
+    """A dataset that group each item in X with its label from Y
 
     Args:
         X: an n-dim iterable of items
         Y: a torch.Tensor of labels
-            This may be hard labels [n] or soft labels [n, k]
+            This may be predicted (int) labels [n] or probabilistic (float) labels [n, k]
     """
 
     def __init__(self, X, Y):
@@ -34,101 +29,6 @@ class MetalDataset(Dataset):
         return len(self.X)
 
 
-class Checkpointer(object):
-    def __init__(
-        self,
-        model_class,
-        checkpoint_min=-1,
-        checkpoint_runway=0,
-        verbose=True,
-        checkpoint_destination="checkpoints",
-    ):
-        """Saves checkpoints as applicable based on a reported metric.
-
-        Args:
-            checkpoint_min (float): the initial "best" score to beat
-            checkpoint_runway (int): don't save any checkpoints for the first
-                this many iterations
-            checkpoint_destination(str): the path to save each training checkpoint
-        """
-        self.model_class = model_class
-        self.best_model = None
-        self.best_iteration = None
-        self.best_score = checkpoint_min
-        self.checkpoint_runway = checkpoint_runway
-        self.checkpoint_destination = checkpoint_destination
-        self.verbose = verbose
-        self.state = {}
-
-        if checkpoint_runway and verbose:
-            print(
-                f"No checkpoints will be saved in the first "
-                f"checkpoint_runway={checkpoint_runway} iterations."
-            )
-
-    def checkpoint(self, model, iteration, score, optimizer, lr_scheduler):
-        if iteration >= self.checkpoint_runway:
-            self.state["epoch"] = iteration
-            self.state["model"] = model.state_dict()
-            self.state["optimizer"] = optimizer.state_dict()
-            self.state["lr_scheduler"] = (
-                lr_scheduler.state_dict() if lr_scheduler else None
-            )
-            self.state["score"] = score
-
-            is_best = score > self.best_score
-            if is_best:
-                if self.verbose:
-                    print(
-                        f"Saving model at iteration {iteration} with best "
-                        f"score {score:.3f}"
-                    )
-                self.best_model = True
-                self.best_iteration = iteration
-                self.best_score = score
-                self.state["best_iteration"] = iteration
-                self.state["best_score"] = score
-
-            if not os.path.exists(self.checkpoint_destination):
-                os.makedirs(self.checkpoint_destination)
-
-            torch.save(
-                self.state,
-                f"{self.checkpoint_destination}/model_checkpoint_{iteration}.pth",
-            )
-
-            # Copies the model's best iteration (checkpoint) to a seperate file to reload after training
-            if is_best:
-                shutil.copyfile(
-                    f"{self.checkpoint_destination}/model_checkpoint_{iteration}.pth",
-                    f"{self.checkpoint_destination}/best_model.pth",
-                )
-
-    def load_best_model(self, model):
-        if self.best_model is None:
-            raise Exception(
-                f"Best model was never found. Best score = "
-                f"{self.best_score}"
-            )
-        if self.verbose:
-            print(
-                f"Restoring best model from iteration {self.best_iteration} "
-                f"with score {self.best_score:.3f}"
-            )
-            state = torch.load(
-                f"{self.checkpoint_destination}/best_model.pth",
-                map_location=torch.device("cpu"),
-            )
-            self.best_iteration = state["epoch"]
-            self.best_score = state["score"]
-            model.load_state_dict(state["model"])
-            return model
-
-    def restore(self, destination):
-        state = torch.load(f"{destination}")
-        return state
-
-
 def rargmax(x, eps=1e-8):
     """Argmax with random tie-breaking
 
@@ -141,14 +41,14 @@ def rargmax(x, eps=1e-8):
     return np.random.choice(idxs)
 
 
-def hard_to_soft(Y_h, k):
-    """Converts a 1D tensor of hard labels into a 2D tensor of soft labels
+def pred_to_prob(Y_h, k):
+    """Converts a 1D tensor of predicted labels into a 2D tensor of probabilistic labels
 
     Args:
-        Y_h: an [n], or [n,1] tensor of hard (int) labels in {1,...,k}
+        Y_h: an [n], or [n,1] tensor of predicted (int) labels in {1,...,k}
         k: the largest possible label in Y_h
     Returns:
-        Y_s: a torch.FloatTensor of shape [n, k] where Y_s[i, j-1] is the soft
+        Y_s: a torch.FloatTensor of shape [n, k] where Y_s[i, j-1] is the probabilistic
             label for item i and label j
     """
     Y_h = Y_h.clone()
@@ -180,10 +80,7 @@ def arraylike_to_numpy(array_like):
     elif not isinstance(array_like, np.ndarray):
         array_like = np.array(array_like)
     else:
-        msg = (
-            f"Input of type {orig_type} could not be converted to 1d "
-            "np.ndarray"
-        )
+        msg = f"Input of type {orig_type} could not be converted to 1d " "np.ndarray"
         raise ValueError(msg)
 
     # Correct shape
@@ -204,7 +101,7 @@ def convert_labels(Y, source, dest):
     """Convert a matrix from one label type to another
 
     Args:
-        X: A np.ndarray or torch.Tensor of labels (ints)
+        Y: A np.ndarray or torch.Tensor of labels (ints)
         source: The convention the labels are currently expressed in
         dest: The convention to convert the labels to
 
@@ -219,8 +116,10 @@ def convert_labels(Y, source, dest):
         return Y
     if isinstance(Y, np.ndarray):
         Y = Y.copy()
+        assert isinstance(Y, int)
     elif isinstance(Y, torch.Tensor):
         Y = Y.clone()
+        assert np.sum(Y.numpy() - Y.numpy().astype(int)) == 0.0
     else:
         raise ValueError("Unrecognized label data type.")
     negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}
@@ -234,6 +133,28 @@ def plusminus_to_categorical(Y):
 
 def categorical_to_plusminus(Y):
     return convert_labels(Y, "categorical", "plusminus")
+
+
+def label_matrix_to_one_hot(L, k=None):
+    """Converts a 2D [n,m] label matrix into an [n,m,k] one hot 3D tensor
+
+    Note that in the returned 3D matrix, abstain votes continue to be
+    represented by 0s, not 1s.
+
+    Args:
+        L: a [n,m] label matrix with categorical labels (0 = abstain)
+        k: the number of classes that could appear in L
+            if None, k is inferred as the max element in L
+    """
+    n, m = L.shape
+    if k is None:
+        k = L.max()
+    L_onehot = torch.zeros(n, m, k + 1)
+    for i, row in enumerate(L):
+        for j, k in enumerate(row):
+            if k > 0:
+                L_onehot[i, j, k - 1] = 1
+    return L_onehot
 
 
 def recursive_merge_dicts(x, y, misses="report", verbose=None):
@@ -258,10 +179,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
                 found = True
                 if isinstance(x[k], dict):
                     if not isinstance(v, dict):
-                        msg = (
-                            f"Attempted to overwrite dict {k} with "
-                            f"non-dict: {v}"
-                        )
+                        msg = f"Attempted to overwrite dict {k} with " f"non-dict: {v}"
                         raise ValueError(msg)
                     recurse(x[k], v, misses, verbose)
                 else:
@@ -275,9 +193,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
             else:
                 for kx, vx in x.items():
                     if isinstance(vx, dict):
-                        found = recurse(
-                            vx, {k: v}, misses="ignore", verbose=verbose
-                        )
+                        found = recurse(vx, {k: v}, misses="ignore", verbose=verbose)
                     if found:
                         break
             if not found:
@@ -302,6 +218,15 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
     z = copy.deepcopy(x)
     recurse(z, y, misses, verbose)
     return z
+
+
+def recursive_transform(x, test_func, transform):
+    for k, v in x.items():
+        if test_func(v):
+            x[k] = transform(v)
+        if isinstance(v, dict):
+            recursive_transform(v, test_func, transform)
+    return x
 
 
 def split_data(
@@ -376,9 +301,7 @@ def split_data(
 
     elif all(isinstance(x, float) for x in splits):
         if not sum(splits) == 1.0:
-            raise ValueError(
-                f"Split fractions must sum to 1.0, not {sum(splits)}."
-            )
+            raise ValueError(f"Split fractions must sum to 1.0, not {sum(splits)}.")
         fracs = splits
 
     else:
@@ -432,67 +355,3 @@ def place_on_gpu(data):
         return data.cuda()
     else:
         return ValueError(f"Data type {type(data)} not recognized.")
-
-
-#
-# LOGGING
-# TODO: move to separate logging.py file
-#
-class LogWriter(object):
-    """Class for writing simple JSON logs at end of runs, with interface for
-    storing per-iter data as well.
-
-    Args:
-        log_dir: (str) The path to the base log directory, or defaults to
-            current working directory.
-        run_dir: (str) The name of the sub-directory, or defaults to the date,
-            strftime("%Y_%m_%d").
-        run_name: (str) The name of the run + the time, or defaults to the time,
-            strftime("%H_%M_%S).
-
-        Log is saved to 'log_dir/run_dir/{run_name}_H_M_S.json'
-    """
-
-    def __init__(self, log_dir=None, run_dir=None, run_name=None):
-        start_date = strftime("%Y_%m_%d")
-        start_time = strftime("%H_%M_%S")
-
-        # Set logging subdirectory + make sure exists
-        log_dir = log_dir or os.getcwd()
-        run_dir = run_dir or start_date
-        self.log_subdir = os.path.join(log_dir, run_dir)
-        if not os.path.exists(self.log_subdir):
-            os.makedirs(self.log_subdir)
-
-        # Set JSON log path
-        if run_name is not None:
-            run_name = f"{run_name}_{start_time}"
-        else:
-            run_name = start_time
-        self.log_path = os.path.join(self.log_subdir, f"{run_name}.json")
-
-        # Initialize log
-        # Note we have a separate section for during-run metrics
-        commit = check_output(["git", "rev-parse", "--short", "HEAD"]).strip()
-        self.log = {
-            "start-date": start_date,
-            "start-time": start_time,
-            "commit": str(commit),
-            "config": None,
-            "run-log": defaultdict(list),
-        }
-
-    def add_config(self, config):
-        self.log["config"] = config
-
-    def add_scalar(self, name, val, i):
-        # Note: Does not handle deduplication of (name, val) entries w same i
-        self.log["run-log"][name].append((i, val))
-
-    def write(self):
-        """Dump JSON to file"""
-        with open(self.log_path, "w") as f:
-            json.dump(self.log, f, indent=1)
-
-    def close(self):
-        self.write()

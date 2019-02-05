@@ -22,11 +22,7 @@ class LabelModelTest(unittest.TestCase):
     def _test_label_model(self, data, test_acc=True):
         label_model = LabelModel(k=data.k, verbose=False)
         label_model.train_model(
-            data.L,
-            deps=data.E,
-            class_balance=data.p,
-            n_epochs=1000,
-            print_every=200,
+            data.L, deps=data.E, class_balance=data.p, n_epochs=1000, print_every=200
         )
 
         # Test parameter estimation error
@@ -36,20 +32,18 @@ class LabelModelTest(unittest.TestCase):
 
         # Test label prediction accuracy
         if test_acc:
-            score = label_model.score((data.L, data.Y))
+            score = label_model.score((data.L, data.Y), verbose=False)
             self.assertGreater(score, 0.95)
 
             # Test against baseline
             mv = MajorityLabelVoter()
-            mv_score = mv.score((data.L, data.Y))
+            mv_score = mv.score((data.L, data.Y), verbose=False)
             self.assertGreater(score, mv_score)
 
     def test_no_deps(self):
         for seed in range(self.n_iters):
             np.random.seed(seed)
-            data = SingleTaskTreeDepsGenerator(
-                self.n, self.m, k=self.k, edge_prob=0.0
-            )
+            data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, edge_prob=0.0)
             self._test_label_model(data)
 
     def test_augmented_L_construction(self):
@@ -95,9 +89,7 @@ class LabelModelTest(unittest.TestCase):
     def test_with_deps(self):
         for seed in range(self.n_iters):
             np.random.seed(seed)
-            data = SingleTaskTreeDepsGenerator(
-                self.n, self.m, k=self.k, edge_prob=1.0
-            )
+            data = SingleTaskTreeDepsGenerator(self.n, self.m, k=self.k, edge_prob=1.0)
             self._test_label_model(data, test_acc=False)
 
 

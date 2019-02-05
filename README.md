@@ -4,7 +4,7 @@
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
-**_v0.3.3_**
+**_v0.4.0_**
 
 ## Getting Started
 * Quickly [set up](#setup) your environment
@@ -35,8 +35,12 @@ This makes it significantly more scalable than our previous approaches.
 * [2/4/2019] [Emerging Topics in Multi-Task Learning Systems](https://hazyresearch.github.io/snorkel/blog/mtl_systems.html)
 
 ## Q&A
-One of the best places to look for Q&A (besides the doc strings) is the Issues page.
-We tag issues that might be aprticularly helpful with the "reference question" label; see them [here](https://github.com/HazyResearch/metal/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22reference+question%22).
+If you are looking for help regarding how to use a particular class or method, the best references are (in order):
+
+*  The docstrings for that class
+*  The [MeTaL Commandments](https://github.com/HazyResearch/metal/blob/master/docs/metal_commandments.md)
+*  The corresponding unit tests in `tests/`
+*  The Issues page (We tag issues that might be particularly helpful with the "[reference question](https://github.com/HazyResearch/metal/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22reference+question%22)" label)
 
 ## Sample Usage
 This sample is for a single-task problem. 
@@ -59,17 +63,27 @@ from metal.label_model import LabelModel, EndModel
 # Train a label model and generate training labels
 label_model = LabelModel(k)
 label_model.train_model(L_train)
-Y_train_pred = label_model.predict(L_train)
+Y_train_probs = label_model.predict_proba(L_train)
 
 # Train a discriminative end model with the generated labels
 end_model = EndModel([1000,10,2])
-end_model.train_model(train_data=(X_train, Y_train_pred), dev_data=(X_dev, Y_dev))
+end_model.train_model(train_data=(X_train, Y_train_probs), valid_data=(X_dev, Y_dev))
 
 # Evaluate performance
 score = end_model.score(X_test, Y_test)
 ```
 
 **_Note for Snorkel users: Snorkel MeTaL, even in the single-task case, learns a slightly different label model than Snorkel does (e.g. here we learn class-conditional accuracies for each LF, etc.)---so expect slightly different (hopefully better!) results._**
+
+## Release Notes
+### Major changes in v0.4.0:
+* Upgrade to pytorch v1.0
+* Improved control over logging/checkpointing/validation
+    * More modular code, separate Logger, Checkpointer, LogWriter classes
+    * Support for user-defined metrics for validation/checkpointing
+    * Logging frequency can now be based on seconds, examples, batches, or epochs
+* Naming convention change: hard (int) labels -> preds, soft (float) labels -> probs
+
 
 ## Setup
 [1] Install anaconda:  
@@ -94,13 +108,13 @@ nosetests
 If the tests run successfully, you should see 50+ dots followed by "OK".  
 Check out the [tutorials](tutorials/) to get familiar with the Snorkel MeTaL codebase!
 
-Or, to use Snorkel Metal in another project, install it with pip (conda coming soon):
+Or, to use Snorkel Metal in another project, install it with pip:
 ```
 pip install snorkel-metal
 ```
 
 ## Developer Guidelines
-First, read the [MeTaL Commandments](https://github.com/HazyResearch/metal/blob/master/docs/metal_design.md), which describe the major design principles, terminology, and style guidelines for Snorkel MeTaL.
+First, read the [MeTaL Commandments](https://github.com/HazyResearch/metal/blob/master/docs/metal_commandments.md), which describe the major design principles, terminology, and style guidelines for Snorkel MeTaL.
 
 If you are interested in contributing to Snorkel MeTaL (and we welcome whole-heartedly contributions via pull requests!), follow the [setup](#setup) guidelines above, then run the following additional command:
 ```

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.utils import hard_to_soft
+from metal.utils import pred_to_prob
 
 
 class LossTest(unittest.TestCase):
@@ -15,7 +15,7 @@ class LossTest(unittest.TestCase):
     def test_sce_equals_ce(self):
         # All correct predictions
         Y = torch.tensor([1, 2, 3], dtype=torch.long)
-        Y_s = hard_to_soft(Y, k=4).float()
+        Y_s = pred_to_prob(Y, k=4).float()
 
         sce = SoftCrossEntropyLoss(reduction="none")
         ce = nn.CrossEntropyLoss(reduction="none")
@@ -33,8 +33,8 @@ class LossTest(unittest.TestCase):
                 sce(Y_ps, Y_s).numpy(), ce(Y_ps, Y - 1).numpy(), places=5
             )
 
-        sce = SoftCrossEntropyLoss(reduction="elementwise_mean")
-        ce = nn.CrossEntropyLoss(reduction="elementwise_mean")
+        sce = SoftCrossEntropyLoss(reduction="mean")
+        ce = nn.CrossEntropyLoss(reduction="mean")
         for _ in range(10):
             Y_ps = torch.rand_like(Y_s)
             Y_ps = Y_ps / Y_ps.sum(dim=1).reshape(-1, 1)
@@ -44,7 +44,7 @@ class LossTest(unittest.TestCase):
 
     def test_perfect_predictions(self):
         Y = torch.tensor([1, 2, 3], dtype=torch.long)
-        Y_s = hard_to_soft(Y, k=4)
+        Y_s = pred_to_prob(Y, k=4)
 
         sce = SoftCrossEntropyLoss()
         # Guess nearly perfectly
@@ -53,7 +53,7 @@ class LossTest(unittest.TestCase):
         Y_ps[Y_ps == 0] = -100
         self.assertAlmostEqual(sce(Y_ps, Y_s).numpy(), 0)
 
-    def test_soft_labels(self):
+    def test_prob_labels(self):
         Y_s = torch.tensor([[0.1, 0.9], [0.5, 0.5]])
         Y_ps1 = torch.tensor([[0.1, 0.2], [1.0, 0.0]])
         Y_ps2 = torch.tensor([[0.1, 0.3], [1.0, 0.0]])
@@ -65,13 +65,9 @@ class LossTest(unittest.TestCase):
     def test_loss_weights(self):
         # All incorrect predictions
         Y = torch.tensor([1, 1, 2], dtype=torch.long)
-        Y_s = hard_to_soft(Y, k=3)
+        Y_s = pred_to_prob(Y, k=3)
         Y_ps = torch.tensor(
-            [
-                [-100.0, 100.0, -100.0],
-                [-100.0, 100.0, -100.0],
-                [-100.0, 100.0, -100.0],
-            ]
+            [[-100.0, 100.0, -100.0], [-100.0, 100.0, -100.0], [-100.0, 100.0, -100.0]]
         )
         weight1 = torch.tensor([1, 2, 1], dtype=torch.float)
         weight2 = torch.tensor([10, 20, 10], dtype=torch.float)

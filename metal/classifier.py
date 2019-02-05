@@ -1,6 +1,6 @@
 import os
-import pickle
 import random
+import warnings
 
 import numpy as np
 import torch
@@ -10,8 +10,9 @@ from scipy.sparse import issparse
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
 from metal.analysis import confusion_matrix
+from metal.logging import Checkpointer, Logger, LogWriter, TensorBoardWriter
 from metal.metrics import metric_score
-from metal.utils import Checkpointer, place_on_gpu, recursive_merge_dicts
+from metal.utils import place_on_gpu, recursive_merge_dicts
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -27,6 +28,9 @@ else:
         from tqdm import tqdm_notebook as tqdm
     else:
         from tqdm import tqdm
+
+global warnings_given
+warnings_given = set([])
 
 
 class Classifier(nn.Module):
@@ -68,115 +72,91 @@ class Classifier(nn.Module):
         self._set_seed(self.config["seed"])
 
         # Confirm that cuda is available if config is using CUDA
-        if self.config["use_cuda"] and not torch.cuda.is_available():
-            raise ValueError("use_cuda=True but CUDA not available.")
+        if self.config["device"] != "cpu" and not torch.cuda.is_available():
+            raise ValueError("device=cuda but CUDA not available.")
 
         # By default, put model in eval mode; switch to train mode in training
         self.eval()
 
-    def _set_seed(self, seed):
-        self.seed = seed
-        if torch.cuda.is_available():
-            # TODO: confirm this works for gpus without knowing gpu_id
-            # torch.cuda.set_device(self.config['gpu_id'])
-            torch.backends.cudnn.enabled = True
-            torch.cuda.manual_seed(seed)
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
-
-    @staticmethod
-    def _reset_module(m):
-        """An initialization method to be applied recursively to all modules"""
+    def predict_proba(self, X, **kwargs):
+        """Predicts probabilistic labels for an input X on all tasks
+        Args:
+            X: An appropriate input for the child class of Classifier
+        Returns:
+            An [n, k] np.ndarray of probabilities
+        """
         raise NotImplementedError
 
-    def update_config(self, update_dict):
-        """Updates self.config with the values in a given update dictionary"""
-        self.config = recursive_merge_dicts(self.config, update_dict)
-
-    def save(self, destination, **kwargs):
-        """Serialize and save a model.
-
-        Example:
-            end_model = EndModel(...)
-            end_model.train_model(...)
-            end_model.save('my_end_model.pkl')
-        """
-        with open(destination, "wb") as f:
-            torch.save(self, f, **kwargs)
-
-    @staticmethod
-    def load(source, **kwargs):
-        """Deserialize and load a model.
-
-        Example:
-            end_model = EndModel.load('my_end_model.pkl')
-            end_model.score(...)
-        """
-        with open(source, "rb") as f:
-            return torch.load(f, **kwargs)
-
-    def reset(self):
-        """Initializes all modules in a network"""
-        # The apply(f) method recursively calls f on itself and all children
-        self.apply(self._reset_module)
-
-    def resume_training(self, train_data, model_path, dev_data=None):
-        """This model resume training of a classifier by reloading the appropiate state_dicts for each model
+    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
+        """Predicts (int) labels for an input X on all tasks
 
         Args:
-           train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
-                X (data) and Y (labels) for the train split
-            model_path: the path to the saved checpoint for resuming training
-            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
-                X (data) and Y (labels) for the dev split
+            X: The input for the predict_proba method
+            break_ties: A tie-breaking policy (see Classifier._break_ties())
+            return_probs: Return the predicted probabilities as well
+
+        Returns:
+            Y_p: An n-dim np.ndarray of predictions in {1,...k}
+            [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
         """
-        checkpointer = self._create_checkpointer(
-            self.config["train_config"]["checkpoint_config"]
-        )
-        restore_state = checkpointer.restore(model_path)
-        loss_fn = self._get_loss_fn()
-        self.train()
-        self._train_model(
-            train_data=train_data,
-            loss_fn=loss_fn,
-            dev_data=dev_data,
-            restore_state=restore_state,
-        )
-
-    def _restore_training_state(
-        self, restore_state, optimizer, lr_scheduler, checkpointer
-    ):
-        """Restores the model and optimizer states
-
-        This helper function restores the model's weight matricies as well as certain flags/variables
-        for a given training epoch. The idea is to allow a user to resume training at any epoch.
-
-        Args:
-            restore_state: the dictionary containing necessary data struicutres to resume training
-            optimizer: the optimizer object to load the state dict
-            lr_scheduler: the lr_scheduler object to load the state dict
-            checkpointer: The checkpointer needed to save the best model and iteration
-        """
-        if not restore_state:
-            return
+        Y_s = self._to_numpy(self.predict_proba(X, **kwargs))
+        Y_p = self._break_ties(Y_s, break_ties).astype(np.int)
+        if return_probs:
+            return Y_p, Y_s
         else:
-            self.load_state_dict(restore_state["model"])
-            optimizer.load_state_dict(restore_state["optimizer"])
-            lr_scheduler.load_state_dict(restore_state["lr_scheduler"])
-            start_iteration = (
-                restore_state["epoch"] + 1
-            )  # start from next epooch
-            msg = f"Restored Checkpoint: Starting Epoch: {start_iteration}"
+            return Y_p
 
-            if "best_score" in restore_state:
-                checkpointer.best_iteration = restore_state["best_iteration"]
-                checkpointer.best_score = restore_state["best_score"]
-                checkpointer.best_model = True
-                msg += f"\t Best Iteration: {checkpointer.best_iteration}\t Best Dev Score:{checkpointer.best_score:.3f}"
+    def score(
+        self,
+        data,
+        metric="accuracy",
+        break_ties="random",
+        verbose=True,
+        print_confusion_matrix=True,
+        **kwargs,
+    ):
+        """Scores the predictive performance of the Classifier on all tasks
 
-            print(msg)
-            return start_iteration
+        Args:
+            data: a Pytorch DataLoader, Dataset, or tuple with Tensors (X,Y):
+                X: The input for the predict method
+                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
+                    in {1,...,k}
+            metric: A metric (string) with which to score performance or a
+                list of such metrics
+            break_ties: A tie-breaking policy (see Classifier._break_ties())
+            verbose: The verbosity for just this score method; it will not
+                update the class config.
+            print_confusion_matrix: Print confusion matrix (overwritten to False if
+                verbose=False)
+
+        Returns:
+            scores: A (float) score or a list of such scores if kwarg metric
+                is a list
+        """
+        Y_p, Y, Y_s = self._get_predictions(
+            data, break_ties=break_ties, return_probs=True, **kwargs
+        )
+
+        # Evaluate on the specified metrics
+        return_list = isinstance(metric, list)
+        metric_list = metric if isinstance(metric, list) else [metric]
+        scores = []
+        for metric in metric_list:
+            score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0])
+            scores.append(score)
+            if verbose:
+                print(f"{metric.capitalize()}: {score:.3f}")
+
+        # Optionally print confusion matrix
+        if print_confusion_matrix and verbose:
+            confusion_matrix(Y_p, Y, pretty_print=True)
+
+        # If a single metric was given as a string (not list), return a float
+        if len(scores) == 1 and not return_list:
+            return scores[0]
+        else:
+            return scores
 
     def train_model(self, *args, **kwargs):
         """Trains a classifier
@@ -189,19 +169,8 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError
 
-    def _create_checkpointer(self, checkpoint_config):
-        model_class = type(self).__name__
-        return Checkpointer(
-            model_class, **checkpoint_config, verbose=self.config["verbose"]
-        )
-
     def _train_model(
-        self,
-        train_data,
-        loss_fn,
-        dev_data=None,
-        log_writer=None,
-        restore_state={},
+        self, train_data, loss_fn, valid_data=None, log_writer=None, restore_state={}
     ):
         """The internal training routine called by train_model() after setup
 
@@ -209,188 +178,210 @@ class Classifier(nn.Module):
             train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the train split
             loss_fn: the loss function to minimize (maps *data -> loss)
-            dev_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+            valid_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
                 X (data) and Y (labels) for the dev split
-            log_writer: a metal.utils.LogWriter object for logging
             restore_state: a dictionary containing model weights (optimizer, main network) and training information
 
-        If dev_data is not provided, then no checkpointing or
+        If valid_data is not provided, then no checkpointing or
         evaluation on the dev set will occur.
         """
+        # Set model to train mode
+        self.train()
         train_config = self.config["train_config"]
-        evaluate_dev = dev_data is not None
-
-        # Add config to log_writer if provided
-        if log_writer is not None:
-            log_writer.add_config(self.config)
 
         # Convert data to DataLoaders
         train_loader = self._create_data_loader(train_data)
-        dev_loader = self._create_data_loader(dev_data)
+        valid_loader = self._create_data_loader(valid_data)
+        epoch_size = len(train_loader.dataset)
 
-        # Set model to train mode
-        self.train()
+        # Move model to GPU
+        if self.config["verbose"] and self.config["device"] != "cpu":
+            print("Using GPU...")
+        self.to(self.config["device"])
 
-        # Moving model to GPU
-        if self.config["use_cuda"]:
-            if self.config["verbose"]:
-                print("Using GPU...")
-            self.cuda()
+        # Set training components
+        self._set_writer(train_config)
+        self._set_logger(train_config, epoch_size)
+        self._set_checkpointer(train_config)
+        self._set_optimizer(train_config)
+        self._set_scheduler(train_config)
 
-        # Set the optimizer
-        optimizer = self._set_optimizer(train_config)
-
-        # Set the lr scheduler
-        scheduler_config = train_config["scheduler_config"]
-        lr_scheduler = self._set_scheduler(scheduler_config, optimizer)
-
-        # Create the checkpointer if applicable
-        if evaluate_dev and train_config["checkpoint"]:
-            checkpointer = self._create_checkpointer(
-                train_config["checkpoint_config"]
-            )
-
-        # which iteration to start with
-        start_iteration = 0
-
-        if len(restore_state) > 0:
-            # Check to see if dev set and checkpointing was turned on.
-            checkpointer = (
-                checkpointer
-                if evaluate_dev and train_config["checkpoint"]
-                else None
-            )
-            self._restore_training_state(
-                restore_state, optimizer, lr_scheduler, checkpointer
-            )
+        # Restore model if necessary
+        if restore_state:
+            start_iteration = self._restore_training_state(restore_state)
+        else:
+            start_iteration = 0
 
         # Train the model
+        metrics_hist = {}  # The most recently seen value for all metrics
         for epoch in range(start_iteration, train_config["n_epochs"]):
-            epoch_loss = 0.0
+            progress_bar = (
+                train_config["progress_bar"]
+                and self.config["verbose"]
+                and self.logger.log_unit == "epochs"
+            )
+
             t = tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
-                disable=(
-                    train_config["disable_prog_bar"]
-                    or not self.config["verbose"]
-                ),
+                disable=(not progress_bar),
             )
 
+            self.running_loss = 0.0
+            self.running_examples = 0
             for batch_num, data in t:
+                # NOTE: actual batch_size may not equal config's target batch_size
+                batch_size = len(data[0])
 
-                # Moving data to GPU
-                if self.config["use_cuda"]:
+                # Moving data to device
+                if self.config["device"] != "cpu":
                     data = place_on_gpu(data)
 
                 # Zero the parameter gradients
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
 
-                # Forward pass to calculate outputs
+                # Forward pass to calculate the average loss per example
                 loss = loss_fn(*data)
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
 
                 # Backward pass to calculate gradients
+                # Loss is an average loss per example
                 loss.backward()
 
-                # TODO: restore this once it has unit tests
-                # Clip gradients
-                # if grad_clip:
-                #     torch.nn.utils.clip_grad_norm(
-                #        self.net.parameters(), grad_clip)
-
                 # Perform optimizer step
-                optimizer.step()
+                self.optimizer.step()
 
-                # Keep running sum of losses
-                epoch_loss += loss.item()
+                # Calculate metrics, log, and checkpoint as necessary
+                metrics_dict = self._execute_logging(
+                    train_loader, valid_loader, loss, batch_size
+                )
+                metrics_hist.update(metrics_dict)
 
                 # tqdm output
-                running_loss = epoch_loss / (len(data[0]) * (batch_num + 1))
-                t.set_postfix(avg_loss=float(running_loss))
-
-            # Calculate average loss per training example
-            # Saving division until this stage protects against the potential
-            # mistake of averaging batch losses when the last batch is an orphan
-            train_loss = epoch_loss / len(train_loader.dataset)
-
-            # Checkpoint performance on dev
-            if evaluate_dev and (epoch % train_config["validation_freq"] == 0):
-                val_metric = train_config["validation_metric"]
-                validation_scoring_kwargs = train_config[
-                    "validation_scoring_kwargs"
-                ]
-                self.eval()
-                dev_score = self.score(
-                    dev_loader,
-                    metric=val_metric,
-                    verbose=False,
-                    print_confusion_matrix=False,
-                    **validation_scoring_kwargs,
-                )
-                self.train()
-
-                if train_config["checkpoint"]:
-                    checkpointer.checkpoint(
-                        self, epoch, dev_score, optimizer, lr_scheduler
-                    )
+                t.set_postfix(loss=metrics_dict["train/loss"])
 
             # Apply learning rate scheduler
-            if (
-                lr_scheduler is not None
-                and epoch + 1 >= scheduler_config["lr_freeze"]
-            ):
-                if scheduler_config["scheduler"] == "reduce_on_plateau":
-                    if evaluate_dev:
-                        lr_scheduler.step(dev_score)
-                else:
-                    lr_scheduler.step()
+            self._update_scheduler(epoch, metrics_hist)
 
-            # Report progress
-            if self.config["verbose"] and (
-                epoch % train_config["print_every"] == 0
-                or epoch == train_config["n_epochs"] - 1
-            ):
-                msg = f"[E:{epoch}]\tTrain Loss: {train_loss:.3f}"
-                if evaluate_dev:
-                    msg += f"\tDev {val_metric}: {dev_score:.3f}"
-                print(msg)
-
-            # Also write train loss (+ dev score) to log_writer if available
-            if log_writer is not None and (
-                epoch % train_config["print_every"] == 0
-                or epoch == train_config["n_epochs"] - 1
-            ):
-                log_writer.add_scalar("train-loss", train_loss, epoch)
-                if evaluate_dev:
-                    log_writer.add_scalar("dev-score", dev_score, epoch)
-                log_writer.write()
-
-        # Training complete- set model back to eval mode
         self.eval()
 
         # Restore best model if applicable
-        if evaluate_dev and train_config["checkpoint"]:
-            checkpointer.load_best_model(model=self)
+        if self.checkpointer:
+            self.checkpointer.load_best_model(model=self)
 
-            if log_writer is not None:
-                log_writer.log["checkpoint_iter"] = checkpointer.best_iteration
+        # Write log if applicable
+        if self.writer:
+            if self.writer.include_config:
+                self.writer.add_config(self.config)
+            self.writer.close()
 
         # Print confusion matrix if applicable
         if self.config["verbose"]:
             print("Finished Training")
-            if evaluate_dev:
+            if valid_loader is not None:
                 self.score(
-                    dev_loader,
+                    valid_loader,
                     metric=train_config["validation_metric"],
                     verbose=True,
                     print_confusion_matrix=True,
                 )
 
-        # Close log_writer if available
-        if log_writer is not None:
-            log_writer.close()
+    def _get_loss_fn(self):
+        """Returns a loss function"""
+        msg = (
+            "Abstract class: _get_loss_fn() must be implemented by a child "
+            "class of Classifier."
+        )
+        raise NotImplementedError(msg)
+
+    def save(self, destination, **kwargs):
+        """Serialize and save a model.
+
+        Example:
+            end_model = EndModel(...)
+            end_model.train_model(...)
+            end_model.save("my_end_model.pkl")
+        """
+        with open(destination, "wb") as f:
+            torch.save(self, f, **kwargs)
+
+    @staticmethod
+    def load(source, **kwargs):
+        """Deserialize and load a model.
+
+        Example:
+            end_model = EndModel.load("my_end_model.pkl")
+            end_model.score(...)
+        """
+        with open(source, "rb") as f:
+            return torch.load(f, **kwargs)
+
+    def update_config(self, update_dict):
+        """Updates self.config with the values in a given update dictionary"""
+        self.config = recursive_merge_dicts(self.config, update_dict)
+
+    def reset(self):
+        """Initializes all modules in a network"""
+        # The apply(f) method recursively calls f on itself and all children
+        self.apply(self._reset_module)
+
+    @staticmethod
+    def _reset_module(m):
+        """An initialization method to be applied recursively to all modules"""
+        raise NotImplementedError
+
+    def resume_training(self, train_data, model_path, valid_data=None):
+        """This model resume training of a classifier by reloading the appropriate state_dicts for each model
+
+        Args:
+           train_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the train split
+            model_path: the path to the saved checpoint for resuming training
+            valid_data: a tuple of Tensors (X,Y), a Dataset, or a DataLoader of
+                X (data) and Y (labels) for the dev split
+        """
+        restore_state = self.checkpointer.restore(model_path)
+        loss_fn = self._get_loss_fn()
+        self.train()
+        self._train_model(
+            train_data=train_data,
+            loss_fn=loss_fn,
+            valid_data=valid_data,
+            restore_state=restore_state,
+        )
+
+    def _restore_training_state(self, restore_state):
+        """Restores the model and optimizer states
+
+        This helper function restores the model's state to a given iteration so
+        that a user can resume training at any epoch.
+
+        Args:
+            restore_state: a state_dict dictionary
+        """
+        self.load_state_dict(restore_state["model"])
+        self.optimizer.load_state_dict(restore_state["optimizer"])
+        self.lr_scheduler.load_state_dict(restore_state["lr_scheduler"])
+        start_iteration = restore_state["iteration"] + 1
+        if self.config["verbose"]:
+            print(f"Restored checkpoint to iteration {start_iteration}.")
+
+        if restore_state["best_model_found"]:
+            # Update checkpointer with appropriate information about best model
+            # Note that the best model found so far may not be the model in the
+            # checkpoint that is currently being loaded.
+            self.checkpointer.best_model_found = True
+            self.checkpointer.best_iteration = restore_state["best_iteration"]
+            self.checkpointer.best_score = restore_state["best_score"]
+            if self.config["verbose"]:
+                print(
+                    f"Updated checkpointer: "
+                    f"best_score={self.checkpointer.best_score:.3f}, "
+                    f"best_iteration={self.checkpointer.best_iteration}"
+                )
+        return start_iteration
 
     def _create_dataset(self, *data):
         """Converts input data to the appropriate Dataset"""
@@ -408,18 +399,52 @@ class Classifier(nn.Module):
         config = {
             **self.config["train_config"]["data_loader_config"],
             **kwargs,
-            "pin_memory": self.config["use_cuda"],
+            "pin_memory": self.config["device"] != "cpu",
         }
-
         # Return data as DataLoader
-        if isinstance(data, (tuple, list)):
-            return DataLoader(self._create_dataset(*data), **config)
+        if isinstance(data, DataLoader):
+            return data
         elif isinstance(data, Dataset):
             return DataLoader(data, **config)
-        elif isinstance(data, DataLoader):
-            return data
+        elif isinstance(data, (tuple, list)):
+            return DataLoader(self._create_dataset(*data), **config)
         else:
             raise ValueError("Input data type not recognized.")
+
+    def _set_seed(self, seed):
+        self.seed = seed
+        if self.config["device"] != "cpu":
+            torch.backends.cudnn.enabled = True
+            torch.cuda.manual_seed(seed)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+
+    def _set_writer(self, train_config):
+        if train_config["writer"] is None:
+            self.writer = None
+        elif train_config["writer"] == "json":
+            self.writer = LogWriter(**(train_config["writer_config"]))
+        elif train_config["writer"] == "tensorboard":
+            self.writer = TensorBoardWriter(**(train_config["writer_config"]))
+        else:
+            raise Exception(f"Unrecognized writer: {train_config['writer']}")
+
+    def _set_logger(self, train_config, epoch_size):
+        self.logger = Logger(
+            train_config["logger_config"],
+            self.writer,
+            epoch_size,
+            verbose=self.config["verbose"],
+        )
+
+    def _set_checkpointer(self, train_config):
+        if train_config["checkpoint"]:
+            self.checkpointer = Checkpointer(
+                train_config["checkpoint_config"], verbose=self.config["verbose"]
+            )
+        else:
+            self.checkpointer = None
 
     def _set_optimizer(self, train_config):
         optimizer_config = train_config["optimizer_config"]
@@ -461,80 +486,79 @@ class Classifier(nn.Module):
                     "SparseAdam optimizer does not support weight_decay (l2 penalty)."
                 )
         else:
-            raise ValueError(f"Did not recognize optimizer option '{opt}''")
-        return optimizer
+            raise ValueError(f"Did not recognize optimizer option '{opt}'")
+        self.optimizer = optimizer
 
-    def _set_scheduler(self, scheduler_config, optimizer):
-        scheduler = scheduler_config["scheduler"]
-        if scheduler is None:
+    def _set_scheduler(self, train_config):
+        lr_scheduler = train_config["lr_scheduler"]
+        if lr_scheduler is None:
             lr_scheduler = None
-        elif scheduler == "exponential":
-            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, **scheduler_config["exponential_config"]
-            )
-        elif scheduler == "reduce_on_plateau":
-            lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, **scheduler_config["plateau_config"]
-            )
         else:
-            raise ValueError(
-                f"Did not recognize scheduler option '{scheduler}''"
+            lr_scheduler_config = train_config["lr_scheduler_config"]
+            if lr_scheduler == "exponential":
+                lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                    self.optimizer, **lr_scheduler_config["exponential_config"]
+                )
+            elif lr_scheduler == "reduce_on_plateau":
+                lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    self.optimizer, **lr_scheduler_config["plateau_config"]
+                )
+            else:
+                raise ValueError(
+                    f"Did not recognize lr_scheduler option '{lr_scheduler}'"
+                )
+        self.lr_scheduler = lr_scheduler
+
+    def _update_scheduler(self, epoch, metrics_dict):
+        train_config = self.config["train_config"]
+        if self.lr_scheduler is not None:
+            lr_scheduler_config = train_config["lr_scheduler_config"]
+            if epoch + 1 >= lr_scheduler_config["lr_freeze"]:
+                if train_config["lr_scheduler"] == "reduce_on_plateau":
+                    checkpoint_config = train_config["checkpoint_config"]
+                    metric_name = checkpoint_config["checkpoint_metric"]
+                    score = metrics_dict.get(metric_name, None)
+                    if score is not None:
+                        self.lr_scheduler.step(score)
+                else:
+                    self.lr_scheduler.step()
+
+    def _execute_logging(self, train_loader, valid_loader, loss, batch_size):
+        self.eval()
+        self.running_loss += loss.item() * batch_size
+        self.running_examples += batch_size
+
+        # Initialize metrics dict
+        metrics_dict = {}
+        # Always add average loss
+        metrics_dict["train/loss"] = self.running_loss / self.running_examples
+
+        if self.logger.check(batch_size):
+            logger_metrics = self.logger.calculate_metrics(
+                self, train_loader, valid_loader, metrics_dict
             )
-        return lr_scheduler
+            metrics_dict.update(logger_metrics)
+            self.logger.log(metrics_dict)
 
-    def score(
-        self,
-        data,
-        metric=["accuracy"],
-        break_ties="random",
-        verbose=True,
-        print_confusion_matrix=True,
-        **kwargs,
-    ):
-        """Scores the predictive performance of the Classifier on all tasks
+            # Reset running loss and examples counts
+            self.running_loss = 0.0
+            self.running_examples = 0
 
-        Args:
-            data: a Pytorch DataLoader, Dataset, or tuple with Tensors (X,Y):
-                X: The input for the predict method
-                Y: An [n] or [n, 1] torch.Tensor or np.ndarray of target labels
-                    in {1,...,k}
-            metric: A metric (string) with which to score performance or a
-                list of such metrics
-            break_ties: A tie-breaking policy (see Classifier._break_ties())
-            verbose: The verbosity for just this score method; it will not
-                update the class config.
-            print_confusion_matrix: Print confusion matrix (overwritten to False if
-                verbose=False)
+        # Checkpoint if applicable
+        self._checkpoint(metrics_dict)
 
-        Returns:
-            scores: A (float) score or a list of such scores if kwarg metric
-                is a list
-        """
-        Y_p, Y, Y_s = self._get_predictions(
-            data, break_ties=break_ties, return_probs=True, **kwargs
+        self.train()
+        return metrics_dict
+
+    def _checkpoint(self, metrics_dict):
+        if self.checkpointer is None:
+            return
+        iteration = self.logger.unit_total
+        self.checkpointer.checkpoint(
+            metrics_dict, iteration, self, self.optimizer, self.lr_scheduler
         )
 
-        # Evaluate on the specified metrics
-        metric_list = metric if isinstance(metric, list) else [metric]
-        scores = []
-        for metric in metric_list:
-            score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0])
-            scores.append(score)
-            if verbose:
-                print(f"{metric.capitalize()}: {score:.3f}")
-
-        # Optionally print confusion matrix
-        if print_confusion_matrix and verbose:
-            confusion_matrix(Y_p, Y, pretty_print=True)
-
-        if isinstance(scores, list) and len(scores) == 1:
-            return scores[0]
-        else:
-            return scores
-
-    def _get_predictions(
-        self, data, break_ties="random", return_probs=False, **kwargs
-    ):
+    def _get_predictions(self, data, break_ties="random", return_probs=False, **kwargs):
         """Computes predictions in batch, given a labeled dataset
 
         Args:
@@ -560,8 +584,8 @@ class Classifier(nn.Module):
             Xb, Yb = data
             Y.append(self._to_numpy(Yb))
 
-            # Optionally move to GPU
-            if self.config["use_cuda"]:
+            # Optionally move to device
+            if self.config["device"] != "cpu":
                 Xb = place_on_gpu(Xb)
 
             # Append predictions and labels from DataLoader
@@ -576,44 +600,17 @@ class Classifier(nn.Module):
         else:
             return Y_p, Y
 
-    def predict(self, X, break_ties="random", return_probs=False, **kwargs):
-        """Predicts hard (int) labels for an input X on all tasks
-
-        Args:
-            X: The input for the predict_proba method
-            break_ties: A tie-breaking policy (see Classifier._break_ties())
-            return_probs: Return the predicted probabilities as well
-
-        Returns:
-            Y_p: An n-dim np.ndarray of predictions in {1,...k}
-            [Optionally: Y_s: An [n, k] np.ndarray of predicted probabilities]
-        """
-        Y_s = self._to_numpy(self.predict_proba(X, **kwargs))
-        Y_p = self._break_ties(Y_s, break_ties).astype(np.int)
-        if return_probs:
-            return Y_p, Y_s
-        else:
-            return Y_p
-
-    def predict_proba(self, X, **kwargs):
-        """Predicts soft probabilistic labels for an input X on all tasks
-        Args:
-            X: An appropriate input for the child class of Classifier
-        Returns:
-            An [n, k] np.ndarray of soft predictions
-        """
-        raise NotImplementedError
-
     def _break_ties(self, Y_s, break_ties="random"):
         """Break ties in each row of a tensor according to the specified policy
 
         Args:
             Y_s: An [n, k] np.ndarray of probabilities
             break_ties: A tie-breaking policy:
-                'abstain': return an abstain vote (0)
-                'random': randomly choose among the tied options
-                    NOTE: if break_ties='random', repeated runs may have
+                "abstain": return an abstain vote (0)
+                "random": randomly choose among the tied options
+                    NOTE: if break_ties="random", repeated runs may have
                     slightly different results due to difference in broken ties
+                [int]: ties will be broken by using this label
         """
         n, k = Y_s.shape
         Y_h = np.zeros(n)
@@ -624,11 +621,13 @@ class Classifier(nn.Module):
             max_idxs = np.where(diffs[i, :] < TOL)[0]
             if len(max_idxs) == 1:
                 Y_h[i] = max_idxs[0] + 1
-            # Deal with 'tie votes' according to the specified policy
+            # Deal with "tie votes" according to the specified policy
             elif break_ties == "random":
                 Y_h[i] = np.random.choice(max_idxs) + 1
             elif break_ties == "abstain":
                 Y_h[i] = 0
+            elif isinstance(break_ties, int):
+                Y_h[i] = break_ties
             else:
                 ValueError(f"break_ties={break_ties} policy not recognized.")
         return Y_h
@@ -695,6 +694,20 @@ class Classifier(nn.Module):
             true_val = getattr(self, name)
             if val != true_val:
                 raise Exception(f"{name} = {val}, but should be {true_val}.")
+
+    def warn_once(self, msg, msg_name=None):
+        """Prints a warning statement just once
+
+        Args:
+            msg: The warning message
+            msg_name: [optional] The name of the warning. If None, the msg_name
+                will be the msg itself.
+        """
+        assert isinstance(msg, str)
+        msg_name = msg_name if msg_name else msg
+        if msg_name not in warnings_given:
+            warnings.warn(msg)
+        warnings_given.add(msg_name)
 
     @staticmethod
     def _stack_batches(X):

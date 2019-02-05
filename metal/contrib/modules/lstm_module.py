@@ -56,7 +56,6 @@ class EmbeddingsEncoder(Encoder):
 
         # Load provided embeddings or randomly initialize new ones
         if embeddings is None:
-
             # Note: Need to set seed here for deterministic init
             if seed is not None:
                 self._set_seed(seed)
@@ -252,8 +251,6 @@ class LSTMModule(nn.Module):
         outputs, (h_t, c_t) = self.lstm(X_packed)
 
         # Unpack and reduce outputs
-        outputs_unpacked, _ = rnn_utils.pad_packed_sequence(
-            outputs, batch_first=True
-        )
+        outputs_unpacked, _ = rnn_utils.pad_packed_sequence(outputs, batch_first=True)
         reduced = self._reduce_output(outputs_unpacked, seq_lengths)
         return reduced[inv_perm_idx, :]

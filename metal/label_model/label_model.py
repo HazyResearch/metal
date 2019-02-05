@@ -132,9 +132,7 @@ class LabelModel(Classifier):
                     self.c_data[id] = {
                         "start_index": C["start_index"],
                         "end_index": C["end_index"],
-                        "max_cliques": set([item])
-                        if C_type == "node"
-                        else set(item),
+                        "max_cliques": set([item]) if C_type == "node" else set(item),
                     }
             return L_aug
         else:
@@ -210,9 +208,7 @@ class LabelModel(Classifier):
                 self.mu_init[idx, y] += mu_init
 
         # Initialize randomly based on self.mu_init
-        self.mu = nn.Parameter(
-            self.mu_init.clone() * np.random.random()
-        ).float()
+        self.mu = nn.Parameter(self.mu_init.clone() * np.random.random()).float()
 
         if self.inv_form:
             self.Z = nn.Parameter(torch.randn(self.d, self.k)).float()
@@ -325,19 +321,12 @@ class LabelModel(Classifier):
 
     def loss_inv_mu(self, *args, l2=0):
         loss_1 = torch.norm(self.Q - self.mu @ self.P @ self.mu.t()) ** 2
-        loss_2 = (
-            torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
-        )
+        loss_2 = torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         return loss_1 + loss_2 + self.loss_l2(l2=l2)
 
     def loss_mu(self, *args, l2=0):
-        loss_1 = (
-            torch.norm((self.O - self.mu @ self.P @ self.mu.t())[self.mask])
-            ** 2
-        )
-        loss_2 = (
-            torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
-        )
+        loss_1 = torch.norm((self.O - self.mu @ self.P @ self.mu.t())[self.mask]) ** 2
+        loss_2 = torch.norm(torch.sum(self.mu @ self.P, 1) - torch.diag(self.O)) ** 2
         return loss_1 + loss_2 + self.loss_l2(l2=l2)
 
     def _set_class_balance(self, class_balance, Y_dev):
@@ -352,9 +341,7 @@ class LabelModel(Classifier):
             self.p = np.array(class_balance)
         elif Y_dev is not None:
             class_counts = Counter(Y_dev)
-            sorted_counts = np.array(
-                [v for k, v in sorted(class_counts.items())]
-            )
+            sorted_counts = np.array([v for k, v in sorted(class_counts.items())])
             self.p = sorted_counts / sum(sorted_counts)
         else:
             self.p = (1 / self.k) * np.ones(self.k)
@@ -404,9 +391,7 @@ class LabelModel(Classifier):
             - Then, compute Q = mu P mu.T
             - Finally, estimate mu subject to mu P mu.T = Q and (1b)
         """
-        self.config = recursive_merge_dicts(
-            self.config, kwargs, misses="ignore"
-        )
+        self.config = recursive_merge_dicts(self.config, kwargs, misses="ignore")
         train_config = self.config["train_config"]
 
         # TODO: Implement logging for label model?

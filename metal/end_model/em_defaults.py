@@ -27,17 +27,16 @@ em_default_config = {
     # Can optionally skip the head layer completely, for e.g. running baseline
     # models...
     "skip_head": False,
-    # GPU
-    "use_cuda": False,
+    # Device
+    "device": "cpu",
     # TRAINING
     "train_config": {
         # Loss function config
-        "loss_fn_reduction": "sum",
+        "loss_fn_reduction": "mean",
         # Display
-        "print_every": 1,  # Print after this many epochs
-        "disable_prog_bar": False,  # Disable progress bar each epoch
+        "progress_bar": False,
         # Dataloader
-        "data_loader_config": {"batch_size": 32, "num_workers": 1},
+        "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True},
         # Loss weights
         "loss_weights": None,
         # Train Loop
@@ -59,10 +58,11 @@ em_default_config = {
             # Optimizer - RMSProp
             "rmsprop_config": {},  # Use defaults
         },
-        # Scheduler
-        "scheduler_config": {
-            "scheduler": "reduce_on_plateau",
-            # ['constant', 'exponential', 'reduce_on_plateu']
+        # LR Scheduler (for learning rate)
+        "lr_scheduler": "reduce_on_plateau",
+        # [None, 'exponential', 'reduce_on_plateau']
+        # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
+        "lr_scheduler_config": {
             # Freeze learning rate initially this many epochs
             "lr_freeze": 0,
             # Scheduler - exponential
@@ -75,14 +75,39 @@ em_default_config = {
                 "min_lr": 1e-4,
             },
         },
-        # Checkpointer
-        "checkpoint": True,
+        # Logger (see metal/logging/logger.py for descriptions)
+        "logger": True,
+        "logger_config": {
+            "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
+            "log_train_every": 1,  # How often train metrics are calculated (optionally logged to TB)
+            "log_train_metrics": [
+                "loss"
+            ],  # Metrics to calculate and report every `log_train_every` units. This can include built-in and user-defined metrics.
+            "log_train_metrics_func": None,  # A function or list of functions that map a model + train_loader to a dictionary of custom metrics
+            "log_valid_every": 1,  # How frequently to evaluate on valid set (must be multiple of log_freq)
+            "log_valid_metrics": [
+                "accuracy"
+            ],  # Metrics to calculate and report every `log_valid_every` units; this can include built-in and user-defined metrics
+            "log_valid_metrics_func": None,  # A function or list of functions that maps a model + valid_loader to a dictionary of custom metrics
+        },
+        # LogWriter/Tensorboard (see metal/logging/writer.py for descriptions)
+        "writer": None,  # [None, "json", "tensorboard"]
+        "writer_config": {  # Log (or event) file stored at log_dir/run_dir/run_name
+            "log_dir": None,
+            "run_dir": None,
+            "run_name": None,
+            "writer_metrics": None,  # May specify a subset of metrics in metrics_dict to be written
+            "include_config": True,  # If True, include model config in log
+        },
+        # Checkpointer (see metal/logging/checkpointer.py for descriptions)
+        "checkpoint": True,  # If True, checkpoint models when certain conditions are met
         "checkpoint_config": {
-            "checkpoint_min": -1,
-            # The initial best score to beat to merit checkpointing
+            "checkpoint_best": True,
+            "checkpoint_every": None,  # uses log_valid_unit for units; if not None, checkpoint this often regardless of performance
+            "checkpoint_metric": "accuracy",  # Must be in metrics dict; assumes valid split unless appended with "train/"
+            "checkpoint_metric_mode": "max",  # ['max', 'min']
+            "checkpoint_dir": "checkpoints",
             "checkpoint_runway": 0,
-            # Don't start taking checkpoints until after this many epochs
-            "checkpoint_destination": "checkpoints",
         },
     },
 }

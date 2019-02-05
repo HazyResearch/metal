@@ -62,9 +62,7 @@ def _get_conflicts_matrix(L, normalize=True):
         for j in range(m):
             # Get the overlapping non-zero indices
             overlaps = list(
-                set(np.where(L[:, i] != 0)[0]).intersection(
-                    np.where(L[:, j] != 0)[0]
-                )
+                set(np.where(L[:, i] != 0)[0]).intersection(np.where(L[:, j] != 0)[0])
             )
             C[i, j] = np.where(L[overlaps, i] != L[overlaps, j], 1, 0).sum()
 
@@ -100,10 +98,10 @@ def plot_probabilities_histogram(Y_p, title=None):
 
 
 def plot_predictions_histogram(Y_ph, Y, title=None):
-    """Plot a histogram comparing hard predictions vs true labels by class
+    """Plot a histogram comparing int predictions vs true labels by class
 
     Args:
-        Y_ph: An [n] or [n, 1] np.ndarray of predicted hard labels
+        Y_ph: An [n] or [n, 1] np.ndarray of predicted int labels
         Y: An [n] or [n, 1] np.ndarray of gold labels
     """
     labels = list(set(Y).union(set(Y_ph)))

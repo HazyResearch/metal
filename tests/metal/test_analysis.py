@@ -33,25 +33,17 @@ class AnalysisTest(unittest.TestCase):
 
     def test_lf_empirical_accuracies(self):
         self.assertTrue(
-            np.all(
-                lf_empirical_accuracies(self.L, self.Y) == np.array([0.5, 0, 1])
-            )
+            np.all(lf_empirical_accuracies(self.L, self.Y) == np.array([0.5, 0, 1]))
         )
 
     def test_lf_coverages(self):
-        self.assertTrue(
-            (lf_coverages(self.L) == np.array([0.4, 0.4, 0.8])).all()
-        )
+        self.assertTrue((lf_coverages(self.L) == np.array([0.4, 0.4, 0.8])).all())
 
     def test_lf_overlaps(self):
-        self.assertTrue(
-            (lf_overlaps(self.L) == np.array([0.4, 0.4, 0.6])).all()
-        )
+        self.assertTrue((lf_overlaps(self.L) == np.array([0.4, 0.4, 0.6])).all())
 
     def test_lf_conflicts(self):
-        self.assertTrue(
-            (lf_conflicts(self.L) == np.array([0.2, 0.4, 0.4])).all()
-        )
+        self.assertTrue((lf_conflicts(self.L) == np.array([0.2, 0.4, 0.4])).all())
 
     def test_error_buckets(self):
         gold = [1, 1, 2, 1, 2]
