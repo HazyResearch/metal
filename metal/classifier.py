@@ -512,54 +512,6 @@ class Classifier(nn.Module):
                 )
         self.lr_scheduler = lr_scheduler
 
-    # TEMPORARY FOR SLICING PROJECT; there may be a better way to do this
-    def score_on_slice(
-        self,
-        data,
-        selected_idx,
-        metric=["f1"],
-        break_ties="random",
-        verbose=True,
-        **kwargs,
-    ):
-        """Returns the slice-specific score as defined by given indexes.
-
-        Args:
-            data: a pytorch DataLoader, Dataset or tuple with Tensors (X,Y)
-            metric: A metric (string) with which to score performance or a list
-                of such metrics
-            verbose: The verbosity for this score method; it will not update the
-                class config
-
-        Returns:
-            scores: A (float) score of list of such scores if kwarg metric
-                is a list
-        """
-
-        # no overlap, return 1.0
-        if len(selected_idx) == 0:
-            scores = [1.0] * len(metric)
-
-        # otherwise, compute score at overlap
-        else:
-            # Filter preds/gt by selected_idx
-            Y_p, Y, Y_s = self._get_predictions(
-                data, break_ties=break_ties, return_probs=True, **kwargs
-            )
-            Y_p, Y, Y_s = Y_p[selected_idx], Y[selected_idx], Y_s[selected_idx]
-
-            # Evaluate on selected metrics
-            metric_list = metric if isinstance(metric, list) else [metric]
-            scores = []
-            for metric in metric_list:
-                score = metric_score(Y, Y_p, metric, probs=Y_s, ignore_in_gold=[0])
-                scores.append(score)
-
-        if isinstance(scores, list) and len(scores) == 1:
-            return scores[0]
-        else:
-            return scores
-
     def _update_scheduler(self, epoch, metrics_dict):
         train_config = self.config["train_config"]
         if self.lr_scheduler is not None:
