@@ -2,7 +2,7 @@ import numpy as np
 import sklearn.metrics as skm
 import torch
 
-from metal.utils import arraylike_to_numpy, hard_to_soft
+from metal.utils import arraylike_to_numpy, pred_to_prob
 
 
 def accuracy_score(gold, pred, ignore_in_gold=[], ignore_in_pred=[]):
@@ -165,7 +165,7 @@ def roc_auc_score(gold, probs, ignore_in_gold=[], ignore_in_pred=[]):
     probs = probs[keep, :]
 
     # Convert gold to one-hot indicator format, using the k inferred from probs
-    gold_s = hard_to_soft(torch.from_numpy(gold), k=probs.shape[1]).numpy()
+    gold_s = pred_to_prob(torch.from_numpy(gold), k=probs.shape[1]).numpy()
     return skm.roc_auc_score(gold_s, probs)
 
 

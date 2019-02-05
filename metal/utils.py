@@ -14,7 +14,7 @@ class MetalDataset(Dataset):
     Args:
         X: an n-dim iterable of items
         Y: a torch.Tensor of labels
-            This may be hard labels [n] or soft labels [n, k]
+            This may be predicted (int) labels [n] or probabilistic (float) labels [n, k]
     """
 
     def __init__(self, X, Y):
@@ -41,14 +41,14 @@ def rargmax(x, eps=1e-8):
     return np.random.choice(idxs)
 
 
-def hard_to_soft(Y_h, k):
-    """Converts a 1D tensor of hard labels into a 2D tensor of soft labels
+def pred_to_prob(Y_h, k):
+    """Converts a 1D tensor of predicted labels into a 2D tensor of probabilistic labels
 
     Args:
-        Y_h: an [n], or [n,1] tensor of hard (int) labels in {1,...,k}
+        Y_h: an [n], or [n,1] tensor of predicted (int) labels in {1,...,k}
         k: the largest possible label in Y_h
     Returns:
-        Y_s: a torch.FloatTensor of shape [n, k] where Y_s[i, j-1] is the soft
+        Y_s: a torch.FloatTensor of shape [n, k] where Y_s[i, j-1] is the probabilistic
             label for item i and label j
     """
     Y_h = Y_h.clone()
@@ -101,7 +101,7 @@ def convert_labels(Y, source, dest):
     """Convert a matrix from one label type to another
 
     Args:
-        X: A np.ndarray or torch.Tensor of labels (ints)
+        Y: A np.ndarray or torch.Tensor of labels (ints)
         source: The convention the labels are currently expressed in
         dest: The convention to convert the labels to
 
@@ -116,8 +116,10 @@ def convert_labels(Y, source, dest):
         return Y
     if isinstance(Y, np.ndarray):
         Y = Y.copy()
+        assert isinstance(Y, int)
     elif isinstance(Y, torch.Tensor):
         Y = Y.clone()
+        assert np.sum(Y.numpy() - Y.numpy().astype(int)) == 0.0
     else:
         raise ValueError("Unrecognized label data type.")
     negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}

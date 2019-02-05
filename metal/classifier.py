@@ -72,23 +72,23 @@ class Classifier(nn.Module):
         self._set_seed(self.config["seed"])
 
         # Confirm that cuda is available if config is using CUDA
-        if self.config["use_cuda"] and not torch.cuda.is_available():
-            raise ValueError("use_cuda=True but CUDA not available.")
+        if self.config["device"] != "cpu" and not torch.cuda.is_available():
+            raise ValueError("device=cuda but CUDA not available.")
 
         # By default, put model in eval mode; switch to train mode in training
         self.eval()
 
     def predict_proba(self, X, **kwargs):
-        """Predicts soft probabilistic labels for an input X on all tasks
+        """Predicts probabilistic labels for an input X on all tasks
         Args:
             X: An appropriate input for the child class of Classifier
         Returns:
-            An [n, k] np.ndarray of soft predictions
+            An [n, k] np.ndarray of probabilities
         """
         raise NotImplementedError
 
     def predict(self, X, break_ties="random", return_probs=False, **kwargs):
-        """Predicts hard (int) labels for an input X on all tasks
+        """Predicts (int) labels for an input X on all tasks
 
         Args:
             X: The input for the predict_proba method
@@ -195,10 +195,9 @@ class Classifier(nn.Module):
         epoch_size = len(train_loader.dataset)
 
         # Move model to GPU
-        if self.config["use_cuda"]:
-            if self.config["verbose"]:
-                print("Using GPU...")
-            self.cuda()
+        if self.config["verbose"] and self.config["device"] != "cpu":
+            print("Using GPU...")
+        self.to(self.config["device"])
 
         # Set training components
         self._set_writer(train_config)
@@ -234,8 +233,8 @@ class Classifier(nn.Module):
                 # NOTE: actual batch_size may not equal config's target batch_size
                 batch_size = len(data[0])
 
-                # Moving data to GPU
-                if self.config["use_cuda"]:
+                # Moving data to device
+                if self.config["device"] != "cpu":
                     data = place_on_gpu(data)
 
                 # Zero the parameter gradients
@@ -400,7 +399,7 @@ class Classifier(nn.Module):
         config = {
             **self.config["train_config"]["data_loader_config"],
             **kwargs,
-            "pin_memory": self.config["use_cuda"],
+            "pin_memory": self.config["device"] != "cpu",
         }
         # Return data as DataLoader
         if isinstance(data, DataLoader):
@@ -414,7 +413,7 @@ class Classifier(nn.Module):
 
     def _set_seed(self, seed):
         self.seed = seed
-        if torch.cuda.is_available():
+        if self.config["device"] != "cpu":
             torch.backends.cudnn.enabled = True
             torch.cuda.manual_seed(seed)
         torch.manual_seed(seed)
@@ -585,8 +584,8 @@ class Classifier(nn.Module):
             Xb, Yb = data
             Y.append(self._to_numpy(Yb))
 
-            # Optionally move to GPU
-            if self.config["use_cuda"]:
+            # Optionally move to device
+            if self.config["device"] != "cpu":
                 Xb = place_on_gpu(Xb)
 
             # Append predictions and labels from DataLoader

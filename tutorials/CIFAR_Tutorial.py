@@ -66,7 +66,7 @@ class MetalCIFARDataset(Dataset):
     Args:
         X: an n-dim iterable of items
         Y: a torch.Tensor of labels
-            This may be hard labels [n] or soft labels [n, k]
+            This may be predicted (int) labels [n] or probabilistic (float) labels [n, k]
     """
 
     def __init__(self, dataset):

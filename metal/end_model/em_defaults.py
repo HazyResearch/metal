@@ -27,8 +27,8 @@ em_default_config = {
     # Can optionally skip the head layer completely, for e.g. running baseline
     # models...
     "skip_head": False,
-    # GPU
-    "use_cuda": False,
+    # Device
+    "device": "cpu",
     # TRAINING
     "train_config": {
         # Loss function config
