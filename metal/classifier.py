@@ -415,8 +415,6 @@ class Classifier(nn.Module):
     def _set_seed(self, seed):
         self.seed = seed
         if torch.cuda.is_available():
-            # TODO: confirm this works for gpus without knowing gpu_id
-            # torch.cuda.set_device(self.config["gpu_id"])
             torch.backends.cudnn.enabled = True
             torch.cuda.manual_seed(seed)
         torch.manual_seed(seed)
