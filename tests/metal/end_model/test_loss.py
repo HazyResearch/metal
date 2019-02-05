@@ -33,15 +33,14 @@ class LossTest(unittest.TestCase):
                 sce(Y_ps, Y_s).numpy(), ce(Y_ps, Y - 1).numpy(), places=5
             )
 
-        # TODO: Discover why Travis is having an issue with this test
-        # sce = SoftCrossEntropyLoss(reduction="mean")
-        # ce = nn.CrossEntropyLoss(reduction="mean")
-        # for _ in range(10):
-        #     Y_ps = torch.rand_like(Y_s)
-        #     Y_ps = Y_ps / Y_ps.sum(dim=1).reshape(-1, 1)
-        #     self.assertAlmostEqual(
-        #         sce(Y_ps, Y_s).numpy(), ce(Y_ps, Y - 1).numpy(), places=5
-        #     )
+        sce = SoftCrossEntropyLoss(reduction="mean")
+        ce = nn.CrossEntropyLoss(reduction="mean")
+        for _ in range(10):
+            Y_ps = torch.rand_like(Y_s)
+            Y_ps = Y_ps / Y_ps.sum(dim=1).reshape(-1, 1)
+            self.assertAlmostEqual(
+                sce(Y_ps, Y_s).numpy(), ce(Y_ps, Y - 1).numpy(), places=5
+            )
 
     def test_perfect_predictions(self):
         Y = torch.tensor([1, 2, 3], dtype=torch.long)

@@ -31,7 +31,6 @@ install:
   # Create conda environment
   - conda env create -f environment.yml
   - source activate metal
-  - conda install cudatoolkit=9.0  # Add only to satisfy pytorch on travis
 
   # Add metal/ to PYTHONPATH
   - source add_to_path.sh
