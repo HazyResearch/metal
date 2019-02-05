@@ -43,9 +43,8 @@ install:
 script:
   - nosetests
   - runipy tutorials/Basics.ipynb
+  - runipy tutorials/Class_Balance.ipynb
   - runipy tutorials/Multitask.ipynb
-  - runipy tutorials/Synthetic.ipynb
-  - runipy tutorials/Tuning.ipynb
   - runipy tutorials/Visualization.ipynb
 
 notifications:
