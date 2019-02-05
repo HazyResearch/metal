@@ -31,6 +31,9 @@ This makes it significantly more scalable than our previous approaches.
 * _[Snorkel: Rapid Training Data Creation with Weak Supervision](https://arxiv.org/abs/1711.10160) [VLDB 2018]_
 * _[Data Programming: Creating Large Training Sets, Quickly](https://arxiv.org/abs/1605.07723) [NeurIPS 2016]_
 
+## Blog Posts
+* [2/4/2019] [Emerging Topics in Multi-Task Learning Systems](https://hazyresearch.github.io/snorkel/blog/mtl_systems.html)
+
 ## Q&A
 One of the best places to look for Q&A (besides the doc strings) is the Issues page.
 We tag issues that might be aprticularly helpful with the "reference question" label; see them [here](https://github.com/HazyResearch/metal/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22reference+question%22).
