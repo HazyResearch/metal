@@ -11,3 +11,4 @@ jupyter
 runipy
 scikit-learn
 torchvision
+pytorch-pretrained-bert
