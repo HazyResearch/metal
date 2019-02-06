@@ -28,3 +28,7 @@ checkpoints/
 tensorboard/
 logs/
 events.out.tfevents*
+
+
+# Virtual environments
+venv/
