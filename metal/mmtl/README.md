@@ -8,14 +8,16 @@ This directory is the home of tools specific to the MMTL SOTA Quest.
 # Setup 
 
 ## DFS
-If you're working on dfs, use the following command ensure that we're working on the same environment:
+If you're working on dfs, run the following command from `metal/mmtl` to ensure that 
+we're working in the same environment:
 `source activate_mmtl.sh`
 
  - Sets `METALHOME` directory as environment variable and adds to $PYTHONPATH.
  - Sets `GLUEDATA` directory as environment variable.
  - Activates shared virtual environment on DFS.
+ - (To deactivate, type `deactivate`)
 
-## Virtuale Environment
+## Virtual Environment
 To initialize a virtual environment from scratch: 
 `pip install -r requirements-mmtl.txt`
 
