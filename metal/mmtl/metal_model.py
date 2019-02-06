@@ -1,0 +1,2 @@
+class MetalModel(object):
+    pass
