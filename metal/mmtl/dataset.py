@@ -16,9 +16,9 @@ class BERTDataset(data.Dataset):
     def __init__(
         self,
         src_path,
-        sent1_idx,
-        sent2_idx,
-        label_idx,
+        sent1_idx=0,
+        sent2_idx=-1,
+        label_idx=1,
         skip_rows=0,
         tokenizer=BertTokenizer.from_pretrained(
             "bert-base-uncased", do_lower_case=True
@@ -74,16 +74,17 @@ class BERTDataset(data.Dataset):
                 data_fh.readline()
 
             # process data rows
-            for row_idx, row in enumerate(data_fh):
+            for row_idx, row in tqdm(list(enumerate(data_fh))):
                 row = row.strip().split(delimiter)
 
                 # tokenize and convert each sentence to ids
                 sent1_tokenized = tokenizer.tokenize(row[sent1_idx])
                 sent1_ids = tokenizer.convert_tokens_to_ids(sent1_tokenized)
-
-                sent2_tokenized = tokenizer.tokenize(row[sent2_idx])
-                sent2_ids = tokenizer.convert_tokens_to_ids(sent2_tokenized)
-
+                if sent2_idx >= 0:
+                    sent2_tokenized = tokenizer.tokenize(row[sent2_idx])
+                    sent2_ids = tokenizer.convert_tokens_to_ids(sent2_tokenized)
+                else:
+                    sent2_ids = []
                 # combine sentence pair
                 sent = sent1_ids + sent2_ids
 
@@ -91,14 +92,16 @@ class BERTDataset(data.Dataset):
                 seg = [0] * len(sent1_ids) + [1] * len(sent2_ids)
 
                 # process labels
-                label = row[label_idx]
-                if label_fn:
-                    label = label_fn(label)
+                if label_idx > 0:
+                    label = row[label_idx]
+                    if label_fn:
+                        label = label_fn(label)
+                else:
+                    label = 0
 
                 tokens.append(sent)
                 segments.append(seg)
                 labels.append(label)
-
         return tokens, segments, labels
 
     def __getitem__(self, index):
