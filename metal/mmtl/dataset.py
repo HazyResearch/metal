@@ -92,7 +92,7 @@ class BERTDataset(data.Dataset):
                 seg = [0] * len(sent1_ids) + [1] * len(sent2_ids)
 
                 # process labels
-                if label_idx > 0:
+                if label_idx >= 0:
                     label = row[label_idx]
                     if label_fn:
                         label = label_fn(label)
