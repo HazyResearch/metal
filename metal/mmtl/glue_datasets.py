@@ -69,8 +69,8 @@ class GlueDataset(data.Dataset):
 
 
 class QNLIDataset(GlueDataset):
-    def __init__(self, src_path, tokenizer, nb_classes):
-        super(QNLIDataset, self).__init__(src_path, tokenizer, nb_classes)
+    def __init__(self, src_path, tokenizer):
+        super(QNLIDataset, self).__init__(src_path, tokenizer, nb_classes=2)
 
     def load_data(self):
         self.raw_data = pd.read_csv(
