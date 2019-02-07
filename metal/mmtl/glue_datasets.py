@@ -41,7 +41,7 @@ class GlueDataset(data.Dataset):
     def get_dataloader(self, max_len=-1, batch_size=1):
         return data.DataLoader(
             self,
-            collate_fn=lambda batch: self.collate_fn(batch, max_len),
+            collate_fn=lambda batch_data: self.collate_fn(batch_data, max_len),
             batch_size=batch_size,
             shuffle=True,
         )
@@ -66,7 +66,7 @@ class GlueDataset(data.Dataset):
 
         idx_matrix = torch.LongTensor(idx_matrix)
         seg_matrix = torch.LongTensor(seg_matrix)
-        mask_matrix = torch.eq(idx_matrix.data, -1).long()
+        mask_matrix = torch.gt(idx_matrix.data, 0).long()
         label_matrix = torch.LongTensor(label_matrix)
         return (idx_matrix, seg_matrix, mask_matrix), label_matrix
 
@@ -84,6 +84,7 @@ class QNLIDataset(GlueDataset):
             error_bad_lines=False,
             warn_bad_lines=False,
         )
+        # self.raw_data = self.raw_data[:50]
         if "label" not in self.raw_data.columns:
             # add dummy column to match data input format
             self.raw_data["label"] = ["entailment"] * self.__len__()
