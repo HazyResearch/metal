@@ -1,6 +1,7 @@
 from metal.metrics import *
 from metal.mmtl.utils import utils
 
+
 """
 Scorer class which evaluates metrics given a task and model.
 
@@ -12,8 +13,9 @@ taskn = Task(..., scorers=[scorer])
 model = MetalModel(tasks=[task1, ..., taskn])
 
 """
-class Scorer(object):
 
+
+class Scorer(object):
     def __call__(self, task, model, dataloader, split_name="val", head_output=None):
         """
         The main call function which returns a metric_dict.
@@ -33,12 +35,12 @@ class Scorer(object):
         if len(self.standard_metrics) > 0:
 
             # TODO(maxlam) Perhaps refactor
-            # Gather Y_preds, Y, Y_probs 
+            # Gather Y_preds, Y, Y_probs
             Y_preds, Y, Y_probs = [], [], []
 
             for batch_num, data in enumerate(dataloader):
                 print("Batch %d of %d" % (batch_num, len(dataloader)))
-                
+
                 Xb, Yb = data
                 Y.append(utils.to_numpy(Yb))
 
@@ -47,7 +49,7 @@ class Scorer(object):
                     Y_p, Y_s = model.predict(Xb, return_probs=True)
                     Y_preds.append(utils.to_numpy(Y_p))
                     Y_probs.append(utils.to_numpy(Y_s))
-                            
+
             # Pass through head_output to task
             if head_output is not None:
                 Y_probs = task.probs_hat_func(head_output)
@@ -57,23 +59,25 @@ class Scorer(object):
 
             # From the labels and predictions calculate metrics
             for standard_metric_name in self.standard_metrics:
-                standard_metric_score = metric_score(Y, Y_preds, standard_metric_name, probs=Y_probs)
-                metrics_dict[split_name+"/"+standard_metric_name] = standard_metric_score
+                standard_metric_score = metric_score(
+                    Y, Y_preds, standard_metric_name, probs=Y_probs
+                )
+                metrics_dict[
+                    split_name + "/" + standard_metric_name
+                ] = standard_metric_score
 
         # Calculate custom fns
         for custom_metric_fn in self.custom_metric_fns:
             custom_metric_dict = custom_metric_fn(model, dataloader)
             self.update_metrics_dict(metrics_dict, custom_metric_dict, split_name)
-        
+
         return metrics_dict
 
     def update_metrics_dict(self, metrics_dict, metric, split_name):
-        for k,v in metric.items():
-            metrics_dict[split_name+"/"+k] = v
-    
-    def __init__(self, 
-                 standard_metrics=["accuracy"],
-                 custom_metric_fns=[]):
+        for k, v in metric.items():
+            metrics_dict[split_name + "/" + k] = v
+
+    def __init__(self, standard_metrics=["accuracy"], custom_metric_fns=[]):
         """
         Creates a scorer object.
 
@@ -88,4 +92,3 @@ class Scorer(object):
         """
         self.standard_metrics = standard_metrics
         self.custom_metric_fns = custom_metric_fns
-        

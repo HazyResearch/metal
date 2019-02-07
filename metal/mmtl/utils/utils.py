@@ -9,6 +9,7 @@ import torch.optim as optim
 from scipy.sparse import issparse
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
+
 def to_numpy(Z):
     """Converts a None, list, np.ndarray, or torch.Tensor to np.ndarray;
     also handles converting sparse input to dense."""
@@ -28,6 +29,7 @@ def to_numpy(Z):
             f"got {type(Z)} instead."
         )
         raise Exception(msg)
+
 
 def stack_batches(X):
     """Stack a list of np.ndarrays along the first axis, returning an
