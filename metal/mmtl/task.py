@@ -8,7 +8,8 @@ class Task(object):
 
     Args:
         name: The name of the task
-        head_name: The name of the task head to use
+        input_name: The name of the input module to use
+        head_name: The name of the task head module to use
             TODO: replace this with a more fully-featured path through the network
         data: A list of DataLoaders (instances and labels) to feed through the network.
             The list contains [train, dev, test].
@@ -18,6 +19,7 @@ class Task(object):
     def __init__(
         self,
         name: str,
+        input_name: str,
         head_name: str,
         data_loaders: List[DataLoader],
         scorers: List[Callable] = None,
@@ -27,6 +29,7 @@ class Task(object):
             raise Exception(msg)
 
         self.name = name
-        self.data_loaders = data_loaders
+        self.input_name = input_name
         self.head_name = head_name
+        self.data_loaders = data_loaders
         self.scorers = scorers
