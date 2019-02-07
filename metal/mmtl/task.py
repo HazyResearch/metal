@@ -22,6 +22,10 @@ class Task(object):
         data_loaders: List[DataLoader],
         scorers: List[Callable] = None,
     ) -> None:
+        if len(data_loaders) != 3:
+            msg = "Arg data_loaders must be a list of length 3 [train, valid, test]"
+            raise Exception(msg)
+
         self.name = name
         self.data_loaders = data_loaders
         self.head_name = head_name
