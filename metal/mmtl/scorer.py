@@ -1,4 +1,4 @@
-from metal.metrics import *
+from metal.metrics import metric_score
 from metal.mmtl.utils import utils
 
 
