@@ -135,6 +135,6 @@ class BERTDataset(data.Dataset):
 
         idx_matrix = torch.LongTensor(idx_matrix)
         seg_matrix = torch.LongTensor(seg_matrix)
-        mask_matrix = torch.eq(idx_matrix.data, -1).long()
+        mask_matrix = torch.gt(idx_matrix.data, 0).long()
         label_matrix = torch.FloatTensor(label_matrix)
         return (idx_matrix, seg_matrix, mask_matrix), label_matrix
