@@ -7,7 +7,8 @@ from tqdm import tqdm
 
 class GlueDataset(data.Dataset):
     """
-    Torch dataset object for Glue task. Each specific task should override the preprocess_data and load_data methods.
+    Torch dataset object for Glue task. Each specific task should override
+    the preprocess_data and load_data methods.
     """
 
     def __init__(self, src_path, tokenizer):
@@ -48,7 +49,7 @@ class GlueDataset(data.Dataset):
     def collate_fn(self, batch, max_len):
         batch_size = len(batch)
         max_sent_len = int(np.max([len(tok) for ((tok, seg), _) in batch]))
-        if max_len > 0 and max_len < max_sent_len:
+        if (max_len > 0) and (max_len < max_sent_len):
             max_sent_len = max_len
         idx_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
         seg_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
@@ -56,7 +57,6 @@ class GlueDataset(data.Dataset):
 
         for idx1 in np.arange(len(batch)):
             (tokens, segments), labels = batch[idx1]
-            # label_matrix[idx1, :] = labels
             label_matrix[idx1, :] = labels
             for idx2 in np.arange(len(tokens)):
                 if idx2 >= max_sent_len:
@@ -89,7 +89,6 @@ class QNLIDataset(GlueDataset):
             self.raw_data["label"] = ["entailment"] * self.__len__()
 
     def preprocess_data(self):
-        # for i, row in tqdm(list(self.raw_data.iterrows())):
         for i, row in tqdm(list(self.raw_data.iterrows())):
             tokenized_question = self.tokenizer.tokenize(row.question)
             tokenized_sentence = self.tokenizer.tokenize(row.sentence)
@@ -98,6 +97,4 @@ class QNLIDataset(GlueDataset):
             self.segments.append(
                 ([0] * len(tokenized_question)) + ([1] * len(tokenized_sentence))
             )
-            self.labels.append(
-                [(1 * (self.raw_data.label[i] == "entailment")) + 1]
-            )  # + [1 * (self.raw_data.label[i] == 'not_entailment')])
+            self.labels.append([(1 * (self.raw_data.label[i] == "entailment")) + 1])
