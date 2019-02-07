@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Callable, List
 
 import torch.nn as nn
@@ -26,7 +27,7 @@ class Task(object):
         head_module: nn.Module,
         scorers: List[Callable] = None,
         loss_hat_func: Callable = F.cross_entropy,
-        probs_hat_func: Callable = F.softmax,
+        probs_hat_func: Callable = partial(F.softmax, dim=1),
     ) -> None:
         if len(data_loaders) != 3:
             msg = "Arg data_loaders must be a list of length 3 [train, valid, test]"
