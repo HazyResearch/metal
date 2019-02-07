@@ -74,7 +74,7 @@ class BERTDataset(data.Dataset):
                 data_fh.readline()
 
             # process data rows
-            for row_idx, row in enumerate(data_fh):
+            for row_idx, row in tqdm(list(enumerate(data_fh))):
                 row = row.strip().split(delimiter)
 
                 # tokenize and convert each sentence to ids
@@ -91,9 +91,12 @@ class BERTDataset(data.Dataset):
                 seg = [0] * len(sent1_ids) + [1] * len(sent2_ids)
 
                 # process labels
-                label = row[label_idx]
-                if label_fn:
-                    label = label_fn(label)
+                if label_idx > 0:
+                    label = row[label_idx]
+                    if label_fn:
+                        label = label_fn(label)
+                else:
+                    label = 0
 
                 tokens.append(sent)
                 segments.append(seg)
