@@ -38,7 +38,12 @@ class GlueDataset(data.Dataset):
         raise NotImplementedError
 
     def get_dataloader(self, max_len=-1, batch_size=1):
-        return data.DataLoader(self, collate_fn=lambda batch: self.collate_fn(batch, max_len), batch_size=batch_size, shuffle=True)
+        return data.DataLoader(
+            self,
+            collate_fn=lambda batch: self.collate_fn(batch, max_len),
+            batch_size=batch_size,
+            shuffle=True,
+        )
 
     def collate_fn(self, batch, max_len):
         batch_size = len(batch)
@@ -72,12 +77,16 @@ class QNLIDataset(GlueDataset):
 
     def load_data(self):
         self.raw_data = pd.read_csv(
-                self.src_path, sep='\t', header=0,
-                index_col=0, error_bad_lines=False, warn_bad_lines=False
+            self.src_path,
+            sep="\t",
+            header=0,
+            index_col=0,
+            error_bad_lines=False,
+            warn_bad_lines=False,
         )
-        if 'label' not in self.raw_data.columns:
+        if "label" not in self.raw_data.columns:
             # add dummy column to match data input format
-            self.raw_data['label'] = ['entailment'] * self.__len__()
+            self.raw_data["label"] = ["entailment"] * self.__len__()
 
     def preprocess_data(self):
         # for i, row in tqdm(list(self.raw_data.iterrows())):
@@ -86,5 +95,9 @@ class QNLIDataset(GlueDataset):
             tokenized_sentence = self.tokenizer.tokenize(row.sentence)
             tokenized_text = tokenized_question + tokenized_sentence
             self.tokens.append(self.tokenizer.convert_tokens_to_ids(tokenized_text))
-            self.segments.append(([0] * len(tokenized_question)) + ([1] * len(tokenized_sentence)))
-            self.labels.append([(1 * (self.raw_data.label[i] == 'entailment')) + 1]) # + [1 * (self.raw_data.label[i] == 'not_entailment')])
+            self.segments.append(
+                ([0] * len(tokenized_question)) + ([1] * len(tokenized_sentence))
+            )
+            self.labels.append(
+                [(1 * (self.raw_data.label[i] == "entailment")) + 1]
+            )  # + [1 * (self.raw_data.label[i] == 'not_entailment')])
