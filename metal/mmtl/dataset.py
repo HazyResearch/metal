@@ -33,7 +33,7 @@ class BERTDataset(data.Dataset):
             sent2_idx: tsv index for sentence2
             label_idx: tsv index for label field
             skip_rows: number of rows to skip (i.e. header rows) in .tsv
-            tokenizer: delimiter between columns (likely '\t') for tab-separated-values
+            tokenizer: tokenizer to map sentences to tokens using `.tokenize(sent)` method
             delimiter: delimiter between columns (likely '\t') for tab-separated-values
             label_fn: function mapping from raw labels to desired format
         """
@@ -111,6 +111,8 @@ class BERTDataset(data.Dataset):
         return len(self.tokens)
 
     def get_dataloader(self, max_len=-1, batch_size=32):
+        """Initializes a dataloader based on self (dataset)."""
+
         return data.DataLoader(
             self,
             collate_fn=lambda batch: self._collate_fn(batch, max_len),
@@ -119,7 +121,14 @@ class BERTDataset(data.Dataset):
         )
 
     def _collate_fn(self, batch, max_len):
+        """ Collates batch of (tokens, segments, labels), collates into tensors of
+        ((token_idx_matrix, seg_matrix, mask_matrix), label_matrix). Handles padding
+        based on specific max_len.
+        """
+
         batch_size = len(batch)
+
+        # max_len == -1 defaults to using max_sent_len
         max_sent_len = int(np.max([len(tok) for ((tok, seg), _) in batch]))
         if (max_len > 0) and (max_len < max_sent_len):
             max_sent_len = max_len
