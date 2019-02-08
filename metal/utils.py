@@ -52,7 +52,8 @@ def pred_to_prob(Y_h, k):
             label for item i and label j
     """
     Y_h = Y_h.clone()
-    Y_h = Y_h.squeeze()
+    if Y_h.dim() > 1:
+        Y_h = Y_h.squeeze()
     assert Y_h.dim() == 1
     assert (Y_h >= 1).all()
     assert (Y_h <= k).all()
@@ -347,9 +348,10 @@ def split_data(
 def place_on_gpu(data):
     """Utility to place data on GPU, where data could be a torch.Tensor, a tuple
     or list of Tensors, or a tuple or list of tuple or lists of Tensors"""
-    if isinstance(data, (list, tuple)):
-        for i in range(len(data)):
-            data[i] = place_on_gpu(data[i])
+    data_type = type(data)
+    if data_type in (list, tuple):
+        data = [place_on_gpu(data[i]) for i in range(len(data))]
+        data = data_type(data)
         return data
     elif isinstance(data, torch.Tensor):
         return data.cuda()
