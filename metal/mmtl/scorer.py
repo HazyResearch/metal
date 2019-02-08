@@ -35,7 +35,7 @@ class Scorer(object):
         self.standard_metrics = standard_metrics
         self.custom_metric_fns = custom_metric_fns
 
-    def score(self, task, model, dataloader, split_name="val", head_output=None):
+    def score(self, task, model, dataloader, split="valid", head_output=None):
         """
         The main call function which returns a metric_dict.
 
@@ -86,17 +86,15 @@ class Scorer(object):
             standard_metric_score = metric_score(
                 Y, Y_preds, standard_metric_name, probs=Y_probs
             )
-            metrics_dict[
-                split_name + "/" + standard_metric_name
-            ] = standard_metric_score
+            metrics_dict[split + "/" + standard_metric_name] = standard_metric_score
 
         # Calculate custom fns
         for custom_metric_fn in self.custom_metric_fns:
             custom_metric_dict = custom_metric_fn(Y, Y_preds, probs=Y_probs)
-            self.update_metrics_dict(metrics_dict, custom_metric_dict, split_name)
+            self.update_metrics_dict(metrics_dict, custom_metric_dict, split)
 
         return metrics_dict
 
-    def update_metrics_dict(self, metrics_dict, metric, split_name):
+    def update_metrics_dict(self, metrics_dict, metric, split):
         for k, v in metric.items():
-            metrics_dict[split_name + "/" + k] = v
+            metrics_dict[split + "/" + k] = v
