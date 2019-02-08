@@ -19,7 +19,7 @@ model = MetalModel(tasks=[task1, ..., taskn])
 
 
 class Scorer(object):
-    def __call__(self, task, model, dataloader, split_name="val", head_output=None):
+    def __call__(self, task, model, dataloader, split_name="valid", head_output=None):
         """
         The main call function which returns a metric_dict.
 
