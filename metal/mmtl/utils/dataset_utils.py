@@ -16,7 +16,7 @@ def get_all_dataloaders(
     test_ds = dataset_cls(split="dev", bert_model=bert_model, max_len=max_len)
     test_dl = test_ds.get_dataloader(**dl_kwargs)
 
-    return train_dl, dev_dl, test_dl
+    return {"train": train_dl, "dev": dev_dl, "test": test_dl}
 
 
 def tsv_path_for_dataset(dataset_name, dataset_split):
