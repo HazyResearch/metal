@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from dataset import COLADataset, SST2Dataset
-from modules import BertBinaryHead, BertEncoder, BertMulticlassHead
+import torch.nn.functional as F
+from dataset import COLADataset, SST2Dataset, STSBDataset
+from modules import BertBinaryHead, BertEncoder, BertMulticlassHead, BertRegressionHead
 from pytorch_pretrained_bert import BertForMaskedLM, BertModel, BertTokenizer
 from sklearn.metrics import matthews_corrcoef
 from task import Task
@@ -13,6 +14,7 @@ import metal
 from metal.end_model import EndModel
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
+from metal.mmtl.utils.metrics import pearson_corr, spearman_corr
 
 
 def create_task(task_name):
@@ -41,9 +43,11 @@ def create_task(task_name):
                 custom_valid_funcs=[matthews_corr],
             ),
         )
+
     if task_name == "SST-2":
         dataloaders = get_all_dataloaders(SST2Dataset, bert_model)
         return Task(task_name, dataloaders, bert_encoder, BertBinaryHead())
+
     elif task_name == "MNLI":
         raise NotImplementedError
     elif task_name == "RTE":
@@ -55,7 +59,24 @@ def create_task(task_name):
     elif task_name == "MRPC":
         raise NotImplementedError
     elif task_name == "STS-B":
-        raise NotImplementedError
+        dataloaders = get_all_dataloaders(STSBDataset, bert_model)
+        scorer = Scorer(
+            standard_metrics=["train/loss", "valid/loss"],
+            custom_metric_fns=[pearson_corr, spearman_corr],
+        )
+
+        # x -> sigmoid -> [0,1], and compute mse_loss (y \in [0,1])
+        loss_hat_func = lambda x, y: F.mse_loss(torch.sigmoid(x), y)
+        return Task(
+            task_name,
+            dataloaders,
+            bert_encoder,
+            BertRegressionHead(),
+            scorer,
+            loss_hat_func=loss_hat_func,
+            output_hat_func=torch.sigmoid,
+        )
+
     elif task_name == "QNLI":
         raise NotImplementedError
     elif task_name == "SNLI":
