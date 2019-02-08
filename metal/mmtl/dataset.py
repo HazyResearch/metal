@@ -264,14 +264,24 @@ class SST2Dataset(BERTDataset):
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: int(label) + 1,
+            label_fn=lambda label: int(label) + 1,  # reserve 0 for abstain
             max_len=max_len,
         )
 
 
-class CoLADataset(BERTDataset):
+class COLADataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
+        super(COLADataset, self).__init__(
+            tsv_path=tsv_path_for_dataset("CoLA", split),
+            sent1_idx=3,
+            sent2_idx=-1,
+            label_idx=1 if split in ["train", "dev"] else -1,
+            skip_rows=0,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: int(label) + 1,  # reserve 0 for abstain
+            max_len=max_len,
+        )
 
 
 class MNLIDataset(BERTDataset):

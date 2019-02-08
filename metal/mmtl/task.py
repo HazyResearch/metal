@@ -18,7 +18,7 @@ class Task(object):
         head_module: (nn.Module) The task head module
         data: A dict of DataLoaders (instances and labels) to feed through the network
             with keys in ["train", "valid", "test"]
-        scorers: A Scorer that returns a metrics_dict object.
+        scorer: A Scorer that returns a metrics_dict object.
         loss_hat_func: A function of the form f(forward(X), Y) -> loss (scalar Tensor)
         output_hat_func: A function of the form f(forward(X)) -> output (e.g. probs)
     """
