@@ -186,7 +186,7 @@ class Logger(object):
             if isinstance(value, float):
                 score_strings[split].append(f"{metric}={value:0.3f}")
             else:
-                score_strings.append(f"{metric}={value}")
+                score_strings[split].append(f"{metric}={value}")
 
         header = f"{self.unit_total} {self.log_unit[:3]}"
         if self.log_unit != "epochs":
