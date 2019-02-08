@@ -25,6 +25,7 @@ class BERTDataset(data.Dataset):
         ),
         delimiter="\t",
         label_fn=None,
+        max_len=-1,
     ):
         """
         Args:
@@ -46,6 +47,7 @@ class BERTDataset(data.Dataset):
             tokenizer,
             delimiter,
             label_fn,
+            max_len,
         )
         self.tokens = tokens
         self.segments = segments
@@ -61,6 +63,7 @@ class BERTDataset(data.Dataset):
         tokenizer,
         delimiter,
         label_fn,
+        max_len,
     ):
         """ Loads and tokenizes .tsv dataset into BERT-friendly sentences / segments.
         Then, sets instance variables self.tokens, self.segments, self.labels.
@@ -77,14 +80,38 @@ class BERTDataset(data.Dataset):
             for row_idx, row in tqdm(list(enumerate(data_fh))):
                 row = row.strip().split(delimiter)
 
-                # tokenize and convert each sentence to ids
-                sent1_tokenized = ["CLS"] + tokenizer.tokenize(row[sent1_idx]) + ["SEP"]
-                sent1_ids = tokenizer.convert_tokens_to_ids(sent1_tokenized)
+                # tokenize sentences
+                sent1_tokenized = tokenizer.tokenize(row[sent1_idx])
                 if sent2_idx >= 0:
-                    sent2_tokenized = tokenizer.tokenize(row[sent2_idx]) + ["SEP"]
-                    sent2_ids = tokenizer.convert_tokens_to_ids(sent2_tokenized)
+                    sent2_tokenized = tokenizer.tokenize(row[sent2_idx])
+                else:
+                    sent2_tokenized = []
+
+                # truncate sequences if number of tokens is greater than max_len
+                if max_len > 0:
+                    if sent2_idx >= 0:
+                        # remove tokens from the longer sequence
+                        while len(sent1_tokenized) + len(sent2_tokenized) > max_len - 3:
+                            if len(sent1_tokenized) > len(sent2_tokenized):
+                                sent1_tokenized.pop()
+                            else:
+                                sent2_tokenized.pop()
+                    else:
+                        # remove tokens from sentence 2 to match max_len
+                        if len(sent1_tokenized) > max_len - 2:
+                            sent1_tokenized = sent1_tokenized[: max_len - 2]
+
+                # convert to token ids
+                sent1_ids = tokenizer.convert_tokens_to_ids(
+                    ["[CLS]"] + sent1_tokenized + ["[SEP]"]
+                )
+                if sent2_idx >= 0:
+                    sent2_ids = tokenizer.convert_tokens_to_ids(
+                        sent2_tokenized + ["[SEP]"]
+                    )
                 else:
                     sent2_ids = []
+
                 # combine sentence pair
                 sent = sent1_ids + sent2_ids
 
@@ -120,7 +147,7 @@ class BERTDataset(data.Dataset):
             shuffle=True,
         )
 
-    def _collate_fn(self, batch, max_len):
+    def _collate_fn(self, batch):
         """ Collates batch of (tokens, segments, labels), collates into tensors of
         ((token_idx_matrix, seg_matrix, mask_matrix), label_matrix). Handles padding
         based on specific max_len.
@@ -130,8 +157,6 @@ class BERTDataset(data.Dataset):
 
         # max_len == -1 defaults to using max_sent_len
         max_sent_len = int(np.max([len(tok) for ((tok, seg), _) in batch]))
-        if (max_len > 0) and (max_len < max_sent_len):
-            max_sent_len = max_len
         idx_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
         seg_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
         label_matrix = np.zeros((batch_size, 1), dtype=np.int)
