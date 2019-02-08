@@ -19,7 +19,23 @@ model = MetalModel(tasks=[task1, ..., taskn])
 
 
 class Scorer(object):
-    def __call__(self, task, model, dataloader, split_name="val", head_output=None):
+    def __init__(self, standard_metrics=["accuracy"], custom_metric_fns=[]):
+        """
+        Creates a scorer object.
+
+        dataloader: Dataloader on which to calculate metrics.
+        standard_metrics: List of strings of standard metrics for which to evaluate.
+        custom_metric_fns: List of functions of the form:
+
+           metric_fn(Y, Y_preds, probs=Y_probs)
+           - Return a dict with name of metric to metric
+
+        scorer_prefix: String prefix to tag metrics calculated by the current scorer.
+        """
+        self.standard_metrics = standard_metrics
+        self.custom_metric_fns = custom_metric_fns
+
+    def score(self, task, model, dataloader, split_name="val", head_output=None):
         """
         The main call function which returns a metric_dict.
 
@@ -84,19 +100,3 @@ class Scorer(object):
     def update_metrics_dict(self, metrics_dict, metric, split_name):
         for k, v in metric.items():
             metrics_dict[split_name + "/" + k] = v
-
-    def __init__(self, standard_metrics=["accuracy"], custom_metric_fns=[]):
-        """
-        Creates a scorer object.
-
-        dataloader: Dataloader on which to calculate metrics.
-        standard_metrics: List of strings of standard metrics for which to evaluate.
-        custom_metric_fns: List of functions of the form:
-
-           metric_fn(Y, Y_preds, probs=Y_probs)
-           - Return a dict with name of metric to metric
-
-        scorer_prefix: String prefix to tag metrics calculated by the current scorer.
-        """
-        self.standard_metrics = standard_metrics
-        self.custom_metric_fns = custom_metric_fns
