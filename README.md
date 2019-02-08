@@ -4,7 +4,7 @@
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
-**_v0.4.0_**
+**_v0.4.1_**
 
 ## Getting Started
 * Quickly [set up](#setup) your environment
@@ -76,7 +76,7 @@ score = end_model.score(X_test, Y_test)
 **_Note for Snorkel users: Snorkel MeTaL, even in the single-task case, learns a slightly different label model than Snorkel does (e.g. here we learn class-conditional accuracies for each LF, etc.)---so expect slightly different (hopefully better!) results._**
 
 ## Release Notes
-### Major changes in v0.4.0:
+### Major changes in v0.4:
 * Upgrade to pytorch v1.0
 * Improved control over logging/checkpointing/validation
     * More modular code, separate Logger, Checkpointer, LogWriter classes
