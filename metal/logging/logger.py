@@ -180,13 +180,22 @@ class Logger(object):
     def print_to_screen(self, metrics_dict):
         """Print all metrics in metrics_dict to screen"""
         score_strings = defaultdict(list)
-        for split_metric, value in metrics_dict.items():
-            split, metric = split_metric.split("/", 1)
-
-            if isinstance(value, float):
-                score_strings[split].append(f"{metric}={value:0.3f}")
+        for full_name, value in metrics_dict.items():
+            if full_name.count("/") == 2:
+                task, split, metric = full_name.split("/")
+            elif full_name.count("/") == 1:
+                task = None
+                split, metric = full_name.split("/")
             else:
-                score_strings[split].append(f"{metric}={value}")
+                msg = f"Metric should have form task/split/metric or split/metric, not: {full_name}"
+                raise Exception(msg)
+
+            if task:
+                metric_name = f"{task}/{metric}"
+            if isinstance(value, float):
+                score_strings[split].append(f"{metric_name}={value:0.3f}")
+            else:
+                score_strings[split].append(f"{metric_name}={value}")
 
         header = f"{self.unit_total} {self.log_unit[:3]}"
         if self.log_unit != "epochs":

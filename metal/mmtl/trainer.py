@@ -193,7 +193,7 @@ class MultitaskTrainer(object):
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(
                     model,
-                    task_name=task_name,
+                    task=self.name_to_task[task_name],
                     train_loader=self.name_to_task[task_name].data_loaders[TRAIN],
                     valid_loader=self.name_to_task[task_name].data_loaders[VALID],
                     loss=loss,
@@ -240,7 +240,7 @@ class MultitaskTrainer(object):
         return metrics_dict
 
     def _execute_logging(
-        self, model, task_name, train_loader, valid_loader, loss, batch_size
+        self, model, task, train_loader, valid_loader, loss, batch_size
     ):
         model.eval()
         self.running_loss += loss.item() * batch_size
@@ -250,23 +250,20 @@ class MultitaskTrainer(object):
         metrics_dict = {}
         # Always add average loss
         # HACK: We will not always have the same task_name unless we are single-task!
-        metrics_dict[f"{task_name}/train/loss"] = (
+        metrics_dict[f"{task.name}/train/loss"] = (
             self.running_loss / self.running_examples
         )
 
-        # if self.logger.check(batch_size):
+        if self.logger.check(batch_size):
+            # Compute metrics using Scorer
+            metrics_dict.update(
+                task.scorer.score(model, valid_loader, task.name, split="valid")
+            )
+            self.logger.log(metrics_dict)
 
-        #     # Compute metrics using Scorer
-        #     metrics_dict = {}
-        #     task = self.name_to_task[task_name]
-        #     metrics_dict.update(scorer(task, model, valid_loader, split_name="valid")
-        #     )
-
-        #     self.logger.log(metrics_dict)
-
-        #     # Reset running loss and examples counts
-        #     self.running_loss = 0.0
-        #     self.running_examples = 0
+            # Reset running loss and examples counts
+            self.running_loss = 0.0
+            self.running_examples = 0
 
         # Checkpoint if applicable
         # self._checkpoint(metrics_dict)
