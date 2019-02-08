@@ -1,4 +1,5 @@
 import codecs
+import os
 
 import numpy as np
 import pandas as pd
@@ -20,9 +21,7 @@ class BERTDataset(data.Dataset):
         sent2_idx=-1,
         label_idx=1,
         skip_rows=0,
-        tokenizer=BertTokenizer.from_pretrained(
-            "bert-base-uncased", do_lower_case=True
-        ),
+        bert_model="bert-base-uncased",
         delimiter="\t",
         label_fn=None,
         max_len=-1,
@@ -40,6 +39,7 @@ class BERTDataset(data.Dataset):
             label_fn: function mapping from raw labels to desired format
             label_type: data type (int, float) of labels. used to cast values downstream.
         """
+        tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         tokens, segments, labels = self.load_tsv(
             src_path,
             sent1_idx,
@@ -183,3 +183,62 @@ class BERTDataset(data.Dataset):
             label_matrix = torch.LongTensor(label_matrix)
 
         return (idx_matrix, seg_matrix, mask_matrix), label_matrix
+
+
+class QNLI(BERTDataset):
+    """
+    Torch dataset object for QNLI ranking task, to work with BERT architecture.
+    """
+
+    def __init__(self, split, bert_model, max_len=-1):
+        super(QNLI, self).__init__(
+            src_path=os.path.join(os.environ["GLUEDATA"], "QNLI/{}.tsv").format(split),
+            sent1_idx=1,
+            sent2_idx=2,
+            label_idx=3 if split in ["train", "dev"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: 1 if label == "entailment" else 2,
+            max_len=max_len,
+        )
+
+
+class SSTB(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        raise NotImplementedError
+
+
+class CoLA(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        raise NotImplementedError
+
+
+class STS(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        raise NotImplementedError
+
+
+class MNLI(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        raise NotImplementedError
+
+
+class RTE(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        raise NotImplementedError
+
+
+class WNLI(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        raise NotImplementedError
+
+
+class QQP(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        raise NotImplementedError
+
+
+class MRPC(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        raise NotImplementedError
