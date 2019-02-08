@@ -166,7 +166,7 @@ def train_model():
         l2=args.weight_decay,
         lr=args.lr,
         n_epochs=args.epochs,
-        print_every=1,
+        log_train_every=1,
         validation_metric="accuracy",
     )
 
