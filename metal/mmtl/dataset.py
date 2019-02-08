@@ -30,7 +30,8 @@ class BERTDataset(data.Dataset):
     ):
         """
         Args:
-            src_path: path name of .tsv file for this dataset split.
+            dataset_name: should match "{}/train.tsv" the field in $GLUEDATA
+            dataset_split: for dataset being created. in ["train", "dev", "test"]
             sent1_idx: tsv index for sentence1
             sent2_idx: tsv index for sentence2
             label_idx: tsv index for label field
@@ -40,6 +41,8 @@ class BERTDataset(data.Dataset):
             label_fn: function mapping from raw labels to desired format
             label_type: data type (int, float) of labels. used to cast values downstream.
         """
+        assert dataset_split in ["train", "dev", "test"]
+
         src_path = os.path.join(
             os.environ["GLUEDATA"], "{}/{}.tsv".format(dataset_name, dataset_split)
         )
@@ -211,7 +214,18 @@ class QNLI(BERTDataset):
 
 class STSB(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
+        super(STSB, self).__init__(
+            dataset_name="STS-B",
+            dataset_split=split,
+            sent1_idx=7,
+            sent2_idx=8,
+            label_idx=9,
+            skip_rows=1,
+            bert_model=bert_model,
+            label_fn=lambda x: float(x) / 5,  # labels are scores [1, 2, 3, 4, 5]
+            max_len=512,
+            label_type=float,
+        )
 
 
 class SST2(BERTDataset):
