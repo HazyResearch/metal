@@ -204,17 +204,27 @@ class QNLI(BERTDataset):
         )
 
 
-class SSTB(BERTDataset):
+class STSB(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         raise NotImplementedError
+
+
+class SST2(BERTDataset):
+    def __init__(self, split, bert_model, max_len=-1):
+        super(SST2, self).__init__(
+            src_path=os.path.join(os.environ["GLUEDATA"], "SST-2/{}.tsv").format(split),
+            sent1_idx=0,
+            sent2_idx=-1,
+            label_idx=1 if split in ["train", "dev"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: int(label) + 1,
+            max_len=max_len,
+        )
 
 
 class CoLA(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
-
-
-class STS(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         raise NotImplementedError
 
