@@ -26,3 +26,7 @@ def BertMulticlassHead(k):
 
 def BertBinaryHead():
     return BertMulticlassHead(2)
+
+
+def BertRegressionHead():
+    return BertMulticlassHead(1)
