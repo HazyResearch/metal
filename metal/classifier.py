@@ -150,7 +150,7 @@ class Classifier(nn.Module):
 
         # Optionally print confusion matrix
         if print_confusion_matrix and verbose:
-            confusion_matrix(Y_p, Y, pretty_print=True)
+            confusion_matrix(Y, Y_p, pretty_print=True)
 
         # If a single metric was given as a string (not list), return a float
         if len(scores) == 1 and not return_list:
