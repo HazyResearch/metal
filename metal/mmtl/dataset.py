@@ -231,7 +231,8 @@ class STSBDataset(BERTDataset):
 class SST2Dataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         super(SST2Dataset, self).__init__(
-            src_path=os.path.join(os.environ["GLUEDATA"], "SST-2/{}.tsv").format(split),
+            dataset_name="SST-2",
+            dataset_split=split,
             sent1_idx=0,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,

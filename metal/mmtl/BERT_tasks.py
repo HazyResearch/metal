@@ -31,7 +31,7 @@ def create_task(task_name):
         bert_model = "bert-base-uncased"
         dataloaders = []
         for split in ["train", "dev"]:
-            dataset = SST2(split=split, bert_model=bert_model)
+            dataset = SST2(split=split, bert_model=bert_model, max_len=-1)
             dataloaders.append(dataset.get_dataloader())
         dataloaders.append(None)
         return Task(
