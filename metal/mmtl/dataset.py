@@ -271,22 +271,63 @@ class CoLADataset(BERTDataset):
 
 class MNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
+        labels = ["contradiction", "entailment", "neutral"]
+        super(MNLIDataset, self).__init__(
+            tsv_path=tsv_path_for_dataset("MNLI", split),
+            sent1_idx=8,
+            sent2_idx=9,
+            label_idx=11 if split in ["train", "dev_matched"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: labels.index(label) + 1,
+            max_len=max_len,
+        )
 
 
 class RTEDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
+        super(RTEDataset, self).__init__(
+            tsv_path=tsv_path_for_dataset("RTE", split),
+            sent1_idx=1,
+            sent2_idx=2,
+            label_idx=3 if split in ["train", "dev"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: 1 if label == "entailment" else 2,
+            max_len=max_len,
+        )
 
 
 class WNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
+        super(WNLIDataset, self).__init__(
+            tsv_path=tsv_path_for_dataset("WNLI", split),
+            sent1_idx=1,
+            sent2_idx=2,
+            label_idx=0 if split in ["train", "dev"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: 1 if label == "0" else 2,
+            max_len=max_len,
+        )
 
 
 class QQPDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
+        super(QQPDataset, self).__init__(
+            tsv_path=tsv_path_for_dataset("QQP", split),
+            sent1_idx=3,
+            sent2_idx=4,
+            label_idx=5 if split in ["train", "dev"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: 1 if label == "0" else 2,
+            max_len=max_len,
+        )
 
 
 class MRPCDataset(BERTDataset):
