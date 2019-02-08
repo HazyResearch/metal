@@ -351,6 +351,13 @@ class MultitaskTrainer(object):
                 **optimizer_config["adam_config"],
                 weight_decay=self.config["l2"],
             )
+        elif opt == "adamax":
+            optimizer = optim.Adamax(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                **optimizer_config["adam_config"],
+                weight_decay=self.config["l2"],
+            )
         elif opt == "sparseadam":
             optimizer = optim.SparseAdam(
                 parameters,
