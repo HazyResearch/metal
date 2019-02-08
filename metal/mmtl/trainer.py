@@ -121,7 +121,7 @@ class MultitaskTrainer(object):
     def train_model(self, model, tasks, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
 
-        name_to_task = {task.name: task for task in tasks}
+        self.name_to_task = {task.name: task for task in tasks}
 
         # Move model to GPU
         if self.config["verbose"] and self.config["device"] != "cpu":
@@ -191,8 +191,8 @@ class MultitaskTrainer(object):
                 metrics_dict = self._execute_logging(
                     model,
                     task_name=task_name,
-                    train_loader=name_to_task[task_name].data_loaders[TRAIN],
-                    valid_loader=name_to_task[task_name].data_loaders[VALID],
+                    train_loader=self.name_to_task[task_name].data_loaders[TRAIN],
+                    valid_loader=self.name_to_task[task_name].data_loaders[VALID],
                     loss=loss,
                     batch_size=batch_size,
                 )
@@ -247,10 +247,15 @@ class MultitaskTrainer(object):
         )
 
         if self.logger.check(batch_size):
-            logger_metrics = self.logger.calculate_metrics(
-                self, train_loader, valid_loader, metrics_dict
-            )
-            metrics_dict.update(logger_metrics)
+
+            # Compute metrics using Scorer
+            metrics_dict = {}
+            task = self.name_to_task[task_name]
+            for scorer in task.scorers:
+                metrics_dict.update(
+                    scorer(task, model, valid_loader, split_name="valid")
+                )
+
             self.logger.log(metrics_dict)
 
             # Reset running loss and examples counts
