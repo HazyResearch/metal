@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
+from metal.mmtl.scorer import Scorer
+
 
 class Task(object):
     """A task for use in an MMTL MetalModel
@@ -27,7 +29,7 @@ class Task(object):
         data_loaders: List[DataLoader],
         input_module: nn.Module,
         head_module: nn.Module,
-        scorers: List[Callable] = None,
+        scorer: Scorer = Scorer(standard_metrics=["accuracy"]),
         loss_hat_func: Callable = (lambda X, Y: F.cross_entropy(X, Y - 1)),
         output_hat_func: Callable = partial(F.softmax, dim=1),
     ) -> None:
@@ -38,6 +40,6 @@ class Task(object):
         self.data_loaders = data_loaders
         self.input_module = input_module
         self.head_module = head_module
-        self.scorers = scorers
+        self.scorer = scorer
         self.loss_hat_func = loss_hat_func
         self.output_hat_func = output_hat_func

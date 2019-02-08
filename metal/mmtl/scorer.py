@@ -10,9 +10,9 @@ Scorer class which evaluates metrics given a task and model.
 
 Example usage:
 scorer = Scorer()
-task1 = Task(..., scorers=[scorer])
+task1 = Task(..., scorer=scorer)
 ...
-taskn = Task(..., scorers=[scorer])
+taskn = Task(..., scorer=scorer)
 model = MetalModel(tasks=[task1, ..., taskn])
 
 """
@@ -23,7 +23,7 @@ class Scorer(object):
         """
         Creates a scorer object.
 
-        dataloader: Dataloader on which to calculate metrics.
+        data_loader: DataLoader on which to calculate metrics.
         standard_metrics: List of strings of standard metrics for which to evaluate.
         custom_metric_fns: List of functions of the form:
 
@@ -35,13 +35,13 @@ class Scorer(object):
         self.standard_metrics = standard_metrics
         self.custom_metric_fns = custom_metric_fns
 
-    def score(self, task, model, dataloader, split="valid", head_output=None):
+    def score(self, model, data_loader, task_name):
         """
-        The main call function which returns a metric_dict.
+        Calculates and returns a metrics_dict for a given task
 
-        task: mmtl task object
-        model: mmtl model object to which to make predictions.
-        dataloader: dataloader for which to evaluate metric
+        model: MetalModel to score
+        data_loader: DataLoader on which to evaluate metrics
+        task_name: the name of the Task being scored
 
         return: a metrics_dict object which contains:
         {
@@ -54,29 +54,29 @@ class Scorer(object):
         # Gather Y_preds, Y, Y_probs
         Y_preds, Y, Y_probs = [], [], []
 
-        for batch_num, data in enumerate(dataloader):
-            print("Batch %d of %d" % (batch_num, len(dataloader)))
+        for batch_num, data in enumerate(data_loader):
+            print("Batch %d of %d" % (batch_num, len(data_loader)))
 
             Xb, Yb = data
             Y.append(utils.to_numpy(Yb))
 
             # Place data on gpu if necessary
-            if str(model.config["device"]).strip() != "cpu":
+            if model.config["device"] != "cpu":
                 Xb = place_on_gpu(Xb)
 
             # Optimized out if head_output is passed
-            if head_output is None:
-                # Only works for end_model
-                # Y_p, Y_s = model.predict(Xb, return_probs=True)
-                Y_s = model.calculate_output(Xb, [task.name])
-                Y_s_to_npy = Y_s[task.name].numpy()
-                Y_p = utils.break_ties(Y_s_to_npy, "random").astype(np.int)
-                Y_preds.append(utils.to_numpy(Y_p))
-                Y_probs.append(utils.to_numpy(Y_s_to_npy))
+            # if head_output is None:
+            #     # Only works for end_model
+            #     # Y_p, Y_s = model.predict(Xb, return_probs=True)
+            #     Y_s = model.calculate_output(Xb, [task_name])
+            #     Y_s_to_npy = Y_s[task_name].numpy()
+            #     Y_p = utils.break_ties(Y_s_to_npy, "random").astype(np.int)
+            #     Y_preds.append(utils.to_numpy(Y_p))
+            #     Y_probs.append(utils.to_numpy(Y_s_to_npy))
 
         # Pass through head_output to task
-        if head_output is not None:
-            Y_probs = task.probs_hat_func(head_output)
+        # if head_output is not None:
+        # Y_probs = model.output_hat_funcs[task_name](head_output)
 
         # Stack batches
         Y_preds, Y, Y_probs = map(utils.stack_batches, [Y_preds, Y, Y_probs])
@@ -86,15 +86,15 @@ class Scorer(object):
             standard_metric_score = metric_score(
                 Y, Y_preds, standard_metric_name, probs=Y_probs
             )
-            metrics_dict[split + "/" + standard_metric_name] = standard_metric_score
+            metrics_dict[standard_metric_name] = standard_metric_score
 
         # Calculate custom fns
         for custom_metric_fn in self.custom_metric_fns:
             custom_metric_dict = custom_metric_fn(Y, Y_preds, probs=Y_probs)
-            self.update_metrics_dict(metrics_dict, custom_metric_dict, split)
+            self.update_metrics_dict(metrics_dict, custom_metric_dict)
 
         return metrics_dict
 
-    def update_metrics_dict(self, metrics_dict, metric, split):
+    def update_metrics_dict(self, metrics_dict, metric):
         for k, v in metric.items():
-            metrics_dict[split + "/" + k] = v
+            metrics_dict[k] = v

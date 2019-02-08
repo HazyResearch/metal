@@ -1,4 +1,5 @@
 import os
+from pprint import pprint
 
 import numpy as np
 import torch
@@ -25,6 +26,8 @@ else:
 TRAIN = 0
 VALID = 1
 TEST = 2
+
+SPLIT_DICT = {"train": TRAIN, "valid": VALID, "test": TEST}
 
 
 trainer_config = {
@@ -208,28 +211,32 @@ class MultitaskTrainer(object):
             # Apply learning rate scheduler
             # self._update_scheduler(epoch, metrics_hist)
 
-        # self.eval()
+        model.eval()
 
-        # # Restore best model if applicable
+        # Restore best model if applicable
         # if self.checkpointer:
-        #     self.checkpointer.load_best_model(model=self)
+        #     self.checkpointer.load_best_model(model=model)
 
-        # # Write log if applicable
-        # if self.writer:
-        #     if self.writer.include_config:
-        #         self.writer.add_config(self.config)
-        #     self.writer.close()
+        # Write log if applicable
+        if self.writer:
+            if self.writer.include_config:
+                self.writer.add_config(self.config)
+            self.writer.close()
 
-        # # Print confusion matrix if applicable
-        # if self.config["verbose"]:
-        #     print("Finished Training")
-        #     if valid_loader is not None:
-        #         self.score(
-        #             valid_loader,
-        #             metric=self.config["validation_metric"],
-        #             verbose=True,
-        #             print_confusion_matrix=True,
-        #         )
+        # Print final performance values
+        if self.config["verbose"]:
+            print("Finished Training")
+            # metrics_dict = self.score_all_tasks(model, tasks)
+            # pprint(metrics_dict)
+
+    def score_all_tasks(self, model, tasks, split="valid"):
+        metrics_dict = {}
+        for task in tasks:
+            task_metrics = task.scorer.score(
+                model, task.data_loaders[SPLIT_DICT[split]], split=split
+            )
+            metrics_dict.update(task_metrics)
+        return metrics_dict
 
     def _execute_logging(
         self, model, task_name, train_loader, valid_loader, loss, batch_size
@@ -246,21 +253,19 @@ class MultitaskTrainer(object):
             self.running_loss / self.running_examples
         )
 
-        if self.logger.check(batch_size):
+        # if self.logger.check(batch_size):
 
-            # Compute metrics using Scorer
-            metrics_dict = {}
-            task = self.name_to_task[task_name]
-            for scorer in task.scorers:
-                metrics_dict.update(
-                    scorer(task, model, valid_loader, split_name="valid")
-                )
+        #     # Compute metrics using Scorer
+        #     metrics_dict = {}
+        #     task = self.name_to_task[task_name]
+        #     metrics_dict.update(scorer(task, model, valid_loader, split_name="valid")
+        #     )
 
-            self.logger.log(metrics_dict)
+        #     self.logger.log(metrics_dict)
 
-            # Reset running loss and examples counts
-            self.running_loss = 0.0
-            self.running_examples = 0
+        #     # Reset running loss and examples counts
+        #     self.running_loss = 0.0
+        #     self.running_examples = 0
 
         # Checkpoint if applicable
         # self._checkpoint(metrics_dict)
