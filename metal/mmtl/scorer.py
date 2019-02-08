@@ -1,5 +1,6 @@
 from metal.metrics import metric_score
 from metal.mmtl.utils import utils
+from metal.utils import place_on_gpu, recursive_merge_dicts
 
 
 """
@@ -43,6 +44,10 @@ class Scorer(object):
 
                 Xb, Yb = data
                 Y.append(utils.to_numpy(Yb))
+
+                # Place data on gpu if necessary
+                if model.config["device"] != "cpu":
+                    Xb = place_on_gpu(Xb)
 
                 # Optimized out if head_output is passed
                 if head_output is None:
