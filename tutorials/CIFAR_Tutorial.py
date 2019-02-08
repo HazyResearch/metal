@@ -151,7 +151,7 @@ def train_model():
         [encode_dim, len(classes)],
         input_module=model,
         seed=123,
-        use_cuda=cuda,
+        device="cuda" if cuda else "cpu",
         skip_head=True,
         input_relu=False,
         input_batchnorm=False,
