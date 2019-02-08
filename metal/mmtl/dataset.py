@@ -26,6 +26,7 @@ class BERTDataset(data.Dataset):
         delimiter="\t",
         label_fn=None,
         max_len=-1,
+        label_type=int,
     ):
         """
         Args:
@@ -37,6 +38,7 @@ class BERTDataset(data.Dataset):
             tokenizer: tokenizer to map sentences to tokens using `.tokenize(sent)` method
             delimiter: delimiter between columns (likely '\t') for tab-separated-values
             label_fn: function mapping from raw labels to desired format
+            label_type: data type (int, float) of labels. used to cast values downstream.
         """
         tokens, segments, labels = self.load_tsv(
             src_path,
@@ -49,6 +51,8 @@ class BERTDataset(data.Dataset):
             label_fn,
             max_len,
         )
+        self.label_type = label_type
+
         self.tokens = tokens
         self.segments = segments
         self.labels = labels
@@ -137,14 +141,11 @@ class BERTDataset(data.Dataset):
     def __len__(self):
         return len(self.tokens)
 
-    def get_dataloader(self, batch_size=32):
+    def get_dataloader(self, **kwargs):
         """Initializes a dataloader based on self (dataset)."""
 
         return data.DataLoader(
-            self,
-            collate_fn=lambda batch: self._collate_fn(batch),
-            batch_size=batch_size,
-            shuffle=True,
+            self, collate_fn=lambda batch: self._collate_fn(batch), **kwargs
         )
 
     def _collate_fn(self, batch):
@@ -159,7 +160,9 @@ class BERTDataset(data.Dataset):
         max_sent_len = int(np.max([len(tok) for ((tok, seg), _) in batch]))
         idx_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
         seg_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
-        label_matrix = np.zeros((batch_size, 1), dtype=np.int)
+
+        label_dtype = np.float if self.label_type is float else np.int
+        label_matrix = np.zeros((batch_size, 1), dtype=label_dtype)
 
         for idx1 in np.arange(len(batch)):
             (tokens, segments), labels = batch[idx1]
@@ -173,5 +176,11 @@ class BERTDataset(data.Dataset):
         idx_matrix = torch.LongTensor(idx_matrix)
         seg_matrix = torch.LongTensor(seg_matrix)
         mask_matrix = torch.gt(idx_matrix.data, 0).long()
-        label_matrix = torch.FloatTensor(label_matrix)
+
+        # cast torch labels
+        if self.label_type is float:
+            label_matrix = torch.FloatTensor(label_matrix)
+        else:
+            label_matrix = torch.LongTensor(label_matrix)
+
         return (idx_matrix, seg_matrix, mask_matrix), label_matrix
