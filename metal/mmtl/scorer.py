@@ -1,5 +1,6 @@
 from metal.metrics import metric_score
 from metal.mmtl.utils import utils
+from metal.utils import place_on_gpu, recursive_merge_dicts
 
 
 """
@@ -31,44 +32,45 @@ class Scorer(object):
         """
         metrics_dict = {}
 
-        # Calculate standard metrics
-        if len(self.standard_metrics) > 0:
+        # TODO(maxlam) Perhaps refactor
+        # Gather Y_preds, Y, Y_probs
+        Y_preds, Y, Y_probs = [], [], []
 
-            # TODO(maxlam) Perhaps refactor
-            # Gather Y_preds, Y, Y_probs
-            Y_preds, Y, Y_probs = [], [], []
+        for batch_num, data in enumerate(dataloader):
+            print("Batch %d of %d" % (batch_num, len(dataloader)))
 
-            for batch_num, data in enumerate(dataloader):
-                print("Batch %d of %d" % (batch_num, len(dataloader)))
+            Xb, Yb = data
+            Y.append(utils.to_numpy(Yb))
 
-                Xb, Yb = data
-                Y.append(utils.to_numpy(Yb))
+            # Place data on gpu if necessary
+            if str(model.config["device"]).strip() != "cpu":
+                Xb = place_on_gpu(Xb)
 
-                # Optimized out if head_output is passed
-                if head_output is None:
-                    Y_p, Y_s = model.predict(Xb, return_probs=True)
-                    Y_preds.append(utils.to_numpy(Y_p))
-                    Y_probs.append(utils.to_numpy(Y_s))
+            # Optimized out if head_output is passed
+            if head_output is None:
+                Y_p, Y_s = model.predict(Xb, return_probs=True)
+                Y_preds.append(utils.to_numpy(Y_p))
+                Y_probs.append(utils.to_numpy(Y_s))
 
-            # Pass through head_output to task
-            if head_output is not None:
-                Y_probs = task.probs_hat_func(head_output)
+        # Pass through head_output to task
+        if head_output is not None:
+            Y_probs = task.probs_hat_func(head_output)
 
-            # Stack batches
-            Y_preds, Y, Y_probs = map(utils.stack_batches, [Y_preds, Y, Y_probs])
+        # Stack batches
+        Y_preds, Y, Y_probs = map(utils.stack_batches, [Y_preds, Y, Y_probs])
 
-            # From the labels and predictions calculate metrics
-            for standard_metric_name in self.standard_metrics:
-                standard_metric_score = metric_score(
-                    Y, Y_preds, standard_metric_name, probs=Y_probs
-                )
-                metrics_dict[
-                    split_name + "/" + standard_metric_name
-                ] = standard_metric_score
+        # From the labels and predictions calculate metrics
+        for standard_metric_name in self.standard_metrics:
+            standard_metric_score = metric_score(
+                Y, Y_preds, standard_metric_name, probs=Y_probs
+            )
+            metrics_dict[
+                split_name + "/" + standard_metric_name
+            ] = standard_metric_score
 
         # Calculate custom fns
         for custom_metric_fn in self.custom_metric_fns:
-            custom_metric_dict = custom_metric_fn(model, dataloader)
+            custom_metric_dict = custom_metric_fn(Y, Y_preds, probs=Y_probs)
             self.update_metrics_dict(metrics_dict, custom_metric_dict, split_name)
 
         return metrics_dict
@@ -85,7 +87,7 @@ class Scorer(object):
         standard_metrics: List of strings of standard metrics for which to evaluate.
         custom_metric_fns: List of functions of the form:
 
-           metric_fn(model, dataloader)
+           metric_fn(Y, Y_preds, probs=Y_probs)
            - Return a dict with name of metric to metric
 
         scorer_prefix: String prefix to tag metrics calculated by the current scorer.
