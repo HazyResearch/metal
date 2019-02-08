@@ -16,7 +16,8 @@ class BERTDataset(data.Dataset):
 
     def __init__(
         self,
-        src_path,
+        dataset_name,
+        dataset_split,
         sent1_idx=0,
         sent2_idx=-1,
         label_idx=1,
@@ -39,6 +40,9 @@ class BERTDataset(data.Dataset):
             label_fn: function mapping from raw labels to desired format
             label_type: data type (int, float) of labels. used to cast values downstream.
         """
+        src_path = os.path.join(
+            os.environ["GLUEDATA"], "{}/{}.tsv".format(dataset_name, dataset_split)
+        )
         tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         tokens, segments, labels = self.load_tsv(
             src_path,
@@ -192,7 +196,8 @@ class QNLI(BERTDataset):
 
     def __init__(self, split, bert_model, max_len=-1):
         super(QNLI, self).__init__(
-            src_path=os.path.join(os.environ["GLUEDATA"], "QNLI/{}.tsv").format(split),
+            dataset_name="QNLI",
+            dataset_split=split,
             sent1_idx=1,
             sent2_idx=2,
             label_idx=3 if split in ["train", "dev"] else -1,
