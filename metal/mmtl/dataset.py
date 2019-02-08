@@ -137,14 +137,11 @@ class BERTDataset(data.Dataset):
     def __len__(self):
         return len(self.tokens)
 
-    def get_dataloader(self, batch_size=32):
+    def get_dataloader(self, **kwargs):
         """Initializes a dataloader based on self (dataset)."""
 
         return data.DataLoader(
-            self,
-            collate_fn=lambda batch: self._collate_fn(batch),
-            batch_size=batch_size,
-            shuffle=True,
+            self, collate_fn=lambda batch: self._collate_fn(batch), **kwargs
         )
 
     def _collate_fn(self, batch):
