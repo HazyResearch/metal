@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Callable, List
 
 import torch.nn as nn
@@ -10,12 +11,13 @@ class Task(object):
 
     Args:
         name: The name of the task
-        TODO: replace this with a more fully-featured path through the network
+            TODO: replace this with a more fully-featured path through the network
         input_module: The input module
         head_module: The task head module
         data: A list of DataLoaders (instances and labels) to feed through the network.
             The list contains [train, dev, test].
         scorers: A list of Scorers that return metrics_dict objects.
+        loss_hat_func
     """
 
     def __init__(
@@ -26,7 +28,7 @@ class Task(object):
         head_module: nn.Module,
         scorers: List[Callable] = None,
         loss_hat_func: Callable = F.cross_entropy,
-        probs_hat_func: Callable = F.softmax,
+        probs_hat_func: Callable = partial(F.softmax, dim=1),
     ) -> None:
         if len(data_loaders) != 3:
             msg = "Arg data_loaders must be a list of length 3 [train, valid, test]"
