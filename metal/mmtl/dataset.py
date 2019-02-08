@@ -6,7 +6,9 @@ import pandas as pd
 import torch
 import torch.utils.data as data
 from pytorch_pretrained_bert import BertTokenizer
+from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
+from utils.dataset_utils import tsv_path_for_dataset
 
 
 class BERTDataset(data.Dataset):
@@ -16,8 +18,7 @@ class BERTDataset(data.Dataset):
 
     def __init__(
         self,
-        dataset_name,
-        dataset_split,
+        tsv_path,
         sent1_idx=0,
         sent2_idx=-1,
         label_idx=1,
@@ -30,8 +31,7 @@ class BERTDataset(data.Dataset):
     ):
         """
         Args:
-            dataset_name: should match "{}/train.tsv" the field in $GLUEDATA
-            dataset_split: for dataset being created. in ["train", "dev", "test"]
+            tsv_path: location of .tsv on disk
             sent1_idx: tsv index for sentence1
             sent2_idx: tsv index for sentence2
             label_idx: tsv index for label field
@@ -41,14 +41,10 @@ class BERTDataset(data.Dataset):
             label_fn: function mapping from raw labels to desired format
             label_type: data type (int, float) of labels. used to cast values downstream.
         """
-        assert dataset_split in ["train", "dev", "test"]
 
-        src_path = os.path.join(
-            os.environ["GLUEDATA"], "{}/{}.tsv".format(dataset_name, dataset_split)
-        )
         tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         tokens, segments, labels = self.load_tsv(
-            src_path,
+            tsv_path,
             sent1_idx,
             sent2_idx,
             label_idx,
@@ -148,12 +144,39 @@ class BERTDataset(data.Dataset):
     def __len__(self):
         return len(self.tokens)
 
-    def get_dataloader(self, **kwargs):
-        """Initializes a dataloader based on self (dataset)."""
+    def get_dataloader(self, split_prop=None, **kwargs):
+        """Returns a dataloader based on self (dataset). If split_prop is specified,
+        returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
 
-        return data.DataLoader(
-            self, collate_fn=lambda batch: self._collate_fn(batch), **kwargs
-        )
+        if split_prop:
+            assert split_prop >= 0 and split_prop <= 1
+
+            N = len(self)
+            full_idx = list(range(N))
+            split_div = int(split_prop * N)
+            train_idx = full_idx[:split_div]
+            dev_idx = full_idx[split_div:]
+
+            train_dataloader = data.DataLoader(
+                self,
+                collate_fn=lambda batch: self._collate_fn(batch),
+                sampler=SubsetRandomSampler(train_idx),
+                **kwargs
+            )
+
+            dev_dataloader = data.DataLoader(
+                self,
+                collate_fn=lambda batch: self._collate_fn(batch),
+                sampler=SubsetRandomSampler(dev_idx),
+                **kwargs
+            )
+
+            return (train_dataloader, dev_dataloader)
+
+        else:
+            return data.DataLoader(
+                self, collate_fn=lambda batch: self._collate_fn(batch), **kwargs
+            )
 
     def _collate_fn(self, batch):
         """ Collates batch of (tokens, segments, labels), collates into tensors of
@@ -199,8 +222,7 @@ class QNLIDataset(BERTDataset):
 
     def __init__(self, split, bert_model, max_len=-1):
         super(QNLIDataset, self).__init__(
-            dataset_name="QNLI",
-            dataset_split=split,
+            tsv_path=tsv_path_for_dataset("QNLI", split),
             sent1_idx=1,
             sent2_idx=2,
             label_idx=3 if split in ["train", "dev"] else -1,
@@ -215,8 +237,7 @@ class QNLIDataset(BERTDataset):
 class STSBDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         super(STSBDataset, self).__init__(
-            dataset_name="STS-B",
-            dataset_split=split,
+            tsv_path=tsv_path_for_dataset("STS-B", split),
             sent1_idx=7,
             sent2_idx=8,
             label_idx=9,
@@ -231,8 +252,7 @@ class STSBDataset(BERTDataset):
 class SST2Dataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         super(SST2Dataset, self).__init__(
-            dataset_name="SST-2",
-            dataset_split=split,
+            tsv_path=tsv_path_for_dataset("SST-2", split),
             sent1_idx=0,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,
