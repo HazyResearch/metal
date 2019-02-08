@@ -10,7 +10,9 @@ BERT_output_dim = 768
 class BertEncoder(nn.Module):
     def __init__(self):
         super(BertEncoder, self).__init__()
-        self.bert_model = BertModel.from_pretrained("bert-base-uncased")
+        self.bert_model = BertModel.from_pretrained(
+            "bert-base-uncased"
+        )  # also try bert-base-multilingual-cased (recommended)
 
     def forward(self, data):
         tokens, segments, mask = data
