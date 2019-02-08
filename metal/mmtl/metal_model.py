@@ -45,7 +45,7 @@ class MetalModel(nn.Module):
             {task.name: task.head_module for task in tasks}
         )
         self.loss_hat_funcs = {task.name: task.loss_hat_func for task in tasks}
-        self.probs_hat_funcs = {task.name: task.probs_hat_func for task in tasks}
+        self.output_hat_funcs = {task.name: task.output_hat_func for task in tasks}
 
         # TODO: allow some number of middle modules (of arbitrary sizes) to be specified
         self.middle_modules = None
@@ -74,18 +74,17 @@ class MetalModel(nn.Module):
         """Returns a dict of {task_name: loss (an FloatTensor scalar)}."""
         # IMPORTANT: no_grad is here because the MultitaskTrainer runs the loss_hat_func
         # over the head output on its own. This is just a convenience function.
-        print(Y)
         return {
             t: self.loss_hat_funcs[t](out, Y)
             for t, out in self.forward(X, task_names).items()
         }
 
     @torch.no_grad()
-    def predict_proba(self, X, task_names):
+    def calculate_output(self, X, task_names):
         """Returns a dict of {task_name: probs (an [n, k] Tensor of probabilities)}."""
         # return F.softmax(self.forward(X), dim=1).data.cpu().numpy()
         return {
-            t: self.probs_hat_funcs[t](out)
+            t: self.output_hat_funcs[t](out)
             for t, out in self.forward(X, task_names).items()
         }
 
