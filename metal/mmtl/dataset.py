@@ -9,7 +9,11 @@ from pytorch_pretrained_bert import BertTokenizer
 from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
 
-from metal.mmtl.utils.dataset_utils import tsv_path_for_dataset
+
+def tsv_path_for_dataset(dataset_name, dataset_split):
+    return os.path.join(
+        os.environ["GLUEDATA"], "{}/{}.tsv".format(dataset_name, dataset_split)
+    )
 
 
 class BERTDataset(data.Dataset):
