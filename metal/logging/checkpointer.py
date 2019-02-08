@@ -25,6 +25,8 @@ class Checkpointer(object):
         self.checkpoint_runway = config["checkpoint_runway"]
 
         # If abbreviated metric name was used, expand here to valid/ by default
+        # TODO: Remove this when merging mmtl branch into master and perform this check
+        # inside of _set_checkpointer instead.
         if "/" not in self.checkpoint_metric:
             self.checkpoint_metric = "valid/" + self.checkpoint_metric
 
@@ -41,8 +43,11 @@ class Checkpointer(object):
 
     def checkpoint(self, metrics_dict, iteration, model, optimizer, lr_scheduler):
         # Return early if checkpoint_runway has not been met
-        if self.checkpoint_runway and iteration < self.checkpoint_runway:
-            return
+        if self.checkpoint_runway:
+            if iteration < self.checkpoint_runway:
+                return
+            elif iteration == self.checkpoint_runway:
+                print("Checkpoint runway has been met. Checkpointing will now occur.")
 
         if (
             self.checkpoint_every
@@ -61,7 +66,7 @@ class Checkpointer(object):
                 if self.verbose:
                     print(
                         f"Saving model at iteration {iteration} with best "
-                        f"score {score:.3f}"
+                        f"({self.checkpoint_metric_mode}) score {score:.3f}"
                     )
                 self.best_model_found = True
                 self.best_iteration = iteration

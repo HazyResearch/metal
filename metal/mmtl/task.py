@@ -12,30 +12,27 @@ class Task(object):
     """A task for use in an MMTL MetalModel
 
     Args:
-        name: The name of the task
+        name: (str) The name of the task
             TODO: replace this with a more fully-featured path through the network
-        input_module: The input module
-        head_module: The task head module
-        data: A list of DataLoaders (instances and labels) to feed through the network.
-            The list contains [train, dev, test].
-        scorers: A list of Scorers that return metrics_dict objects.
-        loss_hat_func: A function of the form f(forward(X), Y) -> loss
+        input_module: (nn.Module) The input module
+        head_module: (nn.Module) The task head module
+        data: A dict of DataLoaders (instances and labels) to feed through the network
+            with keys in ["train", "valid", "test"]
+        scorers: A Scorer that returns a metrics_dict object.
+        loss_hat_func: A function of the form f(forward(X), Y) -> loss (scalar Tensor)
         output_hat_func: A function of the form f(forward(X)) -> output (e.g. probs)
     """
 
     def __init__(
         self,
-        name: str,
-        data_loaders: List[DataLoader],
-        input_module: nn.Module,
-        head_module: nn.Module,
-        scorer: Scorer = Scorer(standard_metrics=["accuracy"]),
-        loss_hat_func: Callable = (lambda X, Y: F.cross_entropy(X, Y - 1)),
-        output_hat_func: Callable = partial(F.softmax, dim=1),
+        name,
+        data_loaders,
+        input_module,
+        head_module,
+        scorer=Scorer(standard_metrics=["accuracy"]),
+        loss_hat_func=(lambda X, Y: F.cross_entropy(X, Y - 1)),
+        output_hat_func=(partial(F.softmax, dim=1)),
     ) -> None:
-        if len(data_loaders) != 3:
-            msg = "Arg data_loaders must be a list of length 3 [train, valid, test]"
-            raise Exception(msg)
         self.name = name
         self.data_loaders = data_loaders
         self.input_module = input_module
