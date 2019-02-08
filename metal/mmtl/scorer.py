@@ -84,8 +84,9 @@ class Scorer(object):
             custom_metric_dict = custom_metric_fn(Y, Y_preds, probs=Y_probs)
             metrics_dict.update(custom_metric_dict)
 
+        # Construct full metric names: task/split/metric
         metrics_dict = {
-            f"{task_name}/{split}/{metric}": value
+            f"{task_name}/{split}/{metric.split('/')[-1]}": value
             for metric, value in metrics_dict.items()
         }
         return metrics_dict
