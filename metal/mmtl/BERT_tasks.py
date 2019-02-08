@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from dataset import SST2
+from dataset import SST2Dataset
 from modules import BertBinaryHead, BertEncoder, BertMulticlassHead
 from pytorch_pretrained_bert import BertForMaskedLM, BertModel, BertTokenizer
 from task import Task
@@ -31,7 +31,7 @@ def create_task(task_name):
         bert_model = "bert-base-uncased"
         dataloaders = []
         for split in ["train", "dev"]:
-            dataset = SST2(split=split, bert_model=bert_model, max_len=-1)
+            dataset = SST2Dataset(split=split, bert_model=bert_model, max_len=-1)
             dataloaders.append(dataset.get_dataloader())
         dataloaders.append(None)
         return Task(
