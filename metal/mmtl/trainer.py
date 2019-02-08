@@ -226,15 +226,16 @@ class MultitaskTrainer(object):
         # Print final performance values
         if self.config["verbose"]:
             print("Finished Training")
-            # metrics_dict = self.score_all_tasks(model, tasks)
-            # pprint(metrics_dict)
+            metrics_dict = self.score_all_tasks(model, tasks)
+            pprint(metrics_dict)
 
     def score_all_tasks(self, model, tasks, split="valid"):
         metrics_dict = {}
         for task in tasks:
             task_metrics = task.scorer.score(
-                model, task.data_loaders[SPLIT_DICT[split]], split=split
+                model, task.data_loaders[SPLIT_DICT[split]], task.name, split=split
             )
+
             metrics_dict.update(task_metrics)
         return metrics_dict
 
