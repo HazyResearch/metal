@@ -4,7 +4,8 @@ import torch.nn as nn
 from dataset import BERTDataset
 from pytorch_pretrained_bert import BertForMaskedLM, BertModel, BertTokenizer
 
-BERT_output_dim = 768
+BERT_small_outdim = 768
+BERT_large_outdim = 1024
 
 
 class BertEncoder(nn.Module):
@@ -47,7 +48,7 @@ def createBertDataloader(
 
 
 def BertMulticlassHead(k):
-    return nn.linear([BERT_output_dim, k])
+    return nn.Linear([BERT_small_outdim, k])
 
 
 def BertBinaryHead():
