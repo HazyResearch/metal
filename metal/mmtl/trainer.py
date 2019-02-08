@@ -151,7 +151,6 @@ class MultitaskTrainer(object):
         model.train()
         # metrics_dict = {}
         for epoch in range(self.config["n_epochs"]):
-
             progress_bar = (
                 self.config["progress_bar"]
                 and self.config["verbose"]
@@ -193,7 +192,7 @@ class MultitaskTrainer(object):
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(
                     model,
-                    task_name=task_name,
+                    task=self.name_to_task[task_name],
                     train_loader=self.name_to_task[task_name].data_loaders[TRAIN],
                     valid_loader=self.name_to_task[task_name].data_loaders[VALID],
                     loss=loss,
@@ -214,8 +213,8 @@ class MultitaskTrainer(object):
         model.eval()
 
         # Restore best model if applicable
-        # if self.checkpointer:
-        #     self.checkpointer.load_best_model(model=model)
+        if self.checkpointer:
+            self.checkpointer.load_best_model(model=model)
 
         # Write log if applicable
         if self.writer:
@@ -226,20 +225,21 @@ class MultitaskTrainer(object):
         # Print final performance values
         if self.config["verbose"]:
             print("Finished Training")
-            # metrics_dict = self.score_all_tasks(model, tasks)
-            # pprint(metrics_dict)
+            metrics_dict = self.score_all_tasks(model, tasks)
+            pprint(metrics_dict)
 
     def score_all_tasks(self, model, tasks, split="valid"):
         metrics_dict = {}
         for task in tasks:
             task_metrics = task.scorer.score(
-                model, task.data_loaders[SPLIT_DICT[split]], split=split
+                model, task.data_loaders[SPLIT_DICT[split]], task.name, split=split
             )
+
             metrics_dict.update(task_metrics)
         return metrics_dict
 
     def _execute_logging(
-        self, model, task_name, train_loader, valid_loader, loss, batch_size
+        self, model, task, train_loader, valid_loader, loss, batch_size
     ):
         model.eval()
         self.running_loss += loss.item() * batch_size
@@ -249,26 +249,23 @@ class MultitaskTrainer(object):
         metrics_dict = {}
         # Always add average loss
         # HACK: We will not always have the same task_name unless we are single-task!
-        metrics_dict[f"{task_name}/train/loss"] = (
+        metrics_dict[f"{task.name}/train/loss"] = (
             self.running_loss / self.running_examples
         )
 
-        # if self.logger.check(batch_size):
+        if self.logger.check(batch_size):
+            # Compute metrics using Scorer
+            metrics_dict.update(
+                task.scorer.score(model, valid_loader, task.name, split="valid")
+            )
+            self.logger.log(metrics_dict)
 
-        #     # Compute metrics using Scorer
-        #     metrics_dict = {}
-        #     task = self.name_to_task[task_name]
-        #     metrics_dict.update(scorer(task, model, valid_loader, split_name="valid")
-        #     )
-
-        #     self.logger.log(metrics_dict)
-
-        #     # Reset running loss and examples counts
-        #     self.running_loss = 0.0
-        #     self.running_examples = 0
+            # Reset running loss and examples counts
+            self.running_loss = 0.0
+            self.running_examples = 0
 
         # Checkpoint if applicable
-        # self._checkpoint(metrics_dict)
+        self._checkpoint(model, metrics_dict)
 
         model.train()
         return metrics_dict
@@ -293,6 +290,14 @@ class MultitaskTrainer(object):
                 yield (tasks[task_idx].name, next(train_loaders[task_idx]))
             except StopIteration:
                 continue
+
+    def _checkpoint(self, model, metrics_dict):
+        if self.checkpointer is None:
+            return
+        iteration = self.logger.unit_total
+        self.checkpointer.checkpoint(
+            metrics_dict, iteration, model, self.optimizer, self.lr_scheduler
+        )
 
     def _set_writer(self):
         if self.config["writer"] is None:
