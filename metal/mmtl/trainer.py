@@ -34,16 +34,15 @@ trainer_config = {
     # Display
     "progress_bar": False,
     # Dataloader
-    "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True},
+    # TODO: Restore the option for them to pass in raw simple data which we wrap up
+    # "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True},
     # Loss weights
-    "loss_weights": None,
+    # TODO: Restore ability to weight losses by class and/or task
+    # "loss_weights": None,
     # Train Loop
     "n_epochs": 10,
     # 'grad_clip': 0.0,
     "l2": 0.0,
-    "validation_metric": "accuracy",
-    "validation_freq": 1,
-    "validation_scoring_kwargs": {},
     # Evaluate dev for during training every this many epochs
     # Optimizer
     "optimizer_config": {
@@ -101,14 +100,15 @@ trainer_config = {
     # Checkpointer (see metal/logging/checkpointer.py for descriptions)
     "checkpoint": True,  # If True, checkpoint models when certain conditions are met
     "checkpoint_config": {
+        # TODO: unify checkpoint=['every', 'best', 'final']; specify one strategy
         "checkpoint_every": 0,  # Save a model checkpoint every this many log_units
         # If checkpoint_best, also save the "best" model according to some metric
         # The "best" model will have the ['max', 'min'] value of checkpoint_metric
         # This metric must be produced by one of the task Scorer objects so it will be
         # available for lookup; assumes valid split unless appended with "train/"
         "checkpoint_best": False,
-        "checkpoint_final": False,  # Save a model checkpoint at the end of training
-        "checkpoint_metric": "train/multitask_loss",
+        # "checkpoint_final": False,  # Save a model checkpoint at the end of training
+        "checkpoint_metric": "train/loss",
         "checkpoint_metric_mode": "min",
         "checkpoint_dir": f"{os.environ['METALHOME']}/checkpoints",
         "checkpoint_runway": 0,
@@ -201,7 +201,7 @@ class MultitaskTrainer(object):
 
                 # tqdm output
                 if len(tasks) == 1:
-                    t.set_postfix(loss=metrics_dict["train/multitask_loss"])
+                    t.set_postfix(loss=metrics_dict["train/loss"])
 
             # Apply learning rate scheduler
             # self._update_scheduler(epoch, metrics_hist)
@@ -245,7 +245,7 @@ class MultitaskTrainer(object):
         total_examples = sum(self.running_examples.values())
         # TODO: Don't report task loss and "overall" loss if there is only one task?
         # But they may be planning on their named task loss being in the metrics_dict...
-        metrics_dict["train/multitask_loss"] = total_loss / total_examples
+        metrics_dict["train/loss"] = total_loss / total_examples
         return metrics_dict
 
     def calculate_metrics(self, model, tasks):
