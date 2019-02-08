@@ -121,20 +121,27 @@ class MultitaskTrainer(object):
     def train_model(self, model, tasks, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
 
+        name_to_task = {task.name: task for task in tasks}
+
         # Move model to GPU
-        if self.config["verbose"] and model.config["device"] != "cpu":
+        if self.config["verbose"] and self.config["device"] != "cpu":
             print("Using GPU...")
-        model.to(model.config["device"])
+        model.to(self.config["device"])
+
+        # Calculate epoch statistics
+        examples_per_epoch = sum([len(t.data_loaders[TRAIN].dataset) for t in tasks])
+        batches_per_epoch = sum([len(t.data_loaders[TRAIN]) for t in tasks])
 
         # Set training components
         self._set_writer()
-        self._set_logger()
+        self._set_logger(examples_per_epoch)
         self._set_checkpointer()
         self._set_optimizer(model)
         # TODO: Accept training matrix to give more fine-tuned training commands
         self._set_scheduler()
 
         # TODO: Restore the ability to resume training from a given epoch
+        # That code goes here
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -142,25 +149,23 @@ class MultitaskTrainer(object):
         # metrics_dict = {}
         for epoch in range(self.config["n_epochs"]):
 
-            # progress_bar = (
-            #     self.config["progress_bar"]
-            #     and self.config["verbose"]
-            #     and self.logger.log_unit == "epochs"
-            # )
+            progress_bar = (
+                self.config["progress_bar"]
+                and self.config["verbose"]
+                and self.logger.log_unit == "epochs"
+            )
 
-            # t = tqdm(
-            #     enumerate(self._get_train_batches(tasks, approx_batch_counts)),
-            #     total=total_batches,
-            #     disable=(not progress_bar),
-            # )
+            t = tqdm(
+                enumerate(self._get_train_batches(tasks)),
+                total=batches_per_epoch,
+                disable=(not progress_bar),
+            )
 
             self.running_loss = 0.0
             self.running_examples = 0
-            for batch_num, (task_name, batch) in enumerate(
-                self._get_train_batches(tasks)
-            ):
+            for batch_num, (task_name, batch) in t:
                 # NOTE: actual batch_size may not equal config's target batch_size
-                # batch_size = len(batch[0])
+                batch_size = len(batch[0])
 
                 # Moving data to device
                 if self.config["device"] != "cpu":
@@ -170,7 +175,7 @@ class MultitaskTrainer(object):
                 self.optimizer.zero_grad()
 
                 # Forward pass to calculate the average loss per example
-                loss = model(batch, task_name)
+                loss = model.calculate_loss(*batch, [task_name])[task_name]
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
@@ -183,13 +188,22 @@ class MultitaskTrainer(object):
                 self.optimizer.step()
 
                 # Calculate metrics, log, and checkpoint as necessary
-                # metrics_dict = self._execute_logging(
-                #     train_loader, valid_loader, loss, batch_size
-                # )
+                metrics_dict = self._execute_logging(
+                    model,
+                    task_name=task_name,
+                    train_loader=name_to_task[task_name].data_loaders[TRAIN],
+                    valid_loader=name_to_task[task_name].data_loaders[VALID],
+                    loss=loss,
+                    batch_size=batch_size,
+                )
                 # metrics_hist.update(metrics_dict)
 
                 # tqdm output
-                # t.set_postfix(loss=metrics_dict["train/loss"])
+                # HACK: We should actually report some more generally meaningful loss
+                # that pertains to all the tasks together; can't assume task_name
+                # will be the same every time unless there is only one task
+                if len(tasks) == 1:
+                    t.set_postfix(loss=metrics_dict[f"{task_name}/train/loss"])
 
             # Apply learning rate scheduler
             # self._update_scheduler(epoch, metrics_hist)
@@ -217,19 +231,51 @@ class MultitaskTrainer(object):
         #             print_confusion_matrix=True,
         #         )
 
+    def _execute_logging(
+        self, model, task_name, train_loader, valid_loader, loss, batch_size
+    ):
+        model.eval()
+        self.running_loss += loss.item() * batch_size
+        self.running_examples += batch_size
+
+        # Initialize metrics dict
+        metrics_dict = {}
+        # Always add average loss
+        # HACK: We will not always have the same task_name unless we are single-task!
+        metrics_dict[f"{task_name}/train/loss"] = (
+            self.running_loss / self.running_examples
+        )
+
+        if self.logger.check(batch_size):
+            logger_metrics = self.logger.calculate_metrics(
+                self, train_loader, valid_loader, metrics_dict
+            )
+            metrics_dict.update(logger_metrics)
+            self.logger.log(metrics_dict)
+
+            # Reset running loss and examples counts
+            self.running_loss = 0.0
+            self.running_examples = 0
+
+        # Checkpoint if applicable
+        # self._checkpoint(metrics_dict)
+
+        model.train()
+        return metrics_dict
+
     def _get_train_batches(self, tasks):
         """Yields batches one at a time sampled from tasks with some strategy"""
         # TODO: Allow more involved strategies for sampling from tasks
         # For now, just use proportional sampling
         # Length of a dataloader is the number of batches it contains
         approx_batch_counts = [len(t.data_loaders[TRAIN]) for t in tasks]
-        total_batches = sum(approx_batch_counts)
-        batch_distribution = np.array(approx_batch_counts) / total_batches
+        batches_per_epoch = sum(approx_batch_counts)
+        batch_distribution = np.array(approx_batch_counts) / batches_per_epoch
         train_loaders = [iter(t.data_loaders[TRAIN]) for t in tasks]
         # NOTE: actual number of batches per task may not be exact, since we sample
         # instead of enumerating, but it should be close.
         for task_idx in np.random.choice(
-            len(tasks), total_batches, replace=True, p=batch_distribution
+            len(tasks), batches_per_epoch, replace=True, p=batch_distribution
         ):
             # HACK: this is still not ideal (since near the end we may need to sample
             # multiple times before finding the task that hasn't run out yet)
@@ -248,9 +294,12 @@ class MultitaskTrainer(object):
         else:
             raise Exception(f"Unrecognized writer: {self.config['writer']}")
 
-    def _set_logger(self):
+    def _set_logger(self, epoch_size=None):
         self.logger = Logger(
-            self.config["logger_config"], self.writer, verbose=self.config["verbose"]
+            self.config["logger_config"],
+            self.writer,
+            epoch_size=epoch_size,
+            verbose=self.config["verbose"],
         )
 
     def _set_checkpointer(self):
