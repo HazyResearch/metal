@@ -21,7 +21,7 @@ class BertEncoder(nn.Module):
 
 
 def BertMulticlassHead(k):
-    return nn.Linear([BERT_small_outdim, k])
+    return nn.Linear(BERT_small_outdim, k, bias=False)
 
 
 def BertBinaryHead():

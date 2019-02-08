@@ -25,6 +25,7 @@ class BERTDataset(data.Dataset):
         delimiter="\t",
         label_fn=None,
         max_len=-1,
+        label_type=int,
     ):
         """
         Args:
@@ -36,6 +37,7 @@ class BERTDataset(data.Dataset):
             tokenizer: tokenizer to map sentences to tokens using `.tokenize(sent)` method
             delimiter: delimiter between columns (likely '\t') for tab-separated-values
             label_fn: function mapping from raw labels to desired format
+            label_type: data type (int, float) of labels. used to cast values downstream.
         """
         tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         tokens, segments, labels = self.load_tsv(
@@ -49,6 +51,8 @@ class BERTDataset(data.Dataset):
             label_fn,
             max_len,
         )
+        self.label_type = label_type
+
         self.tokens = tokens
         self.segments = segments
         self.labels = labels
@@ -156,11 +160,12 @@ class BERTDataset(data.Dataset):
         max_sent_len = int(np.max([len(tok) for ((tok, seg), _) in batch]))
         idx_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
         seg_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
-        label_matrix = np.zeros((batch_size, 1), dtype=np.int)
+        label_dtype = np.float if self.label_type is float else np.int
+        label_matrix = np.zeros((batch_size), dtype=label_dtype)
 
         for idx1 in np.arange(len(batch)):
             (tokens, segments), labels = batch[idx1]
-            label_matrix[idx1, :] = labels
+            label_matrix[idx1] = labels
             for idx2 in np.arange(len(tokens)):
                 if idx2 >= max_sent_len:
                     break
@@ -170,7 +175,13 @@ class BERTDataset(data.Dataset):
         idx_matrix = torch.LongTensor(idx_matrix)
         seg_matrix = torch.LongTensor(seg_matrix)
         mask_matrix = torch.gt(idx_matrix.data, 0).long()
-        label_matrix = torch.FloatTensor(label_matrix)
+
+        # cast torch labels
+        if self.label_type is float:
+            label_matrix = torch.FloatTensor(label_matrix)
+        else:
+            label_matrix = torch.LongTensor(label_matrix)
+
         return (idx_matrix, seg_matrix, mask_matrix), label_matrix
 
 
