@@ -170,7 +170,7 @@ class MultitaskTrainer(object):
                 self.optimizer.zero_grad()
 
                 # Forward pass to calculate the average loss per example
-                loss = model(task_name, batch)
+                loss = model(batch, task_name)
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
