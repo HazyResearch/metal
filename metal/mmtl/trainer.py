@@ -151,7 +151,6 @@ class MultitaskTrainer(object):
         model.train()
         # metrics_dict = {}
         for epoch in range(self.config["n_epochs"]):
-
             progress_bar = (
                 self.config["progress_bar"]
                 and self.config["verbose"]
@@ -214,8 +213,8 @@ class MultitaskTrainer(object):
         model.eval()
 
         # Restore best model if applicable
-        # if self.checkpointer:
-        #     self.checkpointer.load_best_model(model=model)
+        if self.checkpointer:
+            self.checkpointer.load_best_model(model=model)
 
         # Write log if applicable
         if self.writer:
@@ -266,7 +265,7 @@ class MultitaskTrainer(object):
             self.running_examples = 0
 
         # Checkpoint if applicable
-        # self._checkpoint(metrics_dict)
+        self._checkpoint(model, metrics_dict)
 
         model.train()
         return metrics_dict
@@ -291,6 +290,14 @@ class MultitaskTrainer(object):
                 yield (tasks[task_idx].name, next(train_loaders[task_idx]))
             except StopIteration:
                 continue
+
+    def _checkpoint(self, model, metrics_dict):
+        if self.checkpointer is None:
+            return
+        iteration = self.logger.unit_total
+        self.checkpointer.checkpoint(
+            metrics_dict, iteration, model, self.optimizer, self.lr_scheduler
+        )
 
     def _set_writer(self):
         if self.config["writer"] is None:
