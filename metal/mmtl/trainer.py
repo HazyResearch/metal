@@ -224,6 +224,26 @@ class MultitaskTrainer(object):
             metrics_dict = self.calculate_metrics(model, tasks)
             pprint(metrics_dict)
 
+    def _execute_logging(self, model, tasks, batch_size):
+        model.eval()
+        metrics_dict = {}
+        metrics_dict.update(self.calculate_losses(tasks))
+        # HACK: This exposes more of the logger than it should; abstract away
+        self.logger.increment(batch_size)
+        if self.logger.loss_time():
+            self._reset_losses()
+            self.logger.loss_ticks += 1
+        if self.logger.metrics_time():
+            metrics_dict.update(self.calculate_metrics(model, tasks))
+            self.logger.loss_ticks = 0
+        if self.logger.loss_time() or self.logger.metrics_time():
+            # Log to screen/file/TensorBoard
+            self.logger.log(metrics_dict)
+            # Save best model if applicable
+            self._checkpoint(model, metrics_dict)
+        model.train()
+        return metrics_dict
+
     def calculate_losses(self, tasks):
         """Calculate the average loss for each task since the last calculation
 
@@ -253,26 +273,6 @@ class MultitaskTrainer(object):
         for task in tasks:
             task_metrics = task.scorer.score(model, task)
             metrics_dict.update(task_metrics)
-        return metrics_dict
-
-    def _execute_logging(self, model, tasks, batch_size):
-        model.eval()
-        metrics_dict = {}
-        metrics_dict.update(self.calculate_losses(tasks))
-        # HACK: This exposes more of the logger than it should; abstract away
-        self.logger.increment(batch_size)
-        if self.logger.loss_time():
-            self._reset_losses()
-            self.logger.loss_ticks += 1
-        if self.logger.metrics_time():
-            metrics_dict.update(self.calculate_metrics(model, tasks))
-            self.logger.loss_ticks = 0
-        if self.logger.loss_time() or self.logger.metrics_time():
-            # Log to screen/file/TensorBoard
-            self.logger.log(metrics_dict)
-            # Save best model if applicable
-            self._checkpoint(model, metrics_dict)
-        model.train()
         return metrics_dict
 
     def _get_train_batches(self, tasks):
