@@ -69,11 +69,8 @@ class MetalModel(nn.Module):
         """
         return {t: self.task_paths[t](X) for t in task_names}
 
-    @torch.no_grad()
     def calculate_loss(self, X, Y, task_names):
         """Returns a dict of {task_name: loss (an FloatTensor scalar)}."""
-        # IMPORTANT: no_grad is here because the MultitaskTrainer runs the loss_hat_func
-        # over the head output on its own. This is just a convenience function.
         return {
             t: self.loss_hat_funcs[t](out, Y)
             for t, out in self.forward(X, task_names).items()
