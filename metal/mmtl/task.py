@@ -17,7 +17,8 @@ class Task(object):
         data: A list of DataLoaders (instances and labels) to feed through the network.
             The list contains [train, dev, test].
         scorers: A list of Scorers that return metrics_dict objects.
-        loss_hat_func
+        loss_hat_func: A function of the form f(forward(X), Y) -> loss
+        output_hat_func: A function of the form f(forward(X)) -> output (e.g. probs)
     """
 
     def __init__(
@@ -27,8 +28,8 @@ class Task(object):
         input_module: nn.Module,
         head_module: nn.Module,
         scorers: List[Callable] = None,
-        loss_hat_func: Callable = F.cross_entropy,
-        probs_hat_func: Callable = partial(F.softmax, dim=1),
+        loss_hat_func: Callable = (lambda X, Y: F.cross_entropy(X, Y - 1)),
+        output_hat_func: Callable = partial(F.softmax, dim=1),
     ) -> None:
         if len(data_loaders) != 3:
             msg = "Arg data_loaders must be a list of length 3 [train, valid, test]"
@@ -39,4 +40,4 @@ class Task(object):
         self.head_module = head_module
         self.scorers = scorers
         self.loss_hat_func = loss_hat_func
-        self.probs_hat_func = probs_hat_func
+        self.output_hat_func = output_hat_func
