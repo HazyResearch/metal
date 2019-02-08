@@ -192,13 +192,13 @@ class BERTDataset(data.Dataset):
         return (idx_matrix, seg_matrix, mask_matrix), label_matrix
 
 
-class QNLI(BERTDataset):
+class QNLIDataset(BERTDataset):
     """
     Torch dataset object for QNLI ranking task, to work with BERT architecture.
     """
 
     def __init__(self, split, bert_model, max_len=-1):
-        super(QNLI, self).__init__(
+        super(QNLIDataset, self).__init__(
             dataset_name="QNLI",
             dataset_split=split,
             sent1_idx=1,
@@ -212,9 +212,9 @@ class QNLI(BERTDataset):
         )
 
 
-class STSB(BERTDataset):
+class STSBDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        super(STSB, self).__init__(
+        super(STSBDataset, self).__init__(
             dataset_name="STS-B",
             dataset_split=split,
             sent1_idx=7,
@@ -228,9 +228,9 @@ class STSB(BERTDataset):
         )
 
 
-class SST2(BERTDataset):
+class SST2Dataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        super(SST2, self).__init__(
+        super(SST2Dataset, self).__init__(
             src_path=os.path.join(os.environ["GLUEDATA"], "SST-2/{}.tsv").format(split),
             sent1_idx=0,
             sent2_idx=-1,
@@ -243,31 +243,31 @@ class SST2(BERTDataset):
         )
 
 
-class CoLA(BERTDataset):
+class CoLADataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         raise NotImplementedError
 
 
-class MNLI(BERTDataset):
+class MNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         raise NotImplementedError
 
 
-class RTE(BERTDataset):
+class RTEDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         raise NotImplementedError
 
 
-class WNLI(BERTDataset):
+class WNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         raise NotImplementedError
 
 
-class QQP(BERTDataset):
+class QQPDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         raise NotImplementedError
 
 
-class MRPC(BERTDataset):
+class MRPCDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         raise NotImplementedError
