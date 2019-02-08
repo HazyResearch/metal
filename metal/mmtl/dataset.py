@@ -159,11 +159,11 @@ class BERTDataset(data.Dataset):
         max_sent_len = int(np.max([len(tok) for ((tok, seg), _) in batch]))
         idx_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
         seg_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
-        label_matrix = np.zeros((batch_size, 1), dtype=np.int)
+        label_matrix = np.zeros((batch_size), dtype=np.int)
 
         for idx1 in np.arange(len(batch)):
             (tokens, segments), labels = batch[idx1]
-            label_matrix[idx1, :] = labels
+            label_matrix[idx1] = labels
             for idx2 in np.arange(len(tokens)):
                 if idx2 >= max_sent_len:
                     break
@@ -173,5 +173,5 @@ class BERTDataset(data.Dataset):
         idx_matrix = torch.LongTensor(idx_matrix)
         seg_matrix = torch.LongTensor(seg_matrix)
         mask_matrix = torch.gt(idx_matrix.data, 0).long()
-        label_matrix = torch.FloatTensor(label_matrix)
+        label_matrix = torch.LongTensor(label_matrix)
         return (idx_matrix, seg_matrix, mask_matrix), label_matrix

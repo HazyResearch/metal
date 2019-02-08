@@ -32,7 +32,7 @@ def createBertDataloader(
     # model = 'bert-base-uncased' # also try bert-base-multilingual-cased (recommended)
     src_path = os.path.join(os.environ["GLUEDATA"], task_name, "{}.tsv")
     dataloaders = {}
-    for split in ["train", "dev"]:
+    for split in ["dev"]:
         dataset = BERTDataset(
             src_path.format(split),
             sent1_idx=sent1_idx,
@@ -42,11 +42,11 @@ def createBertDataloader(
             label_fn=label_fn,  # labels are scores [1, 2] (multiclass with cardinality k)
         )
         dataloaders[split] = dataset.get_dataloader(batch_size=batch_sz)
-    return [dataloaders["train"], dataloaders["dev"], None]
+    return [dataloaders["dev"], dataloaders["dev"], None]
 
 
 def BertMulticlassHead(k):
-    return nn.Linear([BERT_small_outdim, k])
+    return nn.Linear(BERT_small_outdim, k, bias=False)
 
 
 def BertBinaryHead():
