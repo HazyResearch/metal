@@ -78,10 +78,10 @@ class BERTDataset(data.Dataset):
                 row = row.strip().split(delimiter)
 
                 # tokenize and convert each sentence to ids
-                sent1_tokenized = tokenizer.tokenize(row[sent1_idx])
+                sent1_tokenized = ["CLS"] + tokenizer.tokenize(row[sent1_idx]) + ["SEP"]
                 sent1_ids = tokenizer.convert_tokens_to_ids(sent1_tokenized)
                 if sent2_idx >= 0:
-                    sent2_tokenized = tokenizer.tokenize(row[sent2_idx])
+                    sent2_tokenized = tokenizer.tokenize(row[sent2_idx]) + ["SEP"]
                     sent2_ids = tokenizer.convert_tokens_to_ids(sent2_tokenized)
                 else:
                     sent2_ids = []
