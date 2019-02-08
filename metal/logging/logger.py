@@ -202,6 +202,8 @@ class Logger(object):
 
             if task:
                 metric_name = f"{task}/{metric}"
+            else:
+                metric_name = metric
             if isinstance(value, float):
                 score_strings[split].append(f"{metric_name}={value:0.3f}")
             else:
