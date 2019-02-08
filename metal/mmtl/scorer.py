@@ -1,3 +1,5 @@
+import numpy as np
+
 from metal.metrics import metric_score
 from metal.mmtl.utils import utils
 from metal.utils import place_on_gpu, recursive_merge_dicts
@@ -48,9 +50,13 @@ class Scorer(object):
 
             # Optimized out if head_output is passed
             if head_output is None:
-                Y_p, Y_s = model.predict(Xb, return_probs=True)
+                # Only works for end_model
+                # Y_p, Y_s = model.predict(Xb, return_probs=True)
+                Y_s = model.calculate_output(Xb, [task.name])
+                Y_s_to_npy = Y_s[task.name].numpy()
+                Y_p = utils.break_ties(Y_s_to_npy, "random").astype(np.int)
                 Y_preds.append(utils.to_numpy(Y_p))
-                Y_probs.append(utils.to_numpy(Y_s))
+                Y_probs.append(utils.to_numpy(Y_s_to_npy))
 
         # Pass through head_output to task
         if head_output is not None:

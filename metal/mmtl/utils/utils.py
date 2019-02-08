@@ -42,3 +42,36 @@ def stack_batches(X):
         return np.vstack(X)
     else:
         raise ValueError(f"Can't stack {len(X[0].shape)}-dim batches.")
+
+
+def break_ties(Y_s, break_ties="random"):
+    """Break ties in each row of a tensor according to the specified policy
+
+    Args:
+        Y_s: An [n, k] np.ndarray of probabilities
+        break_ties: A tie-breaking policy:
+            "abstain": return an abstain vote (0)
+            "random": randomly choose among the tied options
+                NOTE: if break_ties="random", repeated runs may have
+                slightly different results due to difference in broken ties
+            [int]: ties will be broken by using this label
+    """
+    n, k = Y_s.shape
+    Y_h = np.zeros(n)
+    diffs = np.abs(Y_s - Y_s.max(axis=1).reshape(-1, 1))
+
+    TOL = 1e-5
+    for i in range(n):
+        max_idxs = np.where(diffs[i, :] < TOL)[0]
+        if len(max_idxs) == 1:
+            Y_h[i] = max_idxs[0] + 1
+        # Deal with "tie votes" according to the specified policy
+        elif break_ties == "random":
+            Y_h[i] = np.random.choice(max_idxs) + 1
+        elif break_ties == "abstain":
+            Y_h[i] = 0
+        elif isinstance(break_ties, int):
+            Y_h[i] = break_ties
+        else:
+            ValueError(f"break_ties={break_ties} policy not recognized.")
+    return Y_h
