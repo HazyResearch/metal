@@ -8,7 +8,8 @@ import torch.utils.data as data
 from pytorch_pretrained_bert import BertTokenizer
 from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
-from utils.dataset_utils import tsv_path_for_dataset
+
+from metal.mmtl.utils.dataset_utils import tsv_path_for_dataset
 
 
 class BERTDataset(data.Dataset):
