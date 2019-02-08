@@ -16,6 +16,8 @@ import metal
 from metal.end_model import EndModel
 from metal.mmtl.scorer import Scorer
 
+
+"""
 dataloaders = createBertDataloader(
     "SST-2",
     batch_sz=8,
@@ -25,6 +27,7 @@ dataloaders = createBertDataloader(
     header=1,
     label_fn=lambda x: int(x) + 1,
 )
+"""
 
 
 def create_task(task_name):

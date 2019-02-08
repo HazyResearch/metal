@@ -9,9 +9,9 @@ BERT_large_outdim = 1024
 
 
 class BertEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, bert_model):
         super(BertEncoder, self).__init__()
-        self.bert_model = BertModel.from_pretrained("bert-base-uncased")
+        self.bert_model = BertModel.from_pretrained(bert_model)
 
     def forward(self, data):
         tokens, segments, mask = data
@@ -20,33 +20,8 @@ class BertEncoder(nn.Module):
         return hidden_layer
 
 
-def createBertDataloader(
-    task_name,
-    batch_sz=8,
-    sent1_idx=0,
-    sent2_idx=-1,
-    label_idx=1,
-    header=1,
-    label_fn=lambda x: int(x) + 1,
-):
-    # model = 'bert-base-uncased' # also try bert-base-multilingual-cased (recommended)
-    src_path = os.path.join(os.environ["GLUEDATA"], task_name, "{}.tsv")
-    dataloaders = {}
-    for split in ["train", "dev"]:
-        dataset = BERTDataset(
-            src_path.format(split),
-            sent1_idx=sent1_idx,
-            sent2_idx=sent2_idx,
-            label_idx=label_idx,
-            skip_rows=header,
-            label_fn=label_fn,  # labels are scores [1, 2] (multiclass with cardinality k)
-        )
-        dataloaders[split] = dataset.get_dataloader(batch_size=batch_sz)
-    return [dataloaders["train"], dataloaders["dev"], None]
-
-
 def BertMulticlassHead(k):
-    return nn.Linear([BERT_small_outdim, k])
+    return nn.Linear(BERT_small_outdim, k, bias=False)
 
 
 def BertBinaryHead():

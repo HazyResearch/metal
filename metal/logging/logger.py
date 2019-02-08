@@ -140,16 +140,26 @@ class Logger(object):
 
     @staticmethod
     def add_split_prefix(metric, split):
-        """Prepend "{split}/" to the metric name if it is not already present"""
-        if not metric.startswith(f"{split}/"):
-            metric = f"{split}/{metric}"
-        return metric
+        """Add split name to metric name if it is not already present
+
+        The order of metric name components should either be:
+        - task/split/metric in the multitask setting (expand to this from task/metric)
+        - split/metric in the singletask setting (expand to this from metric)
+        """
+        if f"{split}/" not in metric:
+            if "/" in metric:
+                # It has two parts but not split, so must be task/metric
+                task, metric = metric.split("/")
+                full_metric = f"{task}/{split}/{metric}"
+            else:
+                # It has one part but not split, so must be metric
+                full_metric = f"{split}/{metric}"
+        return full_metric
 
     @staticmethod
     def remove_split_prefix(metric):
-        """Remove "{split}/" from begininng of metric name if it is present"""
-        split, metric = metric.split("/", 1)
-        return metric
+        """Remove prefixes from begininng of metric name (e.g., task/split/metric)"""
+        return metric.split("/")[-1]
 
     def _calculate_valid_frequency(self):
         assert isinstance(self.config["log_train_every"], int)
