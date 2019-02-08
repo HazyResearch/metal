@@ -34,16 +34,15 @@ trainer_config = {
     # Display
     "progress_bar": False,
     # Dataloader
-    "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True},
+    # TODO: Restore the option for them to pass in raw simple data which we wrap up
+    # "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True},
     # Loss weights
-    "loss_weights": None,
+    # TODO: Restore ability to weight losses by class and/or task
+    # "loss_weights": None,
     # Train Loop
     "n_epochs": 10,
     # 'grad_clip': 0.0,
     "l2": 0.0,
-    "validation_metric": "accuracy",
-    "validation_freq": 1,
-    "validation_scoring_kwargs": {},
     # Evaluate dev for during training every this many epochs
     # Optimizer
     "optimizer_config": {
