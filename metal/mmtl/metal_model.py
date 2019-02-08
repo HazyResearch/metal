@@ -8,7 +8,7 @@ from metal.end_model.identity_module import IdentityModule
 from metal.end_model.loss import SoftCrossEntropyLoss
 from metal.utils import MetalDataset, pred_to_prob, recursive_merge_dicts
 
-model_config = {"seed": None, "verbose": True}
+model_config = {"seed": None, "device": "cpu", "verbose": True}
 
 
 class MetalModel(nn.Module):
