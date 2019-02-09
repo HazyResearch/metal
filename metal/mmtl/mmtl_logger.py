@@ -7,15 +7,17 @@ from metal.metrics import METRICS as standard_metric_names, metric_score
 class Logger(object):
     """Tracks when it is time to calculate train/valid metrics and logs them"""
 
-    def __init__(self, config, writer={}, epoch_size=None, verbose=True):
+    def __init__(self, config, batches_per_epoch, writer={}, verbose=True):
         # Strip split name from config keys
         self.config = config
         self.writer = writer
         self.verbose = verbose
         self.log_unit = self.config["log_unit"]
-        self.epoch_size = epoch_size
+        self.batches_per_epoch = batches_per_epoch
         self.example_count = 0
         self.example_total = 0
+        self.batch_count = 0
+        self.batch_total = 0
         self.unit_count = 0
         self.unit_total = 0
         self.loss_ticks = 0  # Count how many times loss logging has occurred
@@ -30,6 +32,8 @@ class Logger(object):
         """Update the total and relative unit counts"""
         self.example_count += batch_size
         self.example_total += batch_size
+        self.batch_count += 1
+        self.batch_total += 1
         if self.log_unit == "seconds":
             self.unit_count = int(self.timer.elapsed())
             self.unit_total = int(self.timer.total_elapsed())
@@ -37,13 +41,13 @@ class Logger(object):
             self.unit_count = self.example_count
             self.unit_total = self.example_total
         elif self.log_unit == "batches":
-            self.unit_count += 1
-            self.unit_total += 1
+            self.unit_count = self.batch_count
+            self.unit_total = self.batch_total
         elif self.log_unit == "epochs":
             # Track epoch by example count rather than epoch number because otherwise
             # we only know when a new epoch starts, not when an epoch ends
-            self.unit_count = self.example_count / self.epoch_size
-            self.unit_total = self.example_total / self.epoch_size
+            self.unit_count = self.batch_count / self.batches_per_epoch
+            self.unit_total = self.batch_total / self.batches_per_epoch
         else:
             raise Exception(f"Unrecognized log_unit: {self.log_unit}")
 
@@ -113,7 +117,7 @@ class Logger(object):
             else:
                 header = f"{self.unit_total:0.2f} {self.log_unit[:3]}"
         else:
-            epochs = self.example_total / self.epoch_size
+            epochs = self.batch_total / self.batches_per_epoch
             header = f" ({epochs:0.2f} epo)"
         string = f"[{header}]:"
 
@@ -132,6 +136,7 @@ class Logger(object):
     def reset(self):
         self.unit_count = 0
         self.example_count = 0
+        self.batch_count = 0
         if self.timer is not None:
             self.timer.update()
 
