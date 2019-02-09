@@ -353,4 +353,14 @@ class QQPDataset(BERTDataset):
 
 class MRPCDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
+        super(MRPCDataset, self).__init__(
+            tsv_path=tsv_path_for_dataset("MRPC", split),
+            sent1_idx=3,
+            sent2_idx=4,
+            label_idx=0 if split in ["train", "test"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: 1 if label == "0" else 2,
+            max_len=max_len,
+        )
