@@ -16,7 +16,7 @@ def get_all_dataloaders(
     if verbose:
         print(f"Loading {dataset_name} Dataset")
 
-    dataset_cls = getattr(dataset, dataset_name.upper() + "Datasets")
+    dataset_cls = getattr(dataset, dataset_name.upper() + "Dataset")
 
     # split train -> artificial train/dev
     train_ds = dataset_cls(split="train", bert_model=bert_model, max_len=max_len)

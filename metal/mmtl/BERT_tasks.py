@@ -32,7 +32,7 @@ def create_task(
         bert_model,
         max_len=max_len,
         dl_kwargs=dl_kwargs,
-        split_prop=split_prop,
+        train_dev_split_prop=split_prop,
     )
     bert_encoder = BertEncoder(bert_model)
 
