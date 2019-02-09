@@ -34,19 +34,54 @@ def create_task(task_name):
         return Task(task_name, dataloaders, bert_encoder, BertBinaryHead())
 
     elif task_name == "MNLI":
-        raise NotImplementedError
+
+        return Task(
+            task_name,
+            dataloaders,
+            bert_encoder,
+            BertMulticlassHead(3),
+            Scorer(standard_metrics=["accuracy"]),
+        )
 
     elif task_name == "RTE":
-        raise NotImplementedError
+
+        return Task(
+            task_name,
+            dataloaders,
+            bert_encoder,
+            BertBinaryHead(),
+            Scorer(standard_metrics=["accuracy"]),
+        )
 
     elif task_name == "WNLI":
-        raise NotImplementedError
+
+        return Task(
+            task_name,
+            dataloaders,
+            bert_encoder,
+            BertBinaryHead(),
+            Scorer(standard_metrics=["accuracy"]),
+        )
 
     elif task_name == "QQP":
-        raise NotImplementedError
+
+        return Task(
+            task_name,
+            dataloaders,
+            bert_encoder,
+            BertBinaryHead(),
+            Scorer(standard_metrics=["accuracy"]),
+        )
 
     elif task_name == "MRPC":
-        raise NotImplementedError
+
+        return Task(
+            task_name,
+            dataloaders,
+            bert_encoder,
+            BertBinaryHead(),
+            Scorer(standard_metrics=["accuracy"]),
+        )
 
     elif task_name == "STSB":
         scorer = Scorer(

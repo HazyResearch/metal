@@ -292,11 +292,12 @@ class COLADataset(BERTDataset):
 class MNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
         labels = ["contradiction", "entailment", "neutral"]
+        split = "dev_matched" if split == "dev" else "train"
         super(MNLIDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("MNLI", split),
             sent1_idx=8,
             sent2_idx=9,
-            label_idx=11 if split in ["train", "dev_matched"] else -1,
+            label_idx=11 if split in ["train", "dev"] else -1,
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
@@ -352,4 +353,14 @@ class QQPDataset(BERTDataset):
 
 class MRPCDataset(BERTDataset):
     def __init__(self, split, bert_model, max_len=-1):
-        raise NotImplementedError
+        super(MRPCDataset, self).__init__(
+            tsv_path=tsv_path_for_dataset("MRPC", split),
+            sent1_idx=3,
+            sent2_idx=4,
+            label_idx=0 if split in ["train", "test"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: 1 if label == "0" else 2,
+            max_len=max_len,
+        )

@@ -27,10 +27,6 @@ else:
 
 trainer_config = {
     "verbose": True,
-    # Device
-    "device": "cpu",
-    # Loss function config
-    "loss_fn_reduction": "mean",
     # Display
     "progress_bar": False,
     # Dataloader
@@ -87,6 +83,7 @@ trainer_config = {
         # units (this can include the names of built-in and user-defined metrics);
         # otherwise, include all metrics returned by task Scorers.
         # TODO: "metrics_filter": None,
+        # TODO: "score_limit": None,  # Evaluate scorer on only this many examples
     },
     # LogWriter/Tensorboard (see metal/logging/writer.py for descriptions)
     "writer": None,  # [None, "json", "tensorboard"]
@@ -127,11 +124,6 @@ class MultitaskTrainer(object):
         self.config = recursive_merge_dicts(self.config, kwargs)
         self.task_names = [task.name for task in tasks]
 
-        # Move model to GPU
-        if self.config["verbose"] and self.config["device"] != "cpu":
-            print("Using GPU...")
-        model.to(self.config["device"])
-
         # Calculate epoch statistics
         examples_per_epoch = sum([len(t.data_loaders["train"].dataset) for t in tasks])
         batches_per_epoch = sum([len(t.data_loaders["train"]) for t in tasks])
@@ -163,10 +155,6 @@ class MultitaskTrainer(object):
             for batch_num, (task_name, batch) in t:
                 # NOTE: actual batch_size may not equal config's target batch_size
                 batch_size = len(batch[0])
-
-                # Moving data to device
-                if self.config["device"] != "cpu":
-                    batch = place_on_gpu(batch)
 
                 # Zero the parameter gradients
                 self.optimizer.zero_grad()
