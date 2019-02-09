@@ -19,15 +19,16 @@ from metal.mmtl.utils.metrics import pearson_corr, spearman_corr
 
 def create_task(task_name):
     bert_model = "bert-base-uncased"
-    bert_encoder = BertEncoder(bert_model)
     dataloaders = get_all_dataloaders(task_name, bert_model)
-    
+    bert_encoder = BertEncoder(bert_model)
+
     if task_name == "COLA":
+
         def matthews_corr(targets, predictions):
-            pdb.set_trace()
             predictions = np.argmax(predictions, 1)
             matthews = matthews_corrcoef(targets, predictions)
             return {"matthews_corr": matthews}
+
         return Task(
             task_name,
             dataloaders,
