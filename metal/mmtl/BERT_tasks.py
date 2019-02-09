@@ -37,15 +37,25 @@ def create_task(
     bert_encoder = BertEncoder(bert_model)
 
     if task_name == "COLA":
+
         scorer = Scorer(
             standard_metrics=[],
             custom_train_funcs=[matthews_corr],
             custom_valid_funcs=[matthews_corr],
         )
-        return Task(task_name, dataloaders, bert_encoder, BertBinaryHead(), scorer)
+        return Task(
+            task_name,
+            dataloaders,
+            bert_encoder,
+            BertBinaryHead(bert_output_shape),
+            scorer,
+        )
 
     if task_name == "SST2":
-        return Task(task_name, dataloaders, bert_encoder, BertBinaryHead())
+
+        return Task(
+            task_name, dataloaders, bert_encoder, BertBinaryHead(bert_output_shape)
+        )
 
     elif task_name == "MNLI":
 
@@ -53,7 +63,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertMulticlassHead(3),
+            BertMulticlassHead(bert_output_shape, 3),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -63,7 +73,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(),
+            BertBinaryHead(bert_output_shape),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -73,7 +83,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(),
+            BertBinaryHead(bert_output_shape),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -83,7 +93,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(),
+            BertBinaryHead(bert_output_shape),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -93,7 +103,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(),
+            BertBinaryHead(bert_output_shape),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -108,7 +118,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertRegressionHead(),
+            BertRegressionHead(bert_output_shape),
             scorer,
             loss_hat_func=loss_hat_func,
             output_hat_func=torch.sigmoid,
