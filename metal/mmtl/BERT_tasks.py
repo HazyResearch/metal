@@ -19,7 +19,7 @@ from metal.mmtl.utils.metrics import matthews_corr, pearson_corr, spearman_corr
 
 def create_task(task_name):
     bert_model = "bert-base-uncased"
-    dataloaders = get_all_dataloaders(task_name, bert_model, 0.99)
+    dataloaders = get_all_dataloaders(task_name, bert_model, 0.80)
     bert_encoder = BertEncoder(bert_model)
 
     if task_name == "COLA":
@@ -85,11 +85,14 @@ def create_task(task_name):
 
     elif task_name == "STSB":
         scorer = Scorer(
-            standard_metrics=["train/loss", "valid/loss"],
-            custom_metric_fns=[pearson_corr, spearman_corr],
+            standard_metrics=[],
+            custom_train_funcs=[pearson_corr, spearman_corr],
+            custom_valid_funcs=[pearson_corr, spearman_corr],
         )
+
         # x -> sigmoid -> [0,1], and compute mse_loss (y \in [0,1])
         loss_hat_func = lambda x, y: F.mse_loss(torch.sigmoid(x), y)
+
         return Task(
             task_name,
             dataloaders,
