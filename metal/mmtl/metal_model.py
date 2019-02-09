@@ -6,9 +6,18 @@ from metal.classifier import Classifier
 from metal.end_model.em_defaults import em_default_config
 from metal.end_model.identity_module import IdentityModule
 from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.utils import MetalDataset, pred_to_prob, recursive_merge_dicts
+from metal.utils import (
+    MetalDataset,
+    move_to_device,
+    pred_to_prob,
+    recursive_merge_dicts,
+)
 
-model_config = {"seed": None, "verbose": True}
+model_config = {
+    "seed": None,
+    "device": -1,  # gpu id (int) or -1 for cpu
+    "verbose": True,
+}
 
 
 class MetalModel(nn.Module):
@@ -25,6 +34,11 @@ class MetalModel(nn.Module):
         super().__init__()
         self.config = recursive_merge_dicts(model_config, kwargs, misses="insert")
         self._build(tasks)
+
+        # Move model to device now, then move data to device in forward() or calcluate_loss()
+        if self.config["verbose"] and self.config["device"] != "cpu":
+            print("Using GPU...")
+            self.to(self.config["device"])
 
         # Show network
         if self.config["verbose"]:
@@ -67,12 +81,15 @@ class MetalModel(nn.Module):
         Returns:
             output_dict: {task_name (str): output (Tensor)}
         """
-        return {t: self.task_paths[t](X) for t in task_names}
+        return {
+            t: self.task_paths[t](move_to_device(X, self.config["device"]))
+            for t in task_names
+        }
 
     def calculate_loss(self, X, Y, task_names):
         """Returns a dict of {task_name: loss (an FloatTensor scalar)}."""
         return {
-            t: self.loss_hat_funcs[t](out, Y)
+            t: self.loss_hat_funcs[t](out, move_to_device(Y, self.config["device"]))
             for t, out in self.forward(X, task_names).items()
         }
 

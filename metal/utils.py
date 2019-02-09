@@ -344,6 +344,7 @@ def split_data(
             return outputs
 
 
+# DEPRECATION: This is replaced by move_to_device
 def place_on_gpu(data):
     """Utility to place data on GPU, where data could be a torch.Tensor, a tuple
     or list of Tensors, or a tuple or list of tuple or lists of Tensors"""
@@ -356,3 +357,26 @@ def place_on_gpu(data):
         return data.cuda()
     else:
         return ValueError(f"Data type {type(data)} not recognized.")
+
+
+def move_to_device(obj, device=-1):
+    """
+    Given a structure (possibly) containing Tensors on the CPU,
+    move all the Tensors to the specified GPU (or do nothing, if they should be on the CPU).
+
+    device=-1: "cpu"
+    device=0: "cuda:0"
+
+    """
+    if device < 0:
+        return obj
+    elif isinstance(obj, torch.Tensor):
+        return obj.cuda(device)
+    elif isinstance(obj, dict):
+        return {key: move_to_device(value, device) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [move_to_device(item, device) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple([move_to_device(item, device) for item in obj])
+    else:
+        return obj
