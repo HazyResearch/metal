@@ -27,13 +27,15 @@ def create_task(
     dl_kwargs={},
     bert_kwargs={},
     bert_output_dim=768,
+    max_datapoints=-1,
 ):
     dataloaders = get_all_dataloaders(
         task_name,
         bert_model,
         max_len=max_len,
         dl_kwargs=dl_kwargs,
-        train_dev_split_prop=split_prop,
+        split_prop=split_prop,
+        max_datapoints=max_datapoints,
     )
     bert_encoder = BertEncoder(bert_model, **bert_kwargs)
 
