@@ -322,12 +322,16 @@ class MultitaskTrainer(object):
 
     def _set_checkpointer(self):
         if self.config["checkpoint"]:
-            if len(self.task_names) > 1 and not any(
-                task_name in self.config["checkpoint_config"]["checkpoint_metric"]
-                for task_name in self.task_names
+            checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
+            if (
+                len(self.task_names) > 1
+                and checkpoint_metric != "train/loss"
+                and not any(
+                    task_name in checkpoint_metric for task_name in self.task_names
+                )
             ):
                 raise Exception(
-                    "When len(tasks) > 1, checkpoint_metric must include task name; e.g., task/split/metric or task/metric (with assumed split='valid')"
+                    "When len(tasks) > 1, checkpoint_metric must be train/loss or else must include task name; e.g., task/split/metric or task/metric (with assumed split='valid')"
                 )
             self.checkpointer = Checkpointer(
                 self.config["checkpoint_config"], verbose=self.config["verbose"]
