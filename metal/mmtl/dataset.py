@@ -87,7 +87,12 @@ class BERTDataset(data.Dataset):
             # process data rows
             for row_idx, row in tqdm(list(enumerate(data_fh))):
                 row = row.strip().split(delimiter)
-
+                if (
+                    len(row) <= sent1_idx
+                    or len(row) <= sent2_idx
+                    or len(row) <= label_idx
+                ):
+                    continue
                 # tokenize sentences
                 sent1_tokenized = tokenizer.tokenize(row[sent1_idx])
                 if sent2_idx >= 0:
