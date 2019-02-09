@@ -4,9 +4,18 @@ import metal.mmtl.dataset as dataset
 
 
 def get_all_dataloaders(
-    dataset_name, bert_model, train_dev_split_prop=0.8, max_len=512, dl_kwargs={}
+    dataset_name,
+    bert_model,
+    train_dev_split_prop=0.8,
+    max_len=512,
+    dl_kwargs={},
+    verbose=True,
 ):
     """ Initializes train/dev/test dataloaders given dataset_class"""
+
+    if verbose:
+        print(f"Loading {dataset_name} Dataset")
+
     dataset_cls = getattr(dataset, dataset_name.upper() + "Dataset")
 
     # split train -> artificial train/dev
