@@ -14,32 +14,21 @@ import metal
 from metal.end_model import EndModel
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
-from metal.mmtl.utils.metrics import pearson_corr, spearman_corr
+from metal.mmtl.utils.metrics import matthews_corr, pearson_corr, spearman_corr
 
 
 def create_task(task_name):
     bert_model = "bert-base-uncased"
-    dataloaders = get_all_dataloaders(task_name, bert_model)
+    dataloaders = get_all_dataloaders(task_name, bert_model, 0.99)
     bert_encoder = BertEncoder(bert_model)
 
     if task_name == "COLA":
-
-        def matthews_corr(targets, predictions):
-            predictions = np.argmax(predictions, 1)
-            matthews = matthews_corrcoef(targets, predictions)
-            return {"matthews_corr": matthews}
-
-        return Task(
-            task_name,
-            dataloaders,
-            bert_encoder,
-            BertBinaryHead(),
-            Scorer(
-                standard_metrics=["accuracy"],
-                custom_train_funcs=[matthews_corr],
-                custom_valid_funcs=[matthews_corr],
-            ),
+        scorer = Scorer(
+            standard_metrics=["train/loss", "valid/loss"],
+            custom_train_funcs=[matthews_corr],
+            custom_valid_funcs=[matthews_corr],
         )
+        return Task(task_name, dataloaders, bert_encoder, BertBinaryHead(), scorer)
 
     if task_name == "SST2":
         return Task(task_name, dataloaders, bert_encoder, BertBinaryHead())
