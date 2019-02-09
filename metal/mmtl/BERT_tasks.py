@@ -24,7 +24,7 @@ def create_task(task_name):
 
     if task_name == "COLA":
         scorer = Scorer(
-            standard_metrics=["train/loss", "valid/loss"],
+            standard_metrics=[],
             custom_train_funcs=[matthews_corr],
             custom_valid_funcs=[matthews_corr],
         )

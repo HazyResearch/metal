@@ -114,7 +114,7 @@ class Logger(object):
                 header = f"{self.unit_total:0.2f} {self.log_unit[:3]}"
         else:
             epochs = self.example_total / self.epoch_size
-            header += f" ({epochs:0.2f} epo)"
+            header = f" ({epochs:0.2f} epo)"
         string = f"[{header}]:"
 
         if score_strings["train"]:
