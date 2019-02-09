@@ -192,6 +192,12 @@ class MultitaskTrainer(object):
                 # tqdm output
                 if len(tasks) == 1:
                     t.set_postfix(loss=metrics_dict["train/loss"])
+                else:
+                    losses = {}
+                    for key in metrics_dict:
+                        if "loss" in key:
+                            losses[key] = metrics_dict[key]
+                    t.set_postfix(losses)
 
             # Apply learning rate scheduler
             # self._update_scheduler(epoch, metrics_hist)
