@@ -107,8 +107,12 @@ class Logger(object):
             else:
                 score_strings[split].append(f"{metric_name}={value}")
 
-        header = f"{self.unit_total} {self.log_unit[:3]}"
-        if self.log_unit != "epochs":
+        if self.log_unit == "epochs":
+            if int(self.unit_total) == self.unit_total:
+                header = f"{self.unit_total} {self.log_unit[:3]}"
+            else:
+                header = f"{self.unit_total:0.2f} {self.log_unit[:3]}"
+        else:
             epochs = self.example_total / self.epoch_size
             header += f" ({epochs:0.2f} epo)"
         string = f"[{header}]:"

@@ -80,11 +80,6 @@ class Scorer(object):
             Y_preds, Y, Y_probs = [], [], []
 
             for batch_num, batch in enumerate(task.data_loaders[split]):
-                # Place data on gpu if necessary
-                # HACK: Add device to place_on_gpu and move data to same device
-                if next(model.parameters()).is_cuda:
-                    batch = place_on_gpu(batch)
-
                 Xb, Yb = batch
                 Y.append(Yb)
 
