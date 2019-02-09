@@ -3,17 +3,13 @@ import os
 import metal.mmtl.dataset as dataset
 
 
-def get_all_dataloaders(
-    dataset_name, bert_model, train_dev_split_prop=0.8, max_len=512, dl_kwargs={}
-):
+def get_all_dataloaders(dataset_name, bert_model, max_len, dl_kwargs, split_prop=0.8):
     """ Initializes train/dev/test dataloaders given dataset_class"""
     dataset_cls = getattr(dataset, dataset_name.upper() + "Dataset")
 
     # split train -> artificial train/dev
     train_ds = dataset_cls(split="train", bert_model=bert_model, max_len=max_len)
-    train_dl, dev_dl = train_ds.get_dataloader(
-        split_prop=train_dev_split_prop, **dl_kwargs
-    )
+    train_dl, dev_dl = train_ds.get_dataloader(split_prop=split_prop, **dl_kwargs)
 
     # treat dev -> test
     test_ds = dataset_cls(split="dev", bert_model=bert_model, max_len=max_len)
