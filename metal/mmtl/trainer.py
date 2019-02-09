@@ -83,6 +83,7 @@ trainer_config = {
         # units (this can include the names of built-in and user-defined metrics);
         # otherwise, include all metrics returned by task Scorers.
         # TODO: "metrics_filter": None,
+        # TODO: "score_limit": None,  # Evaluate scorer on only this many examples
     },
     # LogWriter/Tensorboard (see metal/logging/writer.py for descriptions)
     "writer": None,  # [None, "json", "tensorboard"]
