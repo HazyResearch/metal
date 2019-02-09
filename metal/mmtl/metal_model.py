@@ -36,9 +36,9 @@ class MetalModel(nn.Module):
         self._build(tasks)
 
         # Move model to device now, then move data to device in forward() or calcluate_loss()
-        if self.config["verbose"] and self.config["device"] != "cpu":
+        if self.config["verbose"] and self.config["device"] >= 0:
             print("Using GPU...")
-            self.to(self.config["device"])
+            self.to(f"cuda:{self.config['device']}")
 
         # Show network
         if self.config["verbose"]:

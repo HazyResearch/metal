@@ -364,8 +364,8 @@ def move_to_device(obj, device=-1):
     Given a structure (possibly) containing Tensors on the CPU,
     move all the Tensors to the specified GPU (or do nothing, if they should be on the CPU).
 
-    device=-1: "cpu"
-    device=0: "cuda:0"
+    device = -1 -> "cpu"
+    device =  0 -> "cuda:0"
 
     """
     if device < 0 or not torch.cuda.is_available():
