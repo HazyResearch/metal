@@ -86,15 +86,15 @@ class Scorer(object):
                     batch = place_on_gpu(batch)
 
                 Xb, Yb = batch
-                Y.append(utils.to_numpy(Yb))
+                Y.append(Yb)
 
                 Yb_probs = model.calculate_output(Xb, [task.name])[task.name]
                 Y_probs.append(Yb_probs)
-                Yb_preds = utils.break_ties(Yb_probs.numpy(), "random").astype(np.int)
-                Y_preds.append(Yb_preds)
 
             # Stack batches
-            Y_preds, Y, Y_probs = map(utils.stack_batches, [Y_preds, Y, Y_probs])
+            Y = utils.stack_batches(Y)
+            Y_probs = utils.stack_batches(Y_probs)
+            Y_preds = utils.break_ties(Y_probs, "random").astype(np.int)
 
             # From the labels and predictions calculate metrics
             for standard_metric_name in self.standard_metrics:
