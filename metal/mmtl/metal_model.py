@@ -35,10 +35,10 @@ class MetalModel(nn.Module):
         self.config = recursive_merge_dicts(model_config, kwargs, misses="insert")
         self._build(tasks)
 
-        # Move model to device now, then move data to device in forward() or calcluate_loss()
+        # Move model to device now, then move data to device in forward() or calculate_loss()
         if self.config["verbose"] and self.config["device"] >= 0:
             print("Using GPU...")
-            self.to(f"cuda:{self.config['device']}")
+            self.to(torch.device(f"cuda:{self.config['device']}"))
 
         # Show network
         if self.config["verbose"]:
