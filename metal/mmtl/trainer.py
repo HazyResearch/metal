@@ -154,12 +154,7 @@ class MultitaskTrainer(object):
         self.metrics_hist = {}
         self._reset_losses()
         for epoch in range(self.config["n_epochs"]):
-            progress_bar = (
-                self.config["progress_bar"]
-                and self.config["verbose"]
-                and self.logger.log_unit == "epochs"
-            )
-
+            progress_bar = self.config["progress_bar"] and self.config["verbose"]
             t = tqdm(
                 enumerate(self._get_train_batches(tasks)),
                 total=batches_per_epoch,
