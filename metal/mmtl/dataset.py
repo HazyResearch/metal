@@ -24,15 +24,16 @@ class BERTDataset(data.Dataset):
     def __init__(
         self,
         tsv_path,
-        sent1_idx=0,
-        sent2_idx=-1,
-        label_idx=1,
-        skip_rows=0,
-        bert_model="bert-base-uncased",
+        sent1_idx,
+        sent2_idx,
+        label_idx,
+        skip_rows,
+        bert_model,
         delimiter="\t",
         label_fn=None,
         max_len=-1,
         label_type=int,
+        max_datapoints=-1,
     ):
         """
         Args:
@@ -58,6 +59,7 @@ class BERTDataset(data.Dataset):
             delimiter,
             label_fn,
             max_len,
+            max_datapoints,
         )
         self.label_type = label_type
 
@@ -76,6 +78,7 @@ class BERTDataset(data.Dataset):
         delimiter,
         label_fn,
         max_len,
+        max_datapoints,
     ):
         """ Loads and tokenizes .tsv dataset into BERT-friendly sentences / segments.
         Then, sets instance variables self.tokens, self.segments, self.labels.
@@ -89,7 +92,14 @@ class BERTDataset(data.Dataset):
                 data_fh.readline()
 
             # process data rows
-            for row_idx, row in tqdm(list(enumerate(data_fh))):
+            rows = list(enumerate(data_fh))
+            if max_datapoints > 0:
+                rows = rows[:max_datapoints]
+            for row_idx, row in tqdm(rows):
+                # only look at top max_datapoints examples for debigging
+                if max_datapoints > 0:
+                    if row_idx > max_datapoints:
+                        break
                 row = row.strip().split(delimiter)
                 if (
                     len(row) <= sent1_idx
@@ -230,7 +240,7 @@ class QNLIDataset(BERTDataset):
     Torch dataset object for QNLI ranking task, to work with BERT architecture.
     """
 
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(QNLIDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("QNLI", split),
             sent1_idx=1,
@@ -241,11 +251,12 @@ class QNLIDataset(BERTDataset):
             delimiter="\t",
             label_fn=lambda label: 1 if label == "entailment" else 2,
             max_len=max_len,
+            max_datapoints=max_datapoints,
         )
 
 
 class STSBDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(STSBDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("STS-B", split),
             sent1_idx=7,
@@ -255,12 +266,13 @@ class STSBDataset(BERTDataset):
             bert_model=bert_model,
             label_fn=lambda x: float(x) / 5,  # labels are scores [1, 2, 3, 4, 5]
             max_len=512,
+            max_datapoints=max_datapoints,
             label_type=float,
         )
 
 
 class SST2Dataset(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(SST2Dataset, self).__init__(
             tsv_path=tsv_path_for_dataset("SST-2", split),
             sent1_idx=0,
@@ -271,11 +283,12 @@ class SST2Dataset(BERTDataset):
             delimiter="\t",
             label_fn=lambda label: int(label) + 1,  # reserve 0 for abstain
             max_len=max_len,
+            max_datapoints=max_datapoints,
         )
 
 
 class COLADataset(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(COLADataset, self).__init__(
             tsv_path=tsv_path_for_dataset("CoLA", split),
             sent1_idx=3,
@@ -286,11 +299,12 @@ class COLADataset(BERTDataset):
             delimiter="\t",
             label_fn=lambda label: int(label) + 1,  # reserve 0 for abstain
             max_len=max_len,
+            max_datapoints=max_datapoints,
         )
 
 
 class MNLIDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         labels = ["contradiction", "entailment", "neutral"]
         split = "dev_matched" if split == "dev" else "train"
         super(MNLIDataset, self).__init__(
@@ -303,11 +317,12 @@ class MNLIDataset(BERTDataset):
             delimiter="\t",
             label_fn=lambda label: labels.index(label) + 1,
             max_len=max_len,
+            max_datapoints=max_datapoints,
         )
 
 
 class RTEDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(RTEDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("RTE", split),
             sent1_idx=1,
@@ -318,11 +333,12 @@ class RTEDataset(BERTDataset):
             delimiter="\t",
             label_fn=lambda label: 1 if label == "entailment" else 2,
             max_len=max_len,
+            max_datapoints=max_datapoints,
         )
 
 
 class WNLIDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(WNLIDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("WNLI", split),
             sent1_idx=1,
@@ -333,11 +349,12 @@ class WNLIDataset(BERTDataset):
             delimiter="\t",
             label_fn=lambda label: 1 if label == "0" else 2,
             max_len=max_len,
+            max_datapoints=max_datapoints,
         )
 
 
 class QQPDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(QQPDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("QQP", split),
             sent1_idx=3,
@@ -348,11 +365,12 @@ class QQPDataset(BERTDataset):
             delimiter="\t",
             label_fn=lambda label: 1 if label == "0" else 2,
             max_len=max_len,
+            max_datapoints=max_datapoints,
         )
 
 
 class MRPCDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_len=-1):
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(MRPCDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("MRPC", split),
             sent1_idx=3,
@@ -363,4 +381,5 @@ class MRPCDataset(BERTDataset):
             delimiter="\t",
             label_fn=lambda label: 1 if label == "0" else 2,
             max_len=max_len,
+            max_datapoints=max_datapoints,
         )

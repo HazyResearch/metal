@@ -26,6 +26,7 @@ def create_task(
     max_len=512,
     dl_kwargs={},
     bert_output_shape=768,
+    max_datapoints=-1,
 ):
     dataloaders = get_all_dataloaders(
         task_name,
@@ -33,6 +34,7 @@ def create_task(
         max_len=max_len,
         dl_kwargs=dl_kwargs,
         split_prop=split_prop,
+        max_datapoints=max_datapoints,
     )
     bert_encoder = BertEncoder(bert_model)
 
