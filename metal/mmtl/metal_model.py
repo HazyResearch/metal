@@ -15,7 +15,7 @@ from metal.utils import (
 
 model_config = {
     "seed": None,
-    "device": -1,  # gpu id (int) or -1 for cpu
+    "device": 0,  # gpu id (int) or -1 for cpu
     "verbose": True,
 }
 

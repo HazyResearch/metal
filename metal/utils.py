@@ -368,7 +368,7 @@ def move_to_device(obj, device=-1):
     device=0: "cuda:0"
 
     """
-    if device < 0:
+    if device < 0 or not torch.cuda.is_available():
         return obj
     elif isinstance(obj, torch.Tensor):
         return obj.cuda(device)
