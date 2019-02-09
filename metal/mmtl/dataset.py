@@ -154,19 +154,25 @@ class BERTDataset(data.Dataset):
     def __len__(self):
         return len(self.tokens)
 
-    def get_dataloader(self, split_prop=None, **kwargs):
+    def get_dataloader(self, split_prop=None, split_seed=123, **kwargs):
         """Returns a dataloader based on self (dataset). If split_prop is specified,
         returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
 
         if split_prop:
             assert split_prop >= 0 and split_prop <= 1
 
+            # choose random indexes for train/dev
             N = len(self)
-            full_idx = list(range(N))
+            full_idx = np.arange(N)
+            np.random.seed(split_seed)
+            np.random.shuffle(full_idx)
+
+            # split into train/dev
             split_div = int(split_prop * N)
             train_idx = full_idx[:split_div]
             dev_idx = full_idx[split_div:]
 
+            # create data loaders
             train_dataloader = data.DataLoader(
                 self,
                 collate_fn=lambda batch: self._collate_fn(batch),
