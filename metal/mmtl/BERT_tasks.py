@@ -41,7 +41,7 @@ def create_task(
     if task_name == "COLA":
 
         scorer = Scorer(
-            standard_metrics=[],
+            standard_metrics=["accuracy"],
             custom_train_funcs=[matthews_corr],
             custom_valid_funcs=[matthews_corr],
         )
@@ -111,11 +111,14 @@ def create_task(
 
     elif task_name == "STSB":
         scorer = Scorer(
-            standard_metrics=["train/loss", "valid/loss"],
-            custom_metric_fns=[pearson_corr, spearman_corr],
+            standard_metrics=[],
+            custom_train_funcs=[pearson_corr, spearman_corr],
+            custom_valid_funcs=[pearson_corr, spearman_corr],
         )
+
         # x -> sigmoid -> [0,1], and compute mse_loss (y \in [0,1])
         loss_hat_func = lambda x, y: F.mse_loss(torch.sigmoid(x), y)
+
         return Task(
             task_name,
             dataloaders,
