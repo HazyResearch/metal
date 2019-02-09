@@ -1,4 +1,5 @@
 import os
+import random
 from collections import defaultdict
 from pprint import pprint
 
@@ -127,10 +128,16 @@ class MultitaskTrainer(object):
         # Calculate epoch statistics
         examples_per_epoch = sum([len(t.data_loaders["train"].dataset) for t in tasks])
         batches_per_epoch = sum([len(t.data_loaders["train"]) for t in tasks])
+        if self.config["verbose"]:
+            print(f"Beginning train loop.")
+            print(
+                f"Expecting a total of {examples_per_epoch} examples and "
+                f"{batches_per_epoch} batches per epoch from {len(tasks)} tasks."
+            )
 
         # Set training components
         self._set_writer()
-        self._set_logger(examples_per_epoch)
+        self._set_logger(batches_per_epoch)
         self._set_checkpointer()
         self._set_optimizer(model)
         # TODO: Accept training matrix to give more fine-tuned training commands
@@ -264,20 +271,14 @@ class MultitaskTrainer(object):
         # For now, just use proportional sampling
         # Length of a dataloader is the number of batches it contains
         approx_batch_counts = [len(t.data_loaders["train"]) for t in tasks]
-        batches_per_epoch = sum(approx_batch_counts)
-        batch_distribution = np.array(approx_batch_counts) / batches_per_epoch
+        batch_assignments = []
+        for task_idx, task in enumerate(tasks):
+            batch_assignments.extend([task_idx] * approx_batch_counts[task_idx])
+        random.shuffle(batch_assignments)
         train_loaders = [iter(t.data_loaders["train"]) for t in tasks]
-        # NOTE: actual number of batches per task may not be exact, since we sample
-        # instead of enumerating, but it should be close.
-        for task_idx in np.random.choice(
-            len(tasks), batches_per_epoch, replace=True, p=batch_distribution
-        ):
-            # HACK: this is still not ideal (since near the end we may need to sample
-            # multiple times before finding the task that hasn't run out yet)
-            try:
-                yield (tasks[task_idx].name, next(train_loaders[task_idx]))
-            except StopIteration:
-                continue
+
+        for task_idx in batch_assignments:
+            yield (tasks[task_idx].name, next(train_loaders[task_idx]))
 
     def _checkpoint(self, model, metrics_dict):
         if self.checkpointer is None:
@@ -301,15 +302,15 @@ class MultitaskTrainer(object):
         else:
             raise Exception(f"Unrecognized writer: {self.config['writer']}")
 
-    def _set_logger(self, epoch_size=None):
+    def _set_logger(self, batches_per_epoch):
         # If not provided, set score_every to log_every
         logger_config = self.config["logger_config"]
         if logger_config["score_every"] is None:
             logger_config["score_every"] = logger_config["log_every"]
         self.logger = Logger(
             logger_config,
+            batches_per_epoch,
             self.writer,
-            epoch_size=epoch_size,
             verbose=self.config["verbose"],
         )
 
