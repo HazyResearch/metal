@@ -1,4 +1,4 @@
-rements:
+# requirements:
 # pip install boto3
 # pip install paramiko
 #
