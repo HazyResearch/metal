@@ -9,7 +9,7 @@ import torch.optim as optim
 
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
-from metal.utils import place_on_gpu, recursive_merge_dicts
+from metal.utils import recursive_merge_dicts
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -161,7 +161,8 @@ class MultitaskTrainer(object):
             )
             for batch_num, (task_name, batch) in t:
                 # NOTE: actual batch_size may not equal config's target batch_size
-                batch_size = len(batch[0])
+                _, Y = batch
+                batch_size = len(Y)
 
                 # Zero the parameter gradients
                 self.optimizer.zero_grad()

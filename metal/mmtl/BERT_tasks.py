@@ -25,7 +25,8 @@ def create_task(
     split_prop=0.8,
     max_len=512,
     dl_kwargs={},
-    bert_output_shape=768,
+    bert_kwargs={},
+    bert_output_dim=768,
     max_datapoints=-1,
 ):
     dataloaders = get_all_dataloaders(
@@ -36,7 +37,7 @@ def create_task(
         split_prop=split_prop,
         max_datapoints=max_datapoints,
     )
-    bert_encoder = BertEncoder(bert_model)
+    bert_encoder = BertEncoder(bert_model, **bert_kwargs)
 
     if task_name == "COLA":
 
@@ -49,14 +50,14 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(bert_output_shape),
+            BertBinaryHead(bert_output_dim),
             scorer,
         )
 
     if task_name == "SST2":
 
         return Task(
-            task_name, dataloaders, bert_encoder, BertBinaryHead(bert_output_shape)
+            task_name, dataloaders, bert_encoder, BertBinaryHead(bert_output_dim)
         )
 
     elif task_name == "MNLI":
@@ -65,7 +66,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertMulticlassHead(bert_output_shape, 3),
+            BertMulticlassHead(bert_output_dim, 3),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -75,7 +76,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(bert_output_shape),
+            BertBinaryHead(bert_output_dim),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -85,7 +86,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(bert_output_shape),
+            BertBinaryHead(bert_output_dim),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -95,7 +96,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(bert_output_shape),
+            BertBinaryHead(bert_output_dim),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -105,7 +106,7 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertBinaryHead(bert_output_shape),
+            BertBinaryHead(bert_output_dim),
             Scorer(standard_metrics=["accuracy"]),
         )
 
@@ -123,14 +124,14 @@ def create_task(
             task_name,
             dataloaders,
             bert_encoder,
-            BertRegressionHead(bert_output_shape),
+            BertRegressionHead(bert_output_dim),
             scorer,
             loss_hat_func=loss_hat_func,
             output_hat_func=torch.sigmoid,
         )
 
     elif task_name == "QNLI":
-        qnli_head = nn.Linear(bert_output_shape, 2, bias=False)
+        qnli_head = nn.Linear(bert_output_dim, 2, bias=False)
         return Task(
             name="QNLI",
             data_loaders=dataloaders,
