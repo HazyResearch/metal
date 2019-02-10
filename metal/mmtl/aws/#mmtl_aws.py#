@@ -1,0 +1,89 @@
+# Sample call:
+# python mmtl_aws.py --mode launch_and_run --aws_access_key_id xxx --aws_secret_access_key xxx --keypath ~/.ssh/personalkeyncalifornia.pem
+#
+# Sample output:
+#
+
+import sys
+import multiprocessing
+import os
+import boto3
+import argparse
+import paramiko
+
+IMAGE_ID = "ami-03da4643b88963008"
+
+# Command prefix is appended to all commands.
+# It activates pytorch gpu, clones metal, cds in metal
+COMMAND_PREFIX = "source activate pytorch_p36;"\
+                     "rm -rf metal;"\
+                         "git clone -b mmtl_aws https://github.com/HazyResearch/metal.git;"\
+                             "cd metal; source add_to_path.sh;"\
+                                 "pwd;"
+
+COMMAND = "python metal/mmtl/aws_test.py"
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--mode', choices=["list", "launch", "launch_and_run", "run", "shutdown"])
+parser.add_argument("--aws_access_key_id", required=True)
+parser.add_argument("--aws_secret_access_key", required=True)
+parser.add_argument("--region", default="us-west-1")
+parser.add_argument("--n_machines", default=2)
+parser.add_argument("--keypath", required=True)
+parser.add_argument("--outputpath", default="output")
+
+def run_command(args, instance, cmd, output):
+        key = paramiko.RSAKey.from_private_key_file(args.keypath)
+            client = paramiko.SSHClient()
+                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+                    try:
+                                client.connect(hostname=instance.public_ip_address, username="ubuntu", pkey=key)
+
+                                        # Execute a command(cmd) after connecting/ssh to an instance
+                                                stdin, stdout, stderr = client.exec_command(cmd)
+                                                        output[instance.id] = stdout.read().decode("utf-8")
+
+                                                                # close the client connection once the job is done
+                                                                        client.close()
+
+                    except Exception as e:
+                                print(e)
+
+                                    return output
+
+
+                                def create_ec2_client(args):
+                                        ec2_client = boto3.client(
+ances]))
+                                            for instance in instances:
+                                                        instance.wait_until_running()
+                                                                instance.reload()
+
+                                                                    # This is sometimes necessary to avoid ssh errors
+                                                                        time.sleep(30)
+
+                                                                            describe_instances(args)
+
+                                                                                return instances
+
+                                                                            def shutdown(args):
+                                                                                    instances = get_instances(args)
+                                                                                        for instance in instances:
+                                                                                                    instance.terminate()
+                                                                                                        describe_instances(args)
+
+                                                                                                        def run(args, instances=None):
+
+                                                                                                                # By default run command on all running machines
+                                                                                                                if instances is None:
+                                                                                                                            instances = [x for x in get_instances(args) if x.state["Name"] == "running"]
+
+                                                                                                                                if not os.path.exists(args.outputpath):
+                                                                                                                                            os.makedirs(args.outputpath)
+
+                                                                                                                                                processes = []
+                                                                                                                                                    manager = multiprocessing.Manager()
+                                                                                                                                                        return_output = manager.dict()
+                                                                                                                                                            for instance in instances:
+                                                                                                                                                                        process = multiprocessing.Process(target=run_command,
