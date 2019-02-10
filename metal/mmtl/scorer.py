@@ -64,7 +64,7 @@ class Scorer(object):
         }
         """
         metrics_dict = {}
-        splits = [split] if split else [k for k in task.data_loaders.keys()]
+        splits = [split] if split else ["train", "valid"]
 
         for split in splits:
             standard_metrics = [
