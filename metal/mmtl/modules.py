@@ -1,7 +1,4 @@
-import os
-
 import torch.nn as nn
-from dataset import BERTDataset
 from pytorch_pretrained_bert import BertForMaskedLM, BertModel, BertTokenizer
 
 

@@ -3,7 +3,6 @@ import random
 from collections import defaultdict
 from pprint import pprint
 
-import numpy as np
 import torch
 import torch.optim as optim
 

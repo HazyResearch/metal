@@ -2,7 +2,6 @@ import numpy as np
 
 from metal.metrics import metric_score
 from metal.mmtl.utils import utils
-from metal.utils import place_on_gpu, recursive_merge_dicts
 
 
 """

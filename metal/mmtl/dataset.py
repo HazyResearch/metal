@@ -2,7 +2,6 @@ import codecs
 import os
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.utils.data as data
 from pytorch_pretrained_bert import BertTokenizer
