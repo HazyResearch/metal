@@ -333,11 +333,11 @@ class WNLIDataset(BERTDataset):
             tsv_path=tsv_path_for_dataset("WNLI", split),
             sent1_idx=1,
             sent2_idx=2,
-            label_idx=0 if split in ["train", "dev"] else -1,
+            label_idx=3 if split in ["train", "dev"] else -1,
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: 1 if label == "0" else 2,
+            label_fn=lambda label: int(label) + 1,
             max_len=max_len,
         )
 
@@ -352,7 +352,7 @@ class QQPDataset(BERTDataset):
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: 1 if label == "0" else 2,
+            label_fn=lambda label: int(label) + 1,
             max_len=max_len,
         )
 
@@ -367,6 +367,6 @@ class MRPCDataset(BERTDataset):
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: 1 if label == "0" else 2,
+            label_fn=lambda label: int(label) + 1,
             max_len=max_len,
         )

@@ -9,7 +9,7 @@ import torch.optim as optim
 
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
-from metal.utils import place_on_gpu, recursive_merge_dicts
+from metal.utils import recursive_merge_dicts
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
