@@ -381,7 +381,7 @@ class MRPCDataset(BERTDataset):
             tsv_path=tsv_path_for_dataset("MRPC", split),
             sent1_idx=3,
             sent2_idx=4,
-            label_idx=0 if split in ["train", "test"] else -1,
+            label_idx=0,
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
