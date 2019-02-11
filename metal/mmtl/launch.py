@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import os
 
 import numpy as np
@@ -12,6 +13,8 @@ from metal.mmtl.trainer import MultitaskTrainer
 parser = argparse.ArgumentParser(
     description="Train MetalModel on single or multiple tasks."
 )
+
+parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
 parser.add_argument("--tasks", type=str, help="Task list e.g. QNLI-QQP")
 parser.add_argument(
     "--bert-model",
@@ -58,6 +61,12 @@ parser.add_argument(
     type=str,
     default="max",
     help="Whether to save max or min.",
+)
+parser.add_argument(
+    "--override-train-config",
+    type=str,
+    default=None,
+    help="Whether to override train_config dict with json loaded from path. For tuning",
 )
 
 
@@ -141,6 +150,11 @@ if __name__ == "__main__":
         },
     }
 
+    # Override json
+    if args.override_train_config is not None:
+        with open(args.override_train_config, "r") as f:
+            trainer_config = json.loads(f.read())
+
     tasks = []
     for task_name in args.tasks.split(","):
         tasks.append(
@@ -155,7 +169,7 @@ if __name__ == "__main__":
             )
         )
 
-    model = MetalModel(tasks, verbose=False, device=0)
+    model = MetalModel(tasks, verbose=False, device=args.device)
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **trainer_config)
     test_scorer = Scorer(["test/accuracy"])
