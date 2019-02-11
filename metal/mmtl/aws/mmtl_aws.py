@@ -39,7 +39,7 @@ import paramiko
 
 from metal.mmtl.aws import grid_search_mmtl
 
-IMAGE_ID = "ami-03da4643b88963008"
+IMAGE_ID = "ami-0c82a5c425d9da154"
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -106,6 +106,8 @@ def run_command(args, instance, cmd_dict, output, run_id):
         # Execute a command(cmd) after connecting/ssh to an instance
         stdin, stdout, stderr = client.exec_command(cmd)
         output[run_id] = stdout.read().decode("utf-8")
+
+        print("ERROR: ", stderr.read())
 
         # Get files
         for (remotepath, localpath) in files_to_get:

@@ -13,6 +13,8 @@ from metal.mmtl.trainer import MultitaskTrainer
 parser = argparse.ArgumentParser(
     description="Train MetalModel on single or multiple tasks."
 )
+
+parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
 parser.add_argument("--tasks", type=str, help="Task list e.g. QNLI-QQP")
 parser.add_argument(
     "--bert-model",
@@ -167,7 +169,7 @@ if __name__ == "__main__":
             )
         )
 
-    model = MetalModel(tasks, verbose=False, device=0)
+    model = MetalModel(tasks, verbose=False, device=args.device)
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **trainer_config)
     test_scorer = Scorer(["test/accuracy"])

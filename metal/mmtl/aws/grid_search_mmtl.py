@@ -13,10 +13,11 @@ from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer
 
 trainer_config_space = {
+    "device": -1,
     "verbose": True,
     "progress_bar": True,
     # "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True}, ## TODO?
-    "n_epochs": 10,
+    "n_epochs": 1,
     # 'grad_clip': 1.0,  ## TODO?
     "l2": 0.1,
     "optimizer_config": {
@@ -113,14 +114,23 @@ def sample_random_config(config_space):
 
 
 def create_command_dict(config_path):
+    COMMAND_PREFIX = (
+        "source activate pytorch_p36;"
+        "export GLUEDATA=/home/ubuntu/glue/;"  # Assumes ami has this here
+        "rm -rf metal;"
+        "git clone -b mmtl https://github.com/HazyResearch/metal.git;"
+        "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt"
+        "pwd;"
+    )
+    COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n-epochs 1 --log-every 0.25 --score-every 0.25 --max-len 256 --batch-size 16 --checkpoint-dir ./checkpoint --checkpoint-metric QNLI/valid/accuracy --checkpoint-metric-mode max --max-datapoints 16 --override-train-config ../config"
     return {
-        "cmd": "cat test",
-        "files_to_put": [(config_path, "test")],
+        "cmd": COMMAND_PREFIX + COMMAND,
+        "files_to_put": [(config_path, "config")],
         "files_to_get": [],
     }
 
 
-def generate_configs_and_commands(args, n=10):
+def generate_configs_and_commands(args, n=3):
     configspace_path = "%s/configspace" % args.outputpath
     if not os.path.exists(configspace_path):
         os.makedirs(configspace_path)
