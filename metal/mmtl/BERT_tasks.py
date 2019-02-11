@@ -1,20 +1,17 @@
 from functools import partial
-from typing import Callable, List
 
-import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from modules import BertBinaryHead, BertEncoder, BertMulticlassHead, BertRegressionHead
-from pytorch_pretrained_bert import BertForMaskedLM, BertModel, BertTokenizer
-from sklearn.metrics import matthews_corrcoef
-from task import Task
-from torch.utils.data import DataLoader, Dataset, TensorDataset
 
-import metal
-from metal.end_model import EndModel
+from metal.mmtl.modules import (
+    BertBinaryHead,
+    BertEncoder,
+    BertMulticlassHead,
+    BertRegressionHead,
+)
 from metal.mmtl.scorer import Scorer
+from metal.mmtl.task import Task
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
 from metal.mmtl.utils.metrics import matthews_corr, pearson_corr, spearman_corr
 

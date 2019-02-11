@@ -86,7 +86,7 @@ class Scorer(object):
                 for metric in self.standard_metrics
                 if metric.startswith(f"{split}/")
             ]
-            custom_metric_funcs = self.custom_metric_funcs[split]
+            custom_metric_funcs = self.custom_metric_funcs.get(split, [])
             if not (standard_metrics or custom_metric_funcs):
                 continue
 
@@ -127,8 +127,8 @@ class Scorer(object):
         """Adds 'valid/' as a prefix to all metrics unless split is already specified"""
         full_names = []
         for metric in metric_names:
-            if "train/" in metric or "valid/" in metric:
-                full_names.append(metric_names)
+            if "train/" in metric or "valid/" in metric or "test/" in metric:
+                full_names.append(metric)
             else:
                 full_names.append(f"valid/{metric}")
         return full_names
