@@ -5,6 +5,7 @@ from pprint import pprint
 
 import torch
 import torch.optim as optim
+from torch.nn.utils import clip_grad_norm_
 
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
@@ -37,8 +38,8 @@ trainer_config = {
     # "loss_weights": None,
     # Train Loop
     "n_epochs": 10,
-    # 'grad_clip': 0.0,
     "l2": 0.0,
+    "grad_clip": 0.0,
     # Evaluate dev for during training every this many epochs
     # Optimizer
     "optimizer_config": {
@@ -125,13 +126,21 @@ class MultitaskTrainer(object):
         self.task_names = [task.name for task in tasks]
 
         # Calculate epoch statistics
-        examples_per_epoch = sum([len(t.data_loaders["train"].dataset) for t in tasks])
+        # NOTE: Because we use SubsetSampler, one dataset may actually include two
+        # splits, so we calculate approximate count size using batch_size * num_batches
+        # examples_per_epoch = sum([len(t.data_loaders["train"].dataset) for t in tasks])
         batches_per_epoch = sum([len(t.data_loaders["train"]) for t in tasks])
+        examples_per_epoch = sum(
+            [
+                len(t.data_loaders["train"]) * t.data_loaders["train"].batch_size
+                for t in tasks
+            ]
+        )
         if self.config["verbose"]:
             print(f"Beginning train loop.")
             print(
-                f"Expecting a total of {examples_per_epoch} examples and "
-                f"{batches_per_epoch} batches per epoch from {len(tasks)} tasks."
+                f"Expecting a total of _approximately_ {examples_per_epoch} examples "
+                f"and {batches_per_epoch} batches per epoch from {len(tasks)} tasks."
             )
 
         # Set training components
@@ -175,6 +184,11 @@ class MultitaskTrainer(object):
                 # Backward pass to calculate gradients
                 # Loss is an average loss per example
                 loss.backward()
+
+                # import pdb; pdb.set_trace()
+                # print(f"max grad: {max(max(p.grad.abs().max()) for p in model.parameters())}")
+                # if self.config["grad_clip"]:
+                #     torch.nn.utils.clip_grad_norm(model.parameters(), self.config["grad_clip"])
 
                 # Perform optimizer step
                 self.optimizer.step()
