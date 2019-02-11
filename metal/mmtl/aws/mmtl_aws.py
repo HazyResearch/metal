@@ -51,6 +51,7 @@ parser.add_argument("--region", default="us-west-1")
 parser.add_argument("--n_machines", default=2)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
+parser.add_argument("--instance_type", default="t2.medium")
 
 
 def create_dummy_command_dict2():
@@ -168,6 +169,7 @@ def launch(args):
         MinCount=args.n_machines,
         MaxCount=args.n_machines,
         KeyName=os.path.basename(args.keypath).split(".")[0],
+        InstanceType=args.instance_type,
     )
 
     print("Waiting for instances: %s" % str([x.id for x in instances]))
