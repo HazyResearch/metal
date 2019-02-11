@@ -27,11 +27,12 @@ class LogWriter(object):
 
     def __init__(
         self,
-        log_dir="logs",
+        log_dir=None,
         run_dir=None,
         run_name=None,
         writer_metrics=None,
         include_config=True,
+        verbose=True,
     ):
         start_date = strftime("%Y_%m_%d")
         start_time = strftime("%H_%M_%S")
@@ -53,6 +54,7 @@ class LogWriter(object):
         # Save other settings
         self.writer_metrics = writer_metrics
         self.include_config = include_config
+        self.verbose = verbose
 
         # Initialize log
         # Note we have a separate section for during-run metrics
@@ -87,6 +89,8 @@ class LogWriter(object):
 
     def write(self):
         """Dump JSON to file"""
+        if self.verbose:
+            print(f"Writing log to {self.log_path}")
         with open(self.log_path, "w") as f:
             json.dump(self.log_dict, f, indent=1)
 

@@ -88,7 +88,7 @@ trainer_config = {
     # LogWriter/Tensorboard (see metal/logging/writer.py for descriptions)
     "writer": None,  # [None, "json", "tensorboard"]
     "writer_config": {  # Log (or event) file stored at log_dir/run_dir/run_name
-        "log_dir": None,
+        "log_dir": f"{os.environ['METALHOME']}/logs",
         "run_dir": None,
         "run_name": None,
         "writer_metrics": [],  # May specify a subset of metrics in metrics_dict to be written
@@ -299,12 +299,14 @@ class MultitaskTrainer(object):
         self.running_examples = defaultdict(int)
 
     def _set_writer(self):
+        writer_config = self.config["writer_config"]
+        writer_config["verbose"] = self.config["verbose"]
         if self.config["writer"] is None:
             self.writer = None
         elif self.config["writer"] == "json":
-            self.writer = LogWriter(**(self.config["writer_config"]))
+            self.writer = LogWriter(**writer_config)
         elif self.config["writer"] == "tensorboard":
-            self.writer = TensorBoardWriter(**(self.config["writer_config"]))
+            self.writer = TensorBoardWriter(**writer_config)
         else:
             raise Exception(f"Unrecognized writer: {self.config['writer']}")
 
