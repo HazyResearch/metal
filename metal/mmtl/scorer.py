@@ -2,7 +2,6 @@ import numpy as np
 
 from metal.metrics import metric_score
 from metal.mmtl.utils import utils
-from metal.utils import place_on_gpu, recursive_merge_dicts
 
 
 """
@@ -22,6 +21,21 @@ task1 = Task(...,scorer=scorer)
 taskn = ...
 tasks = [task1, ..., taskn]
 model = MetalModel(tasks)
+
+----------------------------------------------------------------------------------------
+NOTE: There are some issues with this design.
+Currently, if a user includes custom test metrics in their Scorer, they'll be executed
+during training with score_every frequency. And if they want to test just at the end,
+they need to make a new scorer (so that now it _does_ have test metrics).
+
+Instead, a scorer should define metrics that are defined and can be calculated over an
+arbitrary DataLoader belonging to this task. We (maybe?) don't care what the name of
+the task is (so we can support people having differently named splits than us)?
+Or maybe we only require that "train" be used for the train split?
+
+Which metrics to print out of all the ones supported by the scorers?
+Currently we default to all on unless the user specified some; then we only show those
+We could also default to all off (and the user specifies what they want to see)
 """
 
 
