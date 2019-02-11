@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import os
 
 import numpy as np
@@ -58,6 +59,12 @@ parser.add_argument(
     type=str,
     default="max",
     help="Whether to save max or min.",
+)
+parser.add_argument(
+    "--override-train-config",
+    type=str,
+    default=None,
+    help="Whether to override train_config dict with json loaded from path. For tuning",
 )
 
 
@@ -140,6 +147,11 @@ if __name__ == "__main__":
             "checkpoint_runway": 0,
         },
     }
+
+    # Override json
+    if args.override_train_config is not None:
+        with open(args.override_train_config, "r") as f:
+            trainer_config = json.loads(f.read())
 
     tasks = []
     for task_name in args.tasks.split(","):
