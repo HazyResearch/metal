@@ -1,3 +1,4 @@
+import math
 import os
 import random
 from collections import defaultdict
@@ -185,10 +186,12 @@ class MultitaskTrainer(object):
                 # Loss is an average loss per example
                 loss.backward()
 
-                # import pdb; pdb.set_trace()
-                # print(f"max grad: {max(max(p.grad.abs().max()) for p in model.parameters())}")
-                # if self.config["grad_clip"]:
-                #     torch.nn.utils.clip_grad_norm(model.parameters(), self.config["grad_clip"])
+                # Clip gradient norm (not individual gradient magnitudes)
+                # max_grad_value = max([p.grad.abs().max().item() for p in model.parameters()])
+                if self.config["grad_clip"]:
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), self.config["grad_clip"]
+                    )
 
                 # Perform optimizer step
                 self.optimizer.step()
