@@ -20,6 +20,8 @@ class Task(object):
             with keys in ["train", "valid", "test"]
         scorer: A Scorer that returns a metrics_dict object.
         loss_hat_func: A function of the form f(forward(X), Y) -> loss (scalar Tensor)
+            We recommend returning an average loss per example so that loss magnitude
+            is more consistent in the face of batch size changes
         output_hat_func: A function of the form f(forward(X)) -> output (e.g. probs)
     """
 
@@ -30,7 +32,7 @@ class Task(object):
         input_module,
         head_module,
         scorer=Scorer(standard_metrics=["accuracy"]),
-        loss_hat_func=(lambda X, Y: F.cross_entropy(X, Y - 1)),
+        loss_hat_func=(lambda X, Y: F.cross_entropy(X, Y - 1, reduction="mean")),
         output_hat_func=(partial(F.softmax, dim=1)),
     ) -> None:
         self.name = name

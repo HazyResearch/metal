@@ -146,7 +146,9 @@ class Logger(object):
         - task/split/metric in the multitask setting (expand to this from task/metric)
         - split/metric in the singletask setting (expand to this from metric)
         """
-        if f"{split}/" not in metric:
+        if f"{split}/" in metric:
+            full_metric = metric
+        else:
             if "/" in metric:
                 # It has two parts but not split, so must be task/metric
                 task, metric = metric.split("/")
