@@ -1,31 +1,31 @@
-# requirements:
-# pip install boto3
-# pip install paramiko
-#
-# Sample call:
-# python mmtl_aws.py --mode launch_and_run --aws_access_key_id xxx --aws_secret_access_key xxx --keypath ~/.ssh/personalkeyncalifornia.pem
-#
-# Sample output:
-# /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:39: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will be removed in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
-#   m.add_string(self.Q_C.public_numbers().encode_point())
-# /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:39: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will be removed in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
-#   m.add_string(self.Q_C.public_numbers().encode_point())
-# /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:96: CryptographyDeprecationWarning: Support for unsafe construction of public numbers from encoded data will be removed in a future version. Please use EllipticCurvePublicKey.from_encoded_point
-#   self.curve, Q_S_bytes
-# /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:111: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will be removed in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
-#   hm.add_string(self.Q_C.public_numbers().encode_point())
-# /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:96: CryptographyDeprecationWarning: Support for unsafe construction of public numbers from encoded data will be removed in a future version. Please use EllipticCurvePublicKey.from_encoded_point
-#   self.curve, Q_S_bytes
-# /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:111: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will be removed in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
-#   hm.add_string(self.Q_C.public_numbers().encode_point())
-# Putting file secret -> secret
-# Putting file secret -> secret
-# Getting file secret -> output/i-04c1e57c76aaff218/yoman
-# Getting file secret -> output/i-09b38dd9e71d3474a/yoman
-# i-04c1e57c76aaff218 testing 42
-# i-09b38dd9e71d3474a testing 42
-#
-# --------------------------------------------------------------------------
+"""
+ requirements:
+ pip install boto3
+ pip install paramiko
+
+ Sample call:
+ python mmtl_aws.py --mode launch_and_run --aws_access_key_id xxx --aws_secret_access_key xxx --keypath ~/.ssh/personalkeyncalifornia.pem
+
+ Sample output:
+ /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:39: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will be emoved in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
+   m.add_string(self.Q_C.public_numbers().encode_point())
+ /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:39: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will be emoved in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
+   m.add_string(self.Q_C.public_numbers().encode_point())
+ /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:96: CryptographyDeprecationWarning: Support for unsafe construction of public numbers from encoded data will beremoved in a future version. Please use EllipticCurvePublicKey.from_encoded_point
+   self.curve, Q_S_bytes
+ /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:111: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will beremoved in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
+   hm.add_string(self.Q_C.public_numbers().encode_point())
+ /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:96: CryptographyDeprecationWarning: Support for unsafe construction of public numbers from encoded data will beremoved in a future version. Please use EllipticCurvePublicKey.from_encoded_point
+   self.curve, Q_S_bytes
+ /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:111: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will beremoved in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
+   hm.add_string(self.Q_C.public_numbers().encode_point())
+ Putting file secret -> secret
+ Putting file secret -> secret
+ Getting file secret -> output/i-04c1e57c76aaff218/yoman
+ Getting file secret -> output/i-09b38dd9e71d3474a/yoman
+ i-04c1e57c76aaff218 testing 42
+ i-09b38dd9e71d3474a testing 42
+"""
 
 import argparse
 import inspect
@@ -33,6 +33,7 @@ import multiprocessing
 import os
 import sys
 import time
+from stat import S_ISDIR
 
 import boto3
 import paramiko
@@ -80,13 +81,33 @@ def create_dummy_command_dict():
 
 
 def run_command(args, instance, cmd_dict, output, run_id):
+
+    # Helper for downloading directory
+    def download_dir(sftp, remote_dir, local_dir):
+        os.path.exists(local_dir) or os.makedirs(local_dir)
+        dir_items = sftp.listdir_attr(remote_dir)
+        for item in dir_items:
+            # assuming the local system is Windows and the remote system is Linux
+            # os.path.join won't help here, so construct remote_path manually
+            remote_path = remote_dir + "/" + item.filename
+            local_path = os.path.join(local_dir, item.filename)
+            if S_ISDIR(item.st_mode):
+                download_dir(sftp, remote_path, local_path)
+            else:
+                sftp.get(remote_path, local_path)
+
     key = paramiko.RSAKey.from_private_key_file(args.keypath)
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     cmd = cmd_dict["cmd"]
-    files_to_put = cmd_dict["files_to_put"]
-    files_to_get = cmd_dict["files_to_get"]
+    files_to_put, files_to_get, dirs_to_get = [], [], []
+    if "files_to_put" in cmd_dict:
+        files_to_put = cmd_dict["files_to_put"]
+    if "files_to_get" in cmd_dict:
+        files_to_get = cmd_dict["files_to_get"]
+    if "dirs_to_get" in cmd_dict:
+        dirs_to_get = cmd_dict["dirs_to_get"]
 
     assert os.path.exists(args.outputpath)
     instance_output_path = "%s/%s/" % (args.outputpath, run_id)
@@ -108,7 +129,11 @@ def run_command(args, instance, cmd_dict, output, run_id):
         stdin, stdout, stderr = client.exec_command(cmd)
         output[run_id] = stdout.read().decode("utf-8")
 
-        print("ERROR: ", stderr.read())
+        # Save stdout and stderr to instance path
+        with open(instance_output_path + "stderr", "w") as f:
+            f.write(stderr.read().decode("utf-8"))
+        with open(instance_output_path + "stdout", "w") as f:
+            f.write(output[run_id])
 
         # Get files
         for (remotepath, localpath) in files_to_get:
@@ -116,6 +141,13 @@ def run_command(args, instance, cmd_dict, output, run_id):
                 "Getting file %s -> %s" % (remotepath, instance_output_path + localpath)
             )
             sftp.get(remotepath, instance_output_path + localpath)
+
+        # Get directories
+        for (remotepath, localpath) in dirs_to_get:
+            print(
+                "Getting dir %s -> %s" % (remotepath, instance_output_path + localpath)
+            )
+            download_dir(sftp, remotepath, instance_output_path + localpath)
 
         # close the client connection once the job is done
         sftp.close()
@@ -178,7 +210,7 @@ def launch(args):
         instance.reload()
 
     # This is sometimes necessary to avoid ssh errors
-    time.sleep(60)
+    time.sleep(180)
 
     describe_instances(args)
 
@@ -248,7 +280,6 @@ def run(args, instances=None):
     print("Results")
     print("-" * 100)
     for k, v in return_output.items():
-        print(k, v)
         with open(args.outputpath + "/" + str(k) + ".out", "w") as f:
             f.write(str(v))
 
