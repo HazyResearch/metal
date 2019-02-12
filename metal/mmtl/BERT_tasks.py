@@ -48,8 +48,7 @@ def create_tasks(
         if task_name == "COLA":
             scorer = Scorer(
                 standard_metrics=["accuracy"],
-                custom_train_funcs=[matthews_corr],
-                custom_valid_funcs=[matthews_corr],
+                custom_metric_funcs={matthews_corr: ["matthews_corr"]},
             )
             tasks.append(
                 Task(
@@ -129,8 +128,10 @@ def create_tasks(
         if task_name == "STSB":
             scorer = Scorer(
                 standard_metrics=[],
-                custom_train_funcs=[pearson_corr, spearman_corr],
-                custom_valid_funcs=[pearson_corr, spearman_corr],
+                custom_metric_funcs={
+                    pearson_corr: ["pearson_corr"],
+                    spearman_corr: ["spearman_corr"],
+                },
             )
 
             # x -> sigmoid -> [0,1], and compute mse_loss (y \in [0,1])

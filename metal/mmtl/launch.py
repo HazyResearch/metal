@@ -182,6 +182,8 @@ if __name__ == "__main__":
     trainer.train_model(model, tasks, **trainer_config)
     for task in tasks:
         # TODO: replace with split="test" when we support this
-        scores = task.scorer.score(model, task, split="valid")
+        scores = task.scorer.score(
+            model, task, target_metrics=[f"{task.name}/test/accuracy"]
+        )
         print(scores)
     print(os.path.join(run_dir, run_name))
