@@ -1,8 +1,6 @@
 import time
 from collections import defaultdict
 
-from metal.metrics import METRICS as standard_metric_names, metric_score
-
 
 class Logger(object):
     """Tracks when it is time to calculate train/valid metrics and logs them"""

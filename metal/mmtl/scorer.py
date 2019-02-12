@@ -86,7 +86,7 @@ class Scorer(object):
                     raise Exception(msg)
                 self.custom_metric_map[metric_name] = metric_fn
 
-    def score(self, model, task, target_metrics):
+    def score(self, model, task, target_metrics=[], split=None):
         """
         Calculates and returns a metrics_dict for a given task
 
@@ -94,7 +94,9 @@ class Scorer(object):
             model: MetalModel to score (data will be moved to the same device as model)
             task: Task to calculate metrics on
             target_metrics: List of full metric names (task/split/metric) or
-                (split/metric) to be calculated.
+                (split/metric) to be calculated; if empty, calculate all metrics
+                supported by this scorer.
+            split: If not-None, only calculate metrics for this split
         Returns:
             a metrics_dict object of the form:
                 {task/split/metric1 : score1, ...., task/split/metricN: score N}
@@ -102,20 +104,11 @@ class Scorer(object):
         metrics_dict = {}
 
         # Identify splits and functions required to collect the target_metrics
-        target_standard_metrics = defaultdict(set)
-        target_custom_metrics = defaultdict(set)
-        for full_metric_name in target_metrics:
-            target_task, split, metric = self._split_full_metric(full_metric_name)
-            if target_task != task.name:
-                continue
-            if metric in self.standard_metrics:
-                target_standard_metrics[split].add(metric)
-            elif metric in self.custom_metric_map:
-                target_custom_metrics[split].add(metric)
-            else:
-                msg = f"Target metric {full_metric_name} is not supported by the Scorer for task {task.name}"
-                raise Exception(msg)
+        target_standard_metrics, target_custom_metrics = self._extract_target_metrics(
+            task, target_metrics, split
+        )
 
+        # Calculate the requested metrics for each split of this task
         for split in task.data_loaders:
             if not (target_standard_metrics[split] or not target_custom_metrics[split]):
                 continue
@@ -156,6 +149,40 @@ class Scorer(object):
                     metrics_dict[full_metric_name] = score
 
         return metrics_dict
+
+    def _extract_target_metrics(self, task, target_metrics, only_split):
+        """Creates dictionaries of target standard and custom metrics by split
+
+        If target_metrics is empty, calculate all metrics supported by this scorer.
+        If only_split is not None, only target metrics for that split.
+        """
+        target_standard_metrics = defaultdict(set)
+        target_custom_metrics = defaultdict(set)
+        if not target_metrics:
+            # Add all metrics for every split (unless only_split is not None)
+            for split in task.data_loaders:
+                if only_split and split != only_split:
+                    continue
+                target_standard_metrics[split] = self.standard_metrics
+                target_custom_metrics[split] = [
+                    f for f in self.custom_metric_funcs.keys()
+                ]
+        else:
+            # Separate metrics by specified split
+            for full_metric_name in target_metrics:
+                target_task, split, metric = self._split_full_metric(full_metric_name)
+                if target_task != task.name:
+                    continue
+                if only_split and split != only_split:
+                    continue
+                if metric in self.standard_metrics:
+                    target_standard_metrics[split].add(metric)
+                elif metric in self.custom_metric_map:
+                    target_custom_metrics[split].add(metric)
+                else:
+                    msg = f"Target metric {full_metric_name} is not supported by the Scorer for task {task.name}"
+                    raise Exception(msg)
+        return target_standard_metrics, target_custom_metrics
 
     def _split_full_metric(self, full_metric):
         """Splits a full metric name (task/split/name or split/name) into its pieces"""

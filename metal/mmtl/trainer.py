@@ -82,7 +82,13 @@ trainer_config = {
         #   0: do not calculate or log metrics
         #   otherwise: must be a multiple of log_every
         "score_every": None,
-        "score_metrics": [],  # The list of metrics (task/split/metric)
+        # The list of metrics (task/split/metric) to calculate; if empty, calculate
+        # all metrics supported by all Scorers.
+        "score_metrics": [],
+        # The name of the split to run scoring on during training
+        "valid_split": "valid",
+        # The name of the split to run final evaluation on after training
+        "test_split": "test",
         # If non-None, only calculate and report these metrics every `score_every`
         # units (this can include the names of built-in and user-defined metrics);
         # otherwise, include all metrics returned by task Scorers.
@@ -235,7 +241,8 @@ class MultitaskTrainer(object):
         # Print final performance values
         if self.config["verbose"]:
             print("Finished Training")
-            metrics_dict = self.calculate_metrics(model, tasks)
+            test_split = self.config["logger_config"]["test_split"]
+            metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
             pprint(metrics_dict)
 
     def _execute_logging(self, model, tasks, batch_size):
@@ -248,7 +255,8 @@ class MultitaskTrainer(object):
             self._reset_losses()
             self.logger.loss_ticks += 1
         if self.logger.metrics_time():
-            metrics_dict.update(self.calculate_metrics(model, tasks))
+            valid_split = self.config["logger_config"]["valid_split"]
+            metrics_dict.update(self.calculate_metrics(model, tasks, split=valid_split))
             self.logger.loss_ticks = 0
         if self.logger.loss_time() or self.logger.metrics_time():
             # Log to screen/file/TensorBoard
@@ -282,11 +290,11 @@ class MultitaskTrainer(object):
         metrics_dict["train/loss"] = total_loss / total_examples
         return metrics_dict
 
-    def calculate_metrics(self, model, tasks):
+    def calculate_metrics(self, model, tasks, split=None):
         metrics_dict = {}
         score_metrics = self.config["logger_config"]["score_metrics"]
         for task in tasks:
-            task_metrics = task.scorer.score(model, task, score_metrics)
+            task_metrics = task.scorer.score(model, task, score_metrics, split)
             metrics_dict.update(task_metrics)
         return metrics_dict
 
