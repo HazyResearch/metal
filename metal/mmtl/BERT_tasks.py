@@ -111,7 +111,7 @@ def create_tasks(
                     dataloaders,
                     bert_encoder,
                     BertBinaryHead(bert_output_dim),
-                    Scorer(standard_metrics=["accuracy"]),
+                    Scorer(standard_metrics=["accuracy", "f1"]),
                 )
             )
 
@@ -122,7 +122,7 @@ def create_tasks(
                     dataloaders,
                     bert_encoder,
                     BertBinaryHead(bert_output_dim),
-                    Scorer(standard_metrics=["accuracy"]),
+                    Scorer(standard_metrics=["accuracy", "f1"]),
                 )
             )
 
