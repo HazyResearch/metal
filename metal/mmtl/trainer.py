@@ -156,11 +156,12 @@ class MultitaskTrainer(object):
         # That code goes here
 
         # Placing model on multiple GPUs if available
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        if torch.cuda.device_count() > 1:
-            print("Training with", torch.cuda.device_count(), "GPUs!")
-            model = torch.nn.DataParallel(model)
-        model.to(device)
+        #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        #gpus_avail = torch.cuda.device_count() 
+        #if gpus_avail > 1:
+        #    print("Training with", torch.cuda.device_count(), "GPUs!")
+        #    device_ids = list(range(gpus_avail))
+        #model = torch.nn.DataParallel(model, device_ids=device_ids)
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -254,6 +255,7 @@ class MultitaskTrainer(object):
             self._reset_losses()
             self.logger.loss_ticks += 1
         if self.logger.metrics_time():
+            #import ipdb; ipdb.set_trace()
             metrics_dict.update(self.calculate_metrics(model, tasks))
             self.logger.loss_ticks = 0
         if self.logger.loss_time() or self.logger.metrics_time():
