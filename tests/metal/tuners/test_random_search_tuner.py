@@ -97,6 +97,7 @@ class RandomSearchModelTunerTest(unittest.TestCase):
             "middle_batchnorm": False,
             "layer_out_dims": [2, 10, 2],
             "verbose": False,
+            "checkpoint": False,
         }
         search_space = {"middle_dropout": [0.0, 1.0]}
         tuner.search(
