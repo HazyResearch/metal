@@ -10,8 +10,21 @@ class BertEncoder(nn.Module):
 
     def forward(self, data):
         tokens, segments, mask = data
-        _, hidden_layer = self.bert_model(tokens, segments, mask)
+        output_layer, hidden_layer = self.bert_model(
+            tokens, segments, mask, output_all_encoded_layers=False
+        )
+        output_layer = self.dropout(output_layer)
         hidden_layer = self.dropout(hidden_layer)
+        return output_layer, hidden_layer
+
+
+class BertHiddenLayer(nn.Module):
+    def __init__(self, bert_model):
+        super(BertHiddenLayer, self).__init__()
+        self.bert_model = bert_model
+
+    def forward(self, data):
+        _, hidden_layer = self.bert_model.forward(data)
         return hidden_layer
 
 
