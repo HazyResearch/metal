@@ -311,7 +311,7 @@ class COLADataset(BERTDataset):
 class MNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         labels = ["contradiction", "entailment", "neutral"]
-        split = "dev_matched" if split == "dev" else "train"
+        # split = "dev_matched" if split == "dev" else "train"
         super(MNLIDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("MNLI", split),
             sent1_idx=8,
