@@ -2,6 +2,7 @@ from collections import defaultdict
 
 import numpy as np
 
+from metal.logging.utils import join_full_metric, split_full_metric
 from metal.metrics import METRICS as STANDARD_METRICS, metric_score
 from metal.mmtl.utils import utils
 
@@ -59,7 +60,8 @@ class Scorer(object):
 
             where metric_fn is a function of the form:
 
-            metric_fn1(Y, Y_preds, probs=Y_probs) -> {metric1a: value1, ..., metric1z: valueN}
+            metric_fn1(Y, Y_preds, probs=Y_probs) ->
+                {metric1a: value1, ..., metric1z: valueN}
 
             Note that metric_names will automatically have task and split prefixes
             added by the Scorer;
@@ -69,10 +71,16 @@ class Scorer(object):
         self.standard_metrics = standard_metrics
         for metric_name in standard_metrics:
             if "/" in metric_name:
-                msg = f"Standard metrics at Scorer initialization time must not include task or split name, but you submitted: {metric_name}"
+                msg = (
+                    f"Standard metrics at Scorer initialization time must not "
+                    "include task or split name, but you submitted: {metric_name}"
+                )
                 raise Exception(msg)
             if metric_name not in STANDARD_METRICS:
-                msg = f"Requested standard metric {metric_name} could not be found in metrics.py."
+                msg = (
+                    f"Requested standard metric {metric_name} could not be found in "
+                    "metrics.py."
+                )
                 raise Exception(msg)
 
         # Create a map from custom metric names to the function that creates them
@@ -82,7 +90,10 @@ class Scorer(object):
             assert isinstance(metric_names, list)
             for metric_name in metric_names:
                 if "/" in metric_name:
-                    msg = f"Metrics produced by custom_metric_funcs must not include task or split name, but you submitted: {metric_name}."
+                    msg = (
+                        f"Metrics produced by custom_metric_funcs must not include "
+                        f"task or split name, but you submitted: {metric_name}."
+                    )
                     raise Exception(msg)
                 self.custom_metric_map[metric_name] = metric_fn
 
@@ -130,7 +141,7 @@ class Scorer(object):
             # From the labels and predictions calculate metrics
             for metric in target_standard_metrics[split]:
                 score = metric_score(Y, Y_preds, metric, probs=Y_probs)
-                full_metric_name = self._join_full_metric(task.name, split, metric)
+                full_metric_name = join_full_metric(task.name, split, metric)
                 metrics_dict[full_metric_name] = score
 
             # Calculate custom fns
@@ -143,9 +154,13 @@ class Scorer(object):
                             for func, metrics in self.custom_metric_funcs
                             if func == custom_metric_func
                         ][0]
-                        msg = f"Custom metric func {custom_metric_func} yielded a metric `{metric}` that was not included in the list of corresponding metrics: {expected_metrics}"
+                        msg = (
+                            f"Custom metric func {custom_metric_func} yielded a "
+                            f"metric `{metric}` that was not included in the list "
+                            f"of corresponding metrics: {expected_metrics}"
+                        )
                         raise Exception(msg)
-                    full_metric_name = self._join_full_metric(task.name, split, metric)
+                    full_metric_name = join_full_metric(task.name, split, metric)
                     metrics_dict[full_metric_name] = score
 
         return metrics_dict
@@ -170,7 +185,7 @@ class Scorer(object):
         else:
             # Separate metrics by specified split
             for full_metric_name in target_metrics:
-                target_task, split, metric = self._split_full_metric(full_metric_name)
+                target_task, split, metric = split_full_metric(full_metric_name)
                 if target_task != task.name:
                     continue
                 if only_split and split != only_split:
@@ -180,23 +195,9 @@ class Scorer(object):
                 elif metric in self.custom_metric_map:
                     target_custom_metrics[split].add(metric)
                 else:
-                    msg = f"Target metric {full_metric_name} is not supported by the Scorer for task {task.name}"
+                    msg = (
+                        f"Target metric {full_metric_name} is not supported by the "
+                        f"Scorer for task {task.name}"
+                    )
                     raise Exception(msg)
         return target_standard_metrics, target_custom_metrics
-
-    def _split_full_metric(self, full_metric):
-        """Splits a full metric name (task/split/name or split/name) into its pieces"""
-        pieces = full_metric.split("/")
-        if len(pieces) == 2:
-            split, name = pieces
-            task = None
-        elif len(pieces) == 3:
-            task, split, name = pieces
-        else:
-            msg = f"Required a full metric name (task/split/name or split/name) but instead received: {full_metric}"
-            raise Exception(msg)
-        return task, split, name
-
-    def _join_full_metric(self, task, split, metric):
-        """Creates a full  metric name from its component pieces"""
-        return f"{task}/{split}/{metric}"

@@ -86,6 +86,7 @@ trainer_config = {
         # all metrics supported by all Scorers.
         "score_metrics": [],
         # The name of the split to run scoring on during training
+        # To score over multiple splits, set valid_split=None and use score_metrics
         "valid_split": "valid",
         # The name of the split to run final evaluation on after training
         "test_split": "test",
@@ -128,7 +129,6 @@ class MultitaskTrainer(object):
 
     def __init__(self, config={}):
         self.config = recursive_merge_dicts(trainer_config, config)
-        self._normalize_metric_names()
 
     def train_model(self, model, tasks, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
@@ -255,6 +255,7 @@ class MultitaskTrainer(object):
             self._reset_losses()
             self.logger.loss_ticks += 1
         if self.logger.metrics_time():
+            # Unless valid_split is None, Scorers will only score on one split
             valid_split = self.config["logger_config"]["valid_split"]
             metrics_dict.update(self.calculate_metrics(model, tasks, split=valid_split))
             self.logger.loss_ticks = 0
@@ -352,12 +353,13 @@ class MultitaskTrainer(object):
     def _set_checkpointer(self):
         if self.config["checkpoint"]:
             checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
-            if checkpoint_metric != "train/loss" and not any(
-                task_name in checkpoint_metric for task_name in self.task_names
-            ):
-                raise Exception(
-                    "checkpoint_metric must be train/loss or else must include task name; e.g., task/split/metric or task/metric (with assumed split='valid')"
+            score_metrics = self.config["logger_config"]["score_metrics"]
+            if score_metrics and checkpoint_metric not in score_metrics:
+                msg = (
+                    "checkpoint_metric must be a metric in score_metrics if "
+                    "score_metrics is not empty"
                 )
+                raise Exception(msg)
             self.checkpointer = Checkpointer(
                 self.config["checkpoint_config"], verbose=self.config["verbose"]
             )
@@ -444,12 +446,3 @@ class MultitaskTrainer(object):
     #                     self.lr_scheduler.step(score)
     #             else:
     #                 self.lr_scheduler.step()
-
-    def _normalize_metric_names(self):
-        # TODO: expand and check metric names in log_[valid/train]_metrics, checkpoint_metric, and writer_metrics
-        # add train/valid based on log_train_metrics or log_valid_metrics
-        # check if task names are required and not included (e.g., if multitask)
-        pass
-
-    def _expand_metric_name(self, metric, split, task):
-        return f"task/split/{metric.split('/')[-1]}"

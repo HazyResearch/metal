@@ -24,11 +24,15 @@ class Checkpointer(object):
         self.checkpoint_dir = config["checkpoint_dir"]
         self.checkpoint_runway = config["checkpoint_runway"]
 
-        # If abbreviated metric name was used, expand here to valid/ by default
-        # TODO: Remove this when merging mmtl branch into master and perform this check
-        # inside of _set_checkpointer instead.
-        if "/" not in self.checkpoint_metric:
-            self.checkpoint_metric = "valid/" + self.checkpoint_metric
+        if (
+            self.checkpoint_metric != "train/loss"
+            and self.checkpoint_metric.count("/") != 2
+        ):
+            msg = (
+                f"checkpoint_metric must be train/loss or have a full metric name "
+                f"(task/split/metric); you submitted: {self.checkpoint_metric}"
+            )
+            raise Exception(msg)
 
         # Create checkpoint directory if necessary
         if not os.path.exists(self.checkpoint_dir):

@@ -1,9 +1,6 @@
 from functools import partial
-from typing import Callable, List
 
-import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
 from metal.mmtl.scorer import Scorer
 
