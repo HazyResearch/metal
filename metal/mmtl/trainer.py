@@ -155,6 +155,13 @@ class MultitaskTrainer(object):
         # TODO: Restore the ability to resume training from a given epoch
         # That code goes here
 
+        # Placing model on multiple GPUs if available
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.device_count() > 1:
+            print("Training with", torch.cuda.device_count(), "GPUs!")
+            model = torch.nn.DataParallel(model)
+        model.to(device)
+
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
         model.train()
