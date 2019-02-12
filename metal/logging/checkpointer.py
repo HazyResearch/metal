@@ -24,16 +24,6 @@ class Checkpointer(object):
         self.checkpoint_dir = config["checkpoint_dir"]
         self.checkpoint_runway = config["checkpoint_runway"]
 
-        if (
-            self.checkpoint_metric != "train/loss"
-            and self.checkpoint_metric.count("/") != 2
-        ):
-            msg = (
-                f"checkpoint_metric must be train/loss or have a full metric name "
-                f"(task/split/metric); you submitted: {self.checkpoint_metric}"
-            )
-            raise Exception(msg)
-
         # Create checkpoint directory if necessary
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)

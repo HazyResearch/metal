@@ -353,6 +353,12 @@ class MultitaskTrainer(object):
     def _set_checkpointer(self):
         if self.config["checkpoint"]:
             checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
+            if checkpoint_metric != "train/loss" and checkpoint_metric.count("/") != 2:
+                msg = (
+                    f"checkpoint_metric must be train/loss or have a full metric name "
+                    f"(task/split/metric); you submitted: {checkpoint_metric}"
+                )
+                raise Exception(msg)
             score_metrics = self.config["logger_config"]["score_metrics"]
             if score_metrics and checkpoint_metric not in score_metrics:
                 msg = (
