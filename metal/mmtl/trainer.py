@@ -59,7 +59,8 @@ trainer_config = {
     # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
     "lr_scheduler_config": {
         # Freeze learning rate initially this many epochs
-        "lr_freeze": 0,
+        # "lr_freeze": 0,
+        # Linearly increase lr from "lr_cold" to "lr" over this many steps (batches)
         # Scheduler - exponential
         "exponential_config": {"gamma": 0.9},  # decay rate
         # Scheduler - reduce_on_plateau
@@ -81,6 +82,7 @@ trainer_config = {
         #   0: do not calculate or log metrics
         #   otherwise: must be a multiple of log_every
         "score_every": None,
+        "score_metrics": [],  # The list of metrics (task/split/metric)
         # If non-None, only calculate and report these metrics every `score_every`
         # units (this can include the names of built-in and user-defined metrics);
         # otherwise, include all metrics returned by task Scorers.
@@ -202,9 +204,11 @@ class MultitaskTrainer(object):
 
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(model, tasks, batch_size)
-
                 # Update most recently seen value of each metric
                 self.metrics_hist.update(metrics_dict)
+
+                # Apply learning rate scheduler
+                # self._update_scheduler(batch_num, metrics_hist)
 
                 # tqdm output
                 if len(tasks) == 1:
@@ -215,9 +219,6 @@ class MultitaskTrainer(object):
                         if "loss" in key:
                             losses[key] = metrics_dict[key]
                     t.set_postfix(losses)
-
-            # Apply learning rate scheduler
-            # self._update_scheduler(epoch, metrics_hist)
 
         model.eval()
 
@@ -283,8 +284,9 @@ class MultitaskTrainer(object):
 
     def calculate_metrics(self, model, tasks):
         metrics_dict = {}
+        score_metrics = self.config["logger_config"]["score_metrics"]
         for task in tasks:
-            task_metrics = task.scorer.score(model, task)
+            task_metrics = task.scorer.score(model, task, score_metrics)
             metrics_dict.update(task_metrics)
         return metrics_dict
 
@@ -420,6 +422,20 @@ class MultitaskTrainer(object):
                     f"Did not recognize lr_scheduler option '{lr_scheduler}'"
                 )
         self.lr_scheduler = lr_scheduler
+
+    # def _update_scheduler(self, epoch, metrics_dict):
+    #     """Optionally update the learning rate scheduler with each batch"""
+    #     if self.lr_scheduler is not None:
+    #         lr_scheduler_config = train_config["lr_scheduler_config"]
+    #         if epoch + 1 >= lr_scheduler_config["lr_freeze"]:
+    #             if train_config["lr_scheduler"] == "reduce_on_plateau":
+    #                 checkpoint_config = train_config["checkpoint_config"]
+    #                 metric_name = checkpoint_config["checkpoint_metric"]
+    #                 score = metrics_dict.get(metric_name, None)
+    #                 if score is not None:
+    #                     self.lr_scheduler.step(score)
+    #             else:
+    #                 self.lr_scheduler.step()
 
     def _normalize_metric_names(self):
         # TODO: expand and check metric names in log_[valid/train]_metrics, checkpoint_metric, and writer_metrics

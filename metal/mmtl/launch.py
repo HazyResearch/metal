@@ -69,7 +69,7 @@ parser.add_argument(
 parser.add_argument(
     "--checkpoint-metric-mode",
     type=str,
-    default="max",
+    default="min",  # assuming default metric is loss
     help="Whether to save max or min.",
 )
 parser.add_argument(
@@ -180,8 +180,8 @@ if __name__ == "__main__":
     model = MetalModel(tasks, verbose=False, device=args.device)
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **trainer_config)
-    test_scorer = Scorer(["test/accuracy"])
     for task in tasks:
-        scores = test_scorer.score(model, task, split="test")
+        # TODO: replace with split="test" when we support this
+        scores = task.scorer.score(model, task, split="valid")
         print(scores)
     print(os.path.join(run_dir, run_name))
