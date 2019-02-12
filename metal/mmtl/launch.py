@@ -1,3 +1,7 @@
+"""
+Example command to run all 9 tasks: python launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint-dir ckpt --batch-size 16
+"""
+
 import argparse
 import datetime
 import json
@@ -5,7 +9,7 @@ import os
 
 import numpy as np
 
-from metal.mmtl.BERT_tasks import create_task
+from metal.mmtl.BERT_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer
@@ -15,7 +19,9 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
-parser.add_argument("--tasks", type=str, help="Task list e.g. QNLI-QQP")
+parser.add_argument(
+    "--tasks", required=True, type=str, help="Comma-sep task list e.g. QNLI,QQP"
+)
 parser.add_argument(
     "--bert-model",
     type=str,
@@ -49,12 +55,16 @@ parser.add_argument(
 parser.add_argument("--log-every", type=float, default=0.25, help="Log frequency.")
 parser.add_argument("--score-every", type=float, default=0.5, help="Scoring frequency.")
 parser.add_argument(
-    "--checkpoint-dir", type=str, help="Where to save the best model and logs."
+    "--checkpoint-dir",
+    required=True,
+    type=str,
+    help="Where to save the best model and logs.",
 )
 parser.add_argument(
     "--checkpoint-metric",
     type=str,
     help="Which metric to use to checkpoint best model.",
+    default="train/loss",
 )
 parser.add_argument(
     "--checkpoint-metric-mode",
@@ -156,18 +166,16 @@ if __name__ == "__main__":
             trainer_config = json.loads(f.read())
 
     tasks = []
-    for task_name in args.tasks.split(","):
-        tasks.append(
-            create_task(
-                task_name=task_name,
-                bert_model=args.bert_model,
-                split_prop=0.8,
-                max_len=args.max_len,
-                dl_kwargs={"batch_size": args.batch_size},
-                bert_output_dim=args.bert_output_dim,
-                max_datapoints=args.max_datapoints,
-            )
-        )
+    task_names = [task_name for task_name in args.tasks.split(",")]
+    tasks = create_tasks(
+        task_names=task_names,
+        bert_model=args.bert_model,
+        split_prop=0.8,
+        max_len=args.max_len,
+        dl_kwargs={"batch_size": args.batch_size},
+        bert_output_dim=args.bert_output_dim,
+        max_datapoints=args.max_datapoints,
+    )
 
     model = MetalModel(tasks, verbose=False, device=args.device)
     trainer = MultitaskTrainer()
