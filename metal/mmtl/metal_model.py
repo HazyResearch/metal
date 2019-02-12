@@ -71,7 +71,7 @@ class MetalModel(nn.Module):
         for task in tasks:
             input_module = self.input_modules[task.name]
             head_module = self.head_modules[task.name]
-            task_paths[task.name] = nn.Sequential(input_module, head_module)
+            task_paths[task.name] = nn.DataParallel(nn.Sequential(input_module, head_module))
         self.task_paths = nn.ModuleDict(task_paths)
 
     def forward(self, X, task_names):
