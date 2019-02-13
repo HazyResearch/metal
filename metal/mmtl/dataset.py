@@ -60,7 +60,7 @@ class BERTDataset(data.Dataset):
             label_fn: function mapping from raw labels to desired format
             label_type: data type (int, float) of labels. used to cast values downstream.
         """
-
+        print("Loading BERT model...")
         tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         tokens, segments, labels = self.load_tsv(
             tsv_path,

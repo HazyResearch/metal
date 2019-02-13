@@ -2,8 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from metal.analysis import confusion_matrix
-from metal.metrics import metric_score
 from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts
 

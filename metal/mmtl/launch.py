@@ -9,9 +9,8 @@ import os
 
 import numpy as np
 
-from metal.mmtl.BERT_tasks import create_tasks
+from metal.mmtl.bert_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer, trainer_config
 
 
@@ -143,7 +142,6 @@ if __name__ == "__main__":
         with open(args.override_train_config, "r") as f:
             config = json.loads(f.read())
 
-    tasks = []
     task_names = [task_name for task_name in args.tasks.split(",")]
     tasks = create_tasks(
         task_names=task_names,
