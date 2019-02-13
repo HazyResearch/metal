@@ -228,6 +228,7 @@ class MultitaskTrainer(object):
         # Restore best model if applicable
         if self.checkpointer and self.checkpointer.checkpoint_best:
             self.checkpointer.load_best_model(model=model)
+            # Copy best model to log directory
             if self.writer:
                 path_to_best = os.path.join(
                     self.checkpointer.checkpoint_dir, "best_model.pth"
