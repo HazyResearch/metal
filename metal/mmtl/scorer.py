@@ -121,7 +121,7 @@ class Scorer(object):
 
         # Calculate the requested metrics for each split of this task
         for split in task.data_loaders:
-            if not (target_standard_metrics[split] or not target_custom_metrics[split]):
+            if not (target_standard_metrics[split] or target_custom_metrics[split]):
                 continue
 
             # Calculate probs and preds in batches from data_loader
