@@ -1,17 +1,11 @@
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from metal.classifier import Classifier
-from metal.end_model.em_defaults import em_default_config
-from metal.end_model.identity_module import IdentityModule
-from metal.end_model.loss import SoftCrossEntropyLoss
-from metal.utils import (
-    MetalDataset,
-    move_to_device,
-    pred_to_prob,
-    recursive_merge_dicts,
-)
+from metal.analysis import confusion_matrix
+from metal.metrics import metric_score
+from metal.mmtl.utils.utils import stack_batches
+from metal.utils import move_to_device, recursive_merge_dicts
 
 model_config = {
     "seed": None,
@@ -108,3 +102,135 @@ class MetalModel(nn.Module):
     def update_config(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
+
+    def load_weights(self, model_path, device):
+        """Load model weights from checkpoint"""
+        if self.config["device"] >= 0:
+            map_location = f"cuda:{self.config['device']}"
+        else:
+            map_location = "cpu"
+        self.load_state_dict(torch.load(model_path, map_location=map_location)["model"])
+
+    def save_weights(self, model_path):
+        """Saves weight in checkpoint directory"""
+        raise NotImplementedError
+
+    # Single task prediction helpers (for convenience)
+
+    @torch.no_grad()
+    def predict_probs(self, task, split):
+        """Predict probs for a single task and split
+
+        Returns:
+            probs: an [n, k] np.ndarray of probabilities
+        """
+        _, Y_probs = self._predict_probs(task, split)
+        return Y_probs
+
+    @torch.no_grad()
+    def predict(self, task, split, return_probs=False, **kwargs):
+        """Predict preds for a single task and split (and optionally return probs)
+
+        Returns:
+            preds: an [n, 1] np.ndarray of probabilities
+            probs: (optional) an [n, k] np.ndarray of probabilities if return_probs=True
+        """
+        _, Y_probs, Y_preds = self._predict_probs(
+            task, split, return_preds=True, **kwargs
+        )
+        if return_probs:
+            return Y_preds, Y_probs
+        else:
+            return Y_preds
+
+    @torch.no_grad()
+    def score(self, task, split, metrics, verbose=True, **kwargs):
+        """Calculate one or more metrics for a single task and split
+
+        Args:
+            task: a Task
+            split: a target split to score on
+            metrics: a list of simple metric names supported by the task's Scorer
+                (optionally a string may be passed instead and a single score returned)
+
+        Returns:
+            scores: a list of scores corresponding to the requested metrics
+                (optionally a single score if metrics is a string instead of a list)
+        """
+        return_list = isinstance(metrics, list)
+        metrics_list = metrics if isinstance(metrics, list) else [metrics]
+        target_metrics = [f"{task.name}/{split}/{metric}" for metric in metrics_list]
+        metrics_dict = task.scorer.score(self, task, target_metrics=target_metrics)
+
+        scores = []
+        for metric in target_metrics:
+            score = metrics_dict[metric]
+            scores.append(score)
+            if self.config["verbose"]:
+                print(f"{metric.capitalize()}: {score:.3f}")
+
+        # If a single metric was given as a string (not list), return a float
+        if len(scores) == 1 and not return_list:
+            return scores[0]
+        else:
+            return scores
+
+    @torch.no_grad()
+    def _predict_probs(self, task, split, return_preds=False, **kwargs):
+        """Unzips the dataloader of a task's split and returns Y, Y_prods, Y_preds
+
+        Note: it is generally preferable to use predict() or predict_probs() unless
+            the gold labels Y are requires as well.
+
+        Returns:
+            Y: [n, 1] np.ndarray of ints
+            Y_preds: [n, 1] np.ndarray of ints
+            Y_probs: [n, k] np.ndarray of floats
+        """
+        Y = []
+        Y_probs = []
+        for batch_num, batch in enumerate(task.data_loaders[split]):
+            Xb, Yb = batch
+            Y.append(Yb)
+            Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
+
+        # Stack batches
+        Y = stack_batches(Y).astype(np.int)
+        Y_probs = stack_batches(Y_probs).astype(np.float)
+        if return_preds:
+            Y_preds = self._break_ties(Y_probs, **kwargs).astype(np.int)
+            return Y, Y_probs, Y_preds
+        else:
+            return Y, Y_probs
+
+    def _break_ties(self, Y_probs, break_ties="random"):
+        """Break ties in each row of a tensor according to the specified policy
+
+        Args:
+            Y_probs: An [n, k] np.ndarray of probabilities
+            break_ties: A tie-breaking policy:
+                "abstain": return an abstain vote (0)
+                "random": randomly choose among the tied options
+                    NOTE: if break_ties="random", repeated runs may have
+                    slightly different results due to difference in broken ties
+                [int]: ties will be broken by using this label
+        """
+        n, k = Y_probs.shape
+        Y_preds = np.zeros(n)
+        diffs = np.abs(Y_probs - Y_probs.max(axis=1).reshape(-1, 1))
+
+        TOL = 1e-5
+        for i in range(n):
+            max_idxs = np.where(diffs[i, :] < TOL)[0]
+            if len(max_idxs) == 1:
+                Y_preds[i] = max_idxs[0] + 1
+            # Deal with "tie votes" according to the specified policy
+            elif break_ties == "random":
+                Y_preds[i] = np.random.choice(max_idxs) + 1
+            elif break_ties == "abstain":
+                Y_preds[i] = 0
+            elif isinstance(break_ties, int):
+                Y_preds[i] = break_ties
+            else:
+                ValueError(f"break_ties={break_ties} policy not recognized.")
+        return Y_preds

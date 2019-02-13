@@ -40,7 +40,8 @@ import paramiko
 
 from metal.mmtl.aws import grid_search_mmtl
 
-IMAGE_ID = "ami-0c82a5c425d9da154"
+# IMAGE_ID = "ami-0c82a5c425d9da154" # For West
+IMAGE_ID = "ami-00c3121fe244c7557"  # For East
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -48,7 +49,7 @@ parser.add_argument(
 )
 parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
-parser.add_argument("--region", default="us-west-1")
+parser.add_argument("--region", default="us-east-1")
 parser.add_argument("--n_machines", default=2)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
@@ -175,19 +176,32 @@ def create_ec2_client(args):
     return ec2_client, ec2_resource
 
 
-def get_instances(args):
+def get_user(instance):
+    for tag in instance.tags:
+        if "Key" in tag and "Value" in tag:
+            if tag["Key"] == "user":
+                return tag["Value"]
+    return "UNKNOWN"
+
+
+def get_instances(args, filter_by_user=True):
     ec2_client, ec2_resource = create_ec2_client(args)
-    return ec2_resource.instances.filter()
+    instances = ec2_resource.instances.filter()
+    if filter_by_user:
+        instances = [x for x in instances if get_user(x) == os.environ["USER"]]
+    return instances
 
 
 def describe_instances(args):
-    instances = get_instances(args)
+
+    instances = get_instances(args, filter_by_user=False)
     for instance in instances:
         print(
-            "%s, state: %s\n\tssh -i %s ubuntu@%s"
+            "%s, state: %s, user: %s\n\tssh -i %s ubuntu@%s"
             % (
                 instance.id,
                 instance.state["Name"],
+                get_user(instance),
                 args.keypath,
                 instance.public_ip_address,
             )
@@ -202,6 +216,12 @@ def launch(args):
         MaxCount=args.n_machines,
         KeyName=os.path.basename(args.keypath).split(".")[0],
         InstanceType=args.instance_type,
+    )
+
+    # Tag with user
+    ec2_client.create_tags(
+        Resources=[x.id for x in instances],
+        Tags=[{"Key": "user", "Value": os.environ["USER"]}],
     )
 
     print("Waiting for instances: %s" % str([x.id for x in instances]))
