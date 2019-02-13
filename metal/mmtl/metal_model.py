@@ -108,3 +108,15 @@ class MetalModel(nn.Module):
     def update_config(self, update_dict):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
+
+    def load_weights(self, model_path, device):
+        if self.config["device"] >= 0:
+            map_location = f"cuda:{self.config['device']}"
+        else:
+            map_location = "cpu"
+            self.load_state_dict(
+                torch.load(model_path, map_location=map_location)["model"]
+            )
+
+    def save_weights(self, model_path):
+        pass
