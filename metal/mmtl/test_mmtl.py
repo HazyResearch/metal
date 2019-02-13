@@ -20,17 +20,18 @@ class MMTLTest(unittest.TestCase):
             "QNLI",
         ]
         cls.tasks = create_tasks(
-            task_names, max_datapoints=100, dl_kwargs={"batch_size": 8}
+            task_names, max_datapoints=100, max_len=200, dl_kwargs={"batch_size": 8}
         )
 
     def test_mmtl_training(self):
-        model = MetalModel(self.tasks)
-        trainer = MultitaskTrainer()
+        model = MetalModel(self.tasks, verbose=False)
+        trainer = MultitaskTrainer(verbose=False)
         trainer.train_model(
             model,
             self.tasks,
-            checkpoint_metric="train/loss",
-            checkpoint_metric_mode="min",
             n_epochs=1,
-            verbose=False,
         )
+
+
+if __name__ == "__main__":
+    unittest.main()
