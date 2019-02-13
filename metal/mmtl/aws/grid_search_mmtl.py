@@ -40,7 +40,6 @@ import random
 import numpy as np
 
 trainer_config_space = {
-    "device": -1,
     "verbose": True,
     "progress_bar": True,
     # "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True}, ## TODO?
@@ -55,7 +54,7 @@ trainer_config_space = {
         "adam_config": {
             "betas": (
                 # 0.9,
-                {"is_hyperparam": True, "range": [0.5, 0.9], "scale": "linear"},
+                {"is_hyperparam": True, "range": [0, 0.9], "scale": "linear"},
                 0.999,
             )
         },
@@ -142,6 +141,7 @@ def sample_random_config(config_space):
 
 def create_command_dict(config_path):
     COMMAND_PREFIX = (
+        "pkill -9 python;"  # Kill all python processes
         "source activate pytorch_p36;"
         "export GLUEDATA=/home/ubuntu/glue/;"  # Assumes ami has this here
         "rm -rf metal;"
@@ -149,7 +149,8 @@ def create_command_dict(config_path):
         "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
         "pwd;"
     )
-    COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n-epochs 2 --log-every 0.25 --score-every 0.25 --max-len 256 --batch-size 1 --checkpoint-dir ./checkpoint --checkpoint-metric QNLI/valid/accuracy --checkpoint-metric-mode max --max-datapoints 6 --override-train-config ../config --device -1"
+    # COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n_epochs 2 --log_every 0.25 --score_every 0.25 --max_len 256 --batch_size 8 --checkpoint_dir ./checkpoint --checkpoint_metric QNLI/valid/accuracy --checkpoint_metric_mode max --max_datapoints 32 --override_train_config ../config"
+    COMMAND = "python metal/mmtl/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 16 --n_epochs 1 --max_datapoints 128"
     return {
         "cmd": COMMAND_PREFIX + COMMAND,
         "files_to_put": [(config_path, "config")],
@@ -158,7 +159,7 @@ def create_command_dict(config_path):
     }
 
 
-def generate_configs_and_commands(args, n=3):
+def generate_configs_and_commands(args, n=2):
     configspace_path = "%s/configspace" % args.outputpath
     if not os.path.exists(configspace_path):
         os.makedirs(configspace_path)
