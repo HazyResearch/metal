@@ -149,7 +149,7 @@ def create_command_dict(config_path):
         "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
         "pwd;"
     )
-    COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n-epochs 2 --log-every 0.25 --score-every 0.25 --max-len 256 --batch-size 1 --checkpoint-dir ./checkpoint --checkpoint-metric QNLI/valid/accuracy --checkpoint-metric-mode max --max-datapoints 4 --override-train-config ../config --device -1"
+    COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n-epochs 2 --log-every 0.25 --score-every 0.25 --max-len 256 --batch-size 1 --checkpoint-dir ./checkpoint --checkpoint-metric QNLI/valid/accuracy --checkpoint-metric-mode max --max-datapoints 6 --override-train-config ../config --device -1"
     return {
         "cmd": COMMAND_PREFIX + COMMAND,
         "files_to_put": [(config_path, "config")],
