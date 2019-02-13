@@ -440,8 +440,13 @@ class Classifier(nn.Module):
 
     def _set_checkpointer(self, train_config):
         if train_config["checkpoint"]:
+            # Default to valid split for checkpoint metric
+            checkpoint_config = train_config["checkpoint_config"]
+            checkpoint_metric = checkpoint_config["checkpoint_metric"]
+            if checkpoint_metric.count("/") == 0:
+                checkpoint_config["checkpoint_metric"] = f"valid/{checkpoint_metric}"
             self.checkpointer = Checkpointer(
-                train_config["checkpoint_config"], verbose=self.config["verbose"]
+                checkpoint_config, verbose=self.config["verbose"]
             )
         else:
             self.checkpointer = None
