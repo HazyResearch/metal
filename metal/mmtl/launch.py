@@ -129,9 +129,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = merge_dicts(trainer_config, vars(args))
-    import IPython
 
-    IPython.embed()
     d = datetime.datetime.today()
     run_dir = os.path.join(
         os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}/{args.tasks}/")
