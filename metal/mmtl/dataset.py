@@ -255,7 +255,7 @@ class BERTDataset(data.Dataset):
 
 class QNLIDataset(BERTDataset):
     """
-    Torch dataset object for QNLI ranking task, to work with BERT architecture.
+    Torch dataset object for QNLI binary classification task, to work with BERT architecture.
     """
 
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
@@ -273,14 +273,22 @@ class QNLIDataset(BERTDataset):
         )
 
 
-class QNLIRankingDataset(BERTDataset):
+class QNLIRDataset(BERTDataset):
     """
-    Torch dataset object for QNLI ranking task, to work with BERT architecture.
+    Torch dataset object for QNLI pairwise ranking task, to work with BERT architecture.
+    The input tsv should be sorted such that every two consecutive lines
+    are pairs of positive and negative examples.
     """
 
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
-        super(QNLIRankingDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("QNLI", split),
+        self.split = split
+        max_datapoints *= 2  # make sure we take pairs
+        if self.split == "train":
+            dataset_folder = "QNLIR"
+        else:
+            dataset_folder = "QNLI"
+        super(QNLIRDataset, self).__init__(
+            tsv_path=tsv_path_for_dataset(dataset_folder, split),
             sent1_idx=1,
             sent2_idx=2,
             label_idx=3 if split in ["train", "dev"] else -1,
@@ -291,9 +299,29 @@ class QNLIRankingDataset(BERTDataset):
             max_len=max_len,
             max_datapoints=max_datapoints,
         )
+        if self.split == "train":
+            assert len(self.tokens) % 2 == 0
 
-    def group_in_pairs(self):
-        pass
+    def __getitem__(self, index):
+
+        if self.split == "train":
+            # overwrite __getitem__ to return pairs of examples
+            return (
+                (
+                    self.tokens[2 * index : 2 * index + 2],
+                    self.segments[2 * index : 2 * index + 2],
+                ),
+                self.labels[2 * index : 2 * index + 2],
+            )
+        else:
+            return super(QNLIRDataset, self).__getitem__(index)
+
+    def __len__(self):
+        # overwrite __len__
+        if self.split == "train":
+            return int(len(self.tokens) / 2)
+        else:
+            return super(QNLIRDataset, self).__len__()
 
 
 class STSBDataset(BERTDataset):
