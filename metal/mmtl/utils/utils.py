@@ -1,13 +1,9 @@
 import os
 import random
-import warnings
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from scipy.sparse import issparse
-from torch.utils.data import DataLoader, Dataset, TensorDataset
 
 
 def to_numpy(Z):
