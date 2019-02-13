@@ -156,10 +156,9 @@ if __name__ == "__main__":
     model = MetalModel(tasks, verbose=False, device=args.device)
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
+    # evaluate with all metrics
     for task in tasks:
-        # TODO: replace with split="test" when we support this
-        scores = task.scorer.score(
-            model, task, target_metrics=[f"{task.name}/test/accuracy"]
-        )
+        scores = task.scorer.score(model, task)
         print(scores)
-    print(os.path.join(run_dir, run_name))
+
+    print("Saved to:", os.path.join(run_dir, run_name))
