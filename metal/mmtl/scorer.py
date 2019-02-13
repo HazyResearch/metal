@@ -4,7 +4,7 @@ import numpy as np
 
 from metal.logging.utils import join_full_metric, split_full_metric
 from metal.metrics import METRICS as STANDARD_METRICS, metric_score
-from metal.mmtl.utils import utils
+from metal.mmtl.utils.utils import stack_batches
 
 
 """
@@ -121,22 +121,11 @@ class Scorer(object):
 
         # Calculate the requested metrics for each split of this task
         for split in task.data_loaders:
-            if not (target_standard_metrics[split] or not target_custom_metrics[split]):
+            if not (target_standard_metrics[split] or target_custom_metrics[split]):
                 continue
 
-            # Calculate probs and preds in batches from data_loader
-            Y_preds, Y, Y_probs = [], [], []
-            for batch_num, batch in enumerate(task.data_loaders[split]):
-                Xb, Yb = batch
-                Y.append(Yb)
-
-                Yb_probs = model.calculate_output(Xb, [task.name])[task.name]
-                Y_probs.append(Yb_probs)
-
-            # Stack batches
-            Y = utils.stack_batches(Y)
-            Y_probs = utils.stack_batches(Y_probs)
-            Y_preds = utils.break_ties(Y_probs, "random").astype(np.int)
+            # Calculate probs and preds from model
+            Y, Y_probs, Y_preds = model._predict_probs(task, split, return_preds=True)
 
             # From the labels and predictions calculate metrics
             for metric in target_standard_metrics[split]:
@@ -147,7 +136,7 @@ class Scorer(object):
             # Calculate custom fns
             for custom_metric_func in target_custom_metrics[split]:
                 custom_metric_dict = custom_metric_func(Y, Y_preds, probs=Y_probs)
-                for metric, score in custom_metric_dict:
+                for metric, score in custom_metric_dict.items():
                     if metric not in self.custom_metric_map:
                         expected_metrics = [
                             metrics

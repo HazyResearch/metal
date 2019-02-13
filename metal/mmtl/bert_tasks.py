@@ -15,7 +15,7 @@ from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.task import Task
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
-from metal.mmtl.utils.metrics import matthews_corr, pearson_corr, spearman_corr
+from metal.mmtl.utils.metrics import acc_f1, matthews_corr, pearson_spearman
 
 
 def create_tasks(
@@ -164,7 +164,7 @@ def create_tasks(
                     dataloaders,
                     bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
-                    Scorer(standard_metrics=["accuracy", "f1"]),
+                    Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
                 )
             )
 
@@ -192,7 +192,7 @@ def create_tasks(
                     dataloaders,
                     bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
-                    Scorer(standard_metrics=["accuracy", "f1"]),
+                    Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
                 )
             )
 
@@ -217,8 +217,11 @@ def create_tasks(
             scorer = Scorer(
                 standard_metrics=[],
                 custom_metric_funcs={
-                    pearson_corr: ["pearson_corr"],
-                    spearman_corr: ["spearman_corr"],
+                    pearson_spearman: [
+                        "pearson_corr",
+                        "spearman_corr",
+                        "pearson_spearman",
+                    ]
                 },
             )
 

@@ -60,7 +60,7 @@ class BERTDataset(data.Dataset):
             label_fn: function mapping from raw labels to desired format
             label_type: data type (int, float) of labels. used to cast values downstream.
         """
-
+        print("Loading BERT model...")
         tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         tokens, segments, labels = self.load_tsv(
             tsv_path,
@@ -300,7 +300,7 @@ class SST2Dataset(BERTDataset):
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: int(label) + 1,  # reserve 0 for abstain
+            label_fn=lambda label: 1 if label == "1" else 2,  # reserve 0 for abstain
             max_len=max_len,
             max_datapoints=max_datapoints,
         )
@@ -316,7 +316,7 @@ class COLADataset(BERTDataset):
             skip_rows=0,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: int(label) + 1,  # reserve 0 for abstain
+            label_fn=lambda label: 1 if label == "1" else 2,  # reserve 0 for abstain
             max_len=max_len,
             max_datapoints=max_datapoints,
         )
@@ -324,7 +324,7 @@ class COLADataset(BERTDataset):
 
 class MNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
-        labels = ["contradiction", "entailment", "neutral"]
+        labels = ["entailment", "contradiction", "neutral"]
         # split = "dev_matched" if split == "dev" else "train"
         super(MNLIDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("MNLI", split),
@@ -366,7 +366,7 @@ class WNLIDataset(BERTDataset):
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: int(label) + 1,
+            label_fn=lambda label: 1 if label == "1" else 2,
             max_len=max_len,
             max_datapoints=max_datapoints,
         )
@@ -382,7 +382,7 @@ class QQPDataset(BERTDataset):
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: int(label) + 1,
+            label_fn=lambda label: 1 if label == "1" else 2,
             max_len=max_len,
             max_datapoints=max_datapoints,
         )
@@ -398,7 +398,7 @@ class MRPCDataset(BERTDataset):
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
-            label_fn=lambda label: int(label) + 1,
+            label_fn=lambda label: 1 if label == "1" else 2,
             max_len=max_len,
             max_datapoints=max_datapoints,
         )

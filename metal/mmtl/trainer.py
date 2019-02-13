@@ -1,8 +1,8 @@
-import math
 import os
 import random
 from collections import defaultdict
 from pprint import pprint
+from shutil import copy2
 
 import torch
 import torch.optim as optim
@@ -76,12 +76,12 @@ trainer_config = {
     "logger_config": {
         "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
         # Report loss every this many log_units
-        "log_every": 1,
+        "log_every": 1.0,
         # Calculate and report metrics every this many log_units:
-        #   None: default to log_every
+        #   -1: default to log_every
         #   0: do not calculate or log metrics
         #   otherwise: must be a multiple of log_every
-        "score_every": None,
+        "score_every": -1.0,
         # The list of metrics (task/split/metric) to calculate; if empty, calculate
         # all metrics supported by all Scorers.
         "score_metrics": [],
@@ -127,8 +127,8 @@ trainer_config = {
 class MultitaskTrainer(object):
     """Driver for the MTL training process"""
 
-    def __init__(self, config={}):
-        self.config = recursive_merge_dicts(trainer_config, config)
+    def __init__(self, **kwargs):
+        self.config = recursive_merge_dicts(trainer_config, kwargs)
 
     def train_model(self, model, tasks, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
@@ -157,11 +157,7 @@ class MultitaskTrainer(object):
         self._set_logger(batches_per_epoch)
         self._set_checkpointer()
         self._set_optimizer(model)
-        # TODO: Accept training matrix to give more fine-tuned training commands
-        self._set_scheduler()
-
-        # TODO: Restore the ability to resume training from a given epoch
-        # That code goes here
+        self._set_scheduler()  # TODO: Support more detailed training schedules
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -231,6 +227,14 @@ class MultitaskTrainer(object):
         # Restore best model if applicable
         if self.checkpointer and self.checkpointer.checkpoint_best:
             self.checkpointer.load_best_model(model=model)
+            # Copy best model to log directory
+            if self.writer:
+                path_to_best = os.path.join(
+                    self.checkpointer.checkpoint_dir, "best_model.pth"
+                )
+                path_to_logs = self.writer.log_subdir
+                if os.path.isfile(path_to_best):
+                    copy2(path_to_best, path_to_logs)
 
         # Write log if applicable
         if self.writer:
@@ -341,7 +345,7 @@ class MultitaskTrainer(object):
     def _set_logger(self, batches_per_epoch):
         # If not provided, set score_every to log_every
         logger_config = self.config["logger_config"]
-        if logger_config["score_every"] is None:
+        if logger_config["score_every"] < 0:
             logger_config["score_every"] = logger_config["log_every"]
         self.logger = Logger(
             logger_config,

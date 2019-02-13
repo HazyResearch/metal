@@ -1,5 +1,5 @@
 import torch.nn as nn
-from pytorch_pretrained_bert import BertForMaskedLM, BertModel, BertTokenizer
+from pytorch_pretrained_bert import BertModel
 
 
 class BertEncoder(nn.Module):
