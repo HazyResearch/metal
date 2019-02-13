@@ -26,11 +26,7 @@ class MMTLTest(unittest.TestCase):
     def test_mmtl_training(self):
         model = MetalModel(self.tasks, verbose=False)
         trainer = MultitaskTrainer(verbose=False)
-        trainer.train_model(
-            model,
-            self.tasks,
-            n_epochs=1,
-        )
+        trainer.train_model(model, self.tasks, n_epochs=1)
 
 
 if __name__ == "__main__":
