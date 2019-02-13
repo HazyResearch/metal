@@ -40,7 +40,7 @@ def create_tasks(
 
         # create data loaders for task
         dataloaders = get_all_dataloaders(
-            task_name if task_name != "RTE_SAN" else "RTE",
+            task_name if not task_name.endswith("_SAN") else task_name[:-4],
             bert_model,
             max_len=max_len,
             dl_kwargs=dl_kwargs,
@@ -84,6 +84,23 @@ def create_tasks(
                 )
             )
 
+        if task_name == "MNLI_SAN":
+            tasks.append(
+                Task(
+                    "MNLI",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=3,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
+                    Scorer(standard_metrics=["accuracy"]),
+                )
+            )
+
         if task_name == "RTE":
             tasks.append(
                 Task(
@@ -123,6 +140,23 @@ def create_tasks(
                 )
             )
 
+        if task_name == "WNLI_SAN":
+            tasks.append(
+                Task(
+                    "WNLI",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=2,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
+                    Scorer(standard_metrics=["accuracy"]),
+                )
+            )
+
         if task_name == "QQP":
             tasks.append(
                 Task(
@@ -134,6 +168,23 @@ def create_tasks(
                 )
             )
 
+        if task_name == "QQP_SAN":
+            tasks.append(
+                Task(
+                    "QQP",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=2,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
+                    Scorer(standard_metrics=["accuracy", "f1"]),
+                )
+            )
+
         if task_name == "MRPC":
             tasks.append(
                 Task(
@@ -141,6 +192,23 @@ def create_tasks(
                     dataloaders,
                     bert_hidder_layer,
                     BertBinaryHead(bert_output_dim),
+                    Scorer(standard_metrics=["accuracy", "f1"]),
+                )
+            )
+
+        if task_name == "MRPC_SAN":
+            tasks.append(
+                Task(
+                    "MRPC",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=2,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
                     Scorer(standard_metrics=["accuracy", "f1"]),
                 )
             )
