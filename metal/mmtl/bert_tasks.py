@@ -106,7 +106,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
                     Scorer(standard_metrics=["accuracy"]),
                 )
