@@ -31,7 +31,7 @@ parser.add_argument(
 parser.add_argument(
     "--bert-output-dim", type=int, default=768, help="Bert model output dimension."
 )
-parser.add_argument("--max-len", type=int, default=512, help="Maximum sequence length.")
+parser.add_argument("--max-len", type=int, default=200, help="Maximum sequence length.")
 parser.add_argument(
     "--max-datapoints",
     type=int,
