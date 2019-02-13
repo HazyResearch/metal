@@ -1,10 +1,13 @@
 import unittest
 
+from nose.tools import nottest
+
 from metal.mmtl.BERT_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.trainer import MultitaskTrainer
 
 
+@nottest
 class MMTLTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
