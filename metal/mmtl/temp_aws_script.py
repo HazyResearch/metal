@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from metal.end_model import EndModel
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.task import Task
 from metal.mmtl.trainer import MultitaskTrainer
