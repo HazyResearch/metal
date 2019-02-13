@@ -2,7 +2,7 @@ import unittest
 
 from nose.tools import nottest
 
-from metal.mmtl.BERT_tasks import create_tasks
+from metal.mmtl.bert_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.trainer import MultitaskTrainer
 

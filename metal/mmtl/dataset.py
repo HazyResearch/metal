@@ -60,7 +60,6 @@ class BERTDataset(data.Dataset):
             label_fn: function mapping from raw labels to desired format
             label_type: data type (int, float) of labels. used to cast values downstream.
         """
-        print("Loading BERT model...")
         tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         tokens, segments, labels = self.load_tsv(
             tsv_path,
@@ -109,7 +108,7 @@ class BERTDataset(data.Dataset):
             if max_datapoints > 0:
                 rows = rows[:max_datapoints]
             for row_idx, row in tqdm(rows):
-                # only look at top max_datapoints examples for debigging
+                # only look at top max_datapoints examples for debugging
                 if max_datapoints > 0:
                     if row_idx > max_datapoints:
                         break
@@ -272,6 +271,29 @@ class QNLIDataset(BERTDataset):
             max_len=max_len,
             max_datapoints=max_datapoints,
         )
+
+
+class QNLIRankingDataset(BERTDataset):
+    """
+    Torch dataset object for QNLI ranking task, to work with BERT architecture.
+    """
+
+    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+        super(QNLIRankingDataset, self).__init__(
+            tsv_path=tsv_path_for_dataset("QNLI", split),
+            sent1_idx=1,
+            sent2_idx=2,
+            label_idx=3 if split in ["train", "dev"] else -1,
+            skip_rows=1,
+            bert_model=bert_model,
+            delimiter="\t",
+            label_fn=lambda label: 1 if label == "entailment" else 2,
+            max_len=max_len,
+            max_datapoints=max_datapoints,
+        )
+
+    def group_in_pairs(self):
+        pass
 
 
 class STSBDataset(BERTDataset):
