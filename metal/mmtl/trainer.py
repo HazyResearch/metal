@@ -77,12 +77,12 @@ trainer_config = {
     "logger_config": {
         "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
         # Report loss every this many log_units
-        "log_every": 1,
+        "log_every": 1.0,
         # Calculate and report metrics every this many log_units:
-        #   None: default to log_every
+        #   -1: default to log_every
         #   0: do not calculate or log metrics
         #   otherwise: must be a multiple of log_every
-        "score_every": None,
+        "score_every": -1.0,
         # The list of metrics (task/split/metric) to calculate; if empty, calculate
         # all metrics supported by all Scorers.
         "score_metrics": [],
@@ -346,7 +346,7 @@ class MultitaskTrainer(object):
     def _set_logger(self, batches_per_epoch):
         # If not provided, set score_every to log_every
         logger_config = self.config["logger_config"]
-        if logger_config["score_every"] is None:
+        if logger_config["score_every"] < 0:
             logger_config["score_every"] = logger_config["log_every"]
         self.logger = Logger(
             logger_config,
