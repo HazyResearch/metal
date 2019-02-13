@@ -45,7 +45,7 @@ trainer_config_space = {
     # "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True}, ## TODO?
     "n_epochs": 1,
     # 'grad_clip': 1.0,  ## TODO?
-    "l2": 0.1,
+    "l2": {"is_hyperparam": True, "range": [0, 1000], "scale": "linear"},
     "optimizer_config": {
         "optimizer": "adam",
         "optimizer_common": {
@@ -150,7 +150,7 @@ def create_command_dict(config_path):
         "pwd;"
     )
     # COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n_epochs 2 --log_every 0.25 --score_every 0.25 --max_len 256 --batch_size 8 --checkpoint_dir ./checkpoint --checkpoint_metric QNLI/valid/accuracy --checkpoint_metric_mode max --max_datapoints 32 --override_train_config ../config"
-    COMMAND = "python metal/mmtl/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 16 --n_epochs 1 --max_datapoints 128"
+    COMMAND = "python metal/mmtl/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 16 --n_epochs 3 --max_datapoints 256"
     return {
         "cmd": COMMAND_PREFIX + COMMAND,
         "files_to_put": [(config_path, "config")],
