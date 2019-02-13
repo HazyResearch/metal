@@ -32,7 +32,7 @@ def create_tasks(
 
     # share bert encoder for all tasks
     bert_encoder = BertEncoder(bert_model, **bert_kwargs)
-    bert_hidder_layer = BertHiddenLayer(bert_encoder)
+    bert_hidden_layer = BertHiddenLayer(bert_encoder)
 
     # creates task and appends to `tasks` list for each `task_name`
     tasks = []
@@ -57,7 +57,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_hidder_layer,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
                     scorer,
                 )
@@ -68,7 +68,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_hidder_layer,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
                 )
             )
@@ -78,7 +78,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_hidder_layer,
+                    bert_hidden_layer,
                     BertMulticlassHead(bert_output_dim, 3),
                     Scorer(standard_metrics=["accuracy"]),
                 )
@@ -134,7 +134,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_hidder_layer,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
                     Scorer(standard_metrics=["accuracy"]),
                 )
@@ -162,7 +162,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_hidder_layer,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
                     Scorer(standard_metrics=["accuracy", "f1"]),
                 )
@@ -190,7 +190,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_hidder_layer,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
                     Scorer(standard_metrics=["accuracy", "f1"]),
                 )
@@ -229,7 +229,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_hidder_layer,
+                    bert_hidden_layer,
                     BertRegressionHead(bert_output_dim),
                     scorer,
                     loss_hat_func=loss_hat_func,
@@ -243,7 +243,7 @@ def create_tasks(
                 Task(
                     name="QNLI",
                     data_loaders=dataloaders,
-                    input_module=bert_hidder_layer,
+                    input_module=bert_hidden_layer,
                     head_module=qnli_head,
                     scorer=Scorer(standard_metrics=["accuracy"]),
                     loss_hat_func=lambda Y_hat, Y: F.cross_entropy(Y_hat, Y - 1),
