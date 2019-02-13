@@ -147,7 +147,7 @@ class Scorer(object):
             # Calculate custom fns
             for custom_metric_func in target_custom_metrics[split]:
                 custom_metric_dict = custom_metric_func(Y, Y_preds, probs=Y_probs)
-                for metric, score in custom_metric_dict:
+                for metric, score in custom_metric_dict.items():
                     if metric not in self.custom_metric_map:
                         expected_metrics = [
                             metrics
