@@ -127,8 +127,8 @@ trainer_config = {
 class MultitaskTrainer(object):
     """Driver for the MTL training process"""
 
-    def __init__(self, config={}):
-        self.config = recursive_merge_dicts(trainer_config, config)
+    def __init__(self, **kwargs):
+        self.config = recursive_merge_dicts(trainer_config, kwargs)
 
     def train_model(self, model, tasks, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
