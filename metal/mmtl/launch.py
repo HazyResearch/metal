@@ -86,6 +86,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train MetalModel on single or multiple tasks.", add_help=False
     )
+    # Model config parameters
+    # TODO: get these from model config dict
     parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
     parser.add_argument(
         "--tasks", required=True, type=str, help="Comma-sep task list e.g. QNLI,QQP"
@@ -99,6 +101,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
     )
+
+    # Dataloader config parameters
+    # TODO: get these from dataset config dict
     parser.add_argument(
         "--max_len", type=int, default=512, help="Maximum sequence length."
     )
@@ -118,13 +123,16 @@ if __name__ == "__main__":
         help="Proportion of training data to use for validation.",
     )
 
+    # Trainer config parameters
+    parser = add_mmtl_defaults(parser, trainer_config)
+
     parser.add_argument(
         "--override_train_config",
         type=str,
         default=None,
         help="Whether to override train_config dict with json loaded from path. For tuning",
     )
-    parser = add_mmtl_defaults(parser, trainer_config)
+
     args = parser.parse_args()
 
     config = merge_dicts(trainer_config, vars(args))
