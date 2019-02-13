@@ -158,11 +158,7 @@ class MultitaskTrainer(object):
         self._set_logger(batches_per_epoch)
         self._set_checkpointer()
         self._set_optimizer(model)
-        # TODO: Accept training matrix to give more fine-tuned training commands
-        self._set_scheduler()
-
-        # TODO: Restore the ability to resume training from a given epoch
-        # That code goes here
+        self._set_scheduler()  # TODO: Support more detailed training schedules
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -232,10 +228,13 @@ class MultitaskTrainer(object):
         # Restore best model if applicable
         if self.checkpointer and self.checkpointer.checkpoint_best:
             self.checkpointer.load_best_model(model=model)
-            path_to_best = os.path.join(self.checkpointer.checkpoint_dir,'best_model.pth')
-            path_to_logs = self.writer.log_subdir
-            if os.path.isfile(path_to_best):
-                copy2(path_to_best,path_to_logs)
+            if self.writer:
+                path_to_best = os.path.join(
+                    self.checkpointer.checkpoint_dir, "best_model.pth"
+                )
+                path_to_logs = self.writer.log_subdir
+                if os.path.isfile(path_to_best):
+                    copy2(path_to_best, path_to_logs)
 
         # Write log if applicable
         if self.writer:
