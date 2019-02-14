@@ -114,7 +114,7 @@ class Checkpointer(object):
             raise Exception(msg)
         if self.verbose:
             print(
-                f"Restoring best model from iteration {self.best_iteration} "
+                f"Restoring best model from iteration {self.best_iteration:0.2f} "
                 f"with score {self.best_score:.3f}"
             )
             state = torch.load(

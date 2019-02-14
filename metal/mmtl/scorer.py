@@ -41,10 +41,10 @@ class Scorer(object):
     - All metrics in a scorer produce simple metric name only
         - score() has task and split so it can create the full metric name
         - The metrics dict only ever contains full metric names
-    - The user submits a list of score_metrics and test_metrics to the trainer
-        - test_metrics defaults to score_metrics
-        - when score() is called, only score_metrics are calculated and returned
-        - score_metrics and test_metrics contain only full metric names
+    - The user submits a list of task_metrics and test_metrics to the trainer
+        - test_metrics defaults to task_metrics
+        - when score() is called, only task_metrics are calculated and returned
+        - task_metrics and test_metrics contain only full metric names
             - these can use arbitrary split names
         - [later] we can optionally allow regexes instead of explicit names
 

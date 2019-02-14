@@ -11,6 +11,7 @@ from torch.nn.utils import clip_grad_norm_
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.logging.utils import split_full_metric
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
+from metal.mmtl.utils.metrics import glue_score
 from metal.utils import recursive_merge_dicts
 
 # Import tqdm_notebook if in Jupyter notebook
@@ -35,11 +36,10 @@ trainer_config = {
     # Dataloader
     # TODO: Restore the option for them to pass in raw simple data which we wrap up
     # "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True},
-    # Loss weights
     # TODO: Restore ability to weight losses by class and/or task
     # "loss_weights": None,
     # Train Loop
-    "n_epochs": 10,
+    "n_epochs": 1,
     "l2": 0.0,
     "grad_clip": 0.0,
     # Evaluate dev for during training every this many epochs
@@ -61,15 +61,34 @@ trainer_config = {
     "lr_scheduler_config": {
         # Linearly increase lr up to "lr" over this many steps (batches)
         "warmup_steps": 0,
+        # The minimum lr that will ever be used after warmup.
+        "min_lr": 0,
         # Scheduler - exponential
         "exponential_config": {"gamma": 0.9},  # decay rate
         # Scheduler - reduce_on_plateau
-        "plateau_config": {
-            "factor": 0.5,
-            "patience": 10,
-            "threshold": 0.0001,
-            "min_lr": 1e-4,
-        },
+        "plateau_config": {"factor": 0.5, "patience": 10, "threshold": 0.0001},
+    },
+    # Metrics
+    "metrics_config": {
+        # The list of task metrics (task/split/metric) to calculate (and log);
+        # if empty, calculate all metrics supported by all tasks' Scorers.
+        "task_metrics": [],
+        # The list of trainer standard metrics to calculate (and log)
+        # Options: ["lr"] (more to come)
+        "trainer_metrics": ["lr"],
+        # The list of trainer custom metric functions to execute
+        # The name of the function is assumed to be the name of the returned metric
+        # "trainer_custom_metric_funcs": [],
+        # The name of the split to run scoring on during training
+        # To score over multiple splits, set valid_split=None and use task_metrics
+        "valid_split": "valid",
+        # The name of the split to run final evaluation on after training
+        "test_split": "test",
+        # If non-None, only calculate and report these metrics every `score_every`
+        # units (this can include the names of built-in and user-defined metrics);
+        # otherwise, include all metrics returned by task Scorers.
+        # TODO: "metrics_filter": None,
+        # TODO: "score_limit": None,  # Evaluate scorer on only this many examples
     },
     # Logger (see metal/logging/logger.py for descriptions)
     "logger": True,
@@ -82,19 +101,6 @@ trainer_config = {
         #   0: do not calculate or log metrics
         #   otherwise: must be a multiple of log_every
         "score_every": -1.0,
-        # The list of metrics (task/split/metric) to calculate; if empty, calculate
-        # all metrics supported by all Scorers.
-        "score_metrics": [],
-        # The name of the split to run scoring on during training
-        # To score over multiple splits, set valid_split=None and use score_metrics
-        "valid_split": "valid",
-        # The name of the split to run final evaluation on after training
-        "test_split": "test",
-        # If non-None, only calculate and report these metrics every `score_every`
-        # units (this can include the names of built-in and user-defined metrics);
-        # otherwise, include all metrics returned by task Scorers.
-        # TODO: "metrics_filter": None,
-        # TODO: "score_limit": None,  # Evaluate scorer on only this many examples
     },
     # LogWriter/Tensorboard (see metal/logging/writer.py for descriptions)
     "writer": None,  # [None, "json", "tensorboard"]
@@ -173,9 +179,11 @@ class MultitaskTrainer(object):
                 disable=(not progress_bar),
             )
             for batch_num, (task_name, batch) in t:
-                # NOTE: actual batch_size may not equal config's target batch_size
+                # NOTE: actual batch_size may not equal config's target batch_size,
+                # for example due to orphan batches
                 _, Y = batch
                 batch_size = len(Y)
+                batch_id = epoch * batches_per_epoch + batch_num
 
                 # Zero the parameter gradients
                 self.optimizer.zero_grad()
@@ -210,7 +218,7 @@ class MultitaskTrainer(object):
                 self.metrics_hist.update(metrics_dict)
 
                 # Apply learning rate scheduler
-                self._update_scheduler(batch_num)
+                self._update_scheduler(batch_id)
 
                 # tqdm output
                 if len(tasks) == 1:
@@ -245,7 +253,7 @@ class MultitaskTrainer(object):
         # Print final performance values
         if self.config["verbose"]:
             print("Finished Training")
-            test_split = self.config["logger_config"]["test_split"]
+            test_split = self.config["metrics_config"]["test_split"]
             metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
             pprint(metrics_dict)
 
@@ -260,7 +268,7 @@ class MultitaskTrainer(object):
             self.logger.loss_ticks += 1
         if self.logger.metrics_time():
             # Unless valid_split is None, Scorers will only score on one split
-            valid_split = self.config["logger_config"]["valid_split"]
+            valid_split = self.config["metrics_config"]["valid_split"]
             metrics_dict.update(self.calculate_metrics(model, tasks, split=valid_split))
             self.logger.loss_ticks = 0
         if self.logger.loss_time() or self.logger.metrics_time():
@@ -297,10 +305,26 @@ class MultitaskTrainer(object):
 
     def calculate_metrics(self, model, tasks, split=None):
         metrics_dict = {}
-        score_metrics = self.config["logger_config"]["score_metrics"]
+        metrics_dict.update(self.calculate_task_metrics(model, tasks, split))
+        metrics_dict.update(self.calculate_trainer_metrics(model, split))
+        return metrics_dict
+
+    def calculate_task_metrics(self, model, tasks, split=None):
+        metrics_dict = {}
+        task_metrics = self.config["metrics_config"]["task_metrics"]
         for task in tasks:
-            task_metrics = task.scorer.score(model, task, score_metrics, split)
-            metrics_dict.update(task_metrics)
+            metrics_dict_task = task.scorer.score(model, task, task_metrics, split)
+            metrics_dict.update(metrics_dict_task)
+        return metrics_dict
+
+    def calculate_trainer_metrics(self, model, split):
+        trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
+        metrics_dict = {}
+        if "lr" in trainer_metrics:
+            # For now just report one global lr; eventually support lr groups
+            metrics_dict[f"model/{split}/lr"] = self.optimizer.param_groups[0]["lr"]
+        if "glue" in trainer_metrics:
+            metrics_dict[f"model/{split}/glue"] = glue_score(self.metrics_hist, split)
         return metrics_dict
 
     def _get_train_batches(self, tasks):
@@ -355,7 +379,10 @@ class MultitaskTrainer(object):
         )
 
     def _set_checkpointer(self, tasks):
-        if self.config["checkpoint"]:
+        if (
+            self.config["checkpoint"]
+            or self.config["lr_scheduler"] == "reduce_on_plateau"
+        ):
             checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
             if checkpoint_metric != "train/loss":
                 if checkpoint_metric.count("/") != 2:
@@ -365,22 +392,30 @@ class MultitaskTrainer(object):
                     )
                     raise Exception(msg)
                 task_name, split, metric = split_full_metric(checkpoint_metric)
-                for task in tasks:
-                    if task.name == task_name and metric not in task.scorer.metrics:
-                        msg = (
-                            f"The checkpoint_metric you specified "
-                            f"({checkpoint_metric}) is not in the list of supported "
-                            f"metrics for the Scorer of that task: "
-                            f"({task.scorer.metrics}). Either change your "
-                            f"checkpoint_metric, use a different Scorer, or add a "
-                            f"custom_metric_func that outputs that your desired metric."
-                        )
-                        raise Exception(msg)
-            score_metrics = self.config["logger_config"]["score_metrics"]
-            if score_metrics and checkpoint_metric not in score_metrics:
+                try:
+                    task = [t for t in tasks if t.name == task_name][0]
+                except IndexError:
+                    msg = (
+                        f"The task for your specified checkpoint_metric "
+                        f"({checkpoint_metric}) was not found in the list of "
+                        f"submitted tasks: {[t.name for t in tasks]}."
+                    )
+                    raise Exception(msg)
+                if metric not in task.scorer.metrics:
+                    msg = (
+                        f"The checkpoint_metric you specified "
+                        f"({checkpoint_metric}) is not in the list of supported "
+                        f"metrics for the Scorer of that task: "
+                        f"({task.scorer.metrics}). Either change your "
+                        f"checkpoint_metric, use a different Scorer, or add a "
+                        f"custom_metric_func that outputs that your desired metric."
+                    )
+                    raise Exception(msg)
+            task_metrics = self.config["metrics_config"]["task_metrics"]
+            if task_metrics and checkpoint_metric not in task_metrics:
                 msg = (
-                    "checkpoint_metric must be a metric in score_metrics if "
-                    "score_metrics is not empty"
+                    "checkpoint_metric must be a metric in task_metrics if "
+                    "task_metrics is not empty"
                 )
                 raise Exception(msg)
             self.checkpointer = Checkpointer(
@@ -453,7 +488,9 @@ class MultitaskTrainer(object):
                 )
             elif lr_scheduler == "reduce_on_plateau":
                 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                    self.optimizer, **lr_scheduler_config["plateau_config"]
+                    self.optimizer,
+                    min_lr=lr_scheduler_config["min_lr"],
+                    **lr_scheduler_config["plateau_config"],
                 )
             else:
                 raise ValueError(
@@ -476,18 +513,21 @@ class MultitaskTrainer(object):
 
     def _update_scheduler(self, step):
         """Optionally update the learning rate scheduler with each batch"""
-        if self.lr_scheduler is not None:
-            lr_scheduler_config = self.config["lr_scheduler_config"]
-            if self.warmup_scheduler and (step < lr_scheduler_config["warmup_steps"]):
-                self.warmup_scheduler.step()
+        lr_scheduler_config = self.config["lr_scheduler_config"]
+        if self.warmup_scheduler and (step < lr_scheduler_config["warmup_steps"]):
+            self.warmup_scheduler.step()
+        elif self.lr_scheduler is not None:
+            # Metrics-based scheduler(s)
+            if self.config["lr_scheduler"] == "reduce_on_plateau":
+                checkpoint_config = self.config["checkpoint_config"]
+                metric_name = checkpoint_config["checkpoint_metric"]
+                score = self.metrics_hist.get(metric_name, None)
+                if score is not None:
+                    self.lr_scheduler.step(score)
+            # Iteration-based scheduler(s)
             else:
-                # Metrics-based scheduler(s)
-                if self.config["lr_scheduler"] == "reduce_on_plateau":
-                    checkpoint_config = self.config["checkpoint_config"]
-                    metric_name = checkpoint_config["checkpoint_metric"]
-                    score = self.metrics_hist.get(metric_name, None)
-                    if score is not None:
-                        self.lr_scheduler.step(score)
-                # Iteration-based scheduler(s)
-                else:
-                    self.lr_scheduler.step()
+                self.lr_scheduler.step()
+                # HACK: We enforce min_lr right now by just overwriting
+                min_lr = lr_scheduler_config["min_lr"]
+                if min_lr and self.optimizer.param_groups[0]["lr"] < min_lr:
+                    self.optimizer.param_groups[0]["lr"] = min_lr
