@@ -7,15 +7,17 @@ TASK=$1
 N_EPOCHS=3
 BATCH_SIZE=32
 SPLIT_PROP=0.8
-MAX_DATAPOINTS=1000
-RUN_DIR="test_complete_run"
-RUN_NAME="v1"
+MAX_DATAPOINTS=-1
 PROGRESS_BAR=1
+CHECKPOINT_METRIC="train/loss"
+CHECKPOINT_MAX_MODE="min"
 
 if [ $TASK = "COLA" ]; then
     LR=1e-5
     L2=0
     BATCH_SIZE=8
+    CHECKPOINT_METRIC="COLA/valid/matthews_corr"
+    CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "SST2" ]; then
     LR=1e-5
@@ -75,8 +77,8 @@ python launch.py \
     --lr_scheduler exponential \
     --log_every 0.25 --score_every 0.5 \
     --checkpoint_dir test_logs \
-    --checkpoint_metric train/loss \
-    --checkpoint_metric_mode min \
+    --checkpoint_metric $CHECKPOINT_METRIC \
+    --checkpoint_metric_mode $CHECKPOINT_METRIC_MODE \
     --checkpoint_best 1 \
     --progress_bar $PROGRESS_BAR \
     --lr $LR \
@@ -85,9 +87,5 @@ python launch.py \
     --tasks $TASK \
     --split_prop $SPLIT_PROP \
     --n_epochs $N_EPOCHS \
-    --max_datapoints $MAX_DATAPOINTS \
-    --run_dir $RUN_DIR \
-    --run_name $RUN_NAME \
-    --score_every 0.1 \
-    --log_every 0.1
+    --max_datapoints $MAX_DATAPOINTS
 
