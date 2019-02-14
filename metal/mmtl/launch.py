@@ -132,30 +132,20 @@ if __name__ == "__main__":
         help="Whether to override train_config dict with json loaded from path. For tuning",
     )
 
-    # parser.add_argument(
-    #     "--run_dir",
-    #     required=True,
-    #     help="Run dir for logger"
-    #     )
-
-    # parser.add_argument(
-    #     "--run_name",
-    #     required=True,
-    #     help="Run name for logger"
-    #     )
-
     parser = add_mmtl_defaults(parser, trainer_config)
     args = parser.parse_args()
 
     config = merge_dicts(trainer_config, vars(args))
 
+    # set default run_dir
     d = datetime.datetime.today()
-    # run_dir = os.path.join(
-    #    os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}/{args.tasks}/")
-    # )
-    # if not os.path.isdir(run_dir):
-    #    os.makedirs(run_dir)
-    # run_name = get_dir_name(run_dir)
+    run_dir = (
+        args.run_dir
+        if args.run_dir
+        else os.path.join(
+            os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}")
+        )
+    )
 
     # Override json
     if args.override_train_config is not None:
@@ -165,8 +155,8 @@ if __name__ == "__main__":
     # Update logging config
     writer_config = {
         "log_dir": f"{os.environ['METALHOME']}/logs",
-        "run_dir": args.run_dir,
-        "run_name": args.run_name,
+        "run_dir": run_dir,
+        "run_name": args.tasks,
         "include_config": True,
         "writer_metrics": [],
     }
@@ -189,7 +179,8 @@ if __name__ == "__main__":
     model = MetalModel(tasks, verbose=False, device=args.device)
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
+
+    # show final scores
     for task in tasks:
-        # TODO: replace with split="test" when we support this
         scores = task.scorer.score(model, task)
         print(scores)
