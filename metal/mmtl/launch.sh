@@ -1,4 +1,5 @@
 # launches single task or multitask models of MetalModel
+set -e -x
 
 TASK=$1
 
@@ -89,5 +90,4 @@ python launch.py \
     --run_name $RUN_NAME \
     --score_every 0.1 \
     --log_every 0.1
-
 

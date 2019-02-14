@@ -5,6 +5,7 @@ Example command to run all 9 tasks: python launch.py --tasks COLA,SST2,MNLI,RTE,
 import argparse
 import datetime
 import json
+import logging
 import os
 
 import numpy as np
@@ -14,8 +15,8 @@ from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer, trainer_config
 
-import logging
 logging.basicConfig(level=logging.INFO)
+
 
 def add_mmtl_defaults(parser, config_dict):
     """
@@ -47,6 +48,7 @@ def add_mmtl_defaults(parser, config_dict):
                 parser.add_argument(f"--{param}", default=default)
 
     return parser
+
 
 def get_dir_name(models_dir):
     """Gets a directory to save the model.
@@ -130,17 +132,17 @@ if __name__ == "__main__":
         help="Whether to override train_config dict with json loaded from path. For tuning",
     )
 
-   # parser.add_argument(
-   #     "--run_dir",
-   #     required=True,
-   #     help="Run dir for logger"
-   #     )
+    # parser.add_argument(
+    #     "--run_dir",
+    #     required=True,
+    #     help="Run dir for logger"
+    #     )
 
-   # parser.add_argument(
-   #     "--run_name",
-   #     required=True,
-   #     help="Run name for logger"
-   #     )
+    # parser.add_argument(
+    #     "--run_name",
+    #     required=True,
+    #     help="Run name for logger"
+    #     )
 
     parser = add_mmtl_defaults(parser, trainer_config)
     args = parser.parse_args()
@@ -148,12 +150,12 @@ if __name__ == "__main__":
     config = merge_dicts(trainer_config, vars(args))
 
     d = datetime.datetime.today()
-    #run_dir = os.path.join(
+    # run_dir = os.path.join(
     #    os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}/{args.tasks}/")
-    #)
-    #if not os.path.isdir(run_dir):
+    # )
+    # if not os.path.isdir(run_dir):
     #    os.makedirs(run_dir)
-    #run_name = get_dir_name(run_dir)
+    # run_name = get_dir_name(run_dir)
 
     # Override json
     if args.override_train_config is not None:
@@ -189,8 +191,5 @@ if __name__ == "__main__":
     trainer.train_model(model, tasks, **config)
     for task in tasks:
         # TODO: replace with split="test" when we support this
-        scores = task.scorer.score(
-            model, task
-        )
+        scores = task.scorer.score(model, task)
         print(scores)
-    print(os.path.join(args.run_dir, args.run_name))
