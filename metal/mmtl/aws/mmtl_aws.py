@@ -48,7 +48,7 @@ parser.add_argument(
     "--mode", choices=["list", "launch", "launch_and_run", "run", "shutdown"]
 )
 parser.add_argument("--aws_access_key_id", required=True)
-parser.add_argument("--aws_secret_access_key", requierd=True)
+parser.add_argument("--aws_secret_access_key", required=True)
 parser.add_argument("--region", default="us-east-1")
 parser.add_argument("--n_machines", default=2)
 parser.add_argument("--keypath", required=True)

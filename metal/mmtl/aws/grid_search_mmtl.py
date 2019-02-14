@@ -63,10 +63,11 @@ def create_command_dict(config_path):
         "rm -rf metal;"
         "git clone -b mmtl https://github.com/HazyResearch/metal.git;"
         "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
-        "pwd;"
+        "mkdir logs;"
+        " ( tensorboard --logdir logs & ) ;"
     )
     # COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n_epochs 2 --log_every 0.25 --score_every 0.25 --max_len 256 --batch_size 8 --checkpoint_dir ./checkpoint --checkpoint_metric QNLI/valid/accuracy --checkpoint_metric_mode max --max_datapoints 32 --override_train_config ../config"
-    COMMAND = "python metal/mmtl/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 4 --n_epochs 1 --override_train_config ../config  2>&1 | tee output"
+    COMMAND = " ( python metal/mmtl/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 4 --n_epochs 3 --max_datapoints 32 --override_train_config ../config  2>&1 | tee output ) "
     return {
         "cmd": COMMAND_PREFIX + COMMAND,
         "files_to_put": [(config_path, "config")],
