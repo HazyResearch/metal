@@ -1,5 +1,3 @@
-import os
-
 from tensorboardX import SummaryWriter
 
 from metal.logging.writer import LogWriter

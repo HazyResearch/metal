@@ -41,7 +41,7 @@ import paramiko
 from metal.mmtl.aws import grid_search_mmtl
 
 # IMAGE_ID = "ami-0c82a5c425d9da154" # For West
-IMAGE_ID = "ami-00c3121fe244c7557"  # For East
+IMAGE_ID = "ami-04f2030e810b07ced"  # For East
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
