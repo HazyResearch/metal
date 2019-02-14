@@ -129,7 +129,11 @@ class Logger(object):
 
     def write_to_file(self, metrics_dict):
         for metric, value in metrics_dict.items():
-            self.writer.add_scalar(metric, value, self.unit_total)
+            if self.log_unit == "epochs":
+                # Use batches b/c Tensorboard cannot handle non-integer iteration #s
+                self.writer.add_scalar(metric, value, self.batch_total)
+            else:
+                self.writer.add_scalar(metric, value, self.unit_total)
 
     def reset(self):
         self.unit_count = 0
