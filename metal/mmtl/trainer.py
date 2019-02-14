@@ -9,6 +9,7 @@ import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
 
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
+from metal.logging.utils import split_full_metric
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
 from metal.utils import recursive_merge_dicts
 
@@ -147,14 +148,14 @@ class MultitaskTrainer(object):
         if self.config["verbose"]:
             print(f"Beginning train loop.")
             print(
-                f"Expecting a total of _approximately_ {examples_per_epoch} examples "
+                f"Expecting a total of approximately {examples_per_epoch} examples "
                 f"and {batches_per_epoch} batches per epoch from {len(tasks)} tasks."
             )
 
         # Set training components
         self._set_writer()
         self._set_logger(batches_per_epoch)
-        self._set_checkpointer()
+        self._set_checkpointer(tasks)
         self._set_optimizer(model)
         self._set_scheduler()  # TODO: Support more detailed training schedules
 
@@ -353,15 +354,28 @@ class MultitaskTrainer(object):
             verbose=self.config["verbose"],
         )
 
-    def _set_checkpointer(self):
+    def _set_checkpointer(self, tasks):
         if self.config["checkpoint"]:
             checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
-            if checkpoint_metric != "train/loss" and checkpoint_metric.count("/") != 2:
-                msg = (
-                    f"checkpoint_metric must be train/loss or have a full metric name "
-                    f"(task/split/metric); you submitted: {checkpoint_metric}"
-                )
-                raise Exception(msg)
+            if checkpoint_metric != "train/loss":
+                if checkpoint_metric.count("/") != 2:
+                    msg = (
+                        f"checkpoint_metric must be train/loss or have a full metric name "
+                        f"(task/split/metric); you submitted: {checkpoint_metric}"
+                    )
+                    raise Exception(msg)
+                task_name, split, metric = split_full_metric(checkpoint_metric)
+                for task in tasks:
+                    if task.name == task_name and metric not in task.scorer.metrics:
+                        msg = (
+                            f"The checkpoint_metric you specified "
+                            f"({checkpoint_metric}) is not in the list of supported "
+                            f"metrics for the Scorer of that task: "
+                            f"({task.scorer.metrics}). Either change your "
+                            f"checkpoint_metric, use a different Scorer, or add a "
+                            f"custom_metric_func that outputs that your desired metric."
+                        )
+                        raise Exception(msg)
             score_metrics = self.config["logger_config"]["score_metrics"]
             if score_metrics and checkpoint_metric not in score_metrics:
                 msg = (

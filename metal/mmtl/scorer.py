@@ -154,8 +154,12 @@ class Scorer(object):
 
         return metrics_dict
 
-    def _extract_target_metrics(self, task, target_metrics, only_split):
-        """Creates dictionaries of target standard and custom metrics by split
+    def _extract_target_metrics(self, task, target_metrics, only_split=None):
+        """Creates dictionaries of target standard and custom metrics by split:
+
+        Example:
+        target_standard_metrics['valid'] = set(['accuracy', 'f1'])
+        target_custom_metrics['valid'] = [ custom_func_1, custom_func2 ]
 
         If target_metrics is empty, calculate all metrics supported by this scorer.
         If only_split is not None, only target metrics for that split.
@@ -190,3 +194,8 @@ class Scorer(object):
                     )
                     raise Exception(msg)
         return target_standard_metrics, target_custom_metrics
+
+    @property
+    def metrics(self):
+        """Returns a list of short metric names supported by this Scorer"""
+        return self.standard_metrics + list(self.custom_metric_map.keys())
