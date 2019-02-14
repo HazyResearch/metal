@@ -6,10 +6,10 @@ TASK=$1
 N_EPOCHS=3
 BATCH_SIZE=32
 SPLIT_PROP=0.8
-MAX_DATAPOINTS=-1
+MAX_DATAPOINTS=1000
 RUN_DIR="test_complete_run"
 RUN_NAME="v1"
-PROGRESS_BAR=0
+PROGRESS_BAR=1
 
 if [ $TASK = "COLA" ]; then
     LR=1e-5
@@ -76,6 +76,7 @@ python launch.py \
     --checkpoint_dir test_logs \
     --checkpoint_metric train/loss \
     --checkpoint_metric_mode min \
+    --checkpoint_best 1 \
     --progress_bar $PROGRESS_BAR \
     --lr $LR \
     --l2 $L2 \
