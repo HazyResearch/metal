@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.utils.data as data
 from pytorch_pretrained_bert import BertTokenizer
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data.sampler import Sampler, SubsetRandomSampler
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -51,7 +51,7 @@ class BERTDataset(data.Dataset):
         """
         Args:
             tsv_path: location of .tsv on disk
-            sent1_idx: tsv index for sentence1
+            sent1_idx: tsv index for sentence1 (or question)
             sent2_idx: tsv index for sentence2
             label_idx: tsv index for label field
             skip_rows: number of rows to skip (i.e. header rows) in .tsv
@@ -209,7 +209,7 @@ class BERTDataset(data.Dataset):
                 **kwargs
             )
 
-            return (train_dataloader, dev_dataloader)
+            return train_dataloader, dev_dataloader
 
         else:
             return data.DataLoader(
@@ -221,9 +221,7 @@ class BERTDataset(data.Dataset):
         ((token_idx_matrix, seg_matrix, mask_matrix), label_matrix). Handles padding
         based on specific max_len.
         """
-
         batch_size = len(batch)
-
         # max_len == -1 defaults to using max_sent_len
         max_sent_len = int(np.max([len(tok) for ((tok, seg), _) in batch]))
         idx_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
@@ -273,6 +271,27 @@ class QNLIDataset(BERTDataset):
         )
 
 
+class PariwiseRankingSampler(Sampler):
+    r"""Samples consecutive pairs randomly from a given list of indices, without replacement.
+
+    Arguments:
+        indices (sequence): a sequence of indices
+    """
+
+    def __init__(self, indices):
+        self.indices = indices
+
+    def __iter__(self):
+        return (
+            int(2 * self.indices[i] + j)
+            for i in torch.randperm(len(self.indices))
+            for j in range(2)
+        )
+
+    def __len__(self):
+        return 2 * len(self.indices)
+
+
 class QNLIRDataset(BERTDataset):
     """
     Torch dataset object for QNLI pairwise ranking task, to work with BERT architecture.
@@ -302,26 +321,53 @@ class QNLIRDataset(BERTDataset):
         if self.split == "train":
             assert len(self.tokens) % 2 == 0
 
-    def __getitem__(self, index):
-
+    def get_dataloader(self, split_prop=None, split_seed=123, **kwargs):
+        """Returns a dataloader based on self (dataset). If split_prop is specified,
+        returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
         if self.split == "train":
-            # overwrite __getitem__ to return pairs of examples
-            return (
-                (
-                    self.tokens[2 * index : 2 * index + 2],
-                    self.segments[2 * index : 2 * index + 2],
-                ),
-                self.labels[2 * index : 2 * index + 2],
+            # choose random indices
+            N = len(self) / 2
+            full_idx = np.arange(N)
+            np.random.seed(split_seed)
+            np.random.shuffle(full_idx)
+
+            if split_prop:
+                assert split_prop >= 0 and split_prop <= 1
+
+                # split into train/dev
+                split_div = int(split_prop * N)
+                train_idx = full_idx[:split_div]
+                dev_idx = full_idx[split_div:]
+
+                # create data loaders
+                train_dataloader = data.DataLoader(
+                    self,
+                    collate_fn=lambda batch: self._collate_fn(batch),
+                    sampler=PariwiseRankingSampler(train_idx),
+                    **kwargs
+                )
+
+                dev_dataloader = data.DataLoader(
+                    self,
+                    collate_fn=lambda batch: self._collate_fn(batch),
+                    sampler=PariwiseRankingSampler(dev_idx),
+                    **kwargs
+                )
+
+                return train_dataloader, dev_dataloader
+            else:
+                # create data loaders
+                train_dataloader = data.DataLoader(
+                    self,
+                    collate_fn=lambda batch: self._collate_fn(batch),
+                    sampler=PariwiseRankingSampler(full_idx),
+                    **kwargs
+                )
+                return train_dataloader
+        else:
+            return data.DataLoader(
+                self, collate_fn=lambda batch: self._collate_fn(batch), **kwargs
             )
-        else:
-            return super(QNLIRDataset, self).__getitem__(index)
-
-    def __len__(self):
-        # overwrite __len__
-        if self.split == "train":
-            return int(len(self.tokens) / 2)
-        else:
-            return super(QNLIRDataset, self).__len__()
 
 
 class STSBDataset(BERTDataset):
