@@ -180,7 +180,16 @@ if __name__ == "__main__":
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
 
-    # show final scores
+    # compute and save final scores
+    test_scores = {}
     for task in tasks:
         scores = task.scorer.score(model, task)
-        print(scores)
+        test_scores[task.name] = scores
+
+    print(test_scores)
+    if trainer.writer:
+        save_dir = trainer.writer.log_subdir
+        save_path = os.path.join(save_dir, "metrics.json")
+        with open(save_path, "w") as f:
+            json.dump(test_scores, f)
+        print(f"Saved metrics to {save_path}")
