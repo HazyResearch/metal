@@ -104,9 +104,14 @@ class Checkpointer(object):
 
     def load_best_model(self, model):
         if self.best_model_found is None:
-            raise Exception(
-                f"Best model was never found. Best score = " f"{self.best_score}"
+            msg = (
+                f"Best model was never found. Confirm that your checkpoint_metric "
+                f"({self.checkpoint_metric}) is 'train/loss' or produced by one of "
+                f"your tasks' Scorers and that checkpoint_metric_mode "
+                f"({self.checkpoint_metric_mode}) is appropriate for the given "
+                f"checkpoint_metric."
             )
+            raise Exception(msg)
         if self.verbose:
             print(
                 f"Restoring best model from iteration {self.best_iteration} "
