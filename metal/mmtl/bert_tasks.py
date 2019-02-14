@@ -7,9 +7,11 @@ import torch.nn.functional as F
 from metal.mmtl.modules import (
     BertBinaryHead,
     BertEncoder,
+    BertHiddenLayer,
     BertMulticlassHead,
     BertRegressionHead,
 )
+from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.task import Task
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
@@ -30,6 +32,7 @@ def create_tasks(
 
     # share bert encoder for all tasks
     bert_encoder = BertEncoder(bert_model, **bert_kwargs)
+    bert_hidden_layer = BertHiddenLayer(bert_encoder)
 
     # creates task and appends to `tasks` list for each `task_name`
     tasks = []
@@ -37,7 +40,7 @@ def create_tasks(
 
         # create data loaders for task
         dataloaders = get_all_dataloaders(
-            task_name,
+            task_name if not task_name.endswith("_SAN") else task_name[:-4],
             bert_model,
             max_len=max_len,
             dl_kwargs=dl_kwargs,
@@ -54,7 +57,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
                     scorer,
                 )
@@ -65,7 +68,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
                 )
             )
@@ -75,8 +78,25 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertMulticlassHead(bert_output_dim, 3),
+                    Scorer(standard_metrics=["accuracy"]),
+                )
+            )
+
+        if task_name == "MNLI_SAN":
+            tasks.append(
+                Task(
+                    "MNLI",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=3,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
                     Scorer(standard_metrics=["accuracy"]),
                 )
             )
@@ -86,8 +106,25 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
+                    Scorer(standard_metrics=["accuracy"]),
+                )
+            )
+
+        if task_name == "RTE_SAN":
+            tasks.append(
+                Task(
+                    "RTE",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=2,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
                     Scorer(standard_metrics=["accuracy"]),
                 )
             )
@@ -97,8 +134,25 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
+                    Scorer(standard_metrics=["accuracy"]),
+                )
+            )
+
+        if task_name == "WNLI_SAN":
+            tasks.append(
+                Task(
+                    "WNLI",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=2,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
                     Scorer(standard_metrics=["accuracy"]),
                 )
             )
@@ -108,8 +162,25 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
+                    Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
+                )
+            )
+
+        if task_name == "QQP_SAN":
+            tasks.append(
+                Task(
+                    "QQP",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=2,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
                     Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
                 )
             )
@@ -119,8 +190,25 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertBinaryHead(bert_output_dim),
+                    Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
+                )
+            )
+
+        if task_name == "MRPC_SAN":
+            tasks.append(
+                Task(
+                    "MRPC",
+                    dataloaders,
+                    SAN(
+                        bert_model=bert_encoder,
+                        emb_size=bert_output_dim,
+                        hidden_size=bert_output_dim,
+                        num_classes=2,
+                        k=5,
+                    ),
+                    AverageLayer(k=5),
                     Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
                 )
             )
@@ -144,7 +232,7 @@ def create_tasks(
                 Task(
                     task_name,
                     dataloaders,
-                    bert_encoder,
+                    bert_hidden_layer,
                     BertRegressionHead(bert_output_dim),
                     scorer,
                     loss_hat_func=loss_hat_func,
@@ -158,7 +246,7 @@ def create_tasks(
                 Task(
                     name="QNLI",
                     data_loaders=dataloaders,
-                    input_module=bert_encoder,
+                    input_module=bert_hidden_layer,
                     head_module=qnli_head,
                     scorer=Scorer(standard_metrics=["accuracy"]),
                     loss_hat_func=lambda Y_hat, Y: F.cross_entropy(Y_hat, Y - 1),

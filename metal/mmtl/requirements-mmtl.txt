@@ -4,6 +4,8 @@ pandas
 torch==1.0
 scipy
 tensorboardX
+tensorboard
+tensorflow
 tqdm
 matplotlib==3
 nose
