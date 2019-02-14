@@ -57,7 +57,9 @@ class LinearSelfAttn(nn.Module):
     def __init__(self, input_size, dropout=0.1):
         super(LinearSelfAttn, self).__init__()
         self.linear = nn.Linear(input_size, 1)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = DropoutWrapper(dropout_p=dropout)
+
+    #         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, x_mask):
         x = self.dropout(x)
@@ -71,7 +73,9 @@ class BilinearSelfAttn(nn.Module):
     def __init__(self, x_size, y_size, dropout=0.1):
         super(BilinearSelfAttn, self).__init__()
         self.linear = nn.Linear(y_size, x_size)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = DropoutWrapper(dropout_p=dropout)
+
+    #         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, y, x_mask):
         x = self.dropout(x)
@@ -109,7 +113,8 @@ class SAN(nn.Module):
         self.k = k
         self.num_classes = num_classes
         self.dropout_num = dropout
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = DropoutWrapper(dropout_p=self.dropout_num)
+        #         self.dropout = nn.Dropout(dropout)
         self.alpha = Parameter(torch.zeros(1, 1, 1))
 
     def forward(self, X):
