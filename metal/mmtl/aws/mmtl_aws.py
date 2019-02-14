@@ -41,7 +41,7 @@ import paramiko
 from metal.mmtl.aws import grid_search_mmtl
 
 # IMAGE_ID = "ami-0c82a5c425d9da154" # For West
-IMAGE_ID = "ami-00c3121fe244c7557"  # For East
+IMAGE_ID = "ami-04f2030e810b07ced"  # For East
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -177,10 +177,11 @@ def create_ec2_client(args):
 
 
 def get_user(instance):
-    for tag in instance.tags:
-        if "Key" in tag and "Value" in tag:
-            if tag["Key"] == "user":
-                return tag["Value"]
+    if instance.tags is not None:
+        for tag in instance.tags:
+            if "Key" in tag and "Value" in tag:
+                if tag["Key"] == "user":
+                    return tag["Value"]
     return "UNKNOWN"
 
 
@@ -197,11 +198,12 @@ def describe_instances(args):
     instances = get_instances(args, filter_by_user=False)
     for instance in instances:
         print(
-            "%s, state: %s, user: %s\n\tssh -i %s ubuntu@%s"
+            "%s, state: %s, user: %s, type: %s\n\tssh -i %s ubuntu@%s"
             % (
                 instance.id,
                 instance.state["Name"],
                 get_user(instance),
+                instance.instance_type,
                 args.keypath,
                 instance.public_ip_address,
             )
@@ -252,6 +254,7 @@ def worker_job(
     current = str(multiprocessing.current_process())
     wid = process_id_mapping[current]
     instance_dict = instance_dicts[wid]
+    print("Worker %s -> %s" % (wid, instance_dict["public_ip_address"]))
 
     # Run command on instance
     run_command(args, instance_dict, command_dict, return_output, run_id)
@@ -260,6 +263,7 @@ def worker_job(
 def initialize_process_ids(wid, process_id_mapping):
     current = str(multiprocessing.current_process())
     process_id_mapping[current] = wid
+    print("Process %s => %s" % (current, str(wid)))
 
 
 def run(args, instances=None):
@@ -292,7 +296,7 @@ def run(args, instances=None):
     initialization_args = [
         (x, process_id_mapping) for x in list(range(args.n_machines))
     ]
-    [p.apply(initialize_process_ids, x) for x in initialization_args]
+    p.starmap(initialize_process_ids, initialization_args)
 
     # Main work
     p.starmap(worker_job, data)
