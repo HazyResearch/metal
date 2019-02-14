@@ -57,6 +57,7 @@ train_search_space = {
 
 def create_command_dict(config_path):
     COMMAND_PREFIX = (
+        "pkill -9 tensorboard;"  # Kill pre-existing tensorboard
         "pkill -9 python;"  # Kill all python processes
         "source activate pytorch_p36;"
         "export GLUEDATA=/home/ubuntu/glue/;"  # Assumes ami has this here
