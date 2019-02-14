@@ -58,9 +58,8 @@ trainer_config = {
     # [None, 'exponential', 'reduce_on_plateau']
     # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
     "lr_scheduler_config": {
-        # Freeze learning rate initially this many epochs
-        # "lr_freeze": 0,
-        # Linearly increase lr from "lr_cold" to "lr" over this many steps (batches)
+        # Linearly increase lr up to "lr" over this many steps (batches)
+        "warmup_steps": 0,
         # Scheduler - exponential
         "exponential_config": {"gamma": 0.9},  # decay rate
         # Scheduler - reduce_on_plateau
@@ -210,7 +209,7 @@ class MultitaskTrainer(object):
                 self.metrics_hist.update(metrics_dict)
 
                 # Apply learning rate scheduler
-                # self._update_scheduler(batch_num, metrics_hist)
+                self._update_scheduler(batch_num)
 
                 # tqdm output
                 if len(tasks) == 1:
@@ -425,6 +424,11 @@ class MultitaskTrainer(object):
 
     def _set_scheduler(self):
         lr_scheduler = self.config["lr_scheduler"]
+        lr_scheduler_config = self.config["lr_scheduler_config"]
+        # Create warmup scheduler for first warmup_steps steps if applicable
+        self._set_warmup_scheduler()
+
+        # Create regular lr scheduler for use after warmup
         if lr_scheduler is None:
             lr_scheduler = None
         else:
@@ -443,16 +447,33 @@ class MultitaskTrainer(object):
                 )
         self.lr_scheduler = lr_scheduler
 
-    # def _update_scheduler(self, epoch, metrics_dict):
-    #     """Optionally update the learning rate scheduler with each batch"""
-    #     if self.lr_scheduler is not None:
-    #         lr_scheduler_config = train_config["lr_scheduler_config"]
-    #         if epoch + 1 >= lr_scheduler_config["lr_freeze"]:
-    #             if train_config["lr_scheduler"] == "reduce_on_plateau":
-    #                 checkpoint_config = train_config["checkpoint_config"]
-    #                 metric_name = checkpoint_config["checkpoint_metric"]
-    #                 score = metrics_dict.get(metric_name, None)
-    #                 if score is not None:
-    #                     self.lr_scheduler.step(score)
-    #             else:
-    #                 self.lr_scheduler.step()
+    def _set_warmup_scheduler(self):
+        lr_scheduler_config = self.config["lr_scheduler_config"]
+        if lr_scheduler_config["warmup_steps"]:
+            steps = lr_scheduler_config["warmup_steps"]
+            # This function returns a multiplicative factor based on iteration number
+            linear_warmup_func = lambda x: x / steps
+            warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer, linear_warmup_func
+            )
+        else:
+            warmup_scheduler = None
+        self.warmup_scheduler = warmup_scheduler
+
+    def _update_scheduler(self, step):
+        """Optionally update the learning rate scheduler with each batch"""
+        if self.lr_scheduler is not None:
+            lr_scheduler_config = self.config["lr_scheduler_config"]
+            if self.warmup_scheduler and (step < lr_scheduler_config["warmup_steps"]):
+                self.warmup_scheduler.step()
+            else:
+                # Metrics-based scheduler(s)
+                if self.config["lr_scheduler"] == "reduce_on_plateau":
+                    checkpoint_config = self.config["checkpoint_config"]
+                    metric_name = checkpoint_config["checkpoint_metric"]
+                    score = self.metrics_hist.get(metric_name, None)
+                    if score is not None:
+                        self.lr_scheduler.step(score)
+                # Iteration-based scheduler(s)
+                else:
+                    self.lr_scheduler.step()
