@@ -4,13 +4,13 @@ set -e -x
 TASK=$1
 
 # Default params
-N_EPOCHS=3
+N_EPOCHS=5
 BATCH_SIZE=32
 SPLIT_PROP=0.8
 MAX_DATAPOINTS=-1
 PROGRESS_BAR=1
 CHECKPOINT_METRIC="train/loss"
-CHECKPOINT_MAX_MODE="min"
+CHECKPOINT_METRIC_MODE="min"
 
 if [ $TASK = "COLA" ]; then
     LR=1e-5
@@ -22,6 +22,8 @@ if [ $TASK = "COLA" ]; then
 elif [ $TASK = "SST2" ]; then
     LR=1e-5
     L2=0.01
+    CHECKPOINT_METRIC="SST2/valid/accuracy"
+    CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "MNLI" ]; then
     LR=1e-5
