@@ -5,13 +5,17 @@ Example command to run all 9 tasks: python launch.py --tasks COLA,SST2,MNLI,RTE,
 import argparse
 import datetime
 import json
+import logging
 import os
 
 import numpy as np
 
 from metal.mmtl.bert_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
+from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer, trainer_config
+
+logging.basicConfig(level=logging.INFO)
 
 
 def add_mmtl_defaults(parser, config_dict):
@@ -36,9 +40,12 @@ def add_mmtl_defaults(parser, config_dict):
                 parser.add_argument(f"--{param}", default=default)
 
         else:
-            if isinstance(default, bool):
-                default = int(default)
-            parser.add_argument(f"--{param}", type=type(default), default=default)
+            if default is not None:
+                if isinstance(default, bool):
+                    default = int(default)
+                parser.add_argument(f"--{param}", type=type(default), default=default)
+            else:
+                parser.add_argument(f"--{param}", default=default)
 
     return parser
 
@@ -86,8 +93,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train MetalModel on single or multiple tasks.", add_help=False
     )
-    # Model config parameters
-    # TODO: get these from model config dict
     parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
     parser.add_argument(
         "--tasks", required=True, type=str, help="Comma-sep task list e.g. QNLI,QQP"
@@ -101,9 +106,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
     )
-
-    # Dataloader config parameters
-    # TODO: get these from dataset config dict
     parser.add_argument(
         "--max_len", type=int, default=512, help="Maximum sequence length."
     )
@@ -123,9 +125,6 @@ if __name__ == "__main__":
         help="Proportion of training data to use for validation.",
     )
 
-    # Trainer config parameters
-    parser = add_mmtl_defaults(parser, trainer_config)
-
     parser.add_argument(
         "--override_train_config",
         type=str,
@@ -133,23 +132,49 @@ if __name__ == "__main__":
         help="Whether to override train_config dict with json loaded from path. For tuning",
     )
 
+    # parser.add_argument(
+    #     "--run_dir",
+    #     required=True,
+    #     help="Run dir for logger"
+    #     )
+
+    # parser.add_argument(
+    #     "--run_name",
+    #     required=True,
+    #     help="Run name for logger"
+    #     )
+
+    parser = add_mmtl_defaults(parser, trainer_config)
     args = parser.parse_args()
 
     config = merge_dicts(trainer_config, vars(args))
 
     d = datetime.datetime.today()
-    run_dir = os.path.join(
-        os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}/{args.tasks}/")
-    )
-    if not os.path.isdir(run_dir):
-        os.makedirs(run_dir)
-    run_name = get_dir_name(run_dir)
+    # run_dir = os.path.join(
+    #    os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}/{args.tasks}/")
+    # )
+    # if not os.path.isdir(run_dir):
+    #    os.makedirs(run_dir)
+    # run_name = get_dir_name(run_dir)
 
     # Override json
     if args.override_train_config is not None:
         with open(args.override_train_config, "r") as f:
             config = json.loads(f.read())
 
+    # Update logging config
+    writer_config = {
+        "log_dir": f"{os.environ['METALHOME']}/logs",
+        "run_dir": args.run_dir,
+        "run_name": args.run_name,
+        "include_config": True,
+        "writer_metrics": [],
+    }
+
+    config["writer_config"] = writer_config
+    config["writer"] = "tensorboard"
+
+    tasks = []
     task_names = [task_name for task_name in args.tasks.split(",")]
     tasks = create_tasks(
         task_names=task_names,
@@ -164,9 +189,7 @@ if __name__ == "__main__":
     model = MetalModel(tasks, verbose=False, device=args.device)
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
-    # evaluate with all metrics
     for task in tasks:
+        # TODO: replace with split="test" when we support this
         scores = task.scorer.score(model, task)
         print(scores)
-
-    print("Saved to:", os.path.join(run_dir, run_name))

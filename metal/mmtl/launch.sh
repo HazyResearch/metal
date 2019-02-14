@@ -1,4 +1,5 @@
-# launches single task models of MetalModel
+# launches single task or multitask models of MetalModel
+set -e -x
 
 TASK=$1
 
@@ -6,6 +7,10 @@ TASK=$1
 N_EPOCHS=3
 BATCH_SIZE=32
 SPLIT_PROP=0.8
+MAX_DATAPOINTS=1000
+RUN_DIR="test_complete_run"
+RUN_NAME="v1"
+PROGRESS_BAR=1
 
 if [ $TASK = "COLA" ]; then
     LR=1e-5
@@ -52,6 +57,11 @@ elif [ $TASK = "QNLI" ]; then
     LR=1e-5
     L2=0.01
 
+elif [ $TASK = "ALL" ]; then
+    TASK="QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA"
+    LR=1e-5
+    L2=0.01    
+
 else
     echo "Task not found. Exiting."
     exit
@@ -67,10 +77,17 @@ python launch.py \
     --checkpoint_dir test_logs \
     --checkpoint_metric train/loss \
     --checkpoint_metric_mode min \
-    --progress_bar 1 \
+    --checkpoint_best 1 \
+    --progress_bar $PROGRESS_BAR \
     --lr $LR \
     --l2 $L2 \
     --batch_size $BATCH_SIZE \
     --tasks $TASK \
     --split_prop $SPLIT_PROP \
-    --n_epochs $N_EPOCHS
+    --n_epochs $N_EPOCHS \
+    --max_datapoints $MAX_DATAPOINTS \
+    --run_dir $RUN_DIR \
+    --run_name $RUN_NAME \
+    --score_every 0.1 \
+    --log_every 0.1
+
