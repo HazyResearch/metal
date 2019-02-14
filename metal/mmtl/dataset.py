@@ -282,10 +282,15 @@ class PariwiseRankingSampler(Sampler):
         self.indices = indices
 
     def __iter__(self):
+        # return (
+        #     int(2 * self.indices[i] + j)
+        #     for i in torch.randperm(len(self.indices))
+        #     for j in range(2)
+        # )
         return (
             int(2 * self.indices[i] + j)
-            for i in torch.randperm(len(self.indices))
             for j in range(2)
+            for i in torch.randperm(len(self.indices))
         )
 
     def __len__(self):
@@ -317,6 +322,7 @@ class QNLIRDataset(BERTDataset):
             label_fn=lambda label: 1 if label == "entailment" else 2,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            label_type=float,
         )
         if self.split == "train":
             assert len(self.tokens) % 2 == 0
