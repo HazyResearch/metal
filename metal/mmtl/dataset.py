@@ -98,7 +98,6 @@ class BERTDataset(data.Dataset):
 
         tokens, segments, labels = [], [], []
         with codecs.open(data_file, "r", "utf-8") as data_fh:
-
             # skip "header" rows
             for _ in range(skip_rows):
                 data_fh.readline()
@@ -164,7 +163,6 @@ class BERTDataset(data.Dataset):
                         label = label_fn(label)
                 else:
                     label = 0
-
                 tokens.append(sent)
                 segments.append(seg)
                 labels.append(label)
@@ -282,15 +280,10 @@ class PariwiseRankingSampler(Sampler):
         self.indices = indices
 
     def __iter__(self):
-        # return (
-        #     int(2 * self.indices[i] + j)
-        #     for i in torch.randperm(len(self.indices))
-        #     for j in range(2)
-        # )
         return (
             int(2 * self.indices[i] + j)
-            for j in range(2)
             for i in torch.randperm(len(self.indices))
+            for j in range(2)
         )
 
     def __len__(self):
@@ -332,16 +325,16 @@ class QNLIRDataset(BERTDataset):
         returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
         if self.split == "train":
             # choose random indices
-            N = len(self) / 2
-            full_idx = np.arange(N)
+            num_pairs = len(self) / 2
+            full_idx = np.arange(num_pairs)
             np.random.seed(split_seed)
             np.random.shuffle(full_idx)
-
+            assert kwargs["batch_size"] % 2 == 0
             if split_prop:
                 assert split_prop >= 0 and split_prop <= 1
 
                 # split into train/dev
-                split_div = int(split_prop * N)
+                split_div = int(split_prop * num_pairs)
                 train_idx = full_idx[:split_div]
                 dev_idx = full_idx[split_div:]
 
