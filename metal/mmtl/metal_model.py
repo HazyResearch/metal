@@ -97,7 +97,7 @@ class MetalModel(nn.Module):
         """Updates self.config with the values in a given update dictionary"""
         self.config = recursive_merge_dicts(self.config, update_dict)
 
-    def load_weights(self, model_path, device):
+    def load_weights(self, model_path):
         """Load model weights from checkpoint"""
         if self.config["device"] >= 0:
             map_location = f"cuda:{self.config['device']}"
