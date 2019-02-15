@@ -59,8 +59,9 @@ trainer_config = {
     # [None, 'exponential', 'reduce_on_plateau']
     # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
     "lr_scheduler_config": {
-        # Linearly increase lr up to "lr" over this many steps (batches)
+        # Linearly increase lr up to "lr" over this many warmup_units
         "warmup_steps": 0,
+        "warmup_unit": "batches",  # ["epochs", "batches"]
         # The minimum lr that will ever be used after warmup.
         "min_lr": 0,
         # Scheduler - exponential
@@ -474,7 +475,7 @@ class MultitaskTrainer(object):
     def _set_scheduler(self):
         lr_scheduler = self.config["lr_scheduler"]
         lr_scheduler_config = self.config["lr_scheduler_config"]
-        # Create warmup scheduler for first warmup_steps steps if applicable
+        # Create warmup scheduler for first warmup_steps warmup_units if applicable
         self._set_warmup_scheduler()
 
         # Create regular lr scheduler for use after warmup
@@ -484,7 +485,7 @@ class MultitaskTrainer(object):
             lr_scheduler_config = self.config["lr_scheduler_config"]
             if lr_scheduler == "linear":
                 total_steps = self.batches_per_epoch * self.config["n_epochs"]
-                cooldown_steps = total_steps - lr_scheduler_config["warmup_steps"]
+                cooldown_steps = total_steps - self.warmup_steps
                 linear_cooldown_func = lambda x: (cooldown_steps - x) / cooldown_steps
                 lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
                     self.optimizer, linear_cooldown_func
@@ -506,22 +507,31 @@ class MultitaskTrainer(object):
         self.lr_scheduler = lr_scheduler
 
     def _set_warmup_scheduler(self):
-        lr_scheduler_config = self.config["lr_scheduler_config"]
-        if lr_scheduler_config["warmup_steps"]:
-            steps = lr_scheduler_config["warmup_steps"]
+        if self.config["lr_scheduler_config"]["warmup_steps"]:
+            warmup_unit = self.config["lr_scheduler_config"]["warmup_unit"]
+            warmup_steps = self.config["lr_scheduler_config"]["warmup_steps"]
+            # Convert warmup unit to batches
+            if warmup_unit == "epochs":
+                self.warmup_steps = int(warmup_steps * self.batches_per_epoch)
+            elif warmup_unit == "batches":
+                self.warmup_steps = int(warmup_steps)
+            else:
+                msg = f"warmup_unit must be 'epochs' or 'batches', not {warmup_unit}"
+                raise Exception(msg)
             # This function returns a multiplicative factor based on iteration number
-            linear_warmup_func = lambda x: x / steps
+            linear_warmup_func = lambda x: x / self.warmup_steps
             warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer, linear_warmup_func
             )
         else:
             warmup_scheduler = None
+            self.warmup_steps = 0
         self.warmup_scheduler = warmup_scheduler
 
     def _update_scheduler(self, step):
         """Optionally update the learning rate scheduler with each batch"""
         lr_scheduler_config = self.config["lr_scheduler_config"]
-        if self.warmup_scheduler and (step < lr_scheduler_config["warmup_steps"]):
+        if self.warmup_scheduler and (step < self.warmup_steps):
             self.warmup_scheduler.step()
         elif self.lr_scheduler is not None:
             # Metrics-based scheduler(s)
