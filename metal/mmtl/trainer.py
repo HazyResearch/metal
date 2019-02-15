@@ -65,7 +65,7 @@ trainer_config = {
         # The minimum lr that will ever be used after warmup.
         "min_lr": 0,
         # Scheduler - exponential
-        "exponential_config": {"gamma": 0.9},  # decay rate
+        "exponential_config": {"gamma": 0.999},  # decay rate
         # Scheduler - reduce_on_plateau
         "plateau_config": {"factor": 0.5, "patience": 10, "threshold": 0.0001},
     },
