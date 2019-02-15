@@ -88,7 +88,7 @@ python launch.py \
     --lr_scheduler "linear" \
     --min_lr $MIN_LR \
     --log_every 0.25 --score_every 0.5 \
-    --checkpoint_dir test_logs \
+    --checkpoint_dir checkpoints \
     --checkpoint_metric $CHECKPOINT_METRIC \
     --checkpoint_metric_mode $CHECKPOINT_METRIC_MODE \
     --checkpoint_best 1 \
