@@ -52,7 +52,7 @@ def create_command_dict(config_path, launch_args):
         "export GLUEDATA=/home/ubuntu/glue/;"  # Assumes ami has this here
         "rm -rf metal;"
         "git clone -b mmtl https://github.com/HazyResearch/metal.git;"
-        "cd metal; git checkout aws_mmtl_dev; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
+        "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
         "mkdir logs;"
         " ( screen -dm tensorboard --logdir logs );"
     )
@@ -72,7 +72,7 @@ def create_command_dict(config_path, launch_args):
     }
 
 
-def generate_configs_and_commands(args, launch_args, search_space, n=2):
+def generate_configs_and_commands(args, launch_args, search_space, n=10):
     configspace_path = "%s/configspace" % args.outputpath
     if not os.path.exists(configspace_path):
         os.makedirs(configspace_path)

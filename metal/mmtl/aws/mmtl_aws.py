@@ -51,7 +51,7 @@ parser.add_argument(
 parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
 parser.add_argument("--region", default="us-east-1")
-parser.add_argument("--n_machines", default=2)
+parser.add_argument("--n_machines", default=2, type=int)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
@@ -202,12 +202,15 @@ def describe_instances(args):
     instances = get_instances(args, filter_by_user=False)
     for instance in instances:
         print(
-            "%s, state: %s, user: %s, type: %s\n\tssh -i %s ubuntu@%s"
+            "%s, state: %s, user: %s, type: %s\n\t"
+            # "ssh -i %s ubuntu@%s"
+            "eval `ssh-agent` && cat %s | ssh-add -k - && ssh -i %s ubuntu@%s"
             % (
                 instance.id,
                 instance.state["Name"],
                 get_user(instance),
                 instance.instance_type,
+                args.keypath,
                 args.keypath,
                 instance.public_ip_address,
             )
