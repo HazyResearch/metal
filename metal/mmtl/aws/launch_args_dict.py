@@ -8,6 +8,11 @@ search_space = {
     # Tensorboard
     "writer": "tensorboard",
     "log_dir": f"tensorboard_logs",
+    # Glue
+    "trainer_metrics": ["glue"],
+    "lr_scheduler": "linear",
+    "warmup_steps": 0.5,
+    "warmup_unit": "epochs",
 }
 
 launch_args = {
@@ -23,11 +28,12 @@ launch_args = {
     "checkpoint_best": 1,
     "progress_bar": 1,
     "lr": 0.01,
+    "n_epochs": 5,
     "l2": 0.0,
-    "batch_size": 32,
+    "batch_size": 16,
     "split_prop": 0.8,
     "max_datapoints": 1000,
     "log_dir": "tensorboard_logs",
     "writer": "tensorboard",
-    "tasks": "QNLI",
+    "tasks": "COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI",
 }
