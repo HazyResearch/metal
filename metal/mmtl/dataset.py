@@ -162,7 +162,7 @@ class BERTDataset(data.Dataset):
                     if label_fn:
                         label = label_fn(label)
                 else:
-                    label = 0
+                    label = 1
                 tokens.append(sent)
                 segments.append(seg)
                 labels.append(label)
