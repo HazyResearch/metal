@@ -44,7 +44,7 @@ trainer.train_model(
     lr=0.00001,
     l2=0,
     log_every=1,
-    checkpoint_metric="train/loss",
+    checkpoint_metric="model/train/loss",
     checkpoint_metric_mode="min",
     checkpoint_best=True,
     n_epochs=3,

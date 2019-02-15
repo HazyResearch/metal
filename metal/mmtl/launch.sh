@@ -9,7 +9,7 @@ BATCH_SIZE=32
 SPLIT_PROP=0.8
 MAX_DATAPOINTS=-1
 PROGRESS_BAR=1
-CHECKPOINT_METRIC="train/loss"
+CHECKPOINT_METRIC="model/train/loss"
 CHECKPOINT_METRIC_MODE="min"
 
 if [ $TASK = "COLA" ]; then
@@ -64,7 +64,7 @@ elif [ $TASK = "QNLI" ]; then
 elif [ $TASK = "ALL" ]; then
     TASK="QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA"
     LR=1e-5
-    L2=0.01    
+    L2=0.01
 
 else
     echo "Task not found. Exiting."

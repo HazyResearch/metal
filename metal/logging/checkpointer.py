@@ -106,8 +106,8 @@ class Checkpointer(object):
         if self.best_model_found is None:
             msg = (
                 f"Best model was never found. Confirm that your checkpoint_metric "
-                f"({self.checkpoint_metric}) is 'train/loss' or produced by one of "
-                f"your tasks' Scorers and that checkpoint_metric_mode "
+                f"({self.checkpoint_metric}) is 'model/train/loss' or produced by one "
+                f"of your tasks' Scorers and that checkpoint_metric_mode "
                 f"({self.checkpoint_metric_mode}) is appropriate for the given "
                 f"checkpoint_metric."
             )
