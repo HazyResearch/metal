@@ -125,6 +125,9 @@ trainer_config = {
         # "checkpoint_final": False,  # Save a model checkpoint at the end of training
         "checkpoint_metric": "model/train/loss",
         "checkpoint_metric_mode": "min",
+        # If None, checkpoint_dir defaults to the log_dir/run_dir/run_name/checkpoints
+        # Note that using this default path is strongly recommended.
+        "checkpoint_dir": None,
         "checkpoint_runway": 0,
     },
 }
@@ -393,45 +396,13 @@ class MultitaskTrainer(object):
             self.config["checkpoint"]
             or self.config["lr_scheduler"] == "reduce_on_plateau"
         ):
-            checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
-            if checkpoint_metric != "model/train/loss":
-                if checkpoint_metric.count("/") != 2:
-                    msg = (
-                        f"checkpoint_metric must be model/train/loss or have a full metric name "
-                        f"(task/split/metric); you submitted: {checkpoint_metric}"
-                    )
-                    raise Exception(msg)
-                task_name, split, metric = split_full_metric(checkpoint_metric)
-                try:
-                    task = [t for t in tasks if t.name == task_name][0]
-                except IndexError:
-                    msg = (
-                        f"The task for your specified checkpoint_metric "
-                        f"({checkpoint_metric}) was not found in the list of "
-                        f"submitted tasks: {[t.name for t in tasks]}."
-                    )
-                    raise Exception(msg)
-                if metric not in task.scorer.metrics:
-                    msg = (
-                        f"The checkpoint_metric you specified "
-                        f"({checkpoint_metric}) is not in the list of supported "
-                        f"metrics for the Scorer of that task: "
-                        f"({task.scorer.metrics}). Either change your "
-                        f"checkpoint_metric, use a different Scorer, or add a "
-                        f"custom_metric_func that outputs that your desired metric."
-                    )
-                    raise Exception(msg)
-            task_metrics = self.config["metrics_config"]["task_metrics"]
-            if task_metrics and checkpoint_metric not in task_metrics:
-                msg = (
-                    "checkpoint_metric must be a metric in task_metrics if "
-                    "task_metrics is not empty"
-                )
-                raise Exception(msg)
+            self._validate_checkpoint_metric(tasks)
             # Set checkpoint_dir to log_dir/checkpoints/
-            self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
-                self.writer.log_subdir, "checkpoints"
-            )
+            if not self.config["checkpoint_config"]["checkpoint_dir"]:
+                self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
+                    self.writer.log_subdir, "checkpoints"
+                )
+            # Create Checkpointer
             self.checkpointer = Checkpointer(
                 self.config["checkpoint_config"], verbose=self.config["verbose"]
             )
@@ -561,3 +532,41 @@ class MultitaskTrainer(object):
                 min_lr = lr_scheduler_config["min_lr"]
                 if min_lr and self.optimizer.param_groups[0]["lr"] < min_lr:
                     self.optimizer.param_groups[0]["lr"] = min_lr
+
+    def _validate_checkpoint_metric(self, tasks):
+        checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
+        # Confirm that checkpoint_metric is a metric that will be available
+        if checkpoint_metric != "model/train/loss":
+            if checkpoint_metric.count("/") != 2:
+                msg = (
+                    f"checkpoint_metric must be model/train/loss or have a full metric name "
+                    f"(task/split/metric); you submitted: {checkpoint_metric}"
+                )
+                raise Exception(msg)
+            task_name, split, metric = split_full_metric(checkpoint_metric)
+            try:
+                task = [t for t in tasks if t.name == task_name][0]
+            except IndexError:
+                msg = (
+                    f"The task for your specified checkpoint_metric "
+                    f"({checkpoint_metric}) was not found in the list of "
+                    f"submitted tasks: {[t.name for t in tasks]}."
+                )
+                raise Exception(msg)
+            if metric not in task.scorer.metrics:
+                msg = (
+                    f"The checkpoint_metric you specified "
+                    f"({checkpoint_metric}) is not in the list of supported "
+                    f"metrics for the Scorer of that task: "
+                    f"({task.scorer.metrics}). Either change your "
+                    f"checkpoint_metric, use a different Scorer, or add a "
+                    f"custom_metric_func that outputs that your desired metric."
+                )
+                raise Exception(msg)
+        task_metrics = self.config["metrics_config"]["task_metrics"]
+        if task_metrics and checkpoint_metric not in task_metrics:
+            msg = (
+                "checkpoint_metric must be a metric in task_metrics if "
+                "task_metrics is not empty"
+            )
+            raise Exception(msg)
