@@ -202,12 +202,15 @@ def describe_instances(args):
     instances = get_instances(args, filter_by_user=False)
     for instance in instances:
         print(
-            "%s, state: %s, user: %s, type: %s\n\tssh -i %s ubuntu@%s"
+            "%s, state: %s, user: %s, type: %s\n\t"
+            # "ssh -i %s ubuntu@%s"
+            "eval `ssh-agent` && cat %s | ssh-add -k - && ssh -i %s ubuntu@%s"
             % (
                 instance.id,
                 instance.state["Name"],
                 get_user(instance),
                 instance.instance_type,
+                args.keypath,
                 args.keypath,
                 instance.public_ip_address,
             )
