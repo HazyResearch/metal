@@ -180,9 +180,13 @@ class MultitaskTrainer(object):
                 total=self.batches_per_epoch,
                 disable=(not progress_bar),
             )
-            for batch_num, (task_name, batch) in t:
+            for batch_num, (task_names, batch) in t:
                 # NOTE: actual batch_size may not equal config's target batch_size,
                 # for example due to orphan batches
+                # TODO (BH): Determine very explicitly what we require of X or Y in
+                # order to get the batchsize; we only need one dimension, but would
+                # like to allow for maximum flexibilty of data/label formatting.
+                # Will Y always be a list or 1D np.ndarray? No!
                 _, Y = batch
                 batch_size = len(Y)
                 batch_id = epoch * self.batches_per_epoch + batch_num
@@ -191,7 +195,8 @@ class MultitaskTrainer(object):
                 self.optimizer.zero_grad()
 
                 # Forward pass to calculate the average loss per example
-                loss = model.calculate_loss(*batch, [task_name])[task_name]
+                losses = model.calculate_loss(*batch, task_names)
+                loss = sum(losses.values())
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
@@ -211,8 +216,11 @@ class MultitaskTrainer(object):
                 self.optimizer.step()
 
                 # Update loss
-                self.running_losses[task_name] += loss.item() * batch_size
-                self.running_examples[task_name] += batch_size
+                for task_name in task_names:
+                    self.running_losses[task_name] += (
+                        losses[task_name].item() * batch_size
+                    )
+                    self.running_examples[task_name] += batch_size
 
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(model, tasks, batch_size)
@@ -355,7 +363,7 @@ class MultitaskTrainer(object):
         train_loaders = [iter(t.data_loaders["train"]) for t in tasks]
 
         for task_idx in batch_assignments:
-            yield (tasks[task_idx].name, next(train_loaders[task_idx]))
+            yield ([tasks[task_idx].name], next(train_loaders[task_idx]))
 
     def _checkpoint(self, model, metrics_dict):
         if self.checkpointer is None:

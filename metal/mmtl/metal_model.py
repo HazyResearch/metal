@@ -6,11 +6,7 @@ from metal.mmtl.task import RegressionTask
 from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts
 
-model_config = {
-    "seed": None,
-    "device": 0,  # gpu id (int) or -1 for cpu
-    "verbose": True,
-}
+model_config = {"seed": 123, "device": 0, "verbose": True}  # gpu id (int) or -1 for cpu
 
 
 class MetalModel(nn.Module):
@@ -95,16 +91,16 @@ class MetalModel(nn.Module):
         }
 
     def update_config(self, update_dict):
-        """Updates self.config with the values in a given update dictionary"""
+        """Updates self.config with the values in a given update dictionary."""
         self.config = recursive_merge_dicts(self.config, update_dict)
 
-    def load_weights(self, model_path, device):
-        """Load model weights from checkpoint"""
+    def load_weights(self, model_path):
+        """Load model weights from checkpoint."""
         if self.config["device"] >= 0:
-            map_location = f"cuda:{self.config['device']}"
+            device = torch.device(f"cuda:{self.config['device']}")
         else:
-            map_location = "cpu"
-        self.load_state_dict(torch.load(model_path, map_location=map_location)["model"])
+            device = torch.device("cpu")
+        self.load_state_dict(torch.load(model_path, map_location=device)["model"])
 
     def save_weights(self, model_path):
         """Saves weight in checkpoint directory"""
