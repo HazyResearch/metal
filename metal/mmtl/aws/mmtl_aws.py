@@ -51,7 +51,7 @@ parser.add_argument(
 parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
 parser.add_argument("--region", default="us-east-1")
-parser.add_argument("--n_machines", default=2)
+parser.add_argument("--n_machines", default=2, type=int)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
