@@ -75,8 +75,7 @@ trainer_config = {
         # if empty, calculate all metrics supported by all tasks' Scorers.
         "task_metrics": [],
         # The list of trainer standard metrics to calculate (and log)
-        # Options: ["lr"] (more to come)
-        "trainer_metrics": ["lr"],
+        "trainer_metrics": [],  # e.g., "glue"
         # The list of trainer custom metric functions to execute
         # The name of the function is assumed to be the name of the returned metric
         # "trainer_custom_metric_funcs": [],
@@ -102,6 +101,7 @@ trainer_config = {
         #   0: do not calculate or log metrics
         #   otherwise: must be a multiple of log_every
         "score_every": -1.0,
+        "log_lr": True,  # If True, also log learning rate whenever loss is logged
     },
     # LogWriter/Tensorboard (see metal/logging/writer.py for descriptions)
     "writer": None,  # [None, "json", "tensorboard"]
@@ -215,8 +215,6 @@ class MultitaskTrainer(object):
 
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(model, tasks, batch_size)
-                # Update most recently seen value of each metric
-                self.metrics_hist.update(metrics_dict)
 
                 # Apply learning rate scheduler
                 self._update_scheduler(batch_id)
@@ -302,12 +300,20 @@ class MultitaskTrainer(object):
         # TODO: Don't report task loss and "overall" loss if there is only one task?
         # But they may be planning on their named task loss being in the metrics_dict...
         metrics_dict["model/train/loss"] = total_loss / total_examples
+        #
+        if self.config["logger_config"]["log_lr"]:
+            # For now just report one global lr; eventually support lr groups
+            metrics_dict[f"model/train/lr"] = self.optimizer.param_groups[0]["lr"]
         return metrics_dict
 
     def calculate_metrics(self, model, tasks, split=None):
         metrics_dict = {}
+        # Update metrics_hist after task_metrics so trainer_metrics have access to most
+        # recently calculated numbers
         metrics_dict.update(self.calculate_task_metrics(model, tasks, split))
-        metrics_dict.update(self.calculate_trainer_metrics(model, split))
+        self.metrics_hist.update(metrics_dict)
+        metrics_dict.update(self.calculate_trainer_metrics(model, tasks, split))
+        self.metrics_hist.update(metrics_dict)
         return metrics_dict
 
     def calculate_task_metrics(self, model, tasks, split=None):
@@ -318,14 +324,18 @@ class MultitaskTrainer(object):
             metrics_dict.update(metrics_dict_task)
         return metrics_dict
 
-    def calculate_trainer_metrics(self, model, split):
+    def calculate_trainer_metrics(self, model, tasks, split):
         trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
         metrics_dict = {}
-        if "lr" in trainer_metrics:
-            # For now just report one global lr; eventually support lr groups
-            metrics_dict[f"model/{split}/lr"] = self.optimizer.param_groups[0]["lr"]
+        # HACK: glue should not be hardcoded
         if "glue" in trainer_metrics:
-            metrics_dict[f"model/{split}/glue"] = glue_score(self.metrics_hist, split)
+            if len(tasks) == 9:
+                metric = "glue"
+            else:
+                metric = "glue_partial"
+            metrics_dict[f"model/{split}/{metric}"] = glue_score(
+                self.metrics_hist, split
+            )
         return metrics_dict
 
     def _get_train_batches(self, tasks):
