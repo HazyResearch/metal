@@ -221,12 +221,52 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
 
 
 def recursive_transform(x, test_func, transform):
+    """Applies a transformation recursively to each member of a dictionary
+
+    Args:
+        x: a (possibly nested) dictionary
+        test_func: a function that returns whether this element should be transformed
+        transform: a function that transforms a value
+    """
     for k, v in x.items():
         if test_func(v):
             x[k] = transform(v)
         if isinstance(v, dict):
             recursive_transform(v, test_func, transform)
     return x
+
+
+def add_flags_from_config(parser, config_dict):
+    """
+    Adds a flag (and default value) to an ArgumentParser for each parameter in a config
+    """
+    for param in config_dict:
+        # Blacklist certain config parameters from being added as flags
+        if param in ["verbose"]:
+            continue
+
+        default = config_dict[param]
+        # This check can be removed if the unnecessary arguments above are removed.
+        if isinstance(default, dict):
+            parser = add_flags_from_config(parser, default)
+
+        if type(default) == list:
+            if len(default) > 0:
+                parser.add_argument(
+                    f"--{param}", type=type(default[0]), default=default
+                )
+            else:
+                parser.add_argument(f"--{param}", default=default)
+
+        else:
+            if default is not None:
+                if isinstance(default, bool):
+                    default = int(default)
+                parser.add_argument(f"--{param}", type=type(default), default=default)
+            else:
+                parser.add_argument(f"--{param}", default=default)
+
+    return parser
 
 
 def split_data(
