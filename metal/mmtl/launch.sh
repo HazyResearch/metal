@@ -4,6 +4,7 @@ set -e -x
 TASK=$1
 
 # Default params
+MIN_LR=0
 N_EPOCHS=5
 BATCH_SIZE=32
 SPLIT_PROP=0.8
@@ -82,7 +83,10 @@ python launch.py \
     --bert_model bert-base-uncased \
     --bert_output_dim 768 \
     --max_len 200 \
-    --lr_scheduler exponential \
+    --warmup_steps 0.5 \
+    --warmup_unit "epochs" \
+    --lr_scheduler "linear" \
+    --min_lr $MIN_LR \
     --log_every 0.25 --score_every 0.5 \
     --checkpoint_dir test_logs \
     --checkpoint_metric $CHECKPOINT_METRIC \
