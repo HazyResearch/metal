@@ -125,7 +125,6 @@ trainer_config = {
         # "checkpoint_final": False,  # Save a model checkpoint at the end of training
         "checkpoint_metric": "model/train/loss",
         "checkpoint_metric_mode": "min",
-        "checkpoint_dir": f"{os.environ['METALHOME']}/checkpoints",
         "checkpoint_runway": 0,
     },
 }
@@ -429,6 +428,10 @@ class MultitaskTrainer(object):
                     "task_metrics is not empty"
                 )
                 raise Exception(msg)
+            # Set checkpoint_dir to log_dir/checkpoints/
+            self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
+                self.writer.log_subdir, "checkpoints"
+            )
             self.checkpointer = Checkpointer(
                 self.config["checkpoint_config"], verbose=self.config["verbose"]
             )
