@@ -96,7 +96,7 @@ def create_tasks(
                         num_classes=3,
                         k=5,
                     ),
-                    AverageLayer(k=5),
+                    AverageLayer(),
                     Scorer(standard_metrics=["accuracy"]),
                 )
             )
@@ -124,7 +124,7 @@ def create_tasks(
                         num_classes=2,
                         k=5,
                     ),
-                    AverageLayer(k=5),
+                    AverageLayer(),
                     Scorer(standard_metrics=["accuracy"]),
                 )
             )
@@ -152,7 +152,7 @@ def create_tasks(
                         num_classes=2,
                         k=5,
                     ),
-                    AverageLayer(k=5),
+                    AverageLayer(),
                     Scorer(standard_metrics=["accuracy"]),
                 )
             )
@@ -180,7 +180,7 @@ def create_tasks(
                         num_classes=2,
                         k=5,
                     ),
-                    AverageLayer(k=5),
+                    AverageLayer(),
                     Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
                 )
             )
@@ -208,7 +208,7 @@ def create_tasks(
                         num_classes=2,
                         k=5,
                     ),
-                    AverageLayer(k=5),
+                    AverageLayer(),
                     Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
                 )
             )
