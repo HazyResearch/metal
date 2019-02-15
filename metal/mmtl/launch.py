@@ -150,7 +150,8 @@ if __name__ == "__main__":
     # Override json
     if args.override_train_config is not None:
         with open(args.override_train_config, "r") as f:
-            config = json.loads(f.read())
+            override_config = json.loads(f.read())
+        config = merge_dicts(config, override_config)
 
     # Update logging config
     writer_config = {
