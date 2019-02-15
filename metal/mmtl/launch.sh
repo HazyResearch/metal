@@ -31,10 +31,12 @@ elif [ $TASK = "MNLI" ]; then
     BATCH_SIZE=2
 
 elif [ $TASK = "RTE" ]; then
-    LR=1e-5
+    LR=5e-5
     L2=0
     SPLIT_PROP=0.9
-    N_EPOCHS=3
+    N_EPOCHS=10
+    CHECKPOINT_METRIC="RTE/valid/accuracy"
+    CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "WNLI" ]; then
     LR=1e-4
@@ -55,11 +57,15 @@ elif [ $TASK = "MRPC" ]; then
 elif [ $TASK = "STSB" ]; then
     LR=1e-5
     L2=0
-    BATCH_SIZE=2
+#    SPLIT_PROP=0.99
+    # BATCH_SIZE=2
+    BATCH_SIZE=8
 
 elif [ $TASK = "QNLI" ]; then
     LR=1e-5
     L2=0.01
+    CHECKPOINT_METRIC="QNLI/valid/accuracy"
+    CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "ALL" ]; then
     TASK="QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA"

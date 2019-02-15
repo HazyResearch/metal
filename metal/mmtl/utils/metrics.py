@@ -35,8 +35,8 @@ def acc_f1(gold, outputs, **kwargs):
 def pearson_spearman(gold, outputs, probs):
     """A convenience custom function that return pearson, spearman, and their mean"""
     metrics_dict = {}
-    metrics_dict.update(spearman_corr(gold, outputs, outputs))
-    metrics_dict.update(pearson_corr(gold, outputs, outputs))
+    metrics_dict.update(spearman_corr(gold, outputs, probs))
+    metrics_dict.update(pearson_corr(gold, outputs, probs))
     metrics_dict["pearson_spearman"] = np.mean(
         [metrics_dict["pearson_corr"], metrics_dict["spearman_corr"]]
     )
