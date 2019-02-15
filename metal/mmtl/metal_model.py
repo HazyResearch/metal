@@ -5,11 +5,7 @@ import torch.nn as nn
 from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts
 
-model_config = {
-    "seed": None,
-    "device": 0,  # gpu id (int) or -1 for cpu
-    "verbose": True,
-}
+model_config = {"seed": 123, "device": 0, "verbose": True}  # gpu id (int) or -1 for cpu
 
 
 class MetalModel(nn.Module):
