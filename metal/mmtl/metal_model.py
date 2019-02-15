@@ -193,7 +193,12 @@ class MetalModel(nn.Module):
             Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
 
         # Stack batches
-        Y = stack_batches(Y).astype(np.int)
+        # TODO: (VC) replace this with the regression head abstraction
+        if task.name != "STSB":
+            Y = stack_batches(Y).astype(np.int)
+        else:
+            Y = stack_batches(Y).astype(np.float)
+
         Y_probs = stack_batches(Y_probs).astype(np.float)
         if return_preds:
             Y_preds = self._break_ties(Y_probs, **kwargs).astype(np.int)
