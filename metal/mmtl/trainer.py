@@ -60,12 +60,12 @@ trainer_config = {
     # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
     "lr_scheduler_config": {
         # Linearly increase lr up to "lr" over this many warmup_units
-        "warmup_steps": 0,
+        "warmup_steps": 0.0,
         "warmup_unit": "batches",  # ["epochs", "batches"]
         # The minimum lr that will ever be used after warmup.
-        "min_lr": 0,
+        "min_lr": 0.0,
         # Scheduler - exponential
-        "exponential_config": {"gamma": 0.9},  # decay rate
+        "exponential_config": {"gamma": 0.999},  # decay rate
         # Scheduler - reduce_on_plateau
         "plateau_config": {"factor": 0.5, "patience": 10, "threshold": 0.0001},
     },
