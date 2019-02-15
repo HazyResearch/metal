@@ -32,6 +32,15 @@ def acc_f1(gold, outputs, **kwargs):
     return {"accuracy": accuracy, "f1": f1, "acc_f1": np.mean([accuracy, f1])}
 
 
+def ranking_acc_f1(gold, outputs, probs):
+    """A convenience custom function that returns accuracy, f1, and their mean"""
+    gold = (1 - gold) + 1
+    outputs = 1 * (probs.reshape((-1,)) > 0.5)
+    accuracy = metric_score(gold, outputs, metric="accuracy")
+    f1 = metric_score(gold, outputs, metric="f1")
+    return {"accuracy": accuracy, "f1": f1, "acc_f1": np.mean([accuracy, f1])}
+
+
 def pearson_spearman(gold, outputs, probs):
     """A convenience custom function that return pearson, spearman, and their mean"""
     metrics_dict = {}

@@ -15,7 +15,12 @@ from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.task import Task
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
-from metal.mmtl.utils.metrics import acc_f1, matthews_corr, pearson_spearman
+from metal.mmtl.utils.metrics import (
+    acc_f1,
+    matthews_corr,
+    pearson_spearman,
+    ranking_acc_f1,
+)
 
 
 def create_tasks(
@@ -249,8 +254,48 @@ def create_tasks(
                     input_module=bert_hidden_layer,
                     head_module=qnli_head,
                     scorer=Scorer(standard_metrics=["accuracy"]),
-                    loss_hat_func=lambda Y_hat, Y: F.cross_entropy(Y_hat, Y - 1),
+                    # TODO: small fix to map 1 to 1 and 2 to 0 but need more consitent way of doing this
+                    loss_hat_func=lambda y_hat, y_true: F.cross_entropy(
+                        y_hat, y_true - 1
+                    ),
                     output_hat_func=partial(F.softmax, dim=1),
+                )
+            )
+
+        if task_name == "QNLIR":
+            # QNLI ranking task
+            def ranking_loss(scores, y_true, gamma=1.0):
+                scores = torch.sigmoid(scores)
+                # TODO: find consistent way to map labels to {0,1}
+                y_true = (1 - y_true) + 1
+                # TODO: if we're using dev set then these computations won't work
+                # make sure we don't compute loss for evaluation
+                max_pool = nn.MaxPool1d(kernel_size=2, stride=2)
+                pos_scores = torch.exp(
+                    gamma
+                    * (max_pool((y_true * scores.view(-1)).view(1, 1, -1)).view(-1))
+                )
+                neg_scores = torch.exp(
+                    gamma
+                    * (max_pool(((1 - y_true) * scores.view(-1)).view(1, 1, -1))).view(
+                        -1
+                    )
+                )
+                log_likelihood = torch.log(pos_scores / (pos_scores + neg_scores))
+                return -torch.mean(log_likelihood)
+
+            scorer = Scorer(
+                custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]}
+            )
+            tasks.append(
+                Task(
+                    name="QNLIR",
+                    data_loaders=dataloaders,
+                    input_module=bert_hidden_layer,
+                    head_module=BertRegressionHead(bert_output_dim),
+                    scorer=scorer,
+                    loss_hat_func=ranking_loss,
+                    output_hat_func=torch.sigmoid,
                 )
             )
 
