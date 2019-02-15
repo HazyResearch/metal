@@ -7,7 +7,6 @@ from tqdm import tqdm
 import metal.mmtl.dataset as dataset
 from metal.mmtl.bert_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.scorer import Scorer
 from metal.utils import convert_labels
 
 
@@ -37,7 +36,11 @@ def load_data_and_model(model_path, task_name, split):
     model = MetalModel(tasks, verbose=False, device=-1)
     try:
         model.load_state_dict(torch.load(model_path)["model"])
+<<<<<<< HEAD
     except:
+=======
+    except KeyError:
+>>>>>>> 6c781fcfaca221ea45f319db56dbc60f1d038cb9
         model.load_weights(model_path)
 
     return model, dl

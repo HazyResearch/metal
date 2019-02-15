@@ -13,7 +13,7 @@ from metal.mmtl.modules import (
 )
 from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
-from metal.mmtl.task import Task
+from metal.mmtl.task import ClassificationTask, RegressionTask
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
 from metal.mmtl.utils.metrics import (
     acc_f1,
@@ -59,7 +59,7 @@ def create_tasks(
                 custom_metric_funcs={matthews_corr: ["matthews_corr"]},
             )
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -70,7 +70,7 @@ def create_tasks(
 
         if task_name == "SST2":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -80,7 +80,7 @@ def create_tasks(
 
         if task_name == "MNLI":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -91,7 +91,7 @@ def create_tasks(
 
         if task_name == "MNLI_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "MNLI",
                     dataloaders,
                     SAN(
@@ -108,7 +108,7 @@ def create_tasks(
 
         if task_name == "RTE":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -119,7 +119,7 @@ def create_tasks(
 
         if task_name == "RTE_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "RTE",
                     dataloaders,
                     SAN(
@@ -136,7 +136,7 @@ def create_tasks(
 
         if task_name == "WNLI":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -147,7 +147,7 @@ def create_tasks(
 
         if task_name == "WNLI_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "WNLI",
                     dataloaders,
                     SAN(
@@ -164,7 +164,7 @@ def create_tasks(
 
         if task_name == "QQP":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -175,7 +175,7 @@ def create_tasks(
 
         if task_name == "QQP_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "QQP",
                     dataloaders,
                     SAN(
@@ -192,7 +192,7 @@ def create_tasks(
 
         if task_name == "MRPC":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -203,7 +203,7 @@ def create_tasks(
 
         if task_name == "MRPC_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "MRPC",
                     dataloaders,
                     SAN(
@@ -230,25 +230,20 @@ def create_tasks(
                 },
             )
 
-            # x -> sigmoid -> [0,1], and compute mse_loss (y \in [0,1])
-            loss_hat_func = lambda x, y: F.mse_loss(torch.sigmoid(x), y)
-
             tasks.append(
-                Task(
+                RegressionTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
                     BertRegressionHead(bert_output_dim),
                     scorer,
-                    loss_hat_func=loss_hat_func,
-                    output_hat_func=torch.sigmoid,
                 )
             )
 
         if task_name == "QNLI":
             qnli_head = nn.Linear(bert_output_dim, 2, bias=False)
             tasks.append(
-                Task(
+                ClassificationTask(
                     name="QNLI",
                     data_loaders=dataloaders,
                     input_module=bert_hidden_layer,
@@ -288,7 +283,7 @@ def create_tasks(
                 custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]}
             )
             tasks.append(
-                Task(
+                ClassificationTask(
                     name="QNLIR",
                     data_loaders=dataloaders,
                     input_module=bert_hidden_layer,

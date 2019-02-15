@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from metal.mmtl.task import RegressionTask
 from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts
 
@@ -195,11 +196,11 @@ class MetalModel(nn.Module):
                 break
 
         # Stack batches
-        # TODO: (VC) replace this with the regression head abstraction
-        if task.name != "STSB":
-            Y = stack_batches(Y).astype(np.int)
-        else:
+        if isinstance(task, RegressionTask):
             Y = stack_batches(Y).astype(np.float)
+        else:
+            Y = stack_batches(Y).astype(np.int)
+
         Y_probs = stack_batches(Y_probs).astype(np.float)
 
         if max_examples:
