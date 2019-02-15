@@ -41,7 +41,7 @@ trainer_config = {
     # Train Loop
     "n_epochs": 1,
     "l2": 0.0,
-    "grad_clip": 0.0,
+    "grad_clip": 1.0,
     # Evaluate dev for during training every this many epochs
     # Optimizer
     "optimizer_config": {
