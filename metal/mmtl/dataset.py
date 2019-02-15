@@ -375,7 +375,7 @@ class STSBDataset(BERTDataset):
             tsv_path=tsv_path_for_dataset("STS-B", split),
             sent1_idx=7,
             sent2_idx=8,
-            label_idx=9,
+            label_idx=9 if split in ["train", "dev"] else -1,
             skip_rows=1,
             bert_model=bert_model,
             label_fn=lambda x: float(x) / 5,  # labels are scores [1, 2, 3, 4, 5]
@@ -405,7 +405,7 @@ class COLADataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(COLADataset, self).__init__(
             tsv_path=tsv_path_for_dataset("CoLA", split),
-            sent1_idx=3,
+            sent1_idx=3 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,
             skip_rows=0,
