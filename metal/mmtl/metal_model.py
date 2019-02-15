@@ -194,7 +194,7 @@ class MetalModel(nn.Module):
             Xb, Yb = batch
             Y.append(Yb)
             Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
-            total += Xb.shape[0]
+            total += Yb.shape[0]
             if max_examples and total >= max_examples:
                 break
 
