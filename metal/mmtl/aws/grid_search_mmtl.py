@@ -64,6 +64,7 @@ def create_command_dict(config_path, launch_args):
         COMMAND += f" --{ky} {launch_args[ky]}"
 
     print(COMMAND)
+    COMMAND = " ( " + COMMAND + " 2>&1 | tee running_output ) "
     return {
         "cmd": COMMAND_PREFIX + COMMAND,
         "files_to_put": [(config_path, "config")],
