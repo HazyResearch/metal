@@ -90,16 +90,16 @@ class MetalModel(nn.Module):
         }
 
     def update_config(self, update_dict):
-        """Updates self.config with the values in a given update dictionary"""
+        """Updates self.config with the values in a given update dictionary."""
         self.config = recursive_merge_dicts(self.config, update_dict)
 
     def load_weights(self, model_path):
-        """Load model weights from checkpoint"""
+        """Load model weights from checkpoint."""
         if self.config["device"] >= 0:
-            map_location = f"cuda:{self.config['device']}"
+            device = torch.device(f"cuda:{self.config['device']}")
         else:
-            map_location = "cpu"
-        self.load_state_dict(torch.load(model_path, map_location=map_location)["model"])
+            device = torch.device("cpu")
+        self.load_state_dict(torch.load(model_path, map_location=device)["model"])
 
     def save_weights(self, model_path):
         """Saves weight in checkpoint directory"""
