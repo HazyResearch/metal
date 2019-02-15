@@ -33,7 +33,7 @@ def acc_f1(gold, outputs, **kwargs):
 
 
 def ranking_acc_f1(gold, outputs, probs):
-    """A convenience custom function that returns accuracy, f1, and their mean"""
+    """A convenience custom function that returns accuracy, f1, and their mean for ranking task heads."""
     gold = (1 - gold) + 1
     outputs = 1 * (probs.reshape((-1,)) > 0.5)
     accuracy = metric_score(gold, outputs, metric="accuracy")

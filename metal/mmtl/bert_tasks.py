@@ -26,7 +26,7 @@ from metal.mmtl.utils.metrics import (
 def create_tasks(
     task_names,
     bert_model="bert-base-uncased",
-    split_prop=0.8,
+    split_prop=None,
     max_len=512,
     dl_kwargs={},
     bert_kwargs={},
