@@ -36,11 +36,7 @@ def load_data_and_model(model_path, task_name, split):
     model = MetalModel(tasks, verbose=False, device=-1)
     try:
         model.load_state_dict(torch.load(model_path)["model"])
-<<<<<<< HEAD
-    except:
-=======
     except KeyError:
->>>>>>> 6c781fcfaca221ea45f319db56dbc60f1d038cb9
         model.load_weights(model_path)
 
     return model, dl
@@ -79,9 +75,6 @@ def create_submit_dataframe(model_path, task_name, model, dl):
             .cpu()
             .numpy()[:, 0]
         )
-        import pdb
-
-        pdb.set_trace()
         proba += list(proba_batch)
 
     pred = 1 * (np.array(proba) > 0.5)
@@ -103,7 +96,8 @@ def save_dataframe(df, task_name, filepath="./"):
         "MRPC": "MRPC",
     }
 
-    filename = f"{filepath}{task_to_name_dict[task_name]}.tsv"
+    tsv_name = task_to_name_dict[task_name]
+    filename = f"{filepath}{tsv_name}.tsv"
     df.to_csv(filename, sep="\t", index_label="index")
     print("Saved dataframe to: ", filename)
 
