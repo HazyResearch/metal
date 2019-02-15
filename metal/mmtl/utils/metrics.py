@@ -44,9 +44,29 @@ def ranking_acc_f1(gold, outputs, probs):
 def pearson_spearman(gold, outputs, probs):
     """A convenience custom function that return pearson, spearman, and their mean"""
     metrics_dict = {}
-    metrics_dict.update(spearman_corr(gold, outputs, outputs))
-    metrics_dict.update(pearson_corr(gold, outputs, outputs))
+    metrics_dict.update(spearman_corr(gold, outputs, probs))
+    metrics_dict.update(pearson_corr(gold, outputs, probs))
     metrics_dict["pearson_spearman"] = np.mean(
         [metrics_dict["pearson_corr"], metrics_dict["spearman_corr"]]
     )
     return metrics_dict
+
+
+def glue_score(metrics_dict={}, split="valid"):
+    """Computes the glue_score (mean of individual task metrics) from a metrics_dict"""
+    target_metrics = [
+        f"COLA/{split}/matthews_corr",
+        f"SST/{split}/accuracy",
+        f"MRPC/{split}/f1_acc",
+        f"STSB/{split}/pearson_spearman",
+        f"QQP/{split}/f1_acc",
+        f"MNLI/{split}/accuracy",
+        f"QNLI/{split}/accuracy",
+        f"RTE/{split}/accuracy",
+        f"WNLI/{split}/accuracy",
+    ]
+    scores = []
+    for metric in target_metrics:
+        if metric in metrics_dict:
+            scores.append(metrics_dict[metric])
+    return np.mean(scores)

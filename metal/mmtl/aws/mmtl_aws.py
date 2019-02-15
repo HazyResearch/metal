@@ -4,7 +4,7 @@
  pip install paramiko
 
  Sample call:
- python mmtl_aws.py --mode launch_and_run --aws_access_key_id xxx --aws_secret_access_key xxx --keypath ~/.ssh/personalkeyncalifornia.pem
+ python mmtl_aws.py --mode launch_and_run --aws_access_key_id xxx --aws_secret_access_key xxx --keypath ~/.ssh/personalkeyncalifornia.pem --config aws_config
 
  Sample output:
  /usr/local/lib/python3.6/site-packages/paramiko/kex_ecdh_nist.py:39: CryptographyDeprecationWarning: encode_point has been deprecated on EllipticCurvePublicNumbers and will be emoved in a future version. Please use EllipticCurvePublicKey.public_bytes to obtain both compressed and uncompressed point encoding.
@@ -28,6 +28,7 @@
 """
 
 import argparse
+import importlib
 import inspect
 import multiprocessing
 import os
@@ -50,10 +51,13 @@ parser.add_argument(
 parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
 parser.add_argument("--region", default="us-east-1")
-parser.add_argument("--n_machines", default=2)
+parser.add_argument("--n_machines", default=2, type=int)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
+parser.add_argument(
+    "--configpath", required=True, type=str, help="path to config dicts"
+)
 
 
 def create_dummy_command_dict2():
@@ -198,12 +202,15 @@ def describe_instances(args):
     instances = get_instances(args, filter_by_user=False)
     for instance in instances:
         print(
-            "%s, state: %s, user: %s, type: %s\n\tssh -i %s ubuntu@%s"
+            "%s, state: %s, user: %s, type: %s\n\t"
+            # "ssh -i %s ubuntu@%s"
+            "eval `ssh-agent` && cat %s | ssh-add -k - && ssh -i %s ubuntu@%s"
             % (
                 instance.id,
                 instance.state["Name"],
                 get_user(instance),
                 instance.instance_type,
+                args.keypath,
                 args.keypath,
                 instance.public_ip_address,
             )
@@ -266,7 +273,7 @@ def initialize_process_ids(wid, process_id_mapping):
     print("Process %s => %s" % (current, str(wid)))
 
 
-def run(args, instances=None):
+def run(args, launch_args, search_space, instances=None):
 
     # By default run command on all running machines
     if instances is None:
@@ -280,7 +287,9 @@ def run(args, instances=None):
     # Generate commands
     return_output = manager.dict()
     process_id_mapping = manager.dict()
-    command_dicts = grid_search_mmtl.generate_configs_and_commands(args)
+    command_dicts = grid_search_mmtl.generate_configs_and_commands(
+        args, launch_args, search_space
+    )
     instance_dicts = [
         {str(k): str(v) for k, v in dict(inspect.getmembers(instance)).items()}
         for instance in instances
@@ -308,23 +317,29 @@ def run(args, instances=None):
             f.write(str(v))
 
 
-def launch_and_run(args):
+def launch_and_run(args, launch_args, search_space):
     instances = launch(args)
-    run(args, instances=instances)
+    run(args, launch_args, search_space, instances=instances)
     shutdown(args)
 
 
 if __name__ == "__main__":
 
     args = parser.parse_args()
+    # importing from config
+    from importlib.machinery import SourceFileLoader
 
+    config_dicts = SourceFileLoader("config_dicts", args.configpath).load_module()
+    # config_dicts = importlib.import_module(args.configpath)
+    search_space = config_dicts.search_space
+    launch_args = config_dicts.launch_args
     if args.mode == "list":
         describe_instances(args)
     if args.mode == "launch":
         launch(args)
     if args.mode == "launch_and_run":
-        launch_and_run(args)
+        launch_and_run(args, launch_args, search_space)
     if args.mode == "run":
-        run(args)
+        run(args, launch_args, search_space)
     if args.mode == "shutdown":
         shutdown(args)

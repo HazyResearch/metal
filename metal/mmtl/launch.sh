@@ -4,12 +4,13 @@ set -e -x
 TASK=$1
 
 # Default params
+MIN_LR=0
 N_EPOCHS=5
 BATCH_SIZE=32
 SPLIT_PROP=0.8
 MAX_DATAPOINTS=-1
 PROGRESS_BAR=1
-CHECKPOINT_METRIC="train/loss"
+CHECKPOINT_METRIC="model/train/loss"
 CHECKPOINT_METRIC_MODE="min"
 
 if [ $TASK = "COLA" ]; then
@@ -31,10 +32,12 @@ elif [ $TASK = "MNLI" ]; then
     BATCH_SIZE=2
 
 elif [ $TASK = "RTE" ]; then
-    LR=1e-5
+    LR=5e-5
     L2=0
     SPLIT_PROP=0.9
-    N_EPOCHS=3
+    N_EPOCHS=10
+    CHECKPOINT_METRIC="RTE/valid/accuracy"
+    CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "WNLI" ]; then
     LR=1e-4
@@ -55,16 +58,20 @@ elif [ $TASK = "MRPC" ]; then
 elif [ $TASK = "STSB" ]; then
     LR=1e-5
     L2=0
-    BATCH_SIZE=2
+#    SPLIT_PROP=0.99
+    # BATCH_SIZE=2
+    BATCH_SIZE=8
 
 elif [ $TASK = "QNLI" ]; then
     LR=1e-5
     L2=0.01
+    CHECKPOINT_METRIC="QNLI/valid/accuracy"
+    CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "ALL" ]; then
     TASK="QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA"
     LR=1e-5
-    L2=0.01    
+    L2=0.01
 
 else
     echo "Task not found. Exiting."
@@ -76,7 +83,10 @@ python launch.py \
     --bert_model bert-base-uncased \
     --bert_output_dim 768 \
     --max_len 200 \
-    --lr_scheduler exponential \
+    --warmup_steps 0.5 \
+    --warmup_unit "epochs" \
+    --lr_scheduler "linear" \
+    --min_lr $MIN_LR \
     --log_every 0.25 --score_every 0.5 \
     --checkpoint_dir test_logs \
     --checkpoint_metric $CHECKPOINT_METRIC \

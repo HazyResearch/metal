@@ -43,19 +43,8 @@ import numpy as np
 from metal.tuners.random_tuner import RandomSearchTuner
 from metal.tuners.tuner import ModelTuner
 
-train_search_space = {
-    "verbose": True,
-    "progress_bar": False,
-    # hyperparams
-    "l2": {"range": [1e-5, 1], "scale": "log"},
-    "lr": {"range": [1e-5, 1], "scale": "log"},
-    # Tensorboard
-    "writer": "tensorboard",
-    "log_dir": f"tensorboard_logs",
-}
 
-
-def create_command_dict(config_path):
+def create_command_dict(config_path, launch_args):
     COMMAND_PREFIX = (
         "pkill -9 tensorboard;"  # Kill pre-existing tensorboard
         "pkill -9 python;"  # Kill all python processes
@@ -65,25 +54,32 @@ def create_command_dict(config_path):
         "git clone -b mmtl https://github.com/HazyResearch/metal.git;"
         "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
         "mkdir logs;"
-        " ( tensorboard --logdir logs & ) ;"
+        " ( screen -dm tensorboard --logdir logs );"
     )
     # COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n_epochs 2 --log_every 0.25 --score_every 0.25 --max_len 256 --batch_size 8 --checkpoint_dir ./checkpoint --checkpoint_metric QNLI/valid/accuracy --checkpoint_metric_mode max --max_datapoints 32 --override_train_config ../config"
-    COMMAND = " ( python metal/mmtl/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 4 --n_epochs 3 --max_datapoints 32 --override_train_config ../config  2>&1 | tee output ) "
+    # COMMAND = " ( python metal/mmtl/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 4 --n_epochs 3 --max_datapoints 32 --override_train_config ../config  2>&1 | tee output ) "
+
+    COMMAND = "python metal/mmtl/launch.py"
+    for ky in launch_args.keys():
+        COMMAND += f" --{ky} {launch_args[ky]}"
+
+    print(COMMAND)
+    COMMAND = " ( " + COMMAND + " 2>&1 | tee running_output ) "
     return {
         "cmd": COMMAND_PREFIX + COMMAND,
         "files_to_put": [(config_path, "config")],
         "files_to_get": [("config", "config")],
-        "dirs_to_get": [("metal/checkpoint/", "checkpointdir")],
+        "dirs_to_get": [("metal/logs/checkpoint", "logdir")],
     }
 
 
-def generate_configs_and_commands(args, n=2):
+def generate_configs_and_commands(args, launch_args, search_space, n=10):
     configspace_path = "%s/configspace" % args.outputpath
     if not os.path.exists(configspace_path):
         os.makedirs(configspace_path)
 
     tuner = RandomSearchTuner(None, seed=time.time())
-    configs = tuner.config_generator(train_search_space, n, tuner.rng, True)
+    configs = tuner.config_generator(search_space, n, tuner.rng, True)
 
     command_dicts = []
     for i, random_config in enumerate(configs):
@@ -94,6 +90,6 @@ def generate_configs_and_commands(args, n=2):
             json.dump(random_config, f)
 
         # Create command dict
-        command_dicts.append(create_command_dict(config_path))
+        command_dicts.append(create_command_dict(config_path, launch_args))
 
     return command_dicts

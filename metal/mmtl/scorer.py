@@ -41,10 +41,10 @@ class Scorer(object):
     - All metrics in a scorer produce simple metric name only
         - score() has task and split so it can create the full metric name
         - The metrics dict only ever contains full metric names
-    - The user submits a list of score_metrics and test_metrics to the trainer
-        - test_metrics defaults to score_metrics
-        - when score() is called, only score_metrics are calculated and returned
-        - score_metrics and test_metrics contain only full metric names
+    - The user submits a list of task_metrics and test_metrics to the trainer
+        - test_metrics defaults to task_metrics
+        - when score() is called, only task_metrics are calculated and returned
+        - task_metrics and test_metrics contain only full metric names
             - these can use arbitrary split names
         - [later] we can optionally allow regexes instead of explicit names
 
@@ -97,7 +97,7 @@ class Scorer(object):
                     raise Exception(msg)
                 self.custom_metric_map[metric_name] = metric_fn
 
-    def score(self, model, task, target_metrics=[], split=None):
+    def score(self, model, task, target_metrics=[], split=None, max_examples=0):
         """
         Calculates and returns a metrics_dict for a given task
 
@@ -108,6 +108,7 @@ class Scorer(object):
                 (split/metric) to be calculated; if empty, calculate all metrics
                 supported by this scorer.
             split: If not-None, only calculate metrics for this split
+            max_examples: If > 0, score a maximum of this many examples
         Returns:
             a metrics_dict object of the form:
                 {task/split/metric1 : score1, ...., task/split/metricN: score N}
@@ -125,7 +126,9 @@ class Scorer(object):
                 continue
 
             # Calculate probs and preds from model
-            Y, Y_probs, Y_preds = model._predict_probs(task, split, return_preds=True)
+            Y, Y_probs, Y_preds = model._predict_probs(
+                task, split, return_preds=True, max_examples=max_examples
+            )
 
             # From the labels and predictions calculate metrics
             for metric in target_standard_metrics[split]:
@@ -154,8 +157,12 @@ class Scorer(object):
 
         return metrics_dict
 
-    def _extract_target_metrics(self, task, target_metrics, only_split):
-        """Creates dictionaries of target standard and custom metrics by split
+    def _extract_target_metrics(self, task, target_metrics, only_split=None):
+        """Creates dictionaries of target standard and custom metrics by split:
+
+        Example:
+        target_standard_metrics['valid'] = set(['accuracy', 'f1'])
+        target_custom_metrics['valid'] = [ custom_func_1, custom_func2 ]
 
         If target_metrics is empty, calculate all metrics supported by this scorer.
         If only_split is not None, only target metrics for that split.
@@ -190,3 +197,8 @@ class Scorer(object):
                     )
                     raise Exception(msg)
         return target_standard_metrics, target_custom_metrics
+
+    @property
+    def metrics(self):
+        """Returns a list of short metric names supported by this Scorer"""
+        return self.standard_metrics + list(self.custom_metric_map.keys())

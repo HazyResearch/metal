@@ -64,9 +64,11 @@ class Logger(object):
 
     def _calculate_valid_frequency(self):
         if self.config["score_every"]:
-            if (
-                self.config["score_every"] < self.config["log_every"]
-                or self.config["score_every"] % self.config["log_every"]
+            # Do integer check on ratio instead of using mod due to float issues:
+            # e.g., 1.0 % 0.1 == 0.0999999995 for some reason
+            ratio = self.config["score_every"] / self.config["log_every"]
+            if self.config["score_every"] < self.config["log_every"] or ratio != int(
+                ratio
             ):
                 msg = (
                     f"Parameter `score_every` "
@@ -74,7 +76,7 @@ class Logger(object):
                     f"`log_every` ({self.config['log_every']})."
                 )
                 raise Exception(msg)
-            return int(self.config["score_every"] / self.config["log_every"])
+            return int(ratio)
         else:
             return 0
 
@@ -105,7 +107,7 @@ class Logger(object):
             else:
                 metric_name = metric
             if isinstance(value, float):
-                score_strings[split].append(f"{metric_name}={value:0.3f}")
+                score_strings[split].append(f"{metric_name}={value:0.2e}")
             else:
                 score_strings[split].append(f"{metric_name}={value}")
 
