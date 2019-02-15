@@ -40,11 +40,7 @@ class MetalModel(nn.Module):
             print()
 
     def _build(self, tasks):
-        """Iterates over tasks, adding their input_modules and head_modules
-
-        Do this naively for now with a double for-loop
-        # TODO: Can do better than O(n^2), though not a big deal
-        """
+        """Iterates over tasks, adding their input_modules and head_modules"""
         self.input_modules = nn.ModuleDict(
             {task.name: task.input_module for task in tasks}
         )
@@ -117,7 +113,7 @@ class MetalModel(nn.Module):
 
     @torch.no_grad()
     def predict_probs(self, task, split):
-        """Predict probs for a single task and split
+        """Return probabilistic labels for a single task and split
 
         Returns:
             probs: an [n, k] np.ndarray of probabilities
@@ -127,7 +123,7 @@ class MetalModel(nn.Module):
 
     @torch.no_grad()
     def predict(self, task, split, return_probs=False, **kwargs):
-        """Predict preds for a single task and split (and optionally return probs)
+        """Return predictions for a single task and split (and optionally return probs)
 
         Returns:
             preds: an [n, 1] np.ndarray of probabilities
@@ -174,23 +170,33 @@ class MetalModel(nn.Module):
             return scores
 
     @torch.no_grad()
-    def _predict_probs(self, task, split, return_preds=False, **kwargs):
+    def _predict_probs(self, task, split, return_preds=False, max_examples=0, **kwargs):
         """Unzips the dataloader of a task's split and returns Y, Y_prods, Y_preds
 
         Note: it is generally preferable to use predict() or predict_probs() unless
             the gold labels Y are requires as well.
 
+        Args:
+            task: a Task to predict on
+            split: the split to predict on
+            return_preds: if True, also include preds in return values
+            max_examples: if > 0, predict for a maximum of this many examples
+
         Returns:
-            Y: [n, 1] np.ndarray of ints
-            Y_preds: [n, 1] np.ndarray of ints
+            Y: [n] np.ndarray of ints
             Y_probs: [n, k] np.ndarray of floats
+            Y_preds: [n, 1] np.ndarray of ints
         """
         Y = []
         Y_probs = []
+        total = 0
         for batch_num, batch in enumerate(task.data_loaders[split]):
             Xb, Yb = batch
             Y.append(Yb)
             Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
+            total += Xb.shape[0]
+            if max_examples and total >= max_examples:
+                break
 
         # Stack batches
         # TODO: (VC) replace this with the regression head abstraction
@@ -198,8 +204,12 @@ class MetalModel(nn.Module):
             Y = stack_batches(Y).astype(np.int)
         else:
             Y = stack_batches(Y).astype(np.float)
-
         Y_probs = stack_batches(Y_probs).astype(np.float)
+
+        if max_examples:
+            Y = Y[:max_examples]
+            Y_probs = Y_probs[:max_examples, :]
+
         if return_preds:
             Y_preds = self._break_ties(Y_probs, **kwargs).astype(np.int)
             return Y, Y_probs, Y_preds

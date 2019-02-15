@@ -76,9 +76,8 @@ trainer_config = {
         "task_metrics": [],
         # The list of trainer standard metrics to calculate (and log)
         "trainer_metrics": [],  # e.g., "glue"
-        # The list of trainer custom metric functions to execute
-        # The name of the function is assumed to be the name of the returned metric
-        # "trainer_custom_metric_funcs": [],
+        # Run scorers over a maximum of this many examples if > 0.
+        "max_valid_examples": -1,
         # The name of the split to run scoring on during training
         # To score over multiple splits, set valid_split=None and use task_metrics
         "valid_split": "valid",
@@ -321,8 +320,11 @@ class MultitaskTrainer(object):
     def calculate_task_metrics(self, model, tasks, split=None):
         metrics_dict = {}
         task_metrics = self.config["metrics_config"]["task_metrics"]
+        max_examples = self.config["metrics_config"]["max_valid_examples"]
         for task in tasks:
-            metrics_dict_task = task.scorer.score(model, task, task_metrics, split)
+            metrics_dict_task = task.scorer.score(
+                model, task, task_metrics, split, max_examples=max_examples
+            )
             metrics_dict.update(metrics_dict_task)
         return metrics_dict
 

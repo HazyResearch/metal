@@ -29,12 +29,12 @@ def to_numpy(Z):
 
 def stack_batches(X):
     """Stack a list of np.ndarrays along the first axis, returning an
-    np.ndarray; note this is mainly for smooth hanlding of the multi-task
+    np.ndarray; note this is mainly for smooth handling of the multi-task
     setting."""
     X = [to_numpy(Xb) for Xb in X]
-    if len(X[0].shape) == 1:
+    if X[0].ndim == 1:
         return np.hstack(X)
-    elif len(X[0].shape) == 2:
+    elif X[0].ndim == 2:
         return np.vstack(X)
     else:
-        raise ValueError(f"Can't stack {len(X[0].shape)}-dim batches.")
+        raise ValueError(f"Can't stack {X[0].ndim}-dim batches.")
