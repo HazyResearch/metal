@@ -107,7 +107,7 @@ class Logger(object):
             else:
                 metric_name = metric
             if isinstance(value, float):
-                score_strings[split].append(f"{metric_name}={value:0.3f}")
+                score_strings[split].append(f"{metric_name}={value:0.2e}")
             else:
                 score_strings[split].append(f"{metric_name}={value}")
 
