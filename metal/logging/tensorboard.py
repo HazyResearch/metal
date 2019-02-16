@@ -1,3 +1,6 @@
+import warnings
+
+import numpy as np
 from tensorboardX import SummaryWriter
 
 from metal.logging.writer import LogWriter
@@ -18,6 +21,11 @@ class TensorBoardWriter(LogWriter):
 
     def add_scalar(self, name, val, i):
         if super().add_scalar(name, val, i):
+            # HACK: This is temporary, just for finding which metric reports None
+            if val is None:
+                warnings.warn(f"At iteration {i}, metric {name} had value None!")
+                val = np.nan
+            # /HACK
             self.tb_writer.add_scalar(name, val, i)
 
     def close(self):
