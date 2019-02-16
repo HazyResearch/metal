@@ -408,7 +408,7 @@ class COLADataset(BERTDataset):
             sent1_idx=3 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,
-            skip_rows=0,
+            skip_rows=0 if split in ["train", "dev"] else 1,
             bert_model=bert_model,
             delimiter="\t",
             label_fn=lambda label: 1 if label == "1" else 2,  # reserve 0 for abstain
