@@ -61,8 +61,8 @@ def pred_to_word(proba, task_name):
     }
 
     # regression
-    if task_name is "STSB":
-        return list(5. * np.array(proba))
+    if task_name == "STSB":
+        return list(5.0 * np.array(proba))
 
     # three-class
     if task_name in ["MNLI", "MNLI-m", "MNLI-mm"]:
