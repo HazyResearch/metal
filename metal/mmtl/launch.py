@@ -134,7 +134,6 @@ if __name__ == "__main__":
     config["writer_config"] = writer_config
     config["writer"] = "tensorboard"
 
-    tasks = []
     task_names = [task_name for task_name in args.tasks.split(",")]
     tasks = create_tasks(
         task_names=task_names,
