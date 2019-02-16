@@ -406,7 +406,7 @@ class SST2Dataset(BERTDataset):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})  # reserve 0 for abstain
         super(SST2Dataset, self).__init__(
             tsv_path=tsv_path_for_dataset("SST-2", split),
-            sent1_idx=0,
+            sent1_idx=0 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,
             skip_rows=1,
@@ -427,7 +427,7 @@ class COLADataset(BERTDataset):
             sent1_idx=3 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,
-            skip_rows=0,
+            skip_rows=0 if split in ["train", "dev"] else 1,
             bert_model=bert_model,
             delimiter="\t",
             label_fn=label_fn,
@@ -499,8 +499,8 @@ class QQPDataset(BERTDataset):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(QQPDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("QQP", split),
-            sent1_idx=3,
-            sent2_idx=4,
+            sent1_idx=3 if split in ["train", "dev"] else 1,
+            sent2_idx=4 if split in ["train", "dev"] else 2,
             label_idx=5 if split in ["train", "dev"] else -1,
             skip_rows=1,
             bert_model=bert_model,

@@ -131,6 +131,7 @@ def run_command(args, instance, cmd_dict, output, run_id):
             sftp.put(localpath, remotepath)
 
         # Execute a command(cmd) after connecting/ssh to an instance
+        print("Machine: %s Running: %s" % (instance["public_ip_address"], cmd))
         stdin, stdout, stderr = client.exec_command(cmd)
         output[run_id] = stdout.read().decode("utf-8")
 
