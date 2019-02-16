@@ -42,7 +42,7 @@ def load_data_and_model(model_path, task_name, split):
     return model, dl
 
 
-def pred_to_word(pred, task_name):
+def pred_to_word(proba, task_name):
 
     # [a,b] corresponds to pred=[0,1] #NOTE THAT ! ALWAYS MEANS THE SAME
     # from dataloader, [a,b] corresponds to label=[1,2]
@@ -52,12 +52,23 @@ def pred_to_word(pred, task_name):
         "SST2": ["0", "1"],
         "COLA": ["0", "1"],
         "MNLI-m": ["entailment", "contradiction", "neutral"],
+        "MNLI": ["entailment", "contradiction", "neutral"],
         "MNLI-mm": ["entailment", "contradiction", "neutral"],
         "RTE": ["not_entailment", "entailment"],
         "WNLI": ["0", "1"],
         "QQP": ["0", "1"],
         "MRPC": ["0", "1"],
     }
+
+    # regression
+    if task_name is "STSB":
+        return list(5. * np.array(proba))
+
+    # three-class
+    if task_name in ["MNLI", "MNLI-m", "MNLI-mm"]:
+        pred = proba
+    else:
+        pred = 1 * (np.array(proba) > 0.5)
 
     label_map = pred_to_word_dict[task_name]
     labels = []
@@ -69,16 +80,26 @@ def pred_to_word(pred, task_name):
 def create_submit_dataframe(model_path, task_name, model, dl):
     proba = []
     for x, y in tqdm(list(dl)):
-        proba_batch = (
-            model.calculate_output(x, [task_name])[task_name]
-            .detach()
-            .cpu()
-            .numpy()[:, 0]
-        )
+        if task_name in ["MNLI", "MNLI-m", "MNLI-mm"]:
+            proba_batch = np.argmax(
+                (
+                    model.calculate_output(x, [task_name])[task_name]
+                    .detach()
+                    .cpu()
+                    .numpy()
+                ),
+                axis=1,
+            )
+        else:
+            proba_batch = (
+                model.calculate_output(x, [task_name])[task_name]
+                .detach()
+                .cpu()
+                .numpy()[:, 0]
+            )
         proba += list(proba_batch)
 
-    pred = 1 * (np.array(proba) > 0.5)
-    predictions = pred_to_word(pred, task_name)
+    predictions = pred_to_word(proba, task_name)
     return pd.DataFrame(predictions, columns=["prediction"])
 
 
