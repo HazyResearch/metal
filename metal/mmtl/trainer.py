@@ -4,6 +4,7 @@ from collections import defaultdict
 from pprint import pprint
 from shutil import copy2
 
+import numpy as np
 import torch
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
@@ -31,6 +32,7 @@ else:
 
 trainer_config = {
     "verbose": True,
+    "seed": None,
     # Display
     "progress_bar": False,
     # Dataloader
@@ -137,6 +139,11 @@ class MultitaskTrainer(object):
 
     def __init__(self, **kwargs):
         self.config = recursive_merge_dicts(trainer_config, kwargs)
+
+        # Set random seeds
+        if self.config["seed"] is None:
+            self.config["seed"] = np.random.randint(1e6)
+        self._set_seed(self.config["seed"])
 
     def train_model(self, model, tasks, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
@@ -580,3 +587,8 @@ class MultitaskTrainer(object):
                 "task_metrics is not empty"
             )
             raise Exception(msg)
+
+    def _set_seed(self, seed):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)

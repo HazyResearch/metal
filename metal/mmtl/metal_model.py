@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -6,7 +8,11 @@ from metal.mmtl.task import RegressionTask
 from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts
 
-model_config = {"seed": 123, "device": 0, "verbose": True}  # gpu id (int) or -1 for cpu
+model_config = {
+    "seed": None,
+    "device": 0,  # gpu id (int) or -1 for cpu
+    "verbose": True,
+}
 
 
 class MetalModel(nn.Module):
@@ -22,6 +28,13 @@ class MetalModel(nn.Module):
     def __init__(self, tasks, **kwargs):
         super().__init__()
         self.config = recursive_merge_dicts(model_config, kwargs, misses="insert")
+
+        # Set random seed
+        if self.config["seed"] is None:
+            self.config["seed"] = np.random.randint(1e6)
+        self._set_seed(self.config["seed"])
+
+        # Build network
         self._build(tasks)
 
         # Move model to device now, then move data to device in forward() or calculate_loss()
@@ -105,6 +118,14 @@ class MetalModel(nn.Module):
     def save_weights(self, model_path):
         """Saves weight in checkpoint directory"""
         raise NotImplementedError
+
+    def _set_seed(self, seed):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if self.config["device"] >= 0:
+            torch.backends.cudnn.enabled = True
+            torch.cuda.manual_seed(seed)
 
     # Single task prediction helpers (for convenience)
 
