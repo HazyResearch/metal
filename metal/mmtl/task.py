@@ -1,12 +1,14 @@
+from abc import ABC
 from functools import partial
 
+import torch
 import torch.nn.functional as F
 
 from metal.mmtl.scorer import Scorer
 
 
-class Task(object):
-    """A task for use in an MMTL MetalModel
+class Task(ABC):
+    """A abstract class for tasks in MMTL Metal Model.
 
     Args:
         name: (str) The name of the task
@@ -28,9 +30,9 @@ class Task(object):
         data_loaders,
         input_module,
         head_module,
-        scorer=Scorer(standard_metrics=["accuracy"]),
-        loss_hat_func=(lambda X, Y: F.cross_entropy(X, Y - 1, reduction="mean")),
-        output_hat_func=(partial(F.softmax, dim=1)),
+        scorer,
+        loss_hat_func,
+        output_hat_func,
     ) -> None:
         self.name = name
         self.data_loaders = data_loaders
@@ -39,3 +41,53 @@ class Task(object):
         self.scorer = scorer
         self.loss_hat_func = loss_hat_func
         self.output_hat_func = output_hat_func
+
+
+class ClassificationTask(Task):
+    """A classification task for use in an MMTL MetalModel"""
+
+    def __init__(
+        self,
+        name,
+        data_loaders,
+        input_module,
+        head_module,
+        scorer=Scorer(standard_metrics=["accuracy"]),
+        loss_hat_func=(lambda X, Y: F.cross_entropy(X, Y - 1, reduction="mean")),
+        output_hat_func=(partial(F.softmax, dim=1)),
+    ) -> None:
+
+        super(ClassificationTask, self).__init__(
+            name,
+            data_loaders,
+            input_module,
+            head_module,
+            scorer,
+            loss_hat_func,
+            output_hat_func,
+        )
+
+
+class RegressionTask(Task):
+    """A regression task for use in an MMTL MetalModel"""
+
+    def __init__(
+        self,
+        name,
+        data_loaders,
+        input_module,
+        head_module,
+        scorer=Scorer(standard_metrics=[]),
+        loss_hat_func=(lambda X, Y: F.mse_loss(torch.sigmoid(X), Y)),
+        output_hat_func=(torch.sigmoid),
+    ) -> None:
+
+        super(RegressionTask, self).__init__(
+            name,
+            data_loaders,
+            input_module,
+            head_module,
+            scorer,
+            loss_hat_func,
+            output_hat_func,
+        )

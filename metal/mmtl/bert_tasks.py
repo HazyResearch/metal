@@ -13,15 +13,20 @@ from metal.mmtl.modules import (
 )
 from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
-from metal.mmtl.task import Task
+from metal.mmtl.task import ClassificationTask, RegressionTask
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
-from metal.mmtl.utils.metrics import acc_f1, matthews_corr, pearson_spearman
+from metal.mmtl.utils.metrics import (
+    acc_f1,
+    matthews_corr,
+    pearson_spearman,
+    ranking_acc_f1,
+)
 
 
 def create_tasks(
     task_names,
     bert_model="bert-base-uncased",
-    split_prop=0.8,
+    split_prop=None,
     max_len=512,
     dl_kwargs={},
     bert_kwargs={},
@@ -54,7 +59,7 @@ def create_tasks(
                 custom_metric_funcs={matthews_corr: ["matthews_corr"]},
             )
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -65,7 +70,7 @@ def create_tasks(
 
         if task_name == "SST2":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -75,7 +80,7 @@ def create_tasks(
 
         if task_name == "MNLI":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -86,7 +91,7 @@ def create_tasks(
 
         if task_name == "MNLI_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "MNLI",
                     dataloaders,
                     SAN(
@@ -103,7 +108,7 @@ def create_tasks(
 
         if task_name == "RTE":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -114,7 +119,7 @@ def create_tasks(
 
         if task_name == "RTE_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "RTE",
                     dataloaders,
                     SAN(
@@ -131,7 +136,7 @@ def create_tasks(
 
         if task_name == "WNLI":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -142,7 +147,7 @@ def create_tasks(
 
         if task_name == "WNLI_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "WNLI",
                     dataloaders,
                     SAN(
@@ -159,7 +164,7 @@ def create_tasks(
 
         if task_name == "QQP":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -170,7 +175,7 @@ def create_tasks(
 
         if task_name == "QQP_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "QQP",
                     dataloaders,
                     SAN(
@@ -187,7 +192,7 @@ def create_tasks(
 
         if task_name == "MRPC":
             tasks.append(
-                Task(
+                ClassificationTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
@@ -198,7 +203,7 @@ def create_tasks(
 
         if task_name == "MRPC_SAN":
             tasks.append(
-                Task(
+                ClassificationTask(
                     "MRPC",
                     dataloaders,
                     SAN(
@@ -225,32 +230,67 @@ def create_tasks(
                 },
             )
 
-            # x -> sigmoid -> [0,1], and compute mse_loss (y \in [0,1])
-            loss_hat_func = lambda x, y: F.mse_loss(torch.sigmoid(x), y)
-
             tasks.append(
-                Task(
+                RegressionTask(
                     task_name,
                     dataloaders,
                     bert_hidden_layer,
                     BertRegressionHead(bert_output_dim),
                     scorer,
-                    loss_hat_func=loss_hat_func,
-                    output_hat_func=torch.sigmoid,
                 )
             )
 
         if task_name == "QNLI":
             qnli_head = nn.Linear(bert_output_dim, 2, bias=False)
             tasks.append(
-                Task(
+                ClassificationTask(
                     name="QNLI",
                     data_loaders=dataloaders,
                     input_module=bert_hidden_layer,
                     head_module=qnli_head,
                     scorer=Scorer(standard_metrics=["accuracy"]),
-                    loss_hat_func=lambda Y_hat, Y: F.cross_entropy(Y_hat, Y - 1),
+                    # TODO: small fix to map 1 to 1 and 2 to 0 but need more consitent way of doing this
+                    loss_hat_func=lambda y_hat, y_true: F.cross_entropy(
+                        y_hat, y_true - 1
+                    ),
                     output_hat_func=partial(F.softmax, dim=1),
+                )
+            )
+
+        if task_name == "QNLIR":
+            # QNLI ranking task
+            def ranking_loss(scores, y_true, gamma=1.0):
+                scores = torch.sigmoid(scores)
+                # TODO: find consistent way to map labels to {0,1}
+                y_true = (1 - y_true) + 1
+                # TODO: if we're using dev set then these computations won't work
+                # make sure we don't compute loss for evaluation
+                max_pool = nn.MaxPool1d(kernel_size=2, stride=2)
+                pos_scores = torch.exp(
+                    gamma
+                    * (max_pool((y_true * scores.view(-1)).view(1, 1, -1)).view(-1))
+                )
+                neg_scores = torch.exp(
+                    gamma
+                    * (max_pool(((1 - y_true) * scores.view(-1)).view(1, 1, -1))).view(
+                        -1
+                    )
+                )
+                log_likelihood = torch.log(pos_scores / (pos_scores + neg_scores))
+                return -torch.mean(log_likelihood)
+
+            scorer = Scorer(
+                custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]}
+            )
+            tasks.append(
+                ClassificationTask(
+                    name="QNLIR",
+                    data_loaders=dataloaders,
+                    input_module=bert_hidden_layer,
+                    head_module=BertRegressionHead(bert_output_dim),
+                    scorer=scorer,
+                    loss_hat_func=ranking_loss,
+                    output_hat_func=torch.sigmoid,
                 )
             )
 
