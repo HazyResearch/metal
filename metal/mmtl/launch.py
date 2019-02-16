@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--split_prop",
         type=float,
-        default=0.8,
+        default=None,
         help="Proportion of training data to use for validation.",
     )
 

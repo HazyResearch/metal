@@ -98,7 +98,6 @@ class BERTDataset(data.Dataset):
 
         tokens, segments, labels = [], [], []
         with codecs.open(data_file, "r", "utf-8") as data_fh:
-
             # skip "header" rows
             for _ in range(skip_rows):
                 data_fh.readline()
@@ -163,8 +162,7 @@ class BERTDataset(data.Dataset):
                     if label_fn:
                         label = label_fn(label)
                 else:
-                    label = 0
-
+                    label = 1
                 tokens.append(sent)
                 segments.append(seg)
                 labels.append(label)
@@ -317,6 +315,7 @@ class QNLIRDataset(BERTDataset):
             label_fn=lambda label: 1 if label == "entailment" else 2,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            label_type=float,
         )
         if self.split == "train":
             assert len(self.tokens) % 2 == 0
@@ -326,16 +325,16 @@ class QNLIRDataset(BERTDataset):
         returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
         if self.split == "train":
             # choose random indices
-            N = len(self) / 2
-            full_idx = np.arange(N)
+            num_pairs = len(self) / 2
+            full_idx = np.arange(num_pairs)
             np.random.seed(split_seed)
             np.random.shuffle(full_idx)
-
+            assert kwargs["batch_size"] % 2 == 0
             if split_prop:
                 assert split_prop >= 0 and split_prop <= 1
 
                 # split into train/dev
-                split_div = int(split_prop * N)
+                split_div = int(split_prop * num_pairs)
                 train_idx = full_idx[:split_div]
                 dev_idx = full_idx[split_div:]
 
@@ -376,7 +375,7 @@ class STSBDataset(BERTDataset):
             tsv_path=tsv_path_for_dataset("STS-B", split),
             sent1_idx=7,
             sent2_idx=8,
-            label_idx=9,
+            label_idx=9 if split in ["train", "dev"] else -1,
             skip_rows=1,
             bert_model=bert_model,
             label_fn=lambda x: float(x) / 5,  # labels are scores [1, 2, 3, 4, 5]
@@ -390,7 +389,7 @@ class SST2Dataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(SST2Dataset, self).__init__(
             tsv_path=tsv_path_for_dataset("SST-2", split),
-            sent1_idx=0,
+            sent1_idx=0 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,
             skip_rows=1,
@@ -406,7 +405,7 @@ class COLADataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(COLADataset, self).__init__(
             tsv_path=tsv_path_for_dataset("CoLA", split),
-            sent1_idx=3,
+            sent1_idx=3 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,
             skip_rows=0,
@@ -472,8 +471,8 @@ class QQPDataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(QQPDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("QQP", split),
-            sent1_idx=3,
-            sent2_idx=4,
+            sent1_idx=3 if split in ["train", "dev"] else 1,
+            sent2_idx=4 if split in ["train", "dev"] else 2,
             label_idx=5 if split in ["train", "dev"] else -1,
             skip_rows=1,
             bert_model=bert_model,
