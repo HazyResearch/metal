@@ -123,7 +123,7 @@ class MetalModel(nn.Module):
         """Return predictions for a single task and split (and optionally return probs)
 
         Returns:
-            preds: an [n, 1] np.ndarray of probabilities
+            preds: an [n, 1] np.ndarray of predictions
             probs: (optional) an [n, k] np.ndarray of probabilities if return_probs=True
         """
         _, Y_probs, Y_preds = self._predict_probs(
