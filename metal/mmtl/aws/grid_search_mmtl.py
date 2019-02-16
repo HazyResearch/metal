@@ -42,6 +42,7 @@ import numpy as np
 
 from metal.tuners.random_tuner import RandomSearchTuner
 from metal.tuners.tuner import ModelTuner
+from metal.utils import recursive_merge_dicts
 
 
 def create_command_dict(config_path, launch_args):
@@ -84,12 +85,17 @@ def generate_configs_and_commands(args, launch_args, search_space, n=10):
     command_dicts = []
     for i, random_config in enumerate(configs):
 
+        # Recursive merge dicts launch_args with sampled parameters
+        config_to_use = recursive_merge_dicts(
+            launch_args, random_config, misses="insert"
+        )
+
         # Write to directory
         config_path = "%s/config_%d.json" % (configspace_path, i)
         with open(config_path, "w") as f:
-            json.dump(random_config, f)
+            json.dump(config_to_use, f)
 
         # Create command dict
-        command_dicts.append(create_command_dict(config_path, launch_args))
+        command_dicts.append(create_command_dict(config_path, config_to_use))
 
     return command_dicts
