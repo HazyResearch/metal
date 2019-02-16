@@ -389,7 +389,7 @@ class SST2Dataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(SST2Dataset, self).__init__(
             tsv_path=tsv_path_for_dataset("SST-2", split),
-            sent1_idx=0,
+            sent1_idx=0 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
             label_idx=1 if split in ["train", "dev"] else -1,
             skip_rows=1,
