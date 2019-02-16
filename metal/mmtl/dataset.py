@@ -471,8 +471,8 @@ class QQPDataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         super(QQPDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("QQP", split),
-            sent1_idx=3,
-            sent2_idx=4,
+            sent1_idx=3 if split in ["train", "dev"] else 1,
+            sent2_idx=4 if split in ["train", "dev"] else 2,
             label_idx=5 if split in ["train", "dev"] else -1,
             skip_rows=1,
             bert_model=bert_model,
