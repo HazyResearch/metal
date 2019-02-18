@@ -98,6 +98,7 @@ class MetalModel(nn.Module):
     def calculate_output(self, X, task_names):
         """Returns a dict of {task_name: probs (an [n, k] Tensor of probabilities)}."""
         # return F.softmax(self.forward(X), dim=1).data.cpu().numpy()
+        assert self.eval()
         return {
             t: self.output_hat_funcs[t](out)
             for t, out in self.forward(X, task_names).items()
@@ -136,6 +137,7 @@ class MetalModel(nn.Module):
         Returns:
             probs: an [n, k] np.ndarray of probabilities
         """
+        self.eval()
         _, Y_probs = self._predict_probs(task, split)
         return Y_probs
 
@@ -147,6 +149,7 @@ class MetalModel(nn.Module):
             preds: an [n, 1] np.ndarray of predictions
             probs: (optional) an [n, k] np.ndarray of probabilities if return_probs=True
         """
+        self.eval()
         _, Y_probs, Y_preds = self._predict_probs(
             task, split, return_preds=True, **kwargs
         )
@@ -169,6 +172,7 @@ class MetalModel(nn.Module):
             scores: a list of scores corresponding to the requested metrics
                 (optionally a single score if metrics is a string instead of a list)
         """
+        self.eval()
         return_list = isinstance(metrics, list)
         metrics_list = metrics if isinstance(metrics, list) else [metrics]
         target_metrics = [f"{task.name}/{split}/{metric}" for metric in metrics_list]
