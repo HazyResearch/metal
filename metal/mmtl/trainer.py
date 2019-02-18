@@ -138,7 +138,7 @@ class MultitaskTrainer(object):
     """Driver for the MTL training process"""
 
     def __init__(self, **kwargs):
-        self.config = recursive_merge_dicts(trainer_config, kwargs)
+        self.config = recursive_merge_dicts(trainer_config, kwargs, misses="insert")
 
         # Set random seeds
         if self.config["seed"] is None:
@@ -146,7 +146,9 @@ class MultitaskTrainer(object):
         self._set_seed(self.config["seed"])
 
     def train_model(self, model, tasks, **kwargs):
-        self.config = recursive_merge_dicts(self.config, kwargs)
+        # NOTE: misses="insert" so we can log extra metadata (e.g. num_parameters)
+        # and eventually write to disk.
+        self.config = recursive_merge_dicts(self.config, kwargs, misses="insert")
         self.task_names = [task.name for task in tasks]
 
         # Calculate epoch statistics
