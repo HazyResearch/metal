@@ -280,7 +280,8 @@ def create_tasks(
                 return -torch.mean(log_likelihood)
 
             scorer = Scorer(
-                custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]}
+                custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]},
+                standard_metrics=[],
             )
             tasks.append(
                 ClassificationTask(
