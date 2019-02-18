@@ -10,6 +10,9 @@ def spearman_corr(gold, _, probs):
     # TODO: fix this poor naming convention to better support regression tasks.
     probs = probs.squeeze()
     corr, p_value = spearmanr(gold, probs)
+    if np.isnan(corr):
+        print(f"Warning: converting nan -> 0.0 for spearman_corr")
+        corr = 0.0
     return {"spearman_corr": corr}
 
 
@@ -18,6 +21,9 @@ def pearson_corr(gold, _, probs):
     # TODO: fix this poor naming convention to better support regression tasks.
     probs = probs.squeeze()
     corr, p_value = pearsonr(gold, probs)
+    if np.isnan(corr):
+        print(f"Warning: converting nan -> 0.0 for spearman_corr")
+        corr = 0.0
     return {"pearson_corr": corr}
 
 
