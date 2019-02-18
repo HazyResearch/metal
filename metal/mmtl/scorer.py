@@ -97,7 +97,7 @@ class Scorer(object):
                     raise Exception(msg)
                 self.custom_metric_map[metric_name] = metric_fn
 
-    def score(self, model, task, target_metrics=[], split=None):
+    def score(self, model, task, target_metrics=[], split=None, max_examples=0):
         """
         Calculates and returns a metrics_dict for a given task
 
@@ -108,6 +108,7 @@ class Scorer(object):
                 (split/metric) to be calculated; if empty, calculate all metrics
                 supported by this scorer.
             split: If not-None, only calculate metrics for this split
+            max_examples: If > 0, score a maximum of this many examples
         Returns:
             a metrics_dict object of the form:
                 {task/split/metric1 : score1, ...., task/split/metricN: score N}
@@ -125,7 +126,9 @@ class Scorer(object):
                 continue
 
             # Calculate probs and preds from model
-            Y, Y_probs, Y_preds = model._predict_probs(task, split, return_preds=True)
+            Y, Y_probs, Y_preds = model._predict_probs(
+                task, split, return_preds=True, max_examples=max_examples
+            )
 
             # From the labels and predictions calculate metrics
             for metric in target_standard_metrics[split]:

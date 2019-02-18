@@ -14,40 +14,9 @@ from metal.mmtl.bert_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer, trainer_config
+from metal.utils import add_flags_from_config
 
 logging.basicConfig(level=logging.INFO)
-
-
-def add_mmtl_defaults(parser, config_dict):
-    """
-    Adds flags for all MetalModel config parameters (and corresponding defaults)
-    """
-    for param in config_dict:
-        if param in ["verbose"]:
-            continue
-
-        default = config_dict[param]
-        # This check can be removed if the unnecessary arguments above are removed.
-        if isinstance(default, dict):
-            parser = add_mmtl_defaults(parser, default)
-
-        if type(default) == list:
-            if len(default) > 0:
-                parser.add_argument(
-                    f"--{param}", type=type(default[0]), default=default
-                )
-            else:
-                parser.add_argument(f"--{param}", default=default)
-
-        else:
-            if default is not None:
-                if isinstance(default, bool):
-                    default = int(default)
-                parser.add_argument(f"--{param}", type=type(default), default=default)
-            else:
-                parser.add_argument(f"--{param}", default=default)
-
-    return parser
 
 
 def get_dir_name(models_dir):
@@ -121,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--split_prop",
         type=float,
-        default=0.8,
+        default=None,
         help="Proportion of training data to use for validation.",
     )
 
@@ -132,7 +101,7 @@ if __name__ == "__main__":
         help="Whether to override train_config dict with json loaded from path. For tuning",
     )
 
-    parser = add_mmtl_defaults(parser, trainer_config)
+    parser = add_flags_from_config(parser, trainer_config)
     args = parser.parse_args()
 
     config = merge_dicts(trainer_config, vars(args))
@@ -165,7 +134,6 @@ if __name__ == "__main__":
     config["writer_config"] = writer_config
     config["writer"] = "tensorboard"
 
-    tasks = []
     task_names = [task_name for task_name in args.tasks.split(",")]
     tasks = create_tasks(
         task_names=task_names,

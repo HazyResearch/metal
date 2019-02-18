@@ -1,7 +1,10 @@
+import random
+
 import numpy as np
 import torch
 import torch.nn as nn
 
+from metal.mmtl.task import RegressionTask
 from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts
 
@@ -25,6 +28,13 @@ class MetalModel(nn.Module):
     def __init__(self, tasks, **kwargs):
         super().__init__()
         self.config = recursive_merge_dicts(model_config, kwargs, misses="insert")
+
+        # Set random seed
+        if self.config["seed"] is None:
+            self.config["seed"] = np.random.randint(1e6)
+        self._set_seed(self.config["seed"])
+
+        # Build network
         self._build(tasks)
 
         # Move model to device now, then move data to device in forward() or calculate_loss()
@@ -40,11 +50,7 @@ class MetalModel(nn.Module):
             print()
 
     def _build(self, tasks):
-        """Iterates over tasks, adding their input_modules and head_modules
-
-        Do this naively for now with a double for-loop
-        # TODO: Can do better than O(n^2), though not a big deal
-        """
+        """Iterates over tasks, adding their input_modules and head_modules"""
         self.input_modules = nn.ModuleDict(
             {task.name: task.input_module for task in tasks}
         )
@@ -98,26 +104,34 @@ class MetalModel(nn.Module):
         }
 
     def update_config(self, update_dict):
-        """Updates self.config with the values in a given update dictionary"""
+        """Updates self.config with the values in a given update dictionary."""
         self.config = recursive_merge_dicts(self.config, update_dict)
 
-    def load_weights(self, model_path, device):
-        """Load model weights from checkpoint"""
+    def load_weights(self, model_path):
+        """Load model weights from checkpoint."""
         if self.config["device"] >= 0:
-            map_location = f"cuda:{self.config['device']}"
+            device = torch.device(f"cuda:{self.config['device']}")
         else:
-            map_location = "cpu"
-        self.load_state_dict(torch.load(model_path, map_location=map_location)["model"])
+            device = torch.device("cpu")
+        self.load_state_dict(torch.load(model_path, map_location=device)["model"])
 
     def save_weights(self, model_path):
         """Saves weight in checkpoint directory"""
         raise NotImplementedError
 
+    def _set_seed(self, seed):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if self.config["device"] >= 0:
+            torch.backends.cudnn.enabled = True
+            torch.cuda.manual_seed(seed)
+
     # Single task prediction helpers (for convenience)
 
     @torch.no_grad()
     def predict_probs(self, task, split):
-        """Predict probs for a single task and split
+        """Return probabilistic labels for a single task and split
 
         Returns:
             probs: an [n, k] np.ndarray of probabilities
@@ -127,10 +141,10 @@ class MetalModel(nn.Module):
 
     @torch.no_grad()
     def predict(self, task, split, return_probs=False, **kwargs):
-        """Predict preds for a single task and split (and optionally return probs)
+        """Return predictions for a single task and split (and optionally return probs)
 
         Returns:
-            preds: an [n, 1] np.ndarray of probabilities
+            preds: an [n, 1] np.ndarray of predictions
             probs: (optional) an [n, k] np.ndarray of probabilities if return_probs=True
         """
         _, Y_probs, Y_preds = self._predict_probs(
@@ -174,32 +188,46 @@ class MetalModel(nn.Module):
             return scores
 
     @torch.no_grad()
-    def _predict_probs(self, task, split, return_preds=False, **kwargs):
+    def _predict_probs(self, task, split, return_preds=False, max_examples=0, **kwargs):
         """Unzips the dataloader of a task's split and returns Y, Y_prods, Y_preds
 
         Note: it is generally preferable to use predict() or predict_probs() unless
             the gold labels Y are requires as well.
 
+        Args:
+            task: a Task to predict on
+            split: the split to predict on
+            return_preds: if True, also include preds in return values
+            max_examples: if > 0, predict for a maximum of this many examples
+
         Returns:
-            Y: [n, 1] np.ndarray of ints
-            Y_preds: [n, 1] np.ndarray of ints
+            Y: [n] np.ndarray of ints
             Y_probs: [n, k] np.ndarray of floats
+            Y_preds: [n, 1] np.ndarray of ints
         """
         Y = []
         Y_probs = []
+        total = 0
         for batch_num, batch in enumerate(task.data_loaders[split]):
             Xb, Yb = batch
             Y.append(Yb)
             Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
+            total += Yb.shape[0]
+            if max_examples and total >= max_examples:
+                break
 
         # Stack batches
-        # TODO: (VC) replace this with the regression head abstraction
-        if task.name != "STSB":
-            Y = stack_batches(Y).astype(np.int)
-        else:
+        if isinstance(task, RegressionTask):
             Y = stack_batches(Y).astype(np.float)
+        else:
+            Y = stack_batches(Y).astype(np.int)
 
         Y_probs = stack_batches(Y_probs).astype(np.float)
+
+        if max_examples:
+            Y = Y[:max_examples]
+            Y_probs = Y_probs[:max_examples, :]
+
         if return_preds:
             Y_preds = self._break_ties(Y_probs, **kwargs).astype(np.int)
             return Y, Y_probs, Y_preds

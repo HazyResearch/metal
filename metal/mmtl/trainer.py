@@ -4,6 +4,7 @@ from collections import defaultdict
 from pprint import pprint
 from shutil import copy2
 
+import numpy as np
 import torch
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
@@ -31,6 +32,7 @@ else:
 
 trainer_config = {
     "verbose": True,
+    "seed": None,
     # Display
     "progress_bar": False,
     # Dataloader
@@ -76,9 +78,8 @@ trainer_config = {
         "task_metrics": [],
         # The list of trainer standard metrics to calculate (and log)
         "trainer_metrics": [],  # e.g., "glue"
-        # The list of trainer custom metric functions to execute
-        # The name of the function is assumed to be the name of the returned metric
-        # "trainer_custom_metric_funcs": [],
+        # Run scorers over a maximum of this many examples if > 0.
+        "max_valid_examples": -1,
         # The name of the split to run scoring on during training
         # To score over multiple splits, set valid_split=None and use task_metrics
         "valid_split": "valid",
@@ -140,6 +141,11 @@ class MultitaskTrainer(object):
     def __init__(self, **kwargs):
         self.config = recursive_merge_dicts(trainer_config, kwargs)
 
+        # Set random seeds
+        if self.config["seed"] is None:
+            self.config["seed"] = np.random.randint(1e6)
+        self._set_seed(self.config["seed"])
+
     def train_model(self, model, tasks, **kwargs):
         self.config = recursive_merge_dicts(self.config, kwargs)
         self.task_names = [task.name for task in tasks]
@@ -182,9 +188,13 @@ class MultitaskTrainer(object):
                 total=self.batches_per_epoch,
                 disable=(not progress_bar),
             )
-            for batch_num, (task_name, batch) in t:
+            for batch_num, (task_names, batch) in t:
                 # NOTE: actual batch_size may not equal config's target batch_size,
                 # for example due to orphan batches
+                # TODO (BH): Determine very explicitly what we require of X or Y in
+                # order to get the batchsize; we only need one dimension, but would
+                # like to allow for maximum flexibilty of data/label formatting.
+                # Will Y always be a list or 1D np.ndarray? No!
                 _, Y = batch
                 batch_size = len(Y)
                 batch_id = epoch * self.batches_per_epoch + batch_num
@@ -193,7 +203,8 @@ class MultitaskTrainer(object):
                 self.optimizer.zero_grad()
 
                 # Forward pass to calculate the average loss per example
-                loss = model.calculate_loss(*batch, [task_name])[task_name]
+                losses = model.calculate_loss(*batch, task_names)
+                loss = sum(losses.values())
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
@@ -213,8 +224,11 @@ class MultitaskTrainer(object):
                 self.optimizer.step()
 
                 # Update loss
-                self.running_losses[task_name] += loss.item() * batch_size
-                self.running_examples[task_name] += batch_size
+                for task_name in task_names:
+                    self.running_losses[task_name] += (
+                        losses[task_name].item() * batch_size
+                    )
+                    self.running_examples[task_name] += batch_size
 
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(model, tasks, batch_size)
@@ -326,8 +340,11 @@ class MultitaskTrainer(object):
     def calculate_task_metrics(self, model, tasks, split=None):
         metrics_dict = {}
         task_metrics = self.config["metrics_config"]["task_metrics"]
+        max_examples = self.config["metrics_config"]["max_valid_examples"]
         for task in tasks:
-            metrics_dict_task = task.scorer.score(model, task, task_metrics, split)
+            metrics_dict_task = task.scorer.score(
+                model, task, task_metrics, split, max_examples=max_examples
+            )
             metrics_dict.update(metrics_dict_task)
         return metrics_dict
 
@@ -358,7 +375,7 @@ class MultitaskTrainer(object):
         train_loaders = [iter(t.data_loaders["train"]) for t in tasks]
 
         for task_idx in batch_assignments:
-            yield (tasks[task_idx].name, next(train_loaders[task_idx]))
+            yield ([tasks[task_idx].name], next(train_loaders[task_idx]))
 
     def _checkpoint(self, model, metrics_dict):
         if self.checkpointer is None:
@@ -575,3 +592,8 @@ class MultitaskTrainer(object):
                 "task_metrics is not empty"
             )
             raise Exception(msg)
+
+    def _set_seed(self, seed):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)

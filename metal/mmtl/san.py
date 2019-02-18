@@ -59,8 +59,6 @@ class LinearSelfAttn(nn.Module):
         self.linear = nn.Linear(input_size, 1)
         self.dropout = DropoutWrapper(dropout_p=dropout)
 
-    #         self.dropout = nn.Dropout(dropout)
-
     def forward(self, x, x_mask):
         x = self.dropout(x)
         scores = self.linear(x).view(x.size(0), x.size(1))
@@ -74,8 +72,6 @@ class BilinearSelfAttn(nn.Module):
         super(BilinearSelfAttn, self).__init__()
         self.linear = nn.Linear(y_size, x_size)
         self.dropout = DropoutWrapper(dropout_p=dropout)
-
-    #         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, y, x_mask):
         x = self.dropout(x)
@@ -107,14 +103,14 @@ class SAN(nn.Module):
         super(SAN, self).__init__()
         self.bert_model = bert_model
         self.sent1_attn = LinearSelfAttn(input_size=emb_size)
-        self.sent2_attn = BilinearSelfAttn(emb_size, emb_size)
+        self.sent2_attn = LinearSelfAttn(input_size=emb_size)
+        self.attn = BilinearSelfAttn(emb_size, emb_size)
         self.final_linear = nn.Linear(emb_size * 4, num_classes)
         self.rnn = nn.GRUCell(emb_size, hidden_size)
         self.k = k
         self.num_classes = num_classes
         self.dropout_num = dropout
         self.dropout = DropoutWrapper(dropout_p=self.dropout_num)
-        #         self.dropout = nn.Dropout(dropout)
         self.alpha = Parameter(torch.zeros(1, 1, 1))
 
     def forward(self, X):
@@ -123,34 +119,38 @@ class SAN(nn.Module):
         batch_size = idx_matrix.size(0)
 
         output_layer, _ = self.bert_model.forward(X)
-
+        #        print(output_layer.size())
         res = []
-        #         res = output_layer.new_zeros((batch_size, self.num_classes))
 
-        sk = self.sent1_attn(output_layer, (1 - mask_matrix + seg_matrix).byte())
+        #        print("idx_matrix", idx_matrix)
+        #        print("seg_matrix", seg_matrix)
+        #        print("mask_matrix", mask_matrix)
+        #        print("sent1_matrix", (1 - mask_matrix + seg_matrix))
+        #        print("sent2_matrix", (1 - seg_matrix))
+
+        sk = self.sent1_attn(output_layer, (1 - seg_matrix).byte())
+        xk = self.sent2_attn(output_layer, (1 - mask_matrix + seg_matrix).byte())
+        #         sk = self.sent1_attn(output_layer, (1 - mask_matrix + seg_matrix).byte())
 
         for i in range(self.k):
-
-            xk = self.sent2_attn(output_layer, sk, (1 - seg_matrix).byte())
+            f = self.final_linear(torch.cat((sk, xk, torch.abs(sk - xk), sk * xk), 1))
+            res.append(f)
+            xk = self.attn(output_layer, sk, (1 - mask_matrix + seg_matrix).byte())
+            #             xk = self.sent2_attn(output_layer, sk, (1 - seg_matrix).byte())
+            #            f = self.final_linear(torch.cat((sk, xk, torch.abs(sk - xk), sk * xk), 1))
+            #            res.append(f)
             sk = self.dropout(sk)
             sk = self.rnn(xk, sk)
-            f = self.final_linear(torch.cat((sk, xk, torch.abs(sk - xk), sk * xk), 1))
-            #             f = torch.softmax(
-            #                 self.final_linear(torch.cat((sk, xk, torch.abs(sk - xk), sk * xk), 1)),
-            #                 1,
-            #             )
-            res.append(f)
-        #             res += f
+
+        #        print(res)
 
         mask = generate_mask(
             self.alpha.data.new(batch_size, self.k), self.dropout_num, self.training
         )
         mask = [m.contiguous() for m in torch.unbind(mask, 1)]
-        #         print(mask)
         scores_list = [
             mask[idx].view(batch_size, 1).expand_as(inp) * torch.softmax(inp, 1)
             for idx, inp in enumerate(res)
         ]
-        #         print(scores_list)
         scores = torch.stack(scores_list, 2)
         return scores
