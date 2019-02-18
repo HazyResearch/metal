@@ -129,3 +129,7 @@ class Checkpointer(object):
     def restore(self, destination):
         state = torch.load(f"{destination}")
         return state
+
+    def clean_up(self):
+        if os.path.exists(self.checkpoint_dir):
+            os.remove(self.checkpoint_dir)
