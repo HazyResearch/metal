@@ -47,7 +47,7 @@ trainer_config = {
     # Evaluate dev for during training every this many epochs
     # Optimizer
     "optimizer_config": {
-        "optimizer": "adamax",
+        "optimizer": "adam",
         "optimizer_common": {"lr": 0.01},
         # Optimizer - SGD
         "sgd_config": {"momentum": 0.9},

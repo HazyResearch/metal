@@ -64,7 +64,7 @@ class MetalModel(nn.Module):
         self.middle_modules = None
 
         # HACK: this does not allow reuse of intermediate computation or middle modules
-        # Not hard to change this, but not necessary for GLUE
+        # Not hard to change this, but not necessary for GLUE, so we stay simple
         task_paths = {}
         for task in tasks:
             input_module = self.input_modules[task.name]
