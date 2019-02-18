@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import torch
 from pytorch_pretrained_bert import BertTokenizer
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
 import metal.mmtl.dataset as dataset
@@ -103,7 +105,7 @@ def create_submit_dataframe(model_path, task_name, model, dl):
     return pd.DataFrame(predictions, columns=["prediction"])
 
 
-def save_dataframe(df, task_name, filepath="./"):
+def save_tsv(df, task_name, filepath="./"):
     task_to_name_dict = {
         "QNLI": "QNLI",
         "STSB": "STS-B",
@@ -120,7 +122,7 @@ def save_dataframe(df, task_name, filepath="./"):
     tsv_name = task_to_name_dict[task_name]
     filename = f"{filepath}{tsv_name}.tsv"
     df.to_csv(filename, sep="\t", index_label="index")
-    print("Saved dataframe to: ", filename)
+    print("Saved TSV to: ", filename)
 
 
 def create_dataframe(model_path, task_name, model, dl):
@@ -159,3 +161,102 @@ def create_dataframe(model_path, task_name, model, dl):
     df_error = pd.DataFrame(data, columns=["sentence1", "sentence2", "score", "label"])
     df_error["is_wrong"] = 1 * (df_error.score > 0.5) != df_error["label"]
     return df_error
+
+
+# DEBUGGING RELATED HELPER FUNCTIONS
+def save_dataframe(df, filepath):
+    df.to_csv(filepath, sep="\t")
+    print("Saved dataframe to: ", filepath)
+
+
+def load_dataframe(filepath):
+    df = pd.read_csv(filepath, sep="\t")
+    return df
+
+
+def print_row(row):
+    """ Pretty prints a row of error dataframe """
+    print(f"sentence1: \t{row.sentence1}")
+    print(f"sentence2: \t{row.sentence2}")
+    print("score: \t{:.4f}".format(row.score))
+    print(f"label: \t{row.label}")
+    print()
+
+
+def print_random_pred(df):
+    """Print random row of error dataframe"""
+    idx = np.range(np.shape(df)[0])
+    id = np.random.choice(list(idx))
+    print("ID: ", id)
+    row = df.iloc[id]
+    print(row)
+
+
+def print_barely_pred(df, is_incorrect=True, thresh=0.05):
+    """Print prediction that's close to 0.5 and correct/incorrect"""
+    thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
+    idx_true = np.where(df.is_wrong == is_incorrect)[0]
+    idx = list(set(thresh_idx).intersection(set(idx_true)))
+    id = np.random.choice(list(idx))
+    print("ID: ", id)
+    row = df.iloc[id]
+    print_row(row)
+
+
+def print_very_wrong_pred(df, thresh=0.95):
+    """Print predictions that are thresh away from true label"""
+    try:
+        thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
+        idx_true = np.where(df.is_wrong)[0]
+        idx = list(set(thresh_idx).intersection(set(idx_true)))
+        id = np.random.choice(list(idx))
+        print("ID: ", id)
+        row = df.iloc[id]
+    except ValueError:
+        print("Threshold too high, reducing by 0.05")
+        thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
+        idx_true = np.where(df.is_wrong)[0]
+        idx = list(set(thresh_idx).intersection(set(idx_true)))
+        id = np.random.choice(list(idx))
+        print("ID: ", id)
+        row = df.iloc[id]
+
+    print_row(row)
+
+
+def print_systematic_wrong(df_error, num_features=5):
+    """Prints predictions that are incorrect and share a common
+    feature correlated with incorrect predictions"""
+
+    # Create a vector of correct/incorrect predictions
+    # TODO: use metal function
+    y = 2 * (np.array(df_error.is_wrong.astype(float)) - 0.5)
+
+    # Create corpus by combining sentences
+    combined = []
+    for a, b in zip(np.array(df_error.sentence1), np.array(df_error.sentence2)):
+        combined.append(str(a) + str(b))
+
+    # Create BoW featurization
+    corpus = np.array(list(df_error.sentence1))
+    vectorizer = CountVectorizer(ngram_range=(2, 5), stop_words="english")
+    X = vectorizer.fit_transform(corpus)
+
+    # Run LR to find correlations
+    lr_model = LogisticRegression(penalty="l1")
+    lr_model.fit(X, y)
+
+    # Find datapoints with incorrect prediction and top feature present
+    top_idx = np.argsort(lr_model.coef_[0])[::-1][0:50]
+    names = vectorizer.get_feature_names()
+    feat_idx = []
+    for i in range(num_features):
+        print(names[top_idx[i]])
+        feat_idx += list(np.where(X.todense()[:, top_idx[i]] == 1)[0])
+
+    incorrect_idx = np.where(df_error.is_wrong)[0]
+    idx = list(set(feat_idx).intersection(incorrect_idx))
+    print()
+
+    row = df_error.iloc[np.random.choice(list(idx))]
+    print_row(row)

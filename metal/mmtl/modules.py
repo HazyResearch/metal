@@ -33,7 +33,7 @@ class BertHiddenLayer(nn.Module):
 
 
 def BertMulticlassHead(input_dim, output_dim):
-    return nn.Linear(input_dim, output_dim, bias=False)
+    return nn.Linear(input_dim, output_dim, bias=True)
 
 
 def BertBinaryHead(input_dim):

@@ -47,7 +47,7 @@ trainer_config = {
     # Evaluate dev for during training every this many epochs
     # Optimizer
     "optimizer_config": {
-        "optimizer": "adamax",
+        "optimizer": "adam",
         "optimizer_common": {"lr": 0.01},
         # Optimizer - SGD
         "sgd_config": {"momentum": 0.9},
@@ -138,7 +138,7 @@ class MultitaskTrainer(object):
     """Driver for the MTL training process"""
 
     def __init__(self, **kwargs):
-        self.config = recursive_merge_dicts(trainer_config, kwargs)
+        self.config = recursive_merge_dicts(trainer_config, kwargs, misses="insert")
 
         # Set random seeds
         if self.config["seed"] is None:
@@ -146,7 +146,9 @@ class MultitaskTrainer(object):
         self._set_seed(self.config["seed"])
 
     def train_model(self, model, tasks, **kwargs):
-        self.config = recursive_merge_dicts(self.config, kwargs)
+        # NOTE: misses="insert" so we can log extra metadata (e.g. num_parameters)
+        # and eventually write to disk.
+        self.config = recursive_merge_dicts(self.config, kwargs, misses="insert")
         self.task_names = [task.name for task in tasks]
 
         # Calculate epoch statistics
@@ -415,10 +417,13 @@ class MultitaskTrainer(object):
         ):
             self._validate_checkpoint_metric(tasks)
             # Set checkpoint_dir to log_dir/checkpoints/
-            if not self.config["checkpoint_config"]["checkpoint_dir"]:
-                self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
-                    self.writer.log_subdir, "checkpoints"
-                )
+            if self.writer:
+                if not self.config["checkpoint_config"]["checkpoint_dir"]:
+                    self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
+                        self.writer.log_subdir, "checkpoints"
+                    )
+            else:
+                self.config["checkpoint_config"]["checkpoint_dir"] = "checkpoints"
             # Create Checkpointer
             self.checkpointer = Checkpointer(
                 self.config["checkpoint_config"], verbose=self.config["verbose"]
