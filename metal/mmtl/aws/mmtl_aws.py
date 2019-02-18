@@ -64,7 +64,8 @@ def create_dummy_command_dict2():
     COMMAND_PREFIX = (
         "source activate pytorch_p36;"
         "rm -rf metal;"
-        "git clone -b mmtl_aws https://github.com/HazyResearch/metal.git;"
+        "git clone https://github.com/HazyResearch/metal.git;"
+        "git checkout 046ec1a9a93a3b244030e4ece709f50b45feca5f;"
         "cd metal; source add_to_path.sh;"
         "pwd;"
     )

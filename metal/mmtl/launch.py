@@ -108,13 +108,6 @@ if __name__ == "__main__":
 
     # set default run_dir
     d = datetime.datetime.today()
-    #run_dir = (
-    #    args.run_dir
-    #    if args.run_dir
-    #    else os.path.join(
-    #        os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}")
-    #    )
-    #)
 
     # Override json
     if args.override_train_config is not None:

@@ -13,24 +13,32 @@ search_space = {
 }
 
 launch_args = {
+    # Device args
     "device": 0,
+    # Model specification
     "bert_model": "bert-base-uncased",
     "bert_output_dim": 768,
+    # Dataloader specification
     "max_len": 200,
     "lr_scheduler": "exponential",
+    # Checkpointing and logging
     "log_every": 0.25,
     "score_every": 0.25,
     "checkpoint_metric": "train/loss",
     "checkpoint_clean": True,
     "checkpoint_best": 1,
     "progress_bar": 1,
+    # Training settings
+    "lr_scheduler": "exponential",
     "lr": 0.01,
     "n_epochs": 5,
     "l2": 0.0,
     "batch_size": 16,
     "split_prop": 0.8,
     "max_datapoints": 1000,
+    # Writer arguments
     "writer": "tensorboard",
     "run_dir": "test_run",
+    # Task arguments
     "tasks": "COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI",
 }

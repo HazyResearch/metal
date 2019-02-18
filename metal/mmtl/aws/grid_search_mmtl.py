@@ -70,7 +70,7 @@ def create_command_dict(config_path, launch_args):
         "cmd": COMMAND_PREFIX + COMMAND,
         "files_to_put": [(config_path, "config")],
         "files_to_get": [("config", "config")],
-        "dirs_to_get": [("metal/logs/checkpoint", "logdir")],
+        "dirs_to_get": [("metal/logs", "logdir")],
     }
 
 
