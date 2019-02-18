@@ -268,11 +268,12 @@ class MultitaskTrainer(object):
 
         # Clean up checkpoint
         if self.checkpointer and self.config["checkpoint_cleanup"]:
+            print("Cleaning checkpoints")
             self.checkpointer.clean_up()
 
         # Print final performance values
         if self.config["verbose"]:
-            print("Finished Training")
+            print("Finished training")
             test_split = self.config["metrics_config"]["test_split"]
             metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
             pprint(metrics_dict)

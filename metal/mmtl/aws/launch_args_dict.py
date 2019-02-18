@@ -5,9 +5,6 @@ search_space = {
     # hyperparams
     "l2": {"range": [1e-5, 1], "scale": "log"},
     "lr": {"range": [1e-5, 1], "scale": "log"},
-    # Tensorboard
-    "writer": "tensorboard",
-    "log_dir": f"tensorboard_logs",
     # Glue
     "trainer_metrics": ["glue"],
     "lr_scheduler": "linear",
@@ -23,8 +20,8 @@ launch_args = {
     "lr_scheduler": "exponential",
     "log_every": 0.25,
     "score_every": 0.25,
-    "checkpoint_dir": "checkpoint",
     "checkpoint_metric": "train/loss",
+    "checkpoint_clean": True,
     "checkpoint_best": 1,
     "progress_bar": 1,
     "lr": 0.01,
@@ -33,7 +30,7 @@ launch_args = {
     "batch_size": 16,
     "split_prop": 0.8,
     "max_datapoints": 1000,
-    "log_dir": "tensorboard_logs",
     "writer": "tensorboard",
+    "run_dir": "test_run",
     "tasks": "COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI",
 }

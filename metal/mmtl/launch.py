@@ -108,13 +108,13 @@ if __name__ == "__main__":
 
     # set default run_dir
     d = datetime.datetime.today()
-    run_dir = (
-        args.run_dir
-        if args.run_dir
-        else os.path.join(
-            os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}")
-        )
-    )
+    #run_dir = (
+    #    args.run_dir
+    #    if args.run_dir
+    #    else os.path.join(
+    #        os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}")
+    #    )
+    #)
 
     # Override json
     if args.override_train_config is not None:
@@ -123,10 +123,15 @@ if __name__ == "__main__":
         config = merge_dicts(config, override_config)
 
     # Update logging config
+    if not args.run_name:
+        run_name = args.tasks
+    else:
+        run_name = args.run_name
+
     writer_config = {
         "log_dir": f"{os.environ['METALHOME']}/logs",
-        "run_dir": run_dir,
-        "run_name": args.tasks,
+        "run_dir": args.run_dir,
+        "run_name": run_name,
         "include_config": True,
         "writer_metrics": [],
     }
