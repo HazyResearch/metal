@@ -415,10 +415,13 @@ class MultitaskTrainer(object):
         ):
             self._validate_checkpoint_metric(tasks)
             # Set checkpoint_dir to log_dir/checkpoints/
-            if self.writer and not self.config["checkpoint_config"]["checkpoint_dir"]:
-                self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
-                    self.writer.log_subdir, "checkpoints"
-                )
+            if self.writer:
+                if not self.config["checkpoint_config"]["checkpoint_dir"]:
+                    self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
+                        self.writer.log_subdir, "checkpoints"
+                    )
+            else:
+                self.config["checkpoint_config"]["checkpoint_dir"] = "checkpoints"
             # Create Checkpointer
             self.checkpointer = Checkpointer(
                 self.config["checkpoint_config"], verbose=self.config["verbose"]
