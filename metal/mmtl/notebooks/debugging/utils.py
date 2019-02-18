@@ -196,7 +196,7 @@ def print_barely_pred(df, is_incorrect=True, thresh=0.05):
     """Print prediction that's close to 0.5 and correct/incorrect"""
     thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
     idx_true = np.where(df.is_wrong == is_incorrect)[0]
-    idx = list(set(thresh_idx).intersection(idx_true))
+    idx = list(set(thresh_idx).intersection(set(idx_true)))
     id = np.random.choice(list(idx))
     print("ID: ", id)
     row = df.iloc[id]
@@ -207,16 +207,16 @@ def print_very_wrong_pred(df, thresh=0.95):
     """Print predictions that are thresh away from true label"""
     try:
         thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
-        idx_true = np.where(df.is_wrong is True)[0]
-        idx = list(set(thresh_idx).intersection(idx_true))
+        idx_true = np.where(df.is_wrong)[0]
+        idx = list(set(thresh_idx).intersection(set(idx_true)))
         id = np.random.choice(list(idx))
         print("ID: ", id)
         row = df.iloc[id]
     except ValueError:
         print("Threshold too high, reducing by 0.05")
         thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
-        idx_true = np.where(df.is_wrong is True)[0]
-        idx = list(set(thresh_idx).intersection(idx_true))
+        idx_true = np.where(df.is_wrong)[0]
+        idx = list(set(thresh_idx).intersection(set(idx_true)))
         id = np.random.choice(list(idx))
         print("ID: ", id)
         row = df.iloc[id]
@@ -254,7 +254,7 @@ def print_systematic_wrong(df_error, num_features=5):
         print(names[top_idx[i]])
         feat_idx += list(np.where(X.todense()[:, top_idx[i]] == 1)[0])
 
-    incorrect_idx = np.where(df_error.is_wrong is True)[0]
+    incorrect_idx = np.where(df_error.is_wrong)[0]
     idx = list(set(feat_idx).intersection(incorrect_idx))
     print()
 
