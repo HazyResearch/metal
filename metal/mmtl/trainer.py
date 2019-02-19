@@ -47,7 +47,7 @@ trainer_config = {
     # Evaluate dev for during training every this many epochs
     # Optimizer
     "optimizer_config": {
-        "optimizer": "adamax",
+        "optimizer": "adam",
         "optimizer_common": {"lr": 0.01},
         # Optimizer - SGD
         "sgd_config": {"momentum": 0.9},
@@ -139,7 +139,7 @@ class MultitaskTrainer(object):
     """Driver for the MTL training process"""
 
     def __init__(self, **kwargs):
-        self.config = recursive_merge_dicts(trainer_config, kwargs)
+        self.config = recursive_merge_dicts(trainer_config, kwargs, misses="insert")
 
         # Set random seeds
         if self.config["seed"] is None:
@@ -147,7 +147,9 @@ class MultitaskTrainer(object):
         self._set_seed(self.config["seed"])
 
     def train_model(self, model, tasks, **kwargs):
-        self.config = recursive_merge_dicts(self.config, kwargs)
+        # NOTE: misses="insert" so we can log extra metadata (e.g. num_parameters)
+        # and eventually write to disk.
+        self.config = recursive_merge_dicts(self.config, kwargs, misses="insert")
         self.task_names = [task.name for task in tasks]
 
         # Calculate epoch statistics
@@ -282,21 +284,24 @@ class MultitaskTrainer(object):
         model.eval()
         metrics_dict = {}
         metrics_dict.update(self.calculate_losses(tasks))
-        # HACK: This exposes more of the logger than it should; abstract away
         self.logger.increment(batch_size)
+
+        do_log = False
         if self.logger.loss_time():
             self._reset_losses()
-            self.logger.loss_ticks += 1
+            do_log = True
         if self.logger.metrics_time():
             # Unless valid_split is None, Scorers will only score on one split
             valid_split = self.config["metrics_config"]["valid_split"]
             metrics_dict.update(self.calculate_metrics(model, tasks, split=valid_split))
-            self.logger.loss_ticks = 0
-        if self.logger.loss_time() or self.logger.metrics_time():
+            do_log = True
+        if do_log:
             # Log to screen/file/TensorBoard
             self.logger.log(metrics_dict)
             # Save best model if applicable
             self._checkpoint(model, metrics_dict)
+
+        self.metrics_hist.update(metrics_dict)
         model.train()
         return metrics_dict
 
@@ -331,7 +336,7 @@ class MultitaskTrainer(object):
     def calculate_metrics(self, model, tasks, split=None):
         metrics_dict = {}
         # Update metrics_hist after task_metrics so trainer_metrics have access to most
-        # recently calculated numbers
+        # recently calculated numbers (e.g., glue score aggregates task scores)
         metrics_dict.update(self.calculate_task_metrics(model, tasks, split))
         self.metrics_hist.update(metrics_dict)
         metrics_dict.update(self.calculate_trainer_metrics(model, tasks, split))
@@ -421,10 +426,13 @@ class MultitaskTrainer(object):
         ):
             self._validate_checkpoint_metric(tasks)
             # Set checkpoint_dir to log_dir/checkpoints/
-            if not self.config["checkpoint_config"]["checkpoint_dir"]:
-                self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
-                    self.writer.log_subdir, "checkpoints"
-                )
+            if self.writer:
+                if not self.config["checkpoint_config"]["checkpoint_dir"]:
+                    self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
+                        self.writer.log_subdir, "checkpoints"
+                    )
+            else:
+                self.config["checkpoint_config"]["checkpoint_dir"] = "checkpoints"
             # Create Checkpointer
             self.checkpointer = Checkpointer(
                 self.config["checkpoint_config"], verbose=self.config["verbose"]

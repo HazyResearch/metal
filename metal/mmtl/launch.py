@@ -144,6 +144,18 @@ if __name__ == "__main__":
     )
 
     model = MetalModel(tasks, verbose=False, device=args.device)
+
+    # add metadata to config that will be logged to disk
+    config.update(
+        {
+            "n_parameters": sum(
+                p.numel() for p in model.parameters() if p.requires_grad
+            ),
+            "batch_size": args.batch_size,
+            "max_seq_len": args.max_len,
+        }
+    )
+
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
 
