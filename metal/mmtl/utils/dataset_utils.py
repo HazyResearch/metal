@@ -46,9 +46,7 @@ def get_all_dataloaders(
 
         if "valid" in datasets:
 
-            dataloaders["test"] = datasets["valid"].get_dataloader(
-                split_prop=split_prop, **dl_kwargs
-            )
+            dataloaders["test"] = datasets["valid"].get_dataloader(**dl_kwargs)
 
     # When split_prop is None, we use standard train/dev/test splits.
 
