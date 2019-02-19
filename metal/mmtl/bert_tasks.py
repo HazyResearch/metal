@@ -1,5 +1,7 @@
+import random
 from functools import partial
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -33,8 +35,16 @@ def create_tasks(
     bert_output_dim=768,
     max_datapoints=-1,
     splits=["train", "valid", "test"],
+    seed=None,
 ):
     assert len(task_names) > 0
+
+    if seed is None:
+        seed = np.random.randint(1e6)
+        print(f"Using random seed: {seed}.")
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
     # share bert encoder for all tasks
     bert_encoder = BertEncoder(bert_model, **bert_kwargs)

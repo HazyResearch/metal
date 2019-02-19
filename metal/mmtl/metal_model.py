@@ -26,13 +26,14 @@ class MetalModel(nn.Module):
     """
 
     def __init__(self, tasks, **kwargs):
-        super().__init__()
         self.config = recursive_merge_dicts(model_config, kwargs, misses="insert")
 
-        # Set random seed
+        # Set random seed before initializing module weights
         if self.config["seed"] is None:
             self.config["seed"] = np.random.randint(1e6)
         self._set_seed(self.config["seed"])
+
+        super().__init__()
 
         # Build network
         self._build(tasks)
