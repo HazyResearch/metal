@@ -1,7 +1,6 @@
 # Arguments for launch script
 
 search_space = {
-    "verbose": True,
     # hyperparams
     "l2": {"range": [1e-5, 1], "scale": "log"},
     "lr": {"range": [1e-5, 1], "scale": "log"},
@@ -24,8 +23,8 @@ launch_args = {
     # Checkpointing and logging
     "log_every": 0.25,
     "score_every": 0.25,
-    "checkpoint_metric": "train/loss",
-    "checkpoint_clean": True,
+    "checkpoint_metric": "model/train/loss",
+    "checkpoint_clean": 1,
     "checkpoint_best": 1,
     "progress_bar": 1,
     # Training settings
@@ -38,7 +37,8 @@ launch_args = {
     "max_datapoints": 1000,
     # Writer arguments
     "writer": "tensorboard",
-    "run_dir": "test_run",
+    # "run_dir": "test_run",
+    # "run_name": "test_name"
     # Task arguments
     "tasks": "COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI",
 }
