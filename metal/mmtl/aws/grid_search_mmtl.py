@@ -53,6 +53,7 @@ def create_command_dict(config_path, launch_args):
         "export GLUEDATA=/home/ubuntu/glue/;"  # Assumes ami has this here
         "rm -rf metal;"
         "git clone -b mmtl https://github.com/HazyResearch/metal.git;"
+        "git fetch --all; git checkout 868fb01a48e4031b8f1ac568e3bd0b413c904541;"
         "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
         "mkdir logs;"
         " ( screen -dm tensorboard --logdir logs );"
