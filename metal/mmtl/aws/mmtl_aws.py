@@ -59,6 +59,9 @@ parser.add_argument("--instance_type", default="t2.medium")
 parser.add_argument(
     "--configpath", required=True, type=str, help="path to config dicts"
 )
+parser.add_argument(
+    "--commit_hash", required=True, type=str, help="git commit hash to run with"
+)
 
 
 def create_dummy_command_dict2():
