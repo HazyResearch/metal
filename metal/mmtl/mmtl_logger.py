@@ -51,7 +51,10 @@ class Logger(object):
 
     def loss_time(self):
         """Returns True if it is time to calculate and report loss"""
-        return self.unit_count >= self.config["log_every"]
+        is_time = self.unit_count >= self.config["log_every"]
+        if is_time:
+            self.loss_ticks += 1
+        return is_time
 
     def metrics_time(self):
         """Returns True if it is time to calculate and report loss
@@ -60,7 +63,10 @@ class Logger(object):
         only one set of counters to reset. These two could be made independent by
         creating a separate counter set for loss_time and metrics_time.
         """
-        return self.loss_ticks == self.valid_every_X
+        is_time = self.loss_ticks == self.valid_every_X
+        if is_time:
+            self.loss_ticks = 0
+        return is_time
 
     def _calculate_valid_frequency(self):
         if self.config["score_every"]:

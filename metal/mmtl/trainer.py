@@ -278,21 +278,24 @@ class MultitaskTrainer(object):
         model.eval()
         metrics_dict = {}
         metrics_dict.update(self.calculate_losses(tasks))
-        # HACK: This exposes more of the logger than it should; abstract away
         self.logger.increment(batch_size)
+
+        do_log = False
         if self.logger.loss_time():
             self._reset_losses()
-            self.logger.loss_ticks += 1
+            do_log = True
         if self.logger.metrics_time():
             # Unless valid_split is None, Scorers will only score on one split
             valid_split = self.config["metrics_config"]["valid_split"]
             metrics_dict.update(self.calculate_metrics(model, tasks, split=valid_split))
-            self.logger.loss_ticks = 0
-        if self.logger.loss_time() or self.logger.metrics_time():
+            do_log = True
+        if do_log:
             # Log to screen/file/TensorBoard
             self.logger.log(metrics_dict)
             # Save best model if applicable
             self._checkpoint(model, metrics_dict)
+
+        self.metrics_hist.update(metrics_dict)
         model.train()
         return metrics_dict
 
@@ -327,7 +330,7 @@ class MultitaskTrainer(object):
     def calculate_metrics(self, model, tasks, split=None):
         metrics_dict = {}
         # Update metrics_hist after task_metrics so trainer_metrics have access to most
-        # recently calculated numbers
+        # recently calculated numbers (e.g., glue score aggregates task scores)
         metrics_dict.update(self.calculate_task_metrics(model, tasks, split))
         self.metrics_hist.update(metrics_dict)
         metrics_dict.update(self.calculate_trainer_metrics(model, tasks, split))
