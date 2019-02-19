@@ -32,6 +32,7 @@ def create_tasks(
     bert_kwargs={},
     bert_output_dim=768,
     max_datapoints=-1,
+    splits=["train", "valid", "test"],
 ):
     assert len(task_names) > 0
 
@@ -51,6 +52,7 @@ def create_tasks(
             dl_kwargs=dl_kwargs,
             split_prop=split_prop,
             max_datapoints=max_datapoints,
+            splits=splits,
         )
 
         if task_name == "COLA":
@@ -280,7 +282,8 @@ def create_tasks(
                 return -torch.mean(log_likelihood)
 
             scorer = Scorer(
-                custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]}
+                custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]},
+                standard_metrics=[],
             )
             tasks.append(
                 ClassificationTask(

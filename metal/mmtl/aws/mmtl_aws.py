@@ -42,7 +42,8 @@ import paramiko
 from metal.mmtl.aws import grid_search_mmtl
 
 # IMAGE_ID = "ami-0c82a5c425d9da154" # For West
-IMAGE_ID = "ami-04f2030e810b07ced"  # For East
+# IMAGE_ID = "ami-04f2030e810b07ced"  # For East
+IMAGE_ID = "ami-0507d23ab4a37c611"  # For East (02-18-2019)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -52,11 +53,15 @@ parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
 parser.add_argument("--region", default="us-east-1")
 parser.add_argument("--n_machines", default=2, type=int)
+parser.add_argument("--n_trials", default=2, type=int)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
 parser.add_argument(
     "--configpath", required=True, type=str, help="path to config dicts"
+)
+parser.add_argument(
+    "--commit_hash", required=True, type=str, help="git commit hash to run with"
 )
 
 
@@ -64,7 +69,8 @@ def create_dummy_command_dict2():
     COMMAND_PREFIX = (
         "source activate pytorch_p36;"
         "rm -rf metal;"
-        "git clone -b mmtl_aws https://github.com/HazyResearch/metal.git;"
+        "git clone https://github.com/HazyResearch/metal.git;"
+        "git checkout 868fb01a48e4031b8f1ac568e3bd0b413c904541;"
         "cd metal; source add_to_path.sh;"
         "pwd;"
     )
@@ -289,7 +295,7 @@ def run(args, launch_args, search_space, instances=None):
     return_output = manager.dict()
     process_id_mapping = manager.dict()
     command_dicts = grid_search_mmtl.generate_configs_and_commands(
-        args, launch_args, search_space
+        args, launch_args, search_space, args.n_trials
     )
     instance_dicts = [
         {str(k): str(v) for k, v in dict(inspect.getmembers(instance)).items()}

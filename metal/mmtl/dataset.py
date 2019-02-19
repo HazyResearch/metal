@@ -447,7 +447,9 @@ class MNLIDataset(BERTDataset):
             tsv_path=tsv_path_for_dataset("MNLI", split),
             sent1_idx=8,
             sent2_idx=9,
-            label_idx=11 if split in ["train", "dev"] else -1,
+            label_idx=11
+            if split in ["train", "dev", "dev_mismatched", "dev_matched"]
+            else -1,
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",

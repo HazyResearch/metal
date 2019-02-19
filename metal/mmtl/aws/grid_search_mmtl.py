@@ -45,7 +45,7 @@ from metal.tuners.tuner import ModelTuner
 from metal.utils import recursive_merge_dicts
 
 
-def create_command_dict(config_path, launch_args):
+def create_command_dict(args, config_path, launch_args):
     COMMAND_PREFIX = (
         "pkill -9 tensorboard;"  # Kill pre-existing tensorboard
         "pkill -9 python;"  # Kill all python processes
@@ -54,6 +54,7 @@ def create_command_dict(config_path, launch_args):
         "rm -rf metal;"
         "git clone -b mmtl https://github.com/HazyResearch/metal.git;"
         "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
+        f"git fetch --all; git checkout {args.commit_hash};"
         "mkdir logs;"
         " ( screen -dm tensorboard --logdir logs );"
     )
@@ -70,7 +71,7 @@ def create_command_dict(config_path, launch_args):
         "cmd": COMMAND_PREFIX + COMMAND,
         "files_to_put": [(config_path, "config")],
         "files_to_get": [("config", "config")],
-        "dirs_to_get": [("metal/logs/checkpoint", "logdir")],
+        "dirs_to_get": [("metal/logs", "logdir")],
     }
 
 
@@ -90,12 +91,15 @@ def generate_configs_and_commands(args, launch_args, search_space, n=10):
             launch_args, random_config, misses="insert"
         )
 
+        # Add commit hash to config
+        config_to_use["commit_hash"] = args.commit_hash
+
         # Write to directory
         config_path = "%s/config_%d.json" % (configspace_path, i)
         with open(config_path, "w") as f:
             json.dump(config_to_use, f)
 
         # Create command dict
-        command_dicts.append(create_command_dict(config_path, config_to_use))
+        command_dicts.append(create_command_dict(args, config_path, config_to_use))
 
     return command_dicts

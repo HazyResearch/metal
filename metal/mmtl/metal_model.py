@@ -217,9 +217,8 @@ class MetalModel(nn.Module):
             Y.append(Yb)
             Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
             total += Yb.shape[0]
-            if max_examples and total >= max_examples:
+            if max_examples > 0 and total >= max_examples:
                 break
-
         # Stack batches
         if isinstance(task, RegressionTask):
             Y = stack_batches(Y).astype(np.float)

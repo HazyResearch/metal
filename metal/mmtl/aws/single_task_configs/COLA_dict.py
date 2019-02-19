@@ -2,8 +2,8 @@
 
 search_space = {
     # hyperparams
-    "l2": {"range": [1e-5, 1], "scale": "log"},
-    "lr": {"range": [1e-5, 1], "scale": "log"},
+    "l2": [0],
+    "lr": {"range": [1e-5], "scale": "log"},
     # Glue
     "trainer_metrics": ["glue"],
     "lr_scheduler": "linear",
@@ -19,26 +19,27 @@ launch_args = {
     "bert_output_dim": 768,
     # Dataloader specification
     "max_len": 200,
-    "lr_scheduler": "exponential",
+    "lr_scheduler": "linear",
     # Checkpointing and logging
     "log_every": 0.25,
     "score_every": 0.25,
-    "checkpoint_metric": "model/train/loss",
+    "checkpoint_metric": "COLA/valid/matthews_corr",
+    "checkpoint_metric_mode": "max",
     "checkpoint_clean": 1,
     "checkpoint_best": 1,
     "progress_bar": 1,
     # Training settings
-    "lr_scheduler": "exponential",
-    "lr": 0.01,
+    "lr_scheduler": "linear",
+    "lr": 1e-5,
     "n_epochs": 5,
     "l2": 0.0,
-    "batch_size": 16,
+    "batch_size": 8,
     "split_prop": 0.8,
-    "max_datapoints": 1000,
+    "max_datapoints": -1,
     # Writer arguments
     "writer": "tensorboard",
     # "run_dir": "test_run",
     # "run_name": "test_name"
     # Task arguments
-    "tasks": "COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI",
+    "tasks": "COLA",
 }
