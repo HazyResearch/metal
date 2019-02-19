@@ -115,7 +115,7 @@ trainer_config = {
     },
     # Checkpointer (see metal/logging/checkpointer.py for descriptions)
     "checkpoint": True,  # If True, checkpoint models when certain conditions are met
-    "checkpoint_cleanup": True, # If true, checkpoint directory will be cleaned after training
+    "checkpoint_cleanup": True,  # If true, checkpoint directory will be cleaned after training
     "checkpoint_config": {
         # TODO: unify checkpoint=['every', 'best', 'final']; specify one strategy
         "checkpoint_every": 0,  # Save a model checkpoint every this many log_units
