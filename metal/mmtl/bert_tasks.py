@@ -32,7 +32,7 @@ def create_tasks(
     bert_kwargs={},
     bert_output_dim=768,
     max_datapoints=-1,
-    splits=["train", "dev", "test"],
+    splits=["train", "valid", "test"],
 ):
     assert len(task_names) > 0
 

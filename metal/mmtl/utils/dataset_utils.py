@@ -19,12 +19,12 @@ def get_all_dataloaders(
     dataset_cls = getattr(dataset, dataset_name.upper() + "Dataset")
 
     datasets = {}
-    for split in splits:
-        # TODO: codebase uses valid but files are saved as dev.tsv
-        if split == "dev":
-            split_name = "valid"
+    for split_name in splits:
+        # Codebase uses valid but files are saved as dev.tsv
+        if split_name == "valid":
+            split = "dev"
         else:
-            split_name = "dev"
+            split = split_name
         datasets[split_name] = dataset_cls(
             split=split,
             bert_model=bert_model,
