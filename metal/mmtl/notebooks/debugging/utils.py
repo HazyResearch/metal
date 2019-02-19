@@ -41,6 +41,7 @@ def load_data_and_model(model_path, task_name, split):
     except KeyError:
         model.load_weights(model_path)
 
+    model.eval()
     return model, dl
 
 
