@@ -8,6 +8,7 @@ def get_all_dataloaders(
     dl_kwargs,
     split_prop,
     max_datapoints,
+    splits,
     verbose=True,
 ):
     """ Initializes train/dev/test dataloaders given dataset_class"""
@@ -17,54 +18,44 @@ def get_all_dataloaders(
 
     dataset_cls = getattr(dataset, dataset_name.upper() + "Dataset")
 
-    if not split_prop:
-        # When split_prop is None, we use standard train/dev/test splits.
-
-        # train
-        train_ds = dataset_cls(
-            split="train",
+    datasets = {}
+    for split in splits:
+        # TODO: codebase uses valid but files are saved as dev.tsv
+        if split == "dev":
+            split_name = "valid"
+        else:
+            split_name = "dev"
+        datasets[split_name] = dataset_cls(
+            split=split,
             bert_model=bert_model,
             max_len=max_len,
             max_datapoints=max_datapoints,
         )
-        train_dl = train_ds.get_dataloader(**dl_kwargs)
 
-        # dev
-        dev_ds = dataset_cls(
-            split="dev",
-            bert_model=bert_model,
-            max_len=max_len,
-            max_datapoints=max_datapoints,
-        )
-        dev_dl = dev_ds.get_dataloader(**dl_kwargs)
+    dataloaders = {}
 
-        # test for leader-board submission
-        test_ds = dataset_cls(
-            split="test",
-            bert_model=bert_model,
-            max_len=max_len,
-            max_datapoints=max_datapoints,
+    # When split_prop is not None, we use create an artificial dev set from the train set and
+
+    if split_prop and "train" in splits:
+
+        dataloaders["train"], dataloaders["valid"] = datasets["train"].get_dataloader(
+            split_prop=split_prop, **dl_kwargs
         )
-        test_dl = test_ds.get_dataloader(**dl_kwargs)
+
+        # Use the dev set as test set if available.
+
+        if "valid" in datasets:
+
+            dataloaders["test"] = datasets["valid"].get_dataloader(
+                split_prop=split_prop, **dl_kwargs
+            )
+
+    # When split_prop is None, we use standard train/dev/test splits.
+
     else:
-        # When split_prop is not None, we use create an artificial dev set from the train set.
 
-        # split train -> artificial train/dev
-        train_ds = dataset_cls(
-            split="train",
-            bert_model=bert_model,
-            max_len=max_len,
-            max_datapoints=max_datapoints,
-        )
-        train_dl, dev_dl = train_ds.get_dataloader(split_prop=split_prop, **dl_kwargs)
+        for split_name in datasets:
 
-        # treat dev -> test
-        test_ds = dataset_cls(
-            split="dev",
-            bert_model=bert_model,
-            max_len=max_len,
-            max_datapoints=max_datapoints,
-        )
-        test_dl = test_ds.get_dataloader(**dl_kwargs)
+            dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
 
-    return {"train": train_dl, "valid": dev_dl, "test": test_dl}
+    return dataloaders

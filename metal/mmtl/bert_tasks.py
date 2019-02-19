@@ -32,6 +32,7 @@ def create_tasks(
     bert_kwargs={},
     bert_output_dim=768,
     max_datapoints=-1,
+    splits=["train", "dev", "test"],
 ):
     assert len(task_names) > 0
 
@@ -51,6 +52,7 @@ def create_tasks(
             dl_kwargs=dl_kwargs,
             split_prop=split_prop,
             max_datapoints=max_datapoints,
+            splits=splits,
         )
 
         if task_name == "COLA":
