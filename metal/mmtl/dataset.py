@@ -1,5 +1,6 @@
 import codecs
 import os
+import pathlib
 
 import numpy as np
 import torch
@@ -29,6 +30,16 @@ def tsv_path_for_dataset(dataset_name, dataset_split):
     )
 
 
+def get_uid(path, line):
+    """ Returns unique ID for example in this path/line number"""
+    # remove the GLUEDATA directory from path
+    p = pathlib.Path(path)
+    glue_dir = pathlib.Path(os.environ["GLUEDATA"])
+    path_suffix = p.relative_to(glue_dir)
+
+    return f"{path_suffix}:{line}"
+
+
 def get_label_fn(input_dict):
     reverse_dict = {y: x for x, y in input_dict.items()}
     return input_dict.get, reverse_dict.get
@@ -53,6 +64,7 @@ class BERTDataset(data.Dataset):
         max_len=-1,
         label_type=int,
         max_datapoints=-1,
+        generate_uids=False,
     ):
         """
         Args:
@@ -67,7 +79,7 @@ class BERTDataset(data.Dataset):
             label_type: data type (int, float) of labels. used to cast values downstream.
         """
         tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
-        tokens, segments, labels = self.load_tsv(
+        payload = self.load_tsv(
             tsv_path,
             sent1_idx,
             sent2_idx,
@@ -78,7 +90,15 @@ class BERTDataset(data.Dataset):
             label_fn,
             max_len,
             max_datapoints,
+            generate_uids,
         )
+
+        if generate_uids:
+            (tokens, segments, labels), uids = payload
+            self.uids = uids
+        else:
+            tokens, segments, labels = payload
+
         self.label_type = label_type
         self.label_fn = label_fn
         self.inv_label_fn = inv_label_fn
@@ -98,10 +118,15 @@ class BERTDataset(data.Dataset):
         label_fn,
         max_len,
         max_datapoints,
+        generate_uids=False,
     ):
         """ Loads and tokenizes .tsv dataset into BERT-friendly sentences / segments.
         Then, sets instance variables self.tokens, self.segments, self.labels.
         """
+        # if generating UIDs, must pass in ALL datapoints
+        if generate_uids:
+            assert max_datapoints == -1
+            uids = []
 
         tokens, segments, labels = [], [], []
         with codecs.open(data_file, "r", "utf-8") as data_fh:
@@ -172,7 +197,14 @@ class BERTDataset(data.Dataset):
                 tokens.append(sent)
                 segments.append(seg)
                 labels.append(label)
-        return tokens, segments, labels
+
+                if generate_uids:
+                    uids.append(get_uid(data_file, skip_rows + row_idx))
+
+        if generate_uids:
+            return (tokens, segments, labels), uids
+        else:
+            return tokens, segments, labels
 
     def __getitem__(self, index):
         return (self.tokens[index], self.segments[index]), self.labels[index]
@@ -203,14 +235,14 @@ class BERTDataset(data.Dataset):
                 self,
                 collate_fn=lambda batch: self._collate_fn(batch),
                 sampler=SubsetRandomSampler(train_idx),
-                **kwargs
+                **kwargs,
             )
 
             dev_dataloader = data.DataLoader(
                 self,
                 collate_fn=lambda batch: self._collate_fn(batch),
                 sampler=SubsetRandomSampler(dev_idx),
-                **kwargs
+                **kwargs,
             )
 
             return train_dataloader, dev_dataloader
@@ -260,7 +292,9 @@ class QNLIDataset(BERTDataset):
     Torch dataset object for QNLI binary classification task, to work with BERT architecture.
     """
 
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
         super(QNLIDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("QNLI", split),
@@ -274,6 +308,7 @@ class QNLIDataset(BERTDataset):
             inv_label_fn=inv_label_fn,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
 
 
@@ -305,7 +340,9 @@ class QNLIRDataset(BERTDataset):
     are pairs of positive and negative examples.
     """
 
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         self.split = split
         max_datapoints *= 2  # make sure we take pairs
         if self.split == "train":
@@ -326,6 +363,7 @@ class QNLIRDataset(BERTDataset):
             max_len=max_len,
             max_datapoints=max_datapoints,
             label_type=float,
+            generate_uids=generate_uids,
         )
         if self.split == "train":
             assert len(self.tokens) % 2 == 0
@@ -353,14 +391,14 @@ class QNLIRDataset(BERTDataset):
                     self,
                     collate_fn=lambda batch: self._collate_fn(batch),
                     sampler=PairwiseRankingSampler(train_idx),
-                    **kwargs
+                    **kwargs,
                 )
 
                 dev_dataloader = data.DataLoader(
                     self,
                     collate_fn=lambda batch: self._collate_fn(batch),
                     sampler=PairwiseRankingSampler(dev_idx),
-                    **kwargs
+                    **kwargs,
                 )
 
                 return train_dataloader, dev_dataloader
@@ -370,7 +408,7 @@ class QNLIRDataset(BERTDataset):
                     self,
                     collate_fn=lambda batch: self._collate_fn(batch),
                     sampler=PairwiseRankingSampler(full_idx),
-                    **kwargs
+                    **kwargs,
                 )
                 return train_dataloader
         else:
@@ -380,7 +418,9 @@ class QNLIRDataset(BERTDataset):
 
 
 class STSBDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         label_fn, inv_label_fn = (
             lambda x: float(x) / 5,
             lambda x: float(x) * 5,
@@ -397,11 +437,14 @@ class STSBDataset(BERTDataset):
             max_len=512,
             max_datapoints=max_datapoints,
             label_type=float,
+            generate_uids=generate_uids,
         )
 
 
 class SST2Dataset(BERTDataset):
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         # TODO: why do we want 1 to stay 1?
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})  # reserve 0 for abstain
         super(SST2Dataset, self).__init__(
@@ -416,11 +459,14 @@ class SST2Dataset(BERTDataset):
             inv_label_fn=inv_label_fn,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
 
 
 class COLADataset(BERTDataset):
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(COLADataset, self).__init__(
             tsv_path=tsv_path_for_dataset("CoLA", split),
@@ -434,11 +480,14 @@ class COLADataset(BERTDataset):
             inv_label_fn=inv_label_fn,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
 
 
 class MNLIDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         # split = "dev_matched" if split == "dev" else "train"
         label_fn, inv_label_fn = get_label_fn(
             {"entailment": 1, "contradiction": 2, "neutral": 3}
@@ -455,11 +504,14 @@ class MNLIDataset(BERTDataset):
             inv_label_fn=inv_label_fn,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
 
 
 class RTEDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
         super(RTEDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("RTE", split),
@@ -473,11 +525,14 @@ class RTEDataset(BERTDataset):
             inv_label_fn=inv_label_fn,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
 
 
 class WNLIDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(WNLIDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("WNLI", split),
@@ -491,11 +546,14 @@ class WNLIDataset(BERTDataset):
             inv_label_fn=inv_label_fn,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
 
 
 class QQPDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(QQPDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("QQP", split),
@@ -509,11 +567,14 @@ class QQPDataset(BERTDataset):
             inv_label_fn=inv_label_fn,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
 
 
 class MRPCDataset(BERTDataset):
-    def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
+    def __init__(
+        self, split, bert_model, max_datapoints=-1, max_len=-1, generate_uids=False
+    ):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(MRPCDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("MRPC", split),
@@ -527,4 +588,5 @@ class MRPCDataset(BERTDataset):
             inv_label_fn=inv_label_fn,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )

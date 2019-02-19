@@ -8,6 +8,7 @@ def get_all_dataloaders(
     dl_kwargs,
     split_prop,
     max_datapoints,
+    generate_uids,
     verbose=True,
 ):
     """ Initializes train/dev/test dataloaders given dataset_class"""
@@ -26,6 +27,7 @@ def get_all_dataloaders(
             bert_model=bert_model,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
         train_dl = train_ds.get_dataloader(**dl_kwargs)
 
@@ -35,6 +37,7 @@ def get_all_dataloaders(
             bert_model=bert_model,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
         dev_dl = dev_ds.get_dataloader(**dl_kwargs)
 
@@ -44,10 +47,14 @@ def get_all_dataloaders(
             bert_model=bert_model,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
         test_dl = test_ds.get_dataloader(**dl_kwargs)
     else:
         # When split_prop is not None, we use create an artificial dev set from the train set.
+
+        # cannot generate UIDs if splitting dataset artificially
+        assert not generate_uids
 
         # split train -> artificial train/dev
         train_ds = dataset_cls(
