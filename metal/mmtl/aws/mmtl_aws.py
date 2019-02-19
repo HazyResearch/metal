@@ -65,7 +65,7 @@ def create_dummy_command_dict2():
         "source activate pytorch_p36;"
         "rm -rf metal;"
         "git clone https://github.com/HazyResearch/metal.git;"
-        "git checkout 046ec1a9a93a3b244030e4ece709f50b45feca5f;"
+        "git checkout 868fb01a48e4031b8f1ac568e3bd0b413c904541;"
         "cd metal; source add_to_path.sh;"
         "pwd;"
     )
