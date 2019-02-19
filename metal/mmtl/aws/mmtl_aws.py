@@ -52,6 +52,7 @@ parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
 parser.add_argument("--region", default="us-east-1")
 parser.add_argument("--n_machines", default=2, type=int)
+parser.add_argument("--n_trials", default=2, type=int)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
@@ -64,7 +65,8 @@ def create_dummy_command_dict2():
     COMMAND_PREFIX = (
         "source activate pytorch_p36;"
         "rm -rf metal;"
-        "git clone -b mmtl_aws https://github.com/HazyResearch/metal.git;"
+        "git clone https://github.com/HazyResearch/metal.git;"
+        "git checkout 868fb01a48e4031b8f1ac568e3bd0b413c904541;"
         "cd metal; source add_to_path.sh;"
         "pwd;"
     )
@@ -289,7 +291,7 @@ def run(args, launch_args, search_space, instances=None):
     return_output = manager.dict()
     process_id_mapping = manager.dict()
     command_dicts = grid_search_mmtl.generate_configs_and_commands(
-        args, launch_args, search_space
+        args, launch_args, search_space, args.n_trials
     )
     instance_dicts = [
         {str(k): str(v) for k, v in dict(inspect.getmembers(instance)).items()}

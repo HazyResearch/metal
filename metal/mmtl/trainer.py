@@ -115,6 +115,7 @@ trainer_config = {
     },
     # Checkpointer (see metal/logging/checkpointer.py for descriptions)
     "checkpoint": True,  # If True, checkpoint models when certain conditions are met
+    "checkpoint_cleanup": True, # If true, checkpoint directory will be cleaned after training
     "checkpoint_config": {
         # TODO: unify checkpoint=['every', 'best', 'final']; specify one strategy
         "checkpoint_every": 0,  # Save a model checkpoint every this many log_units
@@ -267,9 +268,14 @@ class MultitaskTrainer(object):
                 self.writer.add_config(self.config)
             self.writer.close()
 
+        # Clean up checkpoint
+        if self.checkpointer and self.config["checkpoint_cleanup"]:
+            print("Cleaning checkpoints")
+            self.checkpointer.clean_up()
+
         # Print final performance values
         if self.config["verbose"]:
-            print("Finished Training")
+            print("Finished training")
             test_split = self.config["metrics_config"]["test_split"]
             metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
             pprint(metrics_dict)
