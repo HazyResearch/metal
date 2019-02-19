@@ -33,6 +33,8 @@ else:
 trainer_config = {
     "verbose": True,
     "seed": None,
+    # Commit hash
+    "commit_hash": None,
     # Display
     "progress_bar": False,
     # Dataloader

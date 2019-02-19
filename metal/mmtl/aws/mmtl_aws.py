@@ -42,7 +42,8 @@ import paramiko
 from metal.mmtl.aws import grid_search_mmtl
 
 # IMAGE_ID = "ami-0c82a5c425d9da154" # For West
-IMAGE_ID = "ami-04f2030e810b07ced"  # For East
+# IMAGE_ID = "ami-04f2030e810b07ced"  # For East
+IMAGE_ID = "ami-0507d23ab4a37c611"  # For East (02-18-2019)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -58,6 +59,9 @@ parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
 parser.add_argument(
     "--configpath", required=True, type=str, help="path to config dicts"
+)
+parser.add_argument(
+    "--commit_hash", required=True, type=str, help="git commit hash to run with"
 )
 
 
