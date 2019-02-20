@@ -67,7 +67,7 @@ class Scorer(object):
             added by the Scorer;
     """
 
-    def __init__(self, standard_metrics=["accuracy"], custom_metric_funcs={}):
+    def __init__(self, standard_metrics=[], custom_metric_funcs={}):
         self.standard_metrics = standard_metrics
         for metric_name in standard_metrics:
             if "/" in metric_name:
