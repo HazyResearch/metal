@@ -1,5 +1,6 @@
 import os
 import random
+import warnings
 from collections import defaultdict
 from pprint import pprint
 from shutil import copy2
@@ -433,6 +434,15 @@ class MultitaskTrainer(object):
                     self.config["checkpoint_config"]["checkpoint_dir"] = os.path.join(
                         self.writer.log_subdir, "checkpoints"
                     )
+                else:
+                    # If you hardcode checkpoint_dir, checkpoints from concurrent runs
+                    # may overwrite each other.
+                    msg = (
+                        "You have provided checkpoint_dir, overriding the default "
+                        "of using log_dir/run_dir/run_name/checkpoints. Be careful: "
+                        "multiple concurrent runs may override each other."
+                    )
+                    warnings.warn(msg)
             else:
                 self.config["checkpoint_config"]["checkpoint_dir"] = "checkpoints"
             # Create Checkpointer
