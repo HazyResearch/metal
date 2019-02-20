@@ -375,10 +375,7 @@ class QNLIRDataset(BERTDataset):
                 return train_dataloader
         else:
             return data.DataLoader(
-                self,
-                shuffle=True,
-                collate_fn=lambda batch: self._collate_fn(batch),
-                **kwargs
+                self, collate_fn=lambda batch: self._collate_fn(batch), **kwargs
             )
 
 

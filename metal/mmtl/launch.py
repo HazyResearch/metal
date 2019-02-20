@@ -63,6 +63,9 @@ if __name__ == "__main__":
         description="Train MetalModel on single or multiple tasks.", add_help=False
     )
     parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
+
+    # Model arguments
+    # TODO: parse these automatically from model dict
     parser.add_argument(
         "--tasks", required=True, type=str, help="Comma-sep task list e.g. QNLI,QQP"
     )
@@ -75,6 +78,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
     )
+
+    # Dataset arguments
     parser.add_argument(
         "--max_len", type=int, default=512, help="Maximum sequence length."
     )
@@ -88,19 +93,22 @@ if __name__ == "__main__":
         "--batch_size", type=int, default=16, help="Batch size for training."
     )
     parser.add_argument(
+        "--shuffle", type=bool, default=True, help="Whether to shuffle the data or not."
+    )
+    parser.add_argument(
         "--split_prop",
         type=float,
         default=None,
         help="Proportion of training data to use for validation.",
     )
 
+    # Training arguments
     parser.add_argument(
         "--override_train_config",
         type=str,
         default=None,
         help="Whether to override train_config dict with json loaded from path. For tuning",
     )
-
     parser = add_flags_from_config(parser, trainer_config)
     args = parser.parse_args()
 
@@ -133,12 +141,17 @@ if __name__ == "__main__":
     config["writer"] = "tensorboard"
 
     task_names = [task_name for task_name in args.tasks.split(",")]
+    dl_kwargs = {"batch_size": args.batch_size}
+    if not args.split_prop:
+        # we use the shuffle argument only when split_prop is None
+        # otherwise Sampler shuffles automatically
+        dl_kwargs["shuffle"] = args.shuffle
     tasks = create_tasks(
         task_names=task_names,
         bert_model=args.bert_model,
         split_prop=args.split_prop,
         max_len=args.max_len,
-        dl_kwargs={"batch_size": args.batch_size},
+        dl_kwargs=dl_kwargs,
         bert_output_dim=args.bert_output_dim,
         max_datapoints=args.max_datapoints,
     )
