@@ -28,6 +28,7 @@
 """
 
 import argparse
+import datetime
 import importlib
 import inspect
 import multiprocessing
@@ -286,6 +287,10 @@ def run(args, launch_args, search_space, instances=None):
     if instances is None:
         instances = [x for x in get_instances(args) if x.state["Name"] == "running"]
 
+    # Append the current date to the outputpath
+    ts = time.time()
+    timestamp_str = datetime.datetime.fromtimestamp(ts).strftime("%Y_%m_%d_%H_%M_%S")
+    args.outputpath = args.outputpath + "/" + timestamp_str + "/"
     if not os.path.exists(args.outputpath):
         os.makedirs(args.outputpath)
 
