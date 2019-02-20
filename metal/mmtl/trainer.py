@@ -578,7 +578,17 @@ class MultitaskTrainer(object):
     def _validate_checkpoint_metric(self, tasks):
         checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
         # Confirm that checkpoint_metric is a metric that will be available
-        if checkpoint_metric != "model/train/loss":
+        if checkpoint_metric.startswith("model"):
+            if (
+                checkpoint_metric
+                not in self.config["metrics_config"]["trainer_metrics"]
+            ):
+                msg = (
+                    f"The checkpoint_metric you specified {checkpoint_metric} is not "
+                    f"currently supported."
+                )
+                raise Exception(msg)
+        else:
             if checkpoint_metric.count("/") != 2:
                 msg = (
                     f"checkpoint_metric must be model/train/loss or have a full metric name "
