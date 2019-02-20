@@ -1,0 +1,1 @@
+python metal/mmtl/aws/mmtl_aws.py --mode run --keypath /dfs/scratch0/maxlam/mmtl_share/mmtl_shared_east.pem.txt --instance_type p3.2xlarge  --aws_access_key_id $AWS_ACCESS_KEY_ID --aws_secret_access_key $AWS_SECRET_ACCESS_KEY --configpath metal/mmtl/aws/single_task_configs/STSB_dict.py --n_machines 2 --n_trials 10 --commit_hash 90e387d7d1c99f33b58deede42563b71668a58e1

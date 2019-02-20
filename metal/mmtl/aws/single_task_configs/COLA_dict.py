@@ -2,13 +2,15 @@
 
 search_space = {
     # hyperparams
-    "l2": [0],
-    "lr": {"range": [1e-5], "scale": "log"},
+    "l2": {"range": [1e-4, 1e-1], "scale": "log"},
+    "lr": [5e-7, 1e-6, 5e-6, 1e-5, 5e-5],
     # Glue
     "trainer_metrics": ["glue"],
     "lr_scheduler": "linear",
-    "warmup_steps": 0.5,
+    "warmup_steps": [0, 0.1, 0.3, 0.5, 0.7],
     "warmup_unit": "epochs",
+    "batch_size": [2, 4, 8, 16, 32],
+    "split_prop": [0.8, 0.9, 0.99],
 }
 
 launch_args = {
