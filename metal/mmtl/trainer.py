@@ -584,10 +584,8 @@ class MultitaskTrainer(object):
         checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
         # Confirm that checkpoint_metric is a metric that will be available
         if checkpoint_metric.startswith("model"):
-            if (
-                checkpoint_metric
-                not in self.config["metrics_config"]["trainer_metrics"]
-            ):
+            metric_name = checkpoint_metric.split("/")[-1]
+            if metric_name not in self.config["metrics_config"]["trainer_metrics"]:
                 msg = (
                     f"The checkpoint_metric you specified {checkpoint_metric} is not "
                     f"currently supported."
