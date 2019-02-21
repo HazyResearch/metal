@@ -58,6 +58,7 @@ parser.add_argument("--n_trials", default=2, type=int)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
+parser.add_argument("--only_print_commands", default=0)
 parser.add_argument(
     "--configpath", required=True, type=str, help="path to config dicts"
 )
@@ -320,7 +321,15 @@ def run(args, launch_args, search_space, instances=None):
     p.starmap(initialize_process_ids, initialization_args)
 
     # Main work
-    p.starmap(worker_job, data)
+    if args.only_print_commands:
+        for cmd_dict in command_dicts:
+            print("-" * 50)
+            for x in cmd_dict["files_to_put"]:
+                print("Putting file: %s -> %s" % x)
+            print(cmd_dict["cmd"])
+            print("-" * 50)
+    else:
+        p.starmap(worker_job, data)
 
     print("Results")
     print("-" * 100)
