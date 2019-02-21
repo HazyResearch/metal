@@ -2,10 +2,8 @@
 
 search_space = {
     # hyperparams
-    "l2": [0],
-    "lr": {"range": [1e-5], "scale": "log"},
-    # Glue
-    "trainer_metrics": ["glue"],
+    "l2": [0, 0.001, 0.01],
+    "lr": [1e-8, 1e-7, 1e-6, 5e-5, 1e-5],
     "lr_scheduler": "linear",
     "warmup_steps": 0.5,
     "warmup_unit": "epochs",
@@ -18,11 +16,11 @@ launch_args = {
     "bert_model": "bert-base-uncased",
     "bert_output_dim": 768,
     # Dataloader specification
-    "max_len": 200,
+    "max_len": 256,
     "lr_scheduler": "linear",
     # Checkpointing and logging
-    "log_every": 0.25,
-    "score_every": 0.25,
+    "log_every": 0.2,
+    "score_every": 0.2,
     "checkpoint_metric": "MNLI/valid/accuracy",
     "checkpoint_metric_mode": "max",
     "checkpoint_clean": 1,
@@ -31,7 +29,7 @@ launch_args = {
     # Training settings
     "lr_scheduler": "linear",
     "lr": 1e-5,
-    "n_epochs": 5,
+    "n_epochs": 10,
     "l2": 0,
     "batch_size": 32,
     "split_prop": 0.8,
