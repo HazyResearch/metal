@@ -82,7 +82,7 @@ trainer_config = {
         # The list of trainer standard metrics to calculate (and log)
         "trainer_metrics": [],  # e.g., "glue"
         # Run scorers over a maximum of this many examples if > 0.
-        "max_valid_examples": -1,
+        "max_valid_examples": 0,
         # The name of the split to run scoring on during training
         # To score over multiple splits, set valid_split=None and use task_metrics
         "valid_split": "valid",
@@ -372,7 +372,9 @@ class MultitaskTrainer(object):
         # Calculate loss for non-train splits
         if loss_metrics:
             # TODO: (BH) handle max_examples
-            loss_dict = self._calculate_split_losses(model, tasks, split)
+            loss_dict = self._calculate_other_losses(
+                model, tasks, split, max_examples=max_examples
+            )
             # TODO: improve efficiency by only calculating the losses the user requested
             # rather than computing all and filtering at the end.
             for loss_name, loss_value in loss_dict.items():
@@ -410,31 +412,41 @@ class MultitaskTrainer(object):
         return metrics_dict
 
     @torch.no_grad()
-    def _calculate_split_losses(self, model, tasks, split):
+    def _calculate_other_losses(self, model, tasks, split, max_examples=0):
         """Calculate the loss for a split other than train"""
+        # Error checing
         assert split != "train"
         if split is None:
             msg = "MeTaL does not currently support calculating the loss for multiple non-train splits"
             raise NotImplementedError(msg)
         elif split == "test":
             msg = "MeTaL does not support calculating loss on the test set during training."
-        total_losses = defaultdict(float)
-        total_examples = defaultdict(float)
+        # Calculate task-specific losses
+        task_losses = defaultdict(float)
+        task_examples = defaultdict(float)
+        total_examples = 0
         for task_names, batch in self._get_batches(tasks, split):
             _, Y = batch
             batch_size = len(Y)
             losses = model.calculate_loss(*batch, task_names)
             for task_name, loss in losses.items():
-                total_losses[task_name] += loss.item() * batch_size
-                total_examples[task_name] += batch_size
+                task_losses[task_name] += loss.item() * batch_size
+                task_examples[task_name] += batch_size
+            total_examples += batch_size
+            if max_examples > 0 and total_examples >= max_examples:
+                break
+        # Aggregate losses and store in dictionary
         metrics_dict = {}
         for task in tasks:
             full_name = f"{task.name}/{split}/loss"
-            metrics_dict[full_name] = (
-                total_losses[task.name] / total_examples[task.name]
-            )
-        metrics_dict[f"model/{split}/loss"] = sum(total_losses.values()) / sum(
-            total_examples.values()
+            if task_examples[task.name] > 0:
+                metrics_dict[full_name] = (
+                    task_losses[task.name] / task_examples[task.name]
+                )
+            else:
+                metrics_dict[full_name] = np.nan
+        metrics_dict[f"model/{split}/loss"] = sum(task_losses.values()) / sum(
+            task_examples.values()
         )
         return metrics_dict
 
