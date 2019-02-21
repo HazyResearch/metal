@@ -135,7 +135,7 @@ def run_command(args, instance, cmd_dict, output, run_id):
         # Put files
         sftp = client.open_sftp()
         for (localpath, remotepath) in files_to_put:
-            print("Putting file %s -> %s" % (localpath, remotepath))
+            print("cp %s %s" % (localpath, remotepath))
             sftp.put(localpath, remotepath)
 
         # Execute a command(cmd) after connecting/ssh to an instance
