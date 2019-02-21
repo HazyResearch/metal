@@ -246,7 +246,7 @@ class MultitaskTrainer(object):
                 metrics_dict = self._execute_logging(model, tasks, batch_size)
 
                 # Apply learning rate scheduler
-                self._update_scheduler(batch_id)
+                self._update_scheduler(model, batch_id)
 
                 # tqdm output
                 if len(tasks) == 1:
@@ -590,12 +590,15 @@ class MultitaskTrainer(object):
         lr_scheduler = self.config["lr_scheduler"]
         lr_scheduler_config = self.config["lr_scheduler_config"]
 
-        # Special case for half precision -- disable lr scheduler
-        if model.config["fp16"]:
-            lr_scheduler = None
-
         # Create warmup scheduler for first warmup_steps warmup_units if applicable
         self._set_warmup_scheduler(model)
+
+        optimizer_to_config = self.optimizer
+
+        # If using half precision, configure the underlying
+        # optimizer of FP16_Optimizer
+        if model.config["fp16"]:
+            optimizer_to_config = self.optimizer.optimizer
 
         # Create regular lr scheduler for use after warmup
         if lr_scheduler is None:
@@ -607,15 +610,15 @@ class MultitaskTrainer(object):
                 cooldown_steps = total_steps - self.warmup_steps
                 linear_cooldown_func = lambda x: (cooldown_steps - x) / cooldown_steps
                 lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-                    self.optimizer, linear_cooldown_func
+                    optimizer_to_config, linear_cooldown_func
                 )
             elif lr_scheduler == "exponential":
                 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                    self.optimizer, **lr_scheduler_config["exponential_config"]
+                    optimizer_to_config, **lr_scheduler_config["exponential_config"]
                 )
             elif lr_scheduler == "reduce_on_plateau":
                 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                    self.optimizer,
+                    optimizer_to_config,
                     min_lr=lr_scheduler_config["min_lr"],
                     **lr_scheduler_config["plateau_config"],
                 )
@@ -626,10 +629,12 @@ class MultitaskTrainer(object):
         self.lr_scheduler = lr_scheduler
 
     def _set_warmup_scheduler(self, model):
-        if (
-            self.config["lr_scheduler_config"]["warmup_steps"]
-            and not model.config["fp16"]
-        ):
+
+        optimizer_to_use = self.optimizer
+        if model.config["fp16"]:
+            optimizer_to_use = self.optimizer.optimizer
+
+        if self.config["lr_scheduler_config"]["warmup_steps"]:
             warmup_unit = self.config["lr_scheduler_config"]["warmup_unit"]
             warmup_steps = self.config["lr_scheduler_config"]["warmup_steps"]
             # Convert warmup unit to batches
@@ -643,16 +648,22 @@ class MultitaskTrainer(object):
             # This function returns a multiplicative factor based on iteration number
             linear_warmup_func = lambda x: x / self.warmup_steps
             warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer, linear_warmup_func
+                optimizer_to_use, linear_warmup_func
             )
         else:
             warmup_scheduler = None
             self.warmup_steps = 0
         self.warmup_scheduler = warmup_scheduler
 
-    def _update_scheduler(self, step):
+    def _update_scheduler(self, model, step):
+
+        optimizer_to_use = self.optimizer
+        if model.config["fp16"]:
+            optimizer_to_use = self.optimizer.optimizer
+
         """Optionally update the learning rate scheduler with each batch"""
         lr_scheduler_config = self.config["lr_scheduler_config"]
+
         if self.warmup_scheduler and (step < self.warmup_steps):
             self.warmup_scheduler.step()
         elif self.lr_scheduler is not None:
@@ -668,8 +679,8 @@ class MultitaskTrainer(object):
                 self.lr_scheduler.step()
                 # HACK: We enforce min_lr right now by just overwriting
                 min_lr = lr_scheduler_config["min_lr"]
-                if min_lr and self.optimizer.param_groups[0]["lr"] < min_lr:
-                    self.optimizer.param_groups[0]["lr"] = min_lr
+                if min_lr and optimizer_to_use.param_groups[0]["lr"] < min_lr:
+                    optimizer_to_use.param_groups[0]["lr"] = min_lr
 
     def _validate_checkpoint_metric(self, tasks):
         # Confirm that checkpoint_metric is a metric that will be available
