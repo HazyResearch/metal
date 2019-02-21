@@ -368,7 +368,6 @@ class MultitaskTrainer(object):
                 self.metrics_hist, split
             )
         elif "glue_partial" in trainer_metrics:
-            assert len(tasks) < 9
             metric = "glue_partial"
             metrics_dict[f"model/{split}/{metric}"] = glue_score(
                 self.metrics_hist, split
