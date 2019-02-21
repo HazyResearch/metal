@@ -252,11 +252,15 @@ def add_flags_from_config(parser, config_dict):
 
         if type(default) == list:
             if len(default) > 0:
+                # pass a list as argument
                 parser.add_argument(
-                    f"--{param}", type=type(default[0]), default=default
+                    f"--{param}",
+                    action="append",
+                    type=type(default[0]),
+                    default=default,
                 )
             else:
-                parser.add_argument(f"--{param}", default=default)
+                parser.add_argument(f"--{param}", action="append", default=default)
 
         else:
             if default is not None:
