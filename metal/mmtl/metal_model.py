@@ -12,6 +12,7 @@ model_config = {
     "seed": None,
     "device": 0,  # gpu id (int) or -1 for cpu
     "verbose": True,
+    "fp16": False,
 }
 
 
@@ -37,6 +38,11 @@ class MetalModel(nn.Module):
 
         # Build network
         self._build(tasks)
+
+        # Half precision
+        if self.config["fp16"]:
+            print("metal_model.py: Using fp16")
+            self.half()
 
         # Move model to device now, then move data to device in forward() or calculate_loss()
         if self.config["device"] >= 0:

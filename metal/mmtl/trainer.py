@@ -182,7 +182,7 @@ class MultitaskTrainer(object):
         self._set_logger()
         self._set_checkpointer(tasks)
         self._set_optimizer(model)
-        self._set_scheduler()  # TODO: Support more detailed training schedules
+        self._set_scheduler(model)  # TODO: Support more detailed training schedules
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -220,7 +220,10 @@ class MultitaskTrainer(object):
 
                 # Backward pass to calculate gradients
                 # Loss is an average loss per example
-                loss.backward()
+                if model.config["fp16"]:
+                    self.optimizer.backward(loss)
+                else:
+                    loss.backward()
 
                 # Clip gradient norm (not individual gradient magnitudes)
                 # max_grad_value = max([p.grad.abs().max().item() for p in model.parameters()])
@@ -533,7 +536,27 @@ class MultitaskTrainer(object):
         opt = optimizer_config["optimizer"]
 
         parameters = filter(lambda p: p.requires_grad, model.parameters())
-        if opt == "sgd":
+
+        # Special optimizer for fp16
+        if model.config["fp16"]:
+            print("trainer.py: Using Half Precision Optimizer")
+            try:
+                from apex.optimizers import FP16_Optimizer
+                from apex.optimizers import FusedAdam
+            except ImportError:
+                raise ImportError(
+                    "Please install apex from https://www.github.com/nvidia/apex to use distributed and fp16 training."
+                )
+
+            optimizer = FusedAdam(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                bias_correction=False,
+                max_grad_norm=1.0,
+            )
+            optimizer = FP16_Optimizer(optimizer, dynamic_loss_scale=True)
+
+        elif opt == "sgd":
             optimizer = optim.SGD(
                 parameters,
                 **optimizer_config["optimizer_common"],
@@ -575,11 +598,16 @@ class MultitaskTrainer(object):
             raise ValueError(f"Did not recognize optimizer option '{opt}'")
         self.optimizer = optimizer
 
-    def _set_scheduler(self):
+    def _set_scheduler(self, model):
         lr_scheduler = self.config["lr_scheduler"]
         lr_scheduler_config = self.config["lr_scheduler_config"]
+
+        # Special case for half precision -- disable lr scheduler
+        if model.config["fp16"]:
+            lr_scheduler = None
+
         # Create warmup scheduler for first warmup_steps warmup_units if applicable
-        self._set_warmup_scheduler()
+        self._set_warmup_scheduler(model)
 
         # Create regular lr scheduler for use after warmup
         if lr_scheduler is None:
@@ -609,8 +637,11 @@ class MultitaskTrainer(object):
                 )
         self.lr_scheduler = lr_scheduler
 
-    def _set_warmup_scheduler(self):
-        if self.config["lr_scheduler_config"]["warmup_steps"]:
+    def _set_warmup_scheduler(self, model):
+        if (
+            self.config["lr_scheduler_config"]["warmup_steps"]
+            and not model.config["fp16"]
+        ):
             warmup_unit = self.config["lr_scheduler_config"]["warmup_unit"]
             warmup_steps = self.config["lr_scheduler_config"]["warmup_steps"]
             # Convert warmup unit to batches
