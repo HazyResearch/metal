@@ -32,7 +32,6 @@ launch_args = {
     "n_epochs": 10,
     "l2": 0,
     "batch_size": 32,
-    "split_prop": 0.8,
     "max_datapoints": -1,
     # Writer arguments
     "writer": "tensorboard",
