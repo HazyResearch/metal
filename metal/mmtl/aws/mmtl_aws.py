@@ -135,7 +135,7 @@ def run_command(args, instance, cmd_dict, output, run_id):
         # Put files
         sftp = client.open_sftp()
         for (localpath, remotepath) in files_to_put:
-            print("cp %s %s" % (localpath, remotepath))
+            print("Putting %s -> %s" % (localpath, remotepath))
             sftp.put(localpath, remotepath)
 
         # Execute a command(cmd) after connecting/ssh to an instance
@@ -325,7 +325,7 @@ def run(args, launch_args, search_space, instances=None):
         for cmd_dict in command_dicts:
             print("-" * 50)
             for x in cmd_dict["files_to_put"]:
-                print("Putting file: %s -> %s" % x)
+                print("cp %s %s" % x)
             print(cmd_dict["cmd"])
             print("-" * 50)
     else:
