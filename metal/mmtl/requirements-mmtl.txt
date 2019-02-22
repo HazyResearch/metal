@@ -16,3 +16,4 @@ torchvision
 pytorch-pretrained-bert
 paramiko
 boto3
+apex
