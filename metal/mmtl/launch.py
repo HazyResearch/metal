@@ -12,7 +12,6 @@ import numpy as np
 
 from metal.mmtl.bert_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer, trainer_config
 from metal.utils import add_flags_from_config
 
