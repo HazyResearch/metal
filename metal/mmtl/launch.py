@@ -12,7 +12,6 @@ import numpy as np
 
 from metal.mmtl.bert_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer, trainer_config
 from metal.utils import add_flags_from_config
 
@@ -77,6 +76,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
+    )
+    parser.add_argument(
+        "--fp16", type=int, default=0, help="fp16 for half precision model training"
     )
 
     # Dataset arguments
@@ -156,7 +158,7 @@ if __name__ == "__main__":
         max_datapoints=args.max_datapoints,
     )
 
-    model = MetalModel(tasks, verbose=False, device=args.device)
+    model = MetalModel(tasks, verbose=False, device=args.device, fp16=args.fp16)
 
     # add metadata to config that will be logged to disk
     config.update(

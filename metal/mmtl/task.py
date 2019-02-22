@@ -53,7 +53,7 @@ class ClassificationTask(Task):
         input_module,
         head_module,
         scorer=Scorer(standard_metrics=["accuracy"]),
-        loss_hat_func=(lambda X, Y: F.cross_entropy(X, Y - 1, reduction="mean")),
+        loss_hat_func=(lambda Y_prob, Y_gold: F.cross_entropy(Y_prob, Y_gold - 1)),
         output_hat_func=(partial(F.softmax, dim=1)),
     ) -> None:
 
@@ -78,7 +78,9 @@ class RegressionTask(Task):
         input_module,
         head_module,
         scorer=Scorer(standard_metrics=[]),
-        loss_hat_func=(lambda X, Y: F.mse_loss(torch.sigmoid(X), Y)),
+        loss_hat_func=(
+            lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold)
+        ),
         output_hat_func=(torch.sigmoid),
     ) -> None:
 

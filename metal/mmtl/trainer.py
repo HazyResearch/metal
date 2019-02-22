@@ -13,6 +13,7 @@ from torch.nn.utils import clip_grad_norm_
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.logging.utils import split_full_metric
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
+from metal.mmtl.task_scheduler import ProportionalScheduler
 from metal.mmtl.utils.metrics import glue_score
 from metal.utils import recursive_merge_dicts
 
@@ -82,7 +83,7 @@ trainer_config = {
         # The list of trainer standard metrics to calculate (and log)
         "trainer_metrics": [],  # e.g., "glue"
         # Run scorers over a maximum of this many examples if > 0.
-        "max_valid_examples": -1,
+        "max_valid_examples": 0,
         # The name of the split to run scoring on during training
         # To score over multiple splits, set valid_split=None and use task_metrics
         "valid_split": "valid",
@@ -94,6 +95,8 @@ trainer_config = {
         # TODO: "metrics_filter": None,
         # TODO: "score_limit": None,  # Evaluate scorer on only this many examples
     },
+    # Task Scheduler
+    "task_scheduler": "proportional",
     # Logger (see metal/logging/logger.py for descriptions)
     "logger": True,
     "logger_config": {
@@ -118,7 +121,9 @@ trainer_config = {
     },
     # Checkpointer (see metal/logging/checkpointer.py for descriptions)
     "checkpoint": True,  # If True, checkpoint models when certain conditions are met
-    "checkpoint_cleanup": True,  # If true, checkpoint directory will be cleaned after training
+    # If true, checkpoint directory will be cleaned after training (if checkpoint_best
+    # is True, the best model will first be copied to the log_dir/run_dir/run_name/)
+    "checkpoint_cleanup": True,
     "checkpoint_config": {
         # TODO: unify checkpoint=['every', 'best', 'final']; specify one strategy
         "checkpoint_every": 0,  # Save a model checkpoint every this many log_units
@@ -132,6 +137,8 @@ trainer_config = {
         "checkpoint_metric_mode": "min",
         # If None, checkpoint_dir defaults to the log_dir/run_dir/run_name/checkpoints
         # Note that using this default path is strongly recommended.
+        # If you hardcode checkpoint_dir, checkpoints from concurrent runs may overwrite
+        # each other.
         "checkpoint_dir": None,
         "checkpoint_runway": 0,
     },
@@ -178,7 +185,8 @@ class MultitaskTrainer(object):
         self._set_logger()
         self._set_checkpointer(tasks)
         self._set_optimizer(model)
-        self._set_scheduler()  # TODO: Support more detailed training schedules
+        self._set_lr_scheduler(model)  # TODO: Support more detailed training schedules
+        self._set_task_scheduler(model, tasks)
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -189,7 +197,7 @@ class MultitaskTrainer(object):
         for epoch in range(self.config["n_epochs"]):
             progress_bar = self.config["progress_bar"] and self.config["verbose"]
             t = tqdm(
-                enumerate(self._get_train_batches(tasks)),
+                enumerate(self.task_scheduler.get_batches(tasks, "train")),
                 total=self.batches_per_epoch,
                 disable=(not progress_bar),
             )
@@ -216,7 +224,10 @@ class MultitaskTrainer(object):
 
                 # Backward pass to calculate gradients
                 # Loss is an average loss per example
-                loss.backward()
+                if model.config["fp16"]:
+                    self.optimizer.backward(loss)
+                else:
+                    loss.backward()
 
                 # Clip gradient norm (not individual gradient magnitudes)
                 # max_grad_value = max([p.grad.abs().max().item() for p in model.parameters()])
@@ -239,7 +250,7 @@ class MultitaskTrainer(object):
                 metrics_dict = self._execute_logging(model, tasks, batch_size)
 
                 # Apply learning rate scheduler
-                self._update_scheduler(batch_id)
+                self._update_lr_scheduler(model, batch_id)
 
                 # tqdm output
                 if len(tasks) == 1:
@@ -265,16 +276,16 @@ class MultitaskTrainer(object):
                 if os.path.isfile(path_to_best):
                     copy2(path_to_best, path_to_logs)
 
+        # Clean up checkpoint
+        if self.checkpointer and self.config["checkpoint_cleanup"]:
+            print("Cleaning checkpoints")
+            self.checkpointer.clean_up()
+
         # Write log if applicable
         if self.writer:
             if self.writer.include_config:
                 self.writer.add_config(self.config)
             self.writer.close()
-
-        # Clean up checkpoint
-        if self.checkpointer and self.config["checkpoint_cleanup"]:
-            print("Cleaning checkpoints")
-            self.checkpointer.clean_up()
 
         # Print final performance values
         if self.config["verbose"]:
@@ -286,7 +297,7 @@ class MultitaskTrainer(object):
     def _execute_logging(self, model, tasks, batch_size):
         model.eval()
         metrics_dict = {}
-        metrics_dict.update(self.calculate_losses(tasks))
+        metrics_dict.update(self.aggregate_losses(tasks))
         self.logger.increment(batch_size)
 
         do_log = False
@@ -308,7 +319,7 @@ class MultitaskTrainer(object):
         model.train()
         return metrics_dict
 
-    def calculate_losses(self, tasks):
+    def aggregate_losses(self, tasks):
         """Calculate the average loss for each task since the last calculation
 
         If no examples of a certain task have been seen since the losses were reset,
@@ -319,18 +330,17 @@ class MultitaskTrainer(object):
         for task in tasks:
             if self.running_examples[task.name]:
                 loss = self.running_losses[task.name] / self.running_examples[task.name]
-            elif self.metrics_hist.get(f"{task.name}/loss"):
-                loss = self.metrics_hist[f"{task.name}/loss"]
+            elif self.metrics_hist.get(f"{task.name}/train/loss"):
+                loss = self.metrics_hist[f"{task.name}/train/loss"]
             else:
                 loss = None
-            metrics_dict[f"{task.name}/loss"] = loss
+            metrics_dict[f"{task.name}/train/loss"] = loss
         # Report micro average of losses
         total_loss = sum(self.running_losses.values())
         total_examples = sum(self.running_examples.values())
         # TODO: Don't report task loss and "overall" loss if there is only one task?
         # But they may be planning on their named task loss being in the metrics_dict...
         metrics_dict["model/train/loss"] = total_loss / total_examples
-        #
         if self.config["logger_config"]["log_lr"]:
             # For now just report one global lr; eventually support lr groups
             metrics_dict[f"model/train/lr"] = self.optimizer.param_groups[0]["lr"]
@@ -349,7 +359,33 @@ class MultitaskTrainer(object):
     def calculate_task_metrics(self, model, tasks, split=None):
         metrics_dict = {}
         task_metrics = self.config["metrics_config"]["task_metrics"]
+        trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
+        # Pull out any requested loss metrics
+        # NOTE: We currently break our own rule and calculate model-wide overall loss
+        # in calculate_task_metrics. We do this because we need access to the total
+        # loss and examples counts; we can't just average the task-specific losses
+        # equally after the fact.
+        loss_metrics = [
+            metric
+            for metric in (task_metrics + trainer_metrics)
+            if "/loss" in metric and "/train/" not in metric
+        ]
+        task_metrics = [metric for metric in task_metrics if "/loss" not in metric]
         max_examples = self.config["metrics_config"]["max_valid_examples"]
+
+        # Calculate loss for non-train splits
+        if loss_metrics:
+            # TODO: (BH) handle max_examples
+            loss_dict = self._calculate_valid_losses(
+                model, tasks, split, max_examples=max_examples
+            )
+            # TODO: improve efficiency by only calculating the losses the user requested
+            # rather than computing all and filtering at the end.
+            for loss_name, loss_value in loss_dict.items():
+                if loss_name in loss_metrics:
+                    metrics_dict[loss_name] = loss_value
+
+        # Calculate metrics from Scorers
         for task in tasks:
             metrics_dict_task = task.scorer.score(
                 model, task, task_metrics, split, max_examples=max_examples
@@ -362,33 +398,65 @@ class MultitaskTrainer(object):
         metrics_dict = {}
         # HACK: glue should not be hardcoded
         if "glue" in trainer_metrics:
-            assert len(tasks) == 9
+            if len(tasks) != 9:
+                msg = "You requested glue score but submitted fewer than 9 tasks. Use 'glue_partial' instead."
+                raise Exception(msg)
             metric = "glue"
             metrics_dict[f"model/{split}/{metric}"] = glue_score(
                 self.metrics_hist, split
             )
         elif "glue_partial" in trainer_metrics:
-            assert len(tasks) < 9
+            if len(tasks) == 9:
+                msg = "You requested glue_partial score but submitted all 9 tasks. Use 'glue' instead."
+                raise Exception(msg)
             metric = "glue_partial"
             metrics_dict[f"model/{split}/{metric}"] = glue_score(
                 self.metrics_hist, split
             )
         return metrics_dict
 
-    def _get_train_batches(self, tasks):
-        """Yields batches one at a time sampled from tasks with some strategy"""
-        # TODO: Allow more involved strategies for sampling from tasks
-        # For now, just use proportional sampling
-        # Length of a dataloader is the number of batches it contains
-        approx_batch_counts = [len(t.data_loaders["train"]) for t in tasks]
-        batch_assignments = []
-        for task_idx, task in enumerate(tasks):
-            batch_assignments.extend([task_idx] * approx_batch_counts[task_idx])
-        random.shuffle(batch_assignments)
-        train_loaders = [iter(t.data_loaders["train"]) for t in tasks]
-
-        for task_idx in batch_assignments:
-            yield ([tasks[task_idx].name], next(train_loaders[task_idx]))
+    @torch.no_grad()
+    def _calculate_valid_losses(self, model, tasks, split, max_examples=0):
+        """Calculate the loss for the valid split"""
+        # Error checing
+        assert split != "train"
+        if split is None:
+            msg = "MeTaL does not currently support calculating the loss for multiple non-train splits"
+            raise NotImplementedError(msg)
+        elif split == "test":
+            msg = "MeTaL does not support calculating loss on the test set during training."
+        # Calculate task-specific losses
+        task_losses = defaultdict(float)
+        task_examples = defaultdict(float)
+        total_examples = 0
+        # WARNING: For calculating valid loss, we simply use a proportional scheduler.
+        # Note that if max_examples > 0, some tasks may be underrepresented in the first
+        # max_examples examples.
+        task_scheduler = ProportionalScheduler(model, tasks)
+        for task_names, batch in task_scheduler.get_batches(tasks, split):
+            _, Y = batch
+            batch_size = len(Y)
+            losses = model.calculate_loss(*batch, task_names)
+            for task_name, loss in losses.items():
+                task_losses[task_name] += loss.item() * batch_size
+                task_examples[task_name] += batch_size
+            total_examples += batch_size
+            if max_examples > 0 and total_examples >= max_examples:
+                break
+        # Aggregate losses and store in dictionary
+        metrics_dict = {}
+        for task in tasks:
+            full_name = f"{task.name}/{split}/loss"
+            if task_examples[task.name] > 0:
+                metrics_dict[full_name] = (
+                    task_losses[task.name] / task_examples[task.name]
+                )
+            else:
+                metrics_dict[full_name] = np.nan
+        metrics_dict[f"model/{split}/loss"] = sum(task_losses.values()) / sum(
+            task_examples.values()
+        )
+        return metrics_dict
 
     def _checkpoint(self, model, metrics_dict):
         if self.checkpointer is None:
@@ -461,7 +529,27 @@ class MultitaskTrainer(object):
         opt = optimizer_config["optimizer"]
 
         parameters = filter(lambda p: p.requires_grad, model.parameters())
-        if opt == "sgd":
+
+        # Special optimizer for fp16
+        if model.config["fp16"]:
+            print("trainer.py: Using Half Precision Optimizer")
+            try:
+                from apex.optimizers import FP16_Optimizer
+                from apex.optimizers import FusedAdam
+            except ImportError:
+                raise ImportError(
+                    "Please install apex from https://www.github.com/nvidia/apex to use distributed and fp16 training."
+                )
+
+            optimizer = FusedAdam(
+                parameters,
+                **optimizer_config["optimizer_common"],
+                bias_correction=False,
+                max_grad_norm=1.0,
+            )
+            optimizer = FP16_Optimizer(optimizer, dynamic_loss_scale=True)
+
+        elif opt == "sgd":
             optimizer = optim.SGD(
                 parameters,
                 **optimizer_config["optimizer_common"],
@@ -503,11 +591,19 @@ class MultitaskTrainer(object):
             raise ValueError(f"Did not recognize optimizer option '{opt}'")
         self.optimizer = optimizer
 
-    def _set_scheduler(self):
+    def _set_lr_scheduler(self, model):
         lr_scheduler = self.config["lr_scheduler"]
         lr_scheduler_config = self.config["lr_scheduler_config"]
+
         # Create warmup scheduler for first warmup_steps warmup_units if applicable
-        self._set_warmup_scheduler()
+        self._set_warmup_scheduler(model)
+
+        optimizer_to_config = self.optimizer
+
+        # If using half precision, configure the underlying
+        # optimizer of FP16_Optimizer
+        if model.config["fp16"]:
+            optimizer_to_config = self.optimizer.optimizer
 
         # Create regular lr scheduler for use after warmup
         if lr_scheduler is None:
@@ -519,15 +615,15 @@ class MultitaskTrainer(object):
                 cooldown_steps = total_steps - self.warmup_steps
                 linear_cooldown_func = lambda x: (cooldown_steps - x) / cooldown_steps
                 lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-                    self.optimizer, linear_cooldown_func
+                    optimizer_to_config, linear_cooldown_func
                 )
             elif lr_scheduler == "exponential":
                 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                    self.optimizer, **lr_scheduler_config["exponential_config"]
+                    optimizer_to_config, **lr_scheduler_config["exponential_config"]
                 )
             elif lr_scheduler == "reduce_on_plateau":
                 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                    self.optimizer,
+                    optimizer_to_config,
                     min_lr=lr_scheduler_config["min_lr"],
                     **lr_scheduler_config["plateau_config"],
                 )
@@ -537,7 +633,11 @@ class MultitaskTrainer(object):
                 )
         self.lr_scheduler = lr_scheduler
 
-    def _set_warmup_scheduler(self):
+    def _set_warmup_scheduler(self, model):
+        optimizer_to_use = self.optimizer
+        if model.config["fp16"]:
+            optimizer_to_use = self.optimizer.optimizer
+
         if self.config["lr_scheduler_config"]["warmup_steps"]:
             warmup_unit = self.config["lr_scheduler_config"]["warmup_unit"]
             warmup_steps = self.config["lr_scheduler_config"]["warmup_steps"]
@@ -552,16 +652,22 @@ class MultitaskTrainer(object):
             # This function returns a multiplicative factor based on iteration number
             linear_warmup_func = lambda x: x / self.warmup_steps
             warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer, linear_warmup_func
+                optimizer_to_use, linear_warmup_func
             )
         else:
             warmup_scheduler = None
             self.warmup_steps = 0
         self.warmup_scheduler = warmup_scheduler
 
-    def _update_scheduler(self, step):
+    def _update_lr_scheduler(self, model, step):
         """Optionally update the learning rate scheduler with each batch"""
+
+        optimizer_to_use = self.optimizer
+        if model.config["fp16"]:
+            optimizer_to_use = self.optimizer.optimizer
+
         lr_scheduler_config = self.config["lr_scheduler_config"]
+
         if self.warmup_scheduler and (step < self.warmup_steps):
             self.warmup_scheduler.step()
         elif self.lr_scheduler is not None:
@@ -577,27 +683,37 @@ class MultitaskTrainer(object):
                 self.lr_scheduler.step()
                 # HACK: We enforce min_lr right now by just overwriting
                 min_lr = lr_scheduler_config["min_lr"]
-                if min_lr and self.optimizer.param_groups[0]["lr"] < min_lr:
-                    self.optimizer.param_groups[0]["lr"] = min_lr
+                if min_lr and optimizer_to_use.param_groups[0]["lr"] < min_lr:
+                    optimizer_to_use.param_groups[0]["lr"] = min_lr
+
+    def _set_task_scheduler(self, model, tasks):
+        if self.config["task_scheduler"] == "proportional":
+            self.task_scheduler = ProportionalScheduler(model, tasks)
+        else:
+            raise NotImplementedError
 
     def _validate_checkpoint_metric(self, tasks):
-        checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
         # Confirm that checkpoint_metric is a metric that will be available
+        checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
         if checkpoint_metric.startswith("model"):
             metric_name = checkpoint_metric.split("/")[-1]
-            if metric_name not in self.config["metrics_config"]["trainer_metrics"]:
+            if (
+                metric_name != "loss"
+                and metric_name not in self.config["metrics_config"]["trainer_metrics"]
+            ):
                 msg = (
-                    f"The checkpoint_metric you specified {checkpoint_metric} is not "
-                    f"currently supported."
+                    f"The checkpoint_metric you specified ('{checkpoint_metric}') is "
+                    f"not currently supported."
                 )
                 raise Exception(msg)
         else:
             if checkpoint_metric.count("/") != 2:
                 msg = (
-                    f"checkpoint_metric must be model/train/loss or have a full metric name "
+                    f"checkpoint_metric must have a full metric name "
                     f"(task/split/metric); you submitted: {checkpoint_metric}"
                 )
                 raise Exception(msg)
+
             task_name, split, metric = split_full_metric(checkpoint_metric)
             try:
                 task = [t for t in tasks if t.name == task_name][0]
@@ -608,16 +724,17 @@ class MultitaskTrainer(object):
                     f"submitted tasks: {[t.name for t in tasks]}."
                 )
                 raise Exception(msg)
-            if metric not in task.scorer.metrics:
+
+            if metric != "loss" and metric not in task.scorer.metrics:
                 msg = (
                     f"The checkpoint_metric you specified "
                     f"({checkpoint_metric}) is not in the list of supported "
-                    f"metrics for the Scorer of that task: "
-                    f"({task.scorer.metrics}). Either change your "
-                    f"checkpoint_metric, use a different Scorer, or add a "
-                    f"custom_metric_func that outputs that your desired metric."
+                    f"metrics ({task.scorer.metrics}) for the Scorer of that task. "
+                    f"Either change your checkpoint_metric, use a different Scorer, "
+                    f"or add a custom_metric_func that outputs your desired metric."
                 )
                 raise Exception(msg)
+
         task_metrics = self.config["metrics_config"]["task_metrics"]
         if task_metrics and checkpoint_metric not in task_metrics:
             msg = (
