@@ -13,7 +13,7 @@ from torch.nn.utils import clip_grad_norm_
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.logging.utils import split_full_metric
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
-from metal.mmtl.task_scheduler import ProportionalScheduler
+from metal.mmtl.task_scheduler import ProportionalScheduler, StagedScheduler
 from metal.mmtl.utils.metrics import glue_score
 from metal.utils import recursive_merge_dicts
 
@@ -96,7 +96,7 @@ trainer_config = {
         # TODO: "score_limit": None,  # Evaluate scorer on only this many examples
     },
     # Task Scheduler
-    "task_scheduler": "proportional",
+    "task_scheduler": "proportional",  # ["proportional", "staged"]
     # Logger (see metal/logging/logger.py for descriptions)
     "logger": True,
     "logger_config": {
@@ -689,6 +689,8 @@ class MultitaskTrainer(object):
     def _set_task_scheduler(self, model, tasks):
         if self.config["task_scheduler"] == "proportional":
             self.task_scheduler = ProportionalScheduler(model, tasks)
+        elif self.config["task_scheduler"] == "staged":
+            self.task_scheduler = StagedScheduler(model, tasks)
         else:
             raise NotImplementedError
 
