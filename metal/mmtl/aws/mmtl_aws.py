@@ -44,7 +44,8 @@ from metal.mmtl.aws import grid_search_mmtl
 
 # IMAGE_ID = "ami-0c82a5c425d9da154" # For West
 # IMAGE_ID = "ami-04f2030e810b07ced"  # For East
-IMAGE_ID = "ami-0507d23ab4a37c611"  # For East (02-18-2019)
+# IMAGE_ID = "ami-0507d23ab4a37c611"  # For East (02-18-2019)
+IMAGE_ID = "ami-01b22f90823e1b2af"  # For East w/ Apex (02-21-2019)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
