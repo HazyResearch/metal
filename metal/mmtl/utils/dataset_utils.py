@@ -1,3 +1,5 @@
+from nltk.translate.bleu_score import sentence_bleu
+
 import metal.mmtl.dataset as dataset
 
 
@@ -57,3 +59,35 @@ def get_all_dataloaders(
             dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
 
     return dataloaders
+
+
+def get_dataloader_with_label(dataloader, label_obj):
+    """
+    dataloader: dataloader wrapping Dataset
+    label_obj: function operating on a dataset item or list of labels in correct order
+    """
+
+    dataloader_new = dataloader.copy()
+
+    if isinstance(label_obj, list):
+        labels_new = label_obj
+    elif callable(label_obj):
+        labels_new = [label_obj(i) for i in dataloader_new.dataset]
+    else:
+        raise ValueError("Incorrect label object type -- supply list or function")
+
+    dataloader_new.dataset.labels = labels_new
+
+    return dataloader_new
+
+
+def get_bleu_dataloader(dataloader):
+    def get_bleu_label(it):
+        toks, segs = it[0]
+        toks = dataloader.dataset.tokenizer.convert_ids_to_tokens[toks]
+        sent1 = toks[segs == 0]
+        sent2 = toks[segs == 1]
+        bleu_score = sentence_bleu(sent1, sent2)
+        return bleu_score
+
+    return get_dataloader_with_label(dataloader, get_bleu_label)
