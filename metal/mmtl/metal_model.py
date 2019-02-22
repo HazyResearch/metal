@@ -1,9 +1,10 @@
-import random
+import warnings
 
 import numpy as np
 import torch
 import torch.nn as nn
 
+from metal.end_model import IdentityModule
 from metal.mmtl.task import RegressionTask
 from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts, set_seed
@@ -58,44 +59,58 @@ class MetalModel(nn.Module):
 
     def _build(self, tasks):
         """Iterates over tasks, adding their input_modules and head_modules"""
+        # TODO: Allow more flexible specification of network structure
         self.input_modules = nn.ModuleDict(
-            {task.name: task.input_module for task in tasks}
+            {task.name: nn.DataParallel(task.input_module) for task in tasks}
+        )
+        self.middle_modules = nn.ModuleDict(
+            {task.name: nn.DataParallel(task.middle_module) for task in tasks}
         )
         self.head_modules = nn.ModuleDict(
-            {task.name: task.head_module for task in tasks}
+            {task.name: nn.DataParallel(task.head_module) for task in tasks}
         )
+
         self.loss_hat_funcs = {task.name: task.loss_hat_func for task in tasks}
         self.output_hat_funcs = {task.name: task.output_hat_func for task in tasks}
 
-        # TODO: allow some number of middle modules (of arbitrary sizes) to be specified
-        self.middle_modules = None
-
-        # HACK: this does not allow reuse of intermediate computation or middle modules
-        # Not hard to change this, but not necessary for GLUE, so we stay simple
-        # TODO: Restore commit 05237edb to move to trunk + heads design instead
-        task_paths = {}
-        for task in tasks:
-            input_module = self.input_modules[task.name]
-            head_module = self.head_modules[task.name]
-            task_paths[task.name] = nn.DataParallel(
-                nn.Sequential(input_module, head_module)
-            )
-        self.task_paths = nn.ModuleDict(task_paths)
+        warnings.warn("nn.DataParallel has been removed!")
+        # task_paths = {}
+        # for task in tasks:
+        #     input_module = self.input_modules[task.name]
+        #     head_module = self.head_modules[task.name]
+        #     task_paths[task.name] = nn.DataParallel(
+        #         nn.Sequential(input_module, head_module)
+        #     )
+        # self.task_paths = nn.ModuleDict(task_paths)
 
     def forward(self, X, task_names):
-        """Returns the outputs of the task heads in a dictionary
+        """Returns the outputs of the requested task heads in a dictionary
+
+        The output of each task is the result of passing the input through the
+        input_module, middle_module, and head_module for that task, in that order.
+        Before calculating any intermediate values, we first check whether a previously
+        evaluated task has produced that intermediate result. If so, we use that.
 
         Args:
             X: a [batch_size, ...] batch from a DataLoader
         Returns:
             output_dict: {task_name (str): output (Tensor)}
         """
-        return {
-            t: self.task_paths[t](move_to_device(X, self.config["device"]))
-            for t in task_names
-        }
+        input = move_to_device(X, self.config["device"])
+        outputs = {}
+        for task_name in task_names:
+            input_module = self.input_modules[task_name]
+            if input_module not in outputs:
+                outputs[input_module] = input_module(input)
+            middle_module = self.middle_modules[task_name]
+            if middle_module not in outputs:
+                outputs[middle_module] = middle_module(outputs[input_module])
+            head_module = self.head_modules[task_name]
+            if head_module not in outputs:
+                outputs[head_module] = head_module(outputs[middle_module])
+        return {t: outputs[self.head_modules[t]] for t in task_names}
 
-    def calculate_loss(self, X, *Ys, task_names=[]):
+    def calculate_loss(self, X, Ys, task_names=[]):
         """Returns a dict of {task_name: loss (an FloatTensor scalar)}.
 
         Args:
@@ -229,7 +244,7 @@ class MetalModel(nn.Module):
         total = 0
         for batch_num, batch in enumerate(task.data_loaders[split]):
             Xb = batch[0]
-            Yb = batch[labelset_idx + 1]
+            Yb = batch[1][labelset_idx]
             Y.append(Yb)
             Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
             total += Yb.shape[0]

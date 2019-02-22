@@ -8,7 +8,7 @@ import torch.utils.data as data
 from pytorch_pretrained_bert import BertTokenizer
 from torch.utils.data.sampler import Sampler, SubsetRandomSampler
 
-from metal.utils import set_seed
+from metal.utils import padded_tensor, set_seed
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -67,7 +67,6 @@ class BERTDataset(data.Dataset):
         label_type=int,
         max_datapoints=-1,
         generate_uids=False,
-        include_segments=True,
     ):
         """
         Args:
@@ -80,9 +79,6 @@ class BERTDataset(data.Dataset):
             delimiter: delimiter between columns (likely '\t') for tab-separated-values
             label_map: dictionary or function mapping from raw labels to desired format
             label_type: data type (int, float) of labels. used to cast values downstream.
-            include_segments: __getitem__() will return:
-                True: (tokens, segment), labels
-                False: tokens, labels
         """
         self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         payload = self.load_tsv(
@@ -110,8 +106,7 @@ class BERTDataset(data.Dataset):
         self.inv_label_fn = inv_label_fn
         self.tokens = tokens
         self.segments = segments
-        self.labels = labels
-        self.include_segments = include_segments
+        self.labels = [labels]
 
     @staticmethod
     def load_tsv(
@@ -217,7 +212,14 @@ class BERTDataset(data.Dataset):
             return tokens, segments, labels
 
     def __getitem__(self, index):
-        return (self.tokens[index], self.segments[index]), self.labels[index]
+        """Retrieves a single instance with its labels
+
+        Note that the attention mask for each batch is added in the collate function,
+        once the max_seq_len for that batch is known.
+        """
+        x = (self.tokens[index], self.segments[index])
+        ys = [labelset[index] for labelset in self.labels]
+        return x, ys
 
     def __len__(self):
         return len(self.tokens)
@@ -243,14 +245,14 @@ class BERTDataset(data.Dataset):
             # create data loaders
             train_dataloader = data.DataLoader(
                 self,
-                collate_fn=lambda batch: self._collate_fn(batch),
+                collate_fn=self._collate_fn,
                 sampler=SubsetRandomSampler(train_idx),
                 **kwargs,
             )
 
             dev_dataloader = data.DataLoader(
                 self,
-                collate_fn=lambda batch: self._collate_fn(batch),
+                collate_fn=self._collate_fn,
                 sampler=SubsetRandomSampler(dev_idx),
                 **kwargs,
             )
@@ -258,46 +260,78 @@ class BERTDataset(data.Dataset):
             return train_dataloader, dev_dataloader
 
         else:
-            return data.DataLoader(
-                self, collate_fn=lambda batch: self._collate_fn(batch), **kwargs
-            )
+            return data.DataLoader(self, collate_fn=self._collate_fn, **kwargs)
 
-    def _collate_fn(self, batch):
-        """ Collates batch of (tokens, segments, labels), collates into tensors of
-        ((token_idx_matrix, seg_matrix, mask_matrix), label_matrix). Handles padding
-        based on specific max_len.
+    def _collate_fn(self, batch_list):
+        """Collates batch of ((tokens, segments), labels) into padded (X, Ys) tensors
+
+        Args:
+            batch_list: a list of tuples containing ((tokens, segments), labels)
+        Returns:
+            X: instances for BERT: (tok_matrix, seg_matrix, mask_matrix)
+            Y: a list of label sets is any [n, :] tensor.
         """
-        batch_size = len(batch)
-        # max_len == -1 defaults to using max_sent_len
-        max_sent_len = int(np.max([len(tok) for ((tok, seg), _) in batch]))
-        idx_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
-        seg_matrix = np.zeros((batch_size, max_sent_len), dtype=np.int)
-        label_dtype = np.float if self.label_type is float else np.int
-        label_matrix = np.zeros((batch_size), dtype=label_dtype)
+        # batch_size = len(batch_list)
+        num_labelsets = len(batch_list[0][1])
+        tokens_list = []
+        segments_list = []
+        Ys = [[] for _ in range(num_labelsets)]
 
-        for idx1 in np.arange(len(batch)):
-            (tokens, segments), labels = batch[idx1]
-            label_matrix[idx1] = labels
-            for idx2 in np.arange(len(tokens)):
-                if idx2 >= max_sent_len:
-                    break
-                idx_matrix[idx1, idx2] = tokens[idx2]
-                seg_matrix[idx1, idx2] = segments[idx2]
+        for instance in batch_list:
+            x, ys = instance
+            (tokens, segments) = x
+            tokens_list.append(tokens)
+            segments_list.append(segments)
+            for i, y in enumerate(ys):
+                Ys[i].append(y)
+        tokens_tensor, _ = padded_tensor(tokens_list)
+        segments_tensor, _ = padded_tensor(segments_list)
+        masks_tensor = torch.gt(tokens_tensor.data, 0)
+        assert tokens_tensor.shape == segments_tensor.shape
 
-        idx_matrix = torch.LongTensor(idx_matrix)
-        seg_matrix = torch.LongTensor(seg_matrix)
-        mask_matrix = torch.gt(idx_matrix.data, 0).long()
+        X = (tokens_tensor.long(), segments_tensor.long(), masks_tensor.long())
+        Ys = self._collate_labels(Ys)
+        return X, Ys
 
-        # cast torch labels
-        if self.label_type is float:
-            label_matrix = torch.FloatTensor(label_matrix)
-        else:
-            label_matrix = torch.LongTensor(label_matrix)
+    def _collate_labels(self, Ys):
+        """Collate potentially multiple labelsets
 
-        if self.include_segments:
-            return (idx_matrix, seg_matrix, mask_matrix), label_matrix
-        else:
-            return idx_matrix, label_matrix
+        Args:
+            Ys: a [num_labelsets] list, with each entry containing a list of labels
+                (ints, floats, numpy, or torch) belonging to the same labelset
+        Returns:
+            Ys: a [num_labelsets] list, with each entry containing a torch Tensor
+                (padded if necessary) of labels belonging to the same labelset
+
+
+        Convert each Y in Ys from:
+            list of scalars (instance labels) -> [n,] tensor
+            list of tensors/lists/arrays (token labels) -> [n, seq_len] padded tensor
+        """
+        for i, Y in enumerate(Ys):
+            if isinstance(Y[0], int):
+                Y = torch.tensor(Y, dtype=torch.long)
+            elif isinstance(Y[0], float):
+                Y = torch.tensor(Y, dtype=torch.float)
+            elif (
+                isinstance(Y[0], list)
+                or isinstance(Y[0], np.ndarray)
+                or isinstance(Y[0], torch.Tensor)
+            ):
+                if isinstance(Y[0][0], int):
+                    dtype = torch.long
+                elif isinstance(Y[0][0], float):
+                    # TODO: WARNING: this may not handle half-precision correctly!
+                    dtype = torch.float
+                else:
+                    msg = f"Unrecognized dtype of label set {i}: {type(Y[0][0])}"
+                    raise Exception(msg)
+                Y, _ = padded_tensor(Y, dtype=dtype)
+            else:
+                msg = f"Unrecognized dtype of label set {i}: {type(Y[0])}"
+                raise Exception(msg)
+            Ys[i] = Y
+        return Ys
 
 
 class QNLIDataset(BERTDataset):
@@ -551,14 +585,14 @@ class QNLIRDataset(BERTDataset):
                 # create data loaders
                 train_dataloader = data.DataLoader(
                     self,
-                    collate_fn=lambda batch: self._collate_fn(batch),
+                    collate_fn=self._collate_fn,
                     sampler=PairwiseRankingSampler(train_idx),
                     **kwargs,
                 )
 
                 dev_dataloader = data.DataLoader(
                     self,
-                    collate_fn=lambda batch: self._collate_fn(batch),
+                    collate_fn=self._collate_fn,
                     sampler=PairwiseRankingSampler(dev_idx),
                     **kwargs,
                 )
@@ -568,12 +602,10 @@ class QNLIRDataset(BERTDataset):
                 # create data loaders
                 train_dataloader = data.DataLoader(
                     self,
-                    collate_fn=lambda batch: self._collate_fn(batch),
+                    collate_fn=self._collate_fn,
                     sampler=PairwiseRankingSampler(full_idx),
                     **kwargs,
                 )
                 return train_dataloader
         else:
-            return data.DataLoader(
-                self, collate_fn=lambda batch: self._collate_fn(batch), **kwargs
-            )
+            return data.DataLoader(self, collate_fn=self._collate_fn, **kwargs)
