@@ -697,7 +697,7 @@ class MultitaskTrainer(object):
             warmup_steps = self.config["lr_scheduler_config"]["warmup_steps"]
             # Convert warmup unit to batches
             if warmup_unit == "epochs":
-                self.warmup_steps = int(warmup_steps * self.batches_per_epoch)
+                self.warmup_steps = max(1, int(warmup_steps * self.batches_per_epoch))
             elif warmup_unit == "batches":
                 self.warmup_steps = int(warmup_steps)
             else:
