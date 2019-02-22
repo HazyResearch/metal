@@ -58,21 +58,28 @@ class MetalModel(nn.Module):
 
     def _build(self, tasks):
         """Iterates over tasks, adding their input_modules and head_modules"""
-        # TODO: Allow more flexible specification of network structure
-        # We currently require matching input modules and assume no middle modules
-        # TODO: allow tasks to have different input modules
         self.input_modules = nn.ModuleDict(
             {task.name: task.input_module for task in tasks}
         )
-        assert all(task.input_module == tasks[0].input_module for task in tasks)
-
         self.head_modules = nn.ModuleDict(
             {task.name: task.head_module for task in tasks}
         )
         self.loss_hat_funcs = {task.name: task.loss_hat_func for task in tasks}
         self.output_hat_funcs = {task.name: task.output_hat_func for task in tasks}
 
-        self.trunk = nn.DataParallel(self.input_modules[tasks[0].name])
+        # TODO: allow some number of middle modules (of arbitrary sizes) to be specified
+        self.middle_modules = None
+
+        # HACK: this does not allow reuse of intermediate computation or middle modules
+        # Not hard to change this, but not necessary for GLUE, so we stay simple
+        task_paths = {}
+        for task in tasks:
+            input_module = self.input_modules[task.name]
+            head_module = self.head_modules[task.name]
+            task_paths[task.name] = nn.DataParallel(
+                nn.Sequential(input_module, head_module)
+            )
+        self.task_paths = nn.ModuleDict(task_paths)
 
     def forward(self, X, task_names):
         """Returns the outputs of the task heads in a dictionary
@@ -82,10 +89,10 @@ class MetalModel(nn.Module):
         Returns:
             output_dict: {task_name (str): output (Tensor)}
         """
-        # NOTE: Currently assumes all tasks have the same input module
-        shared_input_module = self.input_modules[task_names[0]]
-        neck = shared_input_module(move_to_device(X, self.config["device"]))
-        return {t: self.head_modules[t](neck) for t in task_names}
+        return {
+            t: self.task_paths[t](move_to_device(X, self.config["device"]))
+            for t in task_names
+        }
 
     def calculate_loss(self, X, Y, task_names):
         """Returns a dict of {task_name: loss (an FloatTensor scalar)}."""
