@@ -14,7 +14,11 @@ from torch.nn.utils import clip_grad_norm_
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.logging.utils import split_full_metric
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
-from metal.mmtl.task_scheduler import ProportionalScheduler, StagedScheduler
+from metal.mmtl.task_scheduler import (
+    ProportionalScheduler,
+    StagedScheduler,
+    SuperStagedScheduler,
+)
 from metal.mmtl.utils.metrics import glue_score
 from metal.utils import recursive_merge_dicts
 
@@ -437,7 +441,7 @@ class MultitaskTrainer(object):
         # WARNING: For calculating valid loss, we simply use a proportional scheduler.
         # Note that if max_examples > 0, some tasks may be underrepresented in the first
         # max_examples examples.
-        task_scheduler = ProportionalScheduler(model, tasks)
+        task_scheduler = ProportionalScheduler(model, tasks, split)
         for task_names, batch in task_scheduler.get_batches(tasks, split):
             _, Y = batch
             batch_size = len(Y)
@@ -738,9 +742,16 @@ class MultitaskTrainer(object):
 
     def _set_task_scheduler(self, model, tasks):
         if self.config["task_scheduler"] == "proportional":
-            self.task_scheduler = ProportionalScheduler(model, tasks)
+            self.task_scheduler = ProportionalScheduler(model, tasks, "train")
         elif self.config["task_scheduler"] == "staged":
-            self.task_scheduler = StagedScheduler(model, tasks)
+            self.task_scheduler = StagedScheduler(model, tasks, "train")
+        elif self.config["task_scheduler"] == "superstaged":
+            if self.config["lr_scheduler"] is not None:
+                msg = "When using task_scheduler=='superstaged', lr_scheduler should be None"
+                warnings.warn(msg)
+            self.task_scheduler = SuperStagedScheduler(
+                model, tasks, self.config["n_epochs"], "train"
+            )
         else:
             raise NotImplementedError
 
