@@ -132,7 +132,7 @@ def plot_calibration_histogram(Y_p, Y, title=None):
         )
         raise ValueError(msg)
 
-    Y_ph = (np.sign(Y_p - 0.5) + 1.) / 2.
+    Y_ph = (np.sign(Y_p - 0.5) + 1.0) / 2.0
     correct_idx = list(np.where(Y_ph == Y)[0])
     print("Accuracy: ", len(correct_idx) / (1.0 * len(Y_p)))
 

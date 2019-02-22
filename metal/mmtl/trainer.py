@@ -21,7 +21,6 @@ from metal.utils import recursive_merge_dicts
 
 
 class FP16_OptimizerMMTLModified(FP16_Optimizer):
-    
     def step(self, closure=None):
         """
         Not supporting closure.
@@ -41,9 +40,9 @@ class FP16_OptimizerMMTLModified(FP16_Optimizer):
                 else:
                     grads_to_use.append(p.grad)
             grads_groups_flat.append(_flatten_dense_tensors(grads_to_use))
-            
+
             norm_groups.append(self._compute_grad_norm(grads_groups_flat[i]))
-            if norm_groups[i] == -1: #TODO: early break
+            if norm_groups[i] == -1:  # TODO: early break
                 skip = True
 
         if skip:
@@ -51,19 +50,24 @@ class FP16_OptimizerMMTLModified(FP16_Optimizer):
             return
 
         # norm is in fact norm*cur_scale
-        self.optimizer.step(grads=[[g] for g in grads_groups_flat],
-                            output_params=[[p] for p in self.fp16_groups_flat],
-                            scale=self.cur_scale,
-                            grad_norms=norm_groups)
+        self.optimizer.step(
+            grads=[[g] for g in grads_groups_flat],
+            output_params=[[p] for p in self.fp16_groups_flat],
+            scale=self.cur_scale,
+            grad_norms=norm_groups,
+        )
 
         # TODO: we probably don't need this? just to be safe
         for i in range(len(norm_groups)):
-            updated_params = _unflatten_dense_tensors(self.fp16_groups_flat[i], self.fp16_groups[i])
-            for p,q in zip(self.fp16_groups[i], updated_params):
+            updated_params = _unflatten_dense_tensors(
+                self.fp16_groups_flat[i], self.fp16_groups[i]
+            )
+            for p, q in zip(self.fp16_groups[i], updated_params):
                 p.data = q.data
 
         self._update_scale(False)
-        return    
+        return
+
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
