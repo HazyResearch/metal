@@ -13,6 +13,7 @@ from torch.nn.utils import clip_grad_norm_
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.logging.utils import split_full_metric
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
+from metal.mmtl.task_scheduler import ProportionalScheduler, StagedScheduler
 from metal.mmtl.utils.metrics import glue_score
 from metal.utils import recursive_merge_dicts
 
@@ -94,6 +95,8 @@ trainer_config = {
         # TODO: "metrics_filter": None,
         # TODO: "score_limit": None,  # Evaluate scorer on only this many examples
     },
+    # Task Scheduler
+    "task_scheduler": "proportional",  # ["proportional", "staged"]
     # Logger (see metal/logging/logger.py for descriptions)
     "logger": True,
     "logger_config": {
@@ -182,7 +185,8 @@ class MultitaskTrainer(object):
         self._set_logger()
         self._set_checkpointer(tasks)
         self._set_optimizer(model)
-        self._set_scheduler(model)  # TODO: Support more detailed training schedules
+        self._set_lr_scheduler(model)  # TODO: Support more detailed training schedules
+        self._set_task_scheduler(model, tasks)
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -193,7 +197,7 @@ class MultitaskTrainer(object):
         for epoch in range(self.config["n_epochs"]):
             progress_bar = self.config["progress_bar"] and self.config["verbose"]
             t = tqdm(
-                enumerate(self._get_batches(tasks, "train")),
+                enumerate(self.task_scheduler.get_batches(tasks, "train")),
                 total=self.batches_per_epoch,
                 disable=(not progress_bar),
             )
@@ -246,7 +250,7 @@ class MultitaskTrainer(object):
                 metrics_dict = self._execute_logging(model, tasks, batch_size)
 
                 # Apply learning rate scheduler
-                self._update_scheduler(model, batch_id)
+                self._update_lr_scheduler(model, batch_id)
 
                 # tqdm output
                 if len(tasks) == 1:
@@ -372,7 +376,7 @@ class MultitaskTrainer(object):
         # Calculate loss for non-train splits
         if loss_metrics:
             # TODO: (BH) handle max_examples
-            loss_dict = self._calculate_other_losses(
+            loss_dict = self._calculate_valid_losses(
                 model, tasks, split, max_examples=max_examples
             )
             # TODO: improve efficiency by only calculating the losses the user requested
@@ -412,8 +416,8 @@ class MultitaskTrainer(object):
         return metrics_dict
 
     @torch.no_grad()
-    def _calculate_other_losses(self, model, tasks, split, max_examples=0):
-        """Calculate the loss for a split other than train"""
+    def _calculate_valid_losses(self, model, tasks, split, max_examples=0):
+        """Calculate the loss for the valid split"""
         # Error checing
         assert split != "train"
         if split is None:
@@ -425,7 +429,11 @@ class MultitaskTrainer(object):
         task_losses = defaultdict(float)
         task_examples = defaultdict(float)
         total_examples = 0
-        for task_names, batch in self._get_batches(tasks, split):
+        # WARNING: For calculating valid loss, we simply use a proportional scheduler.
+        # Note that if max_examples > 0, some tasks may be underrepresented in the first
+        # max_examples examples.
+        task_scheduler = ProportionalScheduler(model, tasks)
+        for task_names, batch in task_scheduler.get_batches(tasks, split):
             _, Y = batch
             batch_size = len(Y)
             losses = model.calculate_loss(*batch, task_names)
@@ -449,21 +457,6 @@ class MultitaskTrainer(object):
             task_examples.values()
         )
         return metrics_dict
-
-    def _get_batches(self, tasks, split):
-        """Yields batches one at a time sampled from tasks with some strategy"""
-        # TODO: Allow more involved strategies for sampling from tasks
-        # For now, just use proportional sampling
-        # Length of a dataloader is the number of batches it contains
-        approx_batch_counts = [len(t.data_loaders[split]) for t in tasks]
-        batch_assignments = []
-        for task_idx, task in enumerate(tasks):
-            batch_assignments.extend([task_idx] * approx_batch_counts[task_idx])
-        random.shuffle(batch_assignments)
-        data_loaders = [iter(t.data_loaders[split]) for t in tasks]
-
-        for task_idx in batch_assignments:
-            yield ([tasks[task_idx].name], next(data_loaders[task_idx]))
 
     def _checkpoint(self, model, metrics_dict):
         if self.checkpointer is None:
@@ -598,7 +591,7 @@ class MultitaskTrainer(object):
             raise ValueError(f"Did not recognize optimizer option '{opt}'")
         self.optimizer = optimizer
 
-    def _set_scheduler(self, model):
+    def _set_lr_scheduler(self, model):
         lr_scheduler = self.config["lr_scheduler"]
         lr_scheduler_config = self.config["lr_scheduler_config"]
 
@@ -641,7 +634,6 @@ class MultitaskTrainer(object):
         self.lr_scheduler = lr_scheduler
 
     def _set_warmup_scheduler(self, model):
-
         optimizer_to_use = self.optimizer
         if model.config["fp16"]:
             optimizer_to_use = self.optimizer.optimizer
@@ -667,13 +659,13 @@ class MultitaskTrainer(object):
             self.warmup_steps = 0
         self.warmup_scheduler = warmup_scheduler
 
-    def _update_scheduler(self, model, step):
+    def _update_lr_scheduler(self, model, step):
+        """Optionally update the learning rate scheduler with each batch"""
 
         optimizer_to_use = self.optimizer
         if model.config["fp16"]:
             optimizer_to_use = self.optimizer.optimizer
 
-        """Optionally update the learning rate scheduler with each batch"""
         lr_scheduler_config = self.config["lr_scheduler_config"]
 
         if self.warmup_scheduler and (step < self.warmup_steps):
@@ -693,6 +685,14 @@ class MultitaskTrainer(object):
                 min_lr = lr_scheduler_config["min_lr"]
                 if min_lr and optimizer_to_use.param_groups[0]["lr"] < min_lr:
                     optimizer_to_use.param_groups[0]["lr"] = min_lr
+
+    def _set_task_scheduler(self, model, tasks):
+        if self.config["task_scheduler"] == "proportional":
+            self.task_scheduler = ProportionalScheduler(model, tasks)
+        elif self.config["task_scheduler"] == "staged":
+            self.task_scheduler = StagedScheduler(model, tasks)
+        else:
+            raise NotImplementedError
 
     def _validate_checkpoint_metric(self, tasks):
         # Confirm that checkpoint_metric is a metric that will be available

@@ -78,6 +78,9 @@ if __name__ == "__main__":
         "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
     )
     parser.add_argument(
+        "--freeze_bert", action="store_true", help="Whether to freeze Bert parameters."
+    )
+    parser.add_argument(
         "--fp16", type=int, default=0, help="fp16 for half precision model training"
     )
 
@@ -154,6 +157,7 @@ if __name__ == "__main__":
         split_prop=args.split_prop,
         max_len=args.max_len,
         dl_kwargs=dl_kwargs,
+        bert_kwargs={"freeze": args.freeze_bert},
         bert_output_dim=args.bert_output_dim,
         max_datapoints=args.max_datapoints,
     )

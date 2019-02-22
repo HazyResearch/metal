@@ -5,12 +5,15 @@ from pytorch_pretrained_bert import BertModel
 
 
 class BertEncoder(nn.Module):
-    def __init__(self, bert_model, dropout=0.1, cache_dir="./cache/"):
+    def __init__(self, bert_model, dropout=0.1, freeze=False, cache_dir="./cache/"):
         super(BertEncoder, self).__init__()
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         self.bert_model = BertModel.from_pretrained(bert_model, cache_dir=cache_dir)
         self.dropout = nn.Dropout(dropout)
+        if freeze:
+            for param in self.bert_model.parameters():
+                param.requires_grad = False
 
     def forward(self, data):
         tokens, segments, mask = data
