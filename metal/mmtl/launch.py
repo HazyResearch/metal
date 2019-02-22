@@ -78,6 +78,12 @@ if __name__ == "__main__":
         "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
     )
     parser.add_argument(
+        "--model_weights",
+        type=str,
+        default=None,
+        help="Pretrained model for weight initialization",
+    )
+    parser.add_argument(
         "--freeze_bert", action="store_true", help="Whether to freeze Bert parameters."
     )
     parser.add_argument(
@@ -166,6 +172,8 @@ if __name__ == "__main__":
     )
 
     model = MetalModel(tasks, verbose=False, device=args.device, fp16=args.fp16)
+    if args.model_weights:
+        model.load_weights(args.model_weights)
 
     # add metadata to config that will be logged to disk
     config.update(
