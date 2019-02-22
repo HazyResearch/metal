@@ -1,5 +1,7 @@
 import os
 
+import ipdb
+
 from metal.mmtl.bert_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.trainer import MultitaskTrainer
@@ -34,6 +36,9 @@ tasks = create_tasks(
     #  max_datapoints = 100,
     dl_kwargs={"batch_size": 2},
 )
+
+
+ipdb.set_trace()
 
 model = MetalModel(tasks)
 trainer = MultitaskTrainer(writer_dict)
