@@ -62,8 +62,8 @@ trainer_config = {
         "rmsprop_config": {},  # Use defaults
     },
     # LR Scheduler (for learning rate)
-    "lr_scheduler": "linear",
-    # [None, 'exponential', 'reduce_on_plateau']
+    "lr_scheduler": None,
+    # ['linear', 'exponential', 'reduce_on_plateau']
     # 'reduce_on_plateau' uses checkpoint_metric to assess plateaus
     "lr_scheduler_config": {
         # Linearly increase lr up to "lr" over this many warmup_units
