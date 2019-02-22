@@ -8,6 +8,8 @@ from shutil import copy2
 import numpy as np
 import torch
 import torch.optim as optim
+from apex.optimizers import FP16_Optimizer, FusedAdam
+from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from torch.nn.utils import clip_grad_norm_
 
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
@@ -16,6 +18,52 @@ from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
 from metal.mmtl.task_scheduler import ProportionalScheduler, StagedScheduler
 from metal.mmtl.utils.metrics import glue_score
 from metal.utils import recursive_merge_dicts
+
+
+class FP16_OptimizerMMTLModified(FP16_Optimizer):
+    
+    def step(self, closure=None):
+        """
+        Not supporting closure.
+        """
+        # First compute norm for all group so we know if there is overflow
+        grads_groups_flat = []
+        norm_groups = []
+        skip = False
+        for i, group in enumerate(self.fp16_groups):
+
+            # Only part that's changed -- zero out grads that are None
+            grads_to_use = []
+            for p in group:
+                if p.grad is None:
+                    size = list(p.size())
+                    grads_to_use.append(p.new_zeros(size))
+                else:
+                    grads_to_use.append(p.grad)
+            grads_groups_flat.append(_flatten_dense_tensors(grads_to_use))
+            
+            norm_groups.append(self._compute_grad_norm(grads_groups_flat[i]))
+            if norm_groups[i] == -1: #TODO: early break
+                skip = True
+
+        if skip:
+            self._update_scale(skip)
+            return
+
+        # norm is in fact norm*cur_scale
+        self.optimizer.step(grads=[[g] for g in grads_groups_flat],
+                            output_params=[[p] for p in self.fp16_groups_flat],
+                            scale=self.cur_scale,
+                            grad_norms=norm_groups)
+
+        # TODO: we probably don't need this? just to be safe
+        for i in range(len(norm_groups)):
+            updated_params = _unflatten_dense_tensors(self.fp16_groups_flat[i], self.fp16_groups[i])
+            for p,q in zip(self.fp16_groups[i], updated_params):
+                p.data = q.data
+
+        self._update_scale(False)
+        return    
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -536,14 +584,6 @@ class MultitaskTrainer(object):
 
         # Special optimizer for fp16
         if model.config["fp16"]:
-            print("trainer.py: Using Half Precision Optimizer")
-            try:
-                from apex.optimizers import FP16_Optimizer
-                from apex.optimizers import FusedAdam
-            except ImportError:
-                raise ImportError(
-                    "Please install apex from https://www.github.com/nvidia/apex to use distributed and fp16 training."
-                )
 
             optimizer = FusedAdam(
                 parameters,
@@ -551,7 +591,7 @@ class MultitaskTrainer(object):
                 bias_correction=False,
                 max_grad_norm=1.0,
             )
-            optimizer = FP16_Optimizer(optimizer, dynamic_loss_scale=True)
+            optimizer = FP16_OptimizerMMTLModified(optimizer, dynamic_loss_scale=True)
 
         elif opt == "sgd":
             optimizer = optim.SGD(
