@@ -106,6 +106,9 @@ if __name__ == "__main__":
         default=None,
         help="Proportion of training data to use for validation.",
     )
+    parser.add_argument(
+        "--save_config_path", type=str, default=None, help="Path to save config to."
+    )
 
     # Training arguments
     parser.add_argument(
@@ -174,6 +177,13 @@ if __name__ == "__main__":
             "max_seq_len": args.max_len,
         }
     )
+
+    # Print config and save it to output
+    print(config)
+    if args.save_config_path is not None:
+        with open(args.save_config_path, "w") as f:
+            json.dump(config, f)
+        print(f"Saved config to {args.save_config_path}")
 
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
