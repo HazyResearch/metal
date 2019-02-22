@@ -747,7 +747,10 @@ class MultitaskTrainer(object):
             self.task_scheduler = StagedScheduler(model, tasks, "train")
         elif self.config["task_scheduler"] == "superstaged":
             if self.config["lr_scheduler"] is not None:
-                msg = "When using task_scheduler=='superstaged', lr_scheduler should be None"
+                msg = (
+                    "When using task_scheduler=='superstaged', lr_scheduler should be "
+                    "None"
+                )
                 warnings.warn(msg)
             self.task_scheduler = SuperStagedScheduler(
                 model, tasks, self.config["n_epochs"], "train"
