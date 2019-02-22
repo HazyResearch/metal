@@ -263,9 +263,13 @@ class MultitaskTrainer(object):
                     t.set_postfix(losses)
 
         model.eval()
-
         # Restore best model if applicable
         if self.checkpointer and self.checkpointer.checkpoint_best:
+            # First do a final checkpoint at the end of training
+            metrics_dict = self._execute_logging(
+                model, tasks, batch_size, force_log=True
+            )
+
             self.checkpointer.load_best_model(model=model)
             # Copy best model to log directory
             if self.writer:
@@ -294,7 +298,7 @@ class MultitaskTrainer(object):
             metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
             pprint(metrics_dict)
 
-    def _execute_logging(self, model, tasks, batch_size):
+    def _execute_logging(self, model, tasks, batch_size, force_log=False):
         model.eval()
         metrics_dict = {}
         metrics_dict.update(self.aggregate_losses(tasks))
@@ -304,12 +308,12 @@ class MultitaskTrainer(object):
         if self.logger.loss_time():
             self._reset_losses()
             do_log = True
-        if self.logger.metrics_time():
+        if self.logger.metrics_time() or force_log:
             # Unless valid_split is None, Scorers will only score on one split
             valid_split = self.config["metrics_config"]["valid_split"]
             metrics_dict.update(self.calculate_metrics(model, tasks, split=valid_split))
             do_log = True
-        if do_log:
+        if do_log or force_log:
             # Log to screen/file/TensorBoard
             self.logger.log(metrics_dict)
             # Save best model if applicable
@@ -338,9 +342,9 @@ class MultitaskTrainer(object):
         # Report micro average of losses
         total_loss = sum(self.running_losses.values())
         total_examples = sum(self.running_examples.values())
-        # TODO: Don't report task loss and "overall" loss if there is only one task?
-        # But they may be planning on their named task loss being in the metrics_dict...
-        metrics_dict["model/train/loss"] = total_loss / total_examples
+        if total_examples > 0:
+            metrics_dict["model/train/loss"] = total_loss / total_examples
+        # Log learning rate
         if self.config["logger_config"]["log_lr"]:
             # For now just report one global lr; eventually support lr groups
             metrics_dict[f"model/train/lr"] = self.optimizer.param_groups[0]["lr"]
