@@ -1,3 +1,4 @@
+import copy
 import os
 import random
 import warnings
@@ -19,7 +20,7 @@ from metal.mmtl.task_scheduler import (
     StagedScheduler,
     SuperStagedScheduler,
 )
-from metal.mmtl.utils.metrics import glue_score
+from metal.mmtl.utils.metrics import GLUE_METRICS, glue_score
 from metal.utils import recursive_merge_dicts
 
 # Import tqdm_notebook if in Jupyter notebook
@@ -126,6 +127,9 @@ trainer_config = {
     },
     # Checkpointer (see metal/logging/checkpointer.py for descriptions)
     "checkpoint": True,  # If True, checkpoint models when certain conditions are met
+    # EXPERIMENTAL: If True, save a separate set of checkpoints (assuming strategy of
+    # checkpoint_best) for each task
+    "checkpoint_tasks": False,
     # If true, checkpoint directory will be cleaned after training (if checkpoint_best
     # is True, the best model will first be copied to the log_dir/run_dir/run_name/)
     "checkpoint_cleanup": True,
@@ -285,7 +289,34 @@ class MultitaskTrainer(object):
                 if os.path.isfile(path_to_best):
                     copy2(path_to_best, path_to_logs)
 
-        # Clean up checkpoint
+        # Print final performance values
+        if self.config["verbose"]:
+            print("Finished training")
+            test_split = self.config["metrics_config"]["test_split"]
+            metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
+            pprint(metrics_dict)
+
+        # EXPERIMENTAL:
+        # Recalculate scores using task-specific checkpoints
+        if self.config["checkpoint_tasks"]:
+            task_checkpoint_metrics = copy.deepcopy(metrics_dict)
+            for task, checkpointer in zip(tasks, self.task_checkpointers):
+                checkpointer.load_best_model(model=model)
+                task_metrics = [checkpointer.checkpoint_metric.replace("valid", "test")]
+                metrics_dict_task = task.scorer.score(model, task, task_metrics, "test")
+                task_checkpoint_metrics.update(metrics_dict_task)
+                if self.writer:
+                    path_to_best = os.path.join(
+                        checkpointer.checkpoint_dir, "best_model.pth"
+                    )
+                    path_to_logs = os.path.join(
+                        self.writer.log_subdir, f"{task.name}_best_model.pth"
+                    )
+                    copy2(path_to_best, path_to_logs)
+            print("Final scores using task-specific checkpoints:")
+            pprint(task_checkpoint_metrics)
+
+        # Clean up checkpoints
         if self.checkpointer and self.config["checkpoint_cleanup"]:
             print("Cleaning checkpoints")
             self.checkpointer.clean_up()
@@ -295,13 +326,6 @@ class MultitaskTrainer(object):
             if self.writer.include_config:
                 self.writer.add_config(self.config)
             self.writer.close()
-
-        # Print final performance values
-        if self.config["verbose"]:
-            print("Finished training")
-            test_split = self.config["metrics_config"]["test_split"]
-            metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
-            pprint(metrics_dict)
 
     def _execute_logging(self, model, tasks, batch_size, force_log=False):
         model.eval()
@@ -474,6 +498,12 @@ class MultitaskTrainer(object):
         self.checkpointer.checkpoint(
             metrics_dict, iteration, model, self.optimizer, self.lr_scheduler
         )
+        # EXPERIMENTAL:
+        if self.config["checkpoint_tasks"]:
+            for checkpointer in self.task_checkpointers:
+                checkpointer.checkpoint(
+                    metrics_dict, iteration, model, self.optimizer, self.lr_scheduler
+                )
 
     def _reset_losses(self):
         self.running_losses = defaultdict(float)
@@ -532,6 +562,30 @@ class MultitaskTrainer(object):
             )
         else:
             self.checkpointer = None
+
+        # EXPERIMENTAL: Optionally add task-specific checkpointers
+        # HACK: This is hard-coded in a way specific to Glue!
+        self.task_checkpointers = []
+        if self.config["checkpoint_tasks"]:
+            msg = (
+                "checkpoint_tasks setting does not have the same thorough error "
+                "checking that the normal checkpoint operation has, so you may "
+                "accidentally be trying to checkpoint metrics that aren't going to be "
+                "found in the metrics_dict if you're not careful."
+            )
+            warnings.warn(msg)
+            for task in tasks:
+                checkpoint_config = copy.deepcopy(self.config["checkpoint_config"])
+                checkpoint_config["checkpoint_dir"] += f"/{task.name}"
+                checkpoint_config["checkpoint_best"] = True
+                checkpoint_metric = f"{task.name}/valid/{GLUE_METRICS[task.name]}"
+                checkpoint_config["checkpoint_metric"] = checkpoint_metric
+                print(checkpoint_config["checkpoint_metric"])
+                checkpoint_config["checkpoint_metric_mode"] = "max"
+                task_checkpointer = Checkpointer(
+                    checkpoint_config, verbose=self.config["verbose"]
+                )
+                self.task_checkpointers.append(task_checkpointer)
 
     def _set_optimizer(self, model):
         optimizer_config = self.config["optimizer_config"]
