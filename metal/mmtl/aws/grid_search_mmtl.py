@@ -75,7 +75,7 @@ def create_command_dict(args, config_path, launch_args):
     }
 
 
-def generate_configs_and_commands(args, launch_args, search_space, n=10):
+def generate_configs_and_commands(args, launch_args, search_space, n=None):
     configspace_path = "%s/configspace" % args.outputpath
     if not os.path.exists(configspace_path):
         os.makedirs(configspace_path)
