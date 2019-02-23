@@ -168,7 +168,7 @@ class BERTDataset(data.Dataset):
                     label = row[label_idx]
                     label = label_fn(label)
                 else:
-                    label = 1
+                    label = -1
                 tokens.append(sent)
                 segments.append(seg)
                 labels.append(label)
@@ -440,6 +440,13 @@ class COLADataset(BERTDataset):
 class MNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, max_datapoints=-1, max_len=-1):
         # split = "dev_matched" if split == "dev" else "train"
+        gold_cols = {
+            "train": 11,
+            "dev": 15,
+            "dev_mismatched": 15,
+            "dev_matched": 15,
+            "test": -1,
+        }
         label_fn, inv_label_fn = get_label_fn(
             {"entailment": 1, "contradiction": 2, "neutral": 3}
         )
@@ -447,9 +454,7 @@ class MNLIDataset(BERTDataset):
             tsv_path=tsv_path_for_dataset("MNLI", split),
             sent1_idx=8,
             sent2_idx=9,
-            label_idx=11
-            if split in ["train", "dev", "dev_mismatched", "dev_matched"]
-            else -1,
+            label_idx=gold_cols[split],
             skip_rows=1,
             bert_model=bert_model,
             delimiter="\t",
