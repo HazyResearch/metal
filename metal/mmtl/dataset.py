@@ -168,7 +168,7 @@ class BERTDataset(data.Dataset):
                     label = row[label_idx]
                     label = label_fn(label)
                 else:
-                    label = 1
+                    label = -1
                 tokens.append(sent)
                 segments.append(seg)
                 labels.append(label)
