@@ -160,6 +160,12 @@ if __name__ == "__main__":
         # we use the shuffle argument only when split_prop is None
         # otherwise Sampler shuffles automatically
         dl_kwargs["shuffle"] = args.shuffle
+
+    if args.split_prop:
+        # create a valid set from train set
+        splits = ["train", "test"]
+    else:
+        splits = ["train", "valid", "test"]
     tasks = create_tasks(
         task_names=task_names,
         bert_model=args.bert_model,
@@ -169,6 +175,7 @@ if __name__ == "__main__":
         bert_kwargs={"freeze": args.freeze_bert},
         bert_output_dim=args.bert_output_dim,
         max_datapoints=args.max_datapoints,
+        splits=splits,
     )
 
     model = MetalModel(tasks, verbose=False, device=args.device, fp16=args.fp16)
