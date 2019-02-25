@@ -147,8 +147,6 @@ if __name__ == "__main__":
         "log_dir": f"{os.environ['METALHOME']}/logs",
         "run_dir": args.run_dir,
         "run_name": run_name,
-        "include_config": True,
-        "writer_metrics": [],
     }
 
     config["writer_config"] = writer_config
@@ -193,26 +191,5 @@ if __name__ == "__main__":
         }
     )
 
-    # Print config and save it to output
-    print(config)
-    if args.save_config_path is not None:
-        with open(args.save_config_path, "w") as f:
-            json.dump(config, f)
-        print(f"Saved config to {args.save_config_path}")
-
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
-
-    # compute and save final scores
-    test_scores = {}
-    for task in tasks:
-        scores = task.scorer.score(model, task)
-        test_scores[task.name] = scores
-
-    print(test_scores)
-    if trainer.writer:
-        save_dir = trainer.writer.log_subdir
-        save_path = os.path.join(save_dir, "metrics.json")
-        with open(save_path, "w") as f:
-            json.dump(test_scores, f)
-        print(f"Saved metrics to {save_path}")

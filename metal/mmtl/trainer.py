@@ -122,8 +122,9 @@ trainer_config = {
         "log_dir": f"{os.environ['METALHOME']}/logs",
         "run_dir": None,
         "run_name": None,
-        "writer_metrics": [],  # May specify a subset of metrics in metrics_dict to be written
-        "include_config": True,  # If True, include model config in log
+        # May specify a subset of metrics in metrics_dict to be written.
+        # If [], write all available metrics to the logs
+        "writer_metrics": [],
     },
     # Checkpointer (see metal/logging/checkpointer.py for descriptions)
     "checkpoint": True,  # If True, checkpoint models when certain conditions are met
@@ -169,12 +170,12 @@ class MultitaskTrainer(object):
         # NOTE: misses="insert" so we can log extra metadata (e.g. num_parameters)
         # and eventually write to disk.
         self.config = recursive_merge_dicts(self.config, kwargs, misses="insert")
-        self.task_names = [task.name for task in tasks]
 
         # Calculate epoch statistics
         # NOTE: Because we use SubsetSampler, one dataset may actually include two
         # splits, so we calculate approximate count size using batch_size * num_batches
         # examples_per_epoch = sum([len(t.data_loaders["train"].dataset) for t in tasks])
+        self.task_names = [task.name for task in tasks]
         self.batches_per_epoch = sum([len(t.data_loaders["train"]) for t in tasks])
         self.examples_per_epoch = sum(
             [
@@ -196,6 +197,10 @@ class MultitaskTrainer(object):
         self._set_optimizer(model)
         self._set_lr_scheduler(model)  # TODO: Support more detailed training schedules
         self._set_task_scheduler(model, tasks)
+
+        # Record config
+        if self.writer:
+            self.writer.write_config(self.config)
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -292,19 +297,27 @@ class MultitaskTrainer(object):
         # Print final performance values
         if self.config["verbose"]:
             print("Finished training")
-            test_split = self.config["metrics_config"]["test_split"]
+        test_split = self.config["metrics_config"]["test_split"]
+        if test_split is not None:
             metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
+        if self.config["verbose"]:
             pprint(metrics_dict)
 
         # EXPERIMENTAL:
         # Recalculate scores using task-specific checkpoints
         if self.config["checkpoint_tasks"]:
-            task_checkpoint_metrics = copy.deepcopy(metrics_dict)
+            metrics_dict = copy.deepcopy(metrics_dict)
+            valid_split = self.config["metrics_config"]["valid_split"]
+            test_split = self.config["metrics_config"]["test_split"]
             for task, checkpointer in zip(tasks, self.task_checkpointers):
                 checkpointer.load_best_model(model=model)
-                task_metrics = [checkpointer.checkpoint_metric.replace("valid", "test")]
-                metrics_dict_task = task.scorer.score(model, task, task_metrics, "test")
-                task_checkpoint_metrics.update(metrics_dict_task)
+                task_metrics = [
+                    checkpointer.checkpoint_metric.replace(valid_split, test_split)
+                ]
+                metrics_dict_task = task.scorer.score(
+                    model, task, task_metrics, test_split
+                )
+                metrics_dict.update(metrics_dict_task)
                 if self.writer:
                     path_to_best = os.path.join(
                         checkpointer.checkpoint_dir, "best_model.pth"
@@ -314,7 +327,7 @@ class MultitaskTrainer(object):
                     )
                     copy2(path_to_best, path_to_logs)
             print("Final scores using task-specific checkpoints:")
-            pprint(task_checkpoint_metrics)
+            pprint(metrics_dict)
 
         # Clean up checkpoints
         if self.checkpointer and self.config["checkpoint_cleanup"]:
@@ -323,8 +336,8 @@ class MultitaskTrainer(object):
 
         # Write log if applicable
         if self.writer:
-            if self.writer.include_config:
-                self.writer.add_config(self.config)
+            self.writer.write_metrics(metrics_dict)
+            self.writer.write_log()
             self.writer.close()
 
     def _execute_logging(self, model, tasks, batch_size, force_log=False):
