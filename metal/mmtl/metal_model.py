@@ -72,6 +72,7 @@ class MetalModel(nn.Module):
 
         # HACK: this does not allow reuse of intermediate computation or middle modules
         # Not hard to change this, but not necessary for GLUE, so we stay simple
+        # TODO: Restore commit 05237edb to move to trunk + heads design instead
         task_paths = {}
         for task in tasks:
             input_module = self.input_modules[task.name]
