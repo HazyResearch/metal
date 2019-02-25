@@ -75,10 +75,15 @@ def create_command_dict(args, config_path, launch_args):
     }
 
 
-def generate_configs_and_commands(args, launch_args, search_space, n=10):
+def generate_configs_and_commands(args, launch_args, search_space, n=None):
+    # Create directory with all configurations saved
     configspace_path = "%s/configspace" % args.outputpath
     if not os.path.exists(configspace_path):
         os.makedirs(configspace_path)
+
+    # Save searchspace
+    with open("%s/search_space" % configspace_path, "w") as f:
+        f.write(json.dumps(search_space))
 
     tuner = RandomSearchTuner(None, seed=time.time())
     configs = tuner.config_generator(search_space, n, tuner.rng, True)

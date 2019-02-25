@@ -446,6 +446,8 @@ class MNLIDataset(BERTDataset):
             "dev_mismatched": 15,
             "dev_matched": 15,
             "test": -1,
+            "test_mismatched": -1,
+            "test_matched": -1,
         }
         label_fn, inv_label_fn = get_label_fn(
             {"entailment": 1, "contradiction": 2, "neutral": 3}

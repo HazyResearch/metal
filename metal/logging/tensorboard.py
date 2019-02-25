@@ -29,5 +29,4 @@ class TensorBoardWriter(LogWriter):
             self.tb_writer.add_scalar(name, val, i)
 
     def close(self):
-        self.write()
         self.tb_writer.close()

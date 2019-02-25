@@ -147,8 +147,6 @@ if __name__ == "__main__":
         "log_dir": f"{os.environ['METALHOME']}/logs",
         "run_dir": args.run_dir,
         "run_name": run_name,
-        "include_config": True,
-        "writer_metrics": [],
     }
 
     config["writer_config"] = writer_config
@@ -160,6 +158,12 @@ if __name__ == "__main__":
         # we use the shuffle argument only when split_prop is None
         # otherwise Sampler shuffles automatically
         dl_kwargs["shuffle"] = args.shuffle
+
+    if args.split_prop:
+        # create a valid set from train set
+        splits = ["train", "test"]
+    else:
+        splits = ["train", "valid", "test"]
     tasks = create_tasks(
         task_names=task_names,
         bert_model=args.bert_model,
@@ -169,6 +173,7 @@ if __name__ == "__main__":
         bert_kwargs={"freeze": args.freeze_bert},
         bert_output_dim=args.bert_output_dim,
         max_datapoints=args.max_datapoints,
+        splits=splits,
     )
 
     model = MetalModel(tasks, verbose=False, device=args.device, fp16=args.fp16)
@@ -186,26 +191,5 @@ if __name__ == "__main__":
         }
     )
 
-    # Print config and save it to output
-    print(config)
-    if args.save_config_path is not None:
-        with open(args.save_config_path, "w") as f:
-            json.dump(config, f)
-        print(f"Saved config to {args.save_config_path}")
-
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
-
-    # compute and save final scores
-    test_scores = {}
-    for task in tasks:
-        scores = task.scorer.score(model, task)
-        test_scores[task.name] = scores
-
-    print(test_scores)
-    if trainer.writer:
-        save_dir = trainer.writer.log_subdir
-        save_path = os.path.join(save_dir, "metrics.json")
-        with open(save_path, "w") as f:
-            json.dump(test_scores, f)
-        print(f"Saved metrics to {save_path}")
