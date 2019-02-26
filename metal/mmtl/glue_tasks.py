@@ -29,7 +29,7 @@ from metal.utils import recursive_merge_dicts, set_seed
 task_defaults = {
     # General
     "split_prop": None,
-    "splits": None,
+    "splits": ["train", "valid", "test"],
     "max_len": 512,
     "max_datapoints": -1,
     "seed": None,
