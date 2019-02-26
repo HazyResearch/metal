@@ -880,5 +880,5 @@ class MultitaskTrainer(object):
             raise Exception(msg)
 
     def _check_metrics(self):
-        assert isinstance(self.config["task_metrics"], list)
-        assert isinstance(self.config["trainer_metrics"], list)
+        assert isinstance(self.config["metrics_config"]["task_metrics"], list)
+        assert isinstance(self.config["metrics_config"]["trainer_metrics"], list)
