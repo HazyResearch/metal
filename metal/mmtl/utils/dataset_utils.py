@@ -1,4 +1,4 @@
-import metal.mmtl.dataset as dataset
+import metal.mmtl.dataset as dataset_module
 
 
 def get_all_dataloaders(
@@ -9,6 +9,7 @@ def get_all_dataloaders(
     split_prop,
     max_datapoints,
     splits,
+    include_segments=True,
     seed=123,
     verbose=True,
 ):
@@ -17,7 +18,7 @@ def get_all_dataloaders(
     if verbose:
         print(f"Loading {dataset_name} Dataset")
 
-    dataset_cls = getattr(dataset, dataset_name.upper() + "Dataset")
+    dataset_cls = getattr(dataset_module, dataset_name.upper() + "Dataset")
 
     datasets = {}
     for split_name in splits:
@@ -31,6 +32,7 @@ def get_all_dataloaders(
             bert_model=bert_model,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            include_segments=include_segments,
         )
 
     dataloaders = {}

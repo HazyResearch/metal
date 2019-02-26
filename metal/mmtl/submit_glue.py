@@ -7,7 +7,7 @@ import zipfile
 
 import numpy as np
 
-from metal.mmtl.bert_tasks import create_tasks
+from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.utils.dataset_utils import get_all_dataloaders
 

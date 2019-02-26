@@ -9,7 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
 import metal.mmtl.dataset as dataset
-from metal.mmtl.bert_tasks import create_tasks
+from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.utils import convert_labels
 

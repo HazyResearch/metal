@@ -1,10 +1,8 @@
 import random
-from functools import partial
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
 from metal.mmtl.modules import (
@@ -24,13 +22,23 @@ from metal.mmtl.utils.metrics import (
     pearson_spearman,
     ranking_acc_f1,
 )
+from metal.utils import recursive_merge_dicts
+
+lstm_defaults = {
+    "emb_size": 300,
+    "hidden_size": 512,
+    "vocab_size": 30522,  # bert-base-uncased-vocab.txt
+    "bidirectional": True,
+    "lstm_num_layers": 1,
+}
 
 
 def create_tasks(
     task_names,
-    encoder_type="bert",  # e.g., ['bert', 'bilstm']
+    encoder_type="bert",  # e.g., ['bert', 'lstm']
     bert_model="bert-base-uncased",
     bert_kwargs={},
+    lstm_kwargs={},
     split_prop=None,
     max_len=512,
     dl_kwargs={},
@@ -56,6 +64,22 @@ def create_tasks(
         elif bert_model == "bert-large-uncased":
             neck_dim = 1024
         input_module = bert_hidden_layer
+    elif encoder_type == "lstm":
+        # TODO: Allow these constants to be passed in as arguments
+        lstm_config = recursive_merge_dicts(lstm_defaults, lstm_kwargs)
+        neck_dim = lstm_config["hidden_size"]
+        if lstm_config["bidirectional"]:
+            neck_dim *= 2
+        lstm = LSTMModule(
+            lstm_config["emb_size"],
+            lstm_config["hidden_size"],
+            lstm_reduction="max",
+            bidirectional=lstm_config["bidirectional"],
+            lstm_num_layers=lstm_config["lstm_num_layers"],
+            encoder_class=EmbeddingsEncoder,
+            encoder_kwargs={"vocab_size": lstm_config["vocab_size"]},
+        )
+        input_module = lstm
     else:
         raise NotImplementedError
 
@@ -73,6 +97,7 @@ def create_tasks(
             max_datapoints=max_datapoints,
             splits=splits,
             seed=seed,
+            include_segments=(encoder_type == "bert"),
         )
 
         if task_name == "COLA":

@@ -1,6 +1,6 @@
 import os
 
-from metal.mmtl.bert_tasks import create_tasks
+from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.trainer import MultitaskTrainer
 
