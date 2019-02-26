@@ -9,6 +9,7 @@ def get_all_dataloaders(
     split_prop,
     max_datapoints,
     splits,
+    generate_uids=False,
     include_segments=True,
     seed=123,
     verbose=True,
@@ -33,6 +34,7 @@ def get_all_dataloaders(
             max_len=max_len,
             max_datapoints=max_datapoints,
             include_segments=include_segments,
+            generate_uids=generate_uids,
         )
 
     dataloaders = {}
