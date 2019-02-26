@@ -21,7 +21,7 @@ from metal.mmtl.task_scheduler import (
     SuperStagedScheduler,
 )
 from metal.mmtl.utils.metrics import GLUE_METRICS, glue_score
-from metal.utils import recursive_merge_dicts
+from metal.utils import recursive_merge_dicts, set_seed
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -164,7 +164,7 @@ class MultitaskTrainer(object):
         # Set random seeds
         if self.config["seed"] is None:
             self.config["seed"] = np.random.randint(1e6)
-        self._set_seed(self.config["seed"])
+        set_seed(self.config["seed"])
 
     def train_model(self, model, tasks, **kwargs):
         # NOTE: misses="insert" so we can log extra metadata (e.g. num_parameters)
@@ -882,8 +882,3 @@ class MultitaskTrainer(object):
     def _check_metrics(self):
         assert isinstance(self.config["task_metrics"], list)
         assert isinstance(self.config["trainer_metrics"], list)
-
-    def _set_seed(self, seed):
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)

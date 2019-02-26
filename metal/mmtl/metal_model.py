@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from metal.mmtl.task import RegressionTask
 from metal.mmtl.utils.utils import stack_batches
-from metal.utils import move_to_device, recursive_merge_dicts
+from metal.utils import move_to_device, recursive_merge_dicts, set_seed
 
 model_config = {
     "seed": None,
@@ -32,7 +32,7 @@ class MetalModel(nn.Module):
         # Set random seed before initializing module weights
         if self.config["seed"] is None:
             self.config["seed"] = np.random.randint(1e6)
-        self._set_seed(self.config["seed"])
+        set_seed(self.config["seed"])
 
         super().__init__()
 
@@ -127,14 +127,6 @@ class MetalModel(nn.Module):
     def save_weights(self, model_path):
         """Saves weight in checkpoint directory"""
         raise NotImplementedError
-
-    def _set_seed(self, seed):
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        if self.config["device"] >= 0:
-            torch.backends.cudnn.enabled = True
-            torch.cuda.manual_seed(seed)
 
     # Single task prediction helpers (for convenience)
 

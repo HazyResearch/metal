@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
 
+from metal.utils import set_seed
+
 
 class Encoder(nn.Module):
     """The Encoder implements the encode() method, which maps a batch of data to
@@ -58,7 +60,7 @@ class EmbeddingsEncoder(Encoder):
         if embeddings is None:
             # Note: Need to set seed here for deterministic init
             if seed is not None:
-                self._set_seed(seed)
+                set_seed(seed)
             self.embeddings = nn.Embedding(vocab_size, encoded_size)
             if self.verbose:
                 print(f"Using randomly initialized embeddings.")
@@ -76,13 +78,6 @@ class EmbeddingsEncoder(Encoder):
                 f"{self.embeddings.embedding_dim})"
             )
             print(f"The embeddings are {'' if freeze else 'NOT '}FROZEN")
-
-    def _set_seed(self, seed):
-        self.seed = seed
-        if torch.cuda.is_available():
-            torch.backends.cudnn.enabled = True
-            torch.cuda.manual_seed(seed)
-        torch.manual_seed(seed)
 
     def _load_pretrained(self, pretrained):
         if not pretrained.dim() == 2:
@@ -147,7 +142,7 @@ class LSTMModule(nn.Module):
         self.verbose = verbose
 
         if seed is not None:
-            self._set_seed(seed)
+            set_seed(seed)
 
         # Initialize Encoder
         # Note constructing the Encoder here is helpful for e.g. Tuner, as then
@@ -255,10 +250,3 @@ class LSTMModule(nn.Module):
         outputs_unpacked, _ = rnn_utils.pad_packed_sequence(outputs, batch_first=True)
         reduced = self._reduce_output(outputs_unpacked, seq_lengths)
         return reduced[inv_perm_idx, :]
-
-    def _set_seed(self, seed):
-        self.seed = seed
-        if torch.cuda.is_available():
-            torch.backends.cudnn.enabled = True
-            torch.cuda.manual_seed(seed)
-        torch.manual_seed(seed)

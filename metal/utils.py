@@ -424,3 +424,12 @@ def move_to_device(obj, device=-1):
         return tuple([move_to_device(item, device) for item in obj])
     else:
         return obj
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.enabled = True  # Is this necessary?
+        torch.cuda.manual_seed(seed)
