@@ -10,9 +10,8 @@ import os
 
 import numpy as np
 
-from metal.mmtl.bert_tasks import create_tasks
+from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.scorer import Scorer
 from metal.mmtl.trainer import MultitaskTrainer, trainer_config
 from metal.utils import add_flags_from_config
 
@@ -63,6 +62,9 @@ if __name__ == "__main__":
         description="Train MetalModel on single or multiple tasks.", add_help=False
     )
     parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
+
+    # Model arguments
+    # TODO: parse these automatically from model dict
     parser.add_argument(
         "--tasks", required=True, type=str, help="Comma-sep task list e.g. QNLI,QQP"
     )
@@ -73,8 +75,19 @@ if __name__ == "__main__":
         help="Which bert model to use.",
     )
     parser.add_argument(
-        "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
+        "--model_weights",
+        type=str,
+        default=None,
+        help="Pretrained model for weight initialization",
     )
+    parser.add_argument(
+        "--freeze_bert", action="store_true", help="Whether to freeze Bert parameters."
+    )
+    parser.add_argument(
+        "--fp16", type=int, default=0, help="fp16 for half precision model training"
+    )
+
+    # Dataset arguments
     parser.add_argument(
         "--max_len", type=int, default=512, help="Maximum sequence length."
     )
@@ -88,19 +101,25 @@ if __name__ == "__main__":
         "--batch_size", type=int, default=16, help="Batch size for training."
     )
     parser.add_argument(
+        "--shuffle", type=bool, default=True, help="Whether to shuffle the data or not."
+    )
+    parser.add_argument(
         "--split_prop",
         type=float,
         default=None,
         help="Proportion of training data to use for validation.",
     )
+    parser.add_argument(
+        "--save_config_path", type=str, default=None, help="Path to save config to."
+    )
 
+    # Training arguments
     parser.add_argument(
         "--override_train_config",
         type=str,
         default=None,
         help="Whether to override train_config dict with json loaded from path. For tuning",
     )
-
     parser = add_flags_from_config(parser, trainer_config)
     args = parser.parse_args()
 
@@ -108,13 +127,6 @@ if __name__ == "__main__":
 
     # set default run_dir
     d = datetime.datetime.today()
-    run_dir = (
-        args.run_dir
-        if args.run_dir
-        else os.path.join(
-            os.path.join(args.checkpoint_dir, f"{d.day}-{d.month}-{d.year}")
-        )
-    )
 
     # Override json
     if args.override_train_config is not None:
@@ -123,29 +135,46 @@ if __name__ == "__main__":
         config = merge_dicts(config, override_config)
 
     # Update logging config
+    if not args.run_name:
+        run_name = args.tasks
+    else:
+        run_name = args.run_name
+
     writer_config = {
         "log_dir": f"{os.environ['METALHOME']}/logs",
-        "run_dir": run_dir,
-        "run_name": args.tasks,
-        "include_config": True,
-        "writer_metrics": [],
+        "run_dir": args.run_dir,
+        "run_name": run_name,
     }
 
     config["writer_config"] = writer_config
     config["writer"] = "tensorboard"
 
     task_names = [task_name for task_name in args.tasks.split(",")]
+    dl_kwargs = {"batch_size": args.batch_size}
+    if not args.split_prop:
+        # we use the shuffle argument only when split_prop is None
+        # otherwise Sampler shuffles automatically
+        dl_kwargs["shuffle"] = args.shuffle
+
+    if args.split_prop:
+        # create a valid set from train set
+        splits = ["train", "test"]
+    else:
+        splits = ["train", "valid", "test"]
     tasks = create_tasks(
         task_names=task_names,
         bert_model=args.bert_model,
         split_prop=args.split_prop,
         max_len=args.max_len,
-        dl_kwargs={"batch_size": args.batch_size},
-        bert_output_dim=args.bert_output_dim,
+        dl_kwargs=dl_kwargs,
+        bert_kwargs={"freeze": args.freeze_bert},
         max_datapoints=args.max_datapoints,
+        splits=splits,
     )
 
-    model = MetalModel(tasks, verbose=False, device=args.device)
+    model = MetalModel(tasks, verbose=False, device=args.device, fp16=args.fp16)
+    if args.model_weights:
+        model.load_weights(args.model_weights)
 
     # add metadata to config that will be logged to disk
     config.update(
@@ -160,17 +189,3 @@ if __name__ == "__main__":
 
     trainer = MultitaskTrainer()
     trainer.train_model(model, tasks, **config)
-
-    # compute and save final scores
-    test_scores = {}
-    for task in tasks:
-        scores = task.scorer.score(model, task)
-        test_scores[task.name] = scores
-
-    print(test_scores)
-    if trainer.writer:
-        save_dir = trainer.writer.log_subdir
-        save_path = os.path.join(save_dir, "metrics.json")
-        with open(save_path, "w") as f:
-            json.dump(test_scores, f)
-        print(f"Saved metrics to {save_path}")

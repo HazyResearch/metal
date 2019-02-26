@@ -5,12 +5,15 @@ from pytorch_pretrained_bert import BertModel
 
 
 class BertEncoder(nn.Module):
-    def __init__(self, bert_model, dropout=0.1, cache_dir="./cache/"):
+    def __init__(self, bert_model, dropout=0.1, freeze=False, cache_dir="./cache/"):
         super(BertEncoder, self).__init__()
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         self.bert_model = BertModel.from_pretrained(bert_model, cache_dir=cache_dir)
         self.dropout = nn.Dropout(dropout)
+        if freeze:
+            for param in self.bert_model.parameters():
+                param.requires_grad = False
 
     def forward(self, data):
         tokens, segments, mask = data
@@ -32,13 +35,13 @@ class BertHiddenLayer(nn.Module):
         return hidden_layer
 
 
-def BertMulticlassHead(input_dim, output_dim):
-    return nn.Linear(input_dim, output_dim, bias=True)
+def MulticlassHead(input_dim, output_dim):
+    return nn.Linear(input_dim, output_dim)
 
 
-def BertBinaryHead(input_dim):
-    return BertMulticlassHead(input_dim, 2)
+def BinaryHead(input_dim):
+    return MulticlassHead(input_dim, 2)
 
 
-def BertRegressionHead(input_dim):
-    return BertMulticlassHead(input_dim, 1)
+def RegressionHead(input_dim):
+    return MulticlassHead(input_dim, 1)

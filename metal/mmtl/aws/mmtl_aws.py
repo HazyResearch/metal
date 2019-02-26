@@ -28,6 +28,7 @@
 """
 
 import argparse
+import datetime
 import importlib
 import inspect
 import multiprocessing
@@ -42,7 +43,9 @@ import paramiko
 from metal.mmtl.aws import grid_search_mmtl
 
 # IMAGE_ID = "ami-0c82a5c425d9da154" # For West
-IMAGE_ID = "ami-04f2030e810b07ced"  # For East
+# IMAGE_ID = "ami-04f2030e810b07ced"  # For East
+# IMAGE_ID = "ami-0507d23ab4a37c611"  # For East (02-18-2019)
+IMAGE_ID = "ami-01b22f90823e1b2af"  # For East w/ Apex (02-21-2019)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -52,11 +55,16 @@ parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
 parser.add_argument("--region", default="us-east-1")
 parser.add_argument("--n_machines", default=2, type=int)
+parser.add_argument("--n_trials", default=None, type=int)
 parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
+parser.add_argument("--only_print_commands", default=0)
 parser.add_argument(
     "--configpath", required=True, type=str, help="path to config dicts"
+)
+parser.add_argument(
+    "--commit_hash", required=True, type=str, help="git commit hash to run with"
 )
 
 
@@ -64,7 +72,8 @@ def create_dummy_command_dict2():
     COMMAND_PREFIX = (
         "source activate pytorch_p36;"
         "rm -rf metal;"
-        "git clone -b mmtl_aws https://github.com/HazyResearch/metal.git;"
+        "git clone https://github.com/HazyResearch/metal.git;"
+        "git checkout 868fb01a48e4031b8f1ac568e3bd0b413c904541;"
         "cd metal; source add_to_path.sh;"
         "pwd;"
     )
@@ -127,7 +136,7 @@ def run_command(args, instance, cmd_dict, output, run_id):
         # Put files
         sftp = client.open_sftp()
         for (localpath, remotepath) in files_to_put:
-            print("Putting file %s -> %s" % (localpath, remotepath))
+            print("Putting %s -> %s" % (localpath, remotepath))
             sftp.put(localpath, remotepath)
 
         # Execute a command(cmd) after connecting/ssh to an instance
@@ -280,6 +289,10 @@ def run(args, launch_args, search_space, instances=None):
     if instances is None:
         instances = [x for x in get_instances(args) if x.state["Name"] == "running"]
 
+    # Append the current date to the outputpath
+    ts = time.time()
+    timestamp_str = datetime.datetime.fromtimestamp(ts).strftime("%Y_%m_%d_%H_%M_%S")
+    args.outputpath = args.outputpath + "/" + timestamp_str + "/"
     if not os.path.exists(args.outputpath):
         os.makedirs(args.outputpath)
 
@@ -289,7 +302,7 @@ def run(args, launch_args, search_space, instances=None):
     return_output = manager.dict()
     process_id_mapping = manager.dict()
     command_dicts = grid_search_mmtl.generate_configs_and_commands(
-        args, launch_args, search_space
+        args, launch_args, search_space, args.n_trials
     )
     instance_dicts = [
         {str(k): str(v) for k, v in dict(inspect.getmembers(instance)).items()}
@@ -309,7 +322,15 @@ def run(args, launch_args, search_space, instances=None):
     p.starmap(initialize_process_ids, initialization_args)
 
     # Main work
-    p.starmap(worker_job, data)
+    if args.only_print_commands:
+        for cmd_dict in command_dicts:
+            print("-" * 50)
+            for x in cmd_dict["files_to_put"]:
+                print("cp %s %s" % x)
+            print(cmd_dict["cmd"])
+            print("-" * 50)
+    else:
+        p.starmap(worker_job, data)
 
     print("Results")
     print("-" * 100)

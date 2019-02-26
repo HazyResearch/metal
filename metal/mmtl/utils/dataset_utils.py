@@ -1,4 +1,4 @@
-import metal.mmtl.dataset as dataset
+import metal.mmtl.dataset as dataset_module
 
 
 def get_all_dataloaders(
@@ -8,7 +8,10 @@ def get_all_dataloaders(
     dl_kwargs,
     split_prop,
     max_datapoints,
-    generate_uids,
+    splits,
+    generate_uids=False,
+    include_segments=True,
+    seed=123,
     verbose=True,
 ):
     """ Initializes train/dev/test dataloaders given dataset_class"""
@@ -16,62 +19,38 @@ def get_all_dataloaders(
     if verbose:
         print(f"Loading {dataset_name} Dataset")
 
-    dataset_cls = getattr(dataset, dataset_name.upper() + "Dataset")
+    dataset_cls = getattr(dataset_module, dataset_name.upper() + "Dataset")
 
-    if not split_prop:
-        # When split_prop is None, we use standard train/dev/test splits.
-
-        # train
-        train_ds = dataset_cls(
-            split="train",
+    datasets = {}
+    for split_name in splits:
+        # Codebase uses valid but files are saved as dev.tsv
+        if split_name == "valid":
+            split = "dev"
+        else:
+            split = split_name
+        datasets[split_name] = dataset_cls(
+            split=split,
             bert_model=bert_model,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            include_segments=include_segments,
             generate_uids=generate_uids,
         )
-        train_dl = train_ds.get_dataloader(**dl_kwargs)
 
-        # dev
-        dev_ds = dataset_cls(
-            split="dev",
-            bert_model=bert_model,
-            max_len=max_len,
-            max_datapoints=max_datapoints,
-            generate_uids=generate_uids,
-        )
-        dev_dl = dev_ds.get_dataloader(**dl_kwargs)
+    dataloaders = {}
 
-        # test for leader-board submission
-        test_ds = dataset_cls(
-            split="test",
-            bert_model=bert_model,
-            max_len=max_len,
-            max_datapoints=max_datapoints,
-            generate_uids=generate_uids,
+    # When split_prop is not None, we use create an artificial dev set from the train set
+    if split_prop and "train" in splits:
+        dataloaders["train"], dataloaders["valid"] = datasets["train"].get_dataloader(
+            split_prop=split_prop, split_seed=seed, **dl_kwargs
         )
-        test_dl = test_ds.get_dataloader(**dl_kwargs)
+
+        # Use the dev set as test set if available.
+        if "valid" in datasets:
+            dataloaders["test"] = datasets["valid"].get_dataloader(**dl_kwargs)
+
+    # When split_prop is None, we use standard train/dev/test splits.
     else:
-        # When split_prop is not None, we use create an artificial dev set from the train set.
-
-        # cannot generate UIDs if splitting dataset artificially
-        assert not generate_uids
-
-        # split train -> artificial train/dev
-        train_ds = dataset_cls(
-            split="train",
-            bert_model=bert_model,
-            max_len=max_len,
-            max_datapoints=max_datapoints,
-        )
-        train_dl, dev_dl = train_ds.get_dataloader(split_prop=split_prop, **dl_kwargs)
-
-        # treat dev -> test
-        test_ds = dataset_cls(
-            split="dev",
-            bert_model=bert_model,
-            max_len=max_len,
-            max_datapoints=max_datapoints,
-        )
-        test_dl = test_ds.get_dataloader(**dl_kwargs)
-
-    return {"train": train_dl, "valid": dev_dl, "test": test_dl}
+        for split_name in datasets:
+            dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
+    return dataloaders

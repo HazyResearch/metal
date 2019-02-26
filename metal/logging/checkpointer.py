@@ -59,8 +59,9 @@ class Checkpointer(object):
             if self.is_best(score):
                 if self.verbose:
                     print(
-                        f"Saving model at iteration {iteration} with best "
-                        f"({self.checkpoint_metric_mode}) score {score:.3f}"
+                        f"Saving model at iteration {iteration:.2f} with best "
+                        f"({self.checkpoint_metric_mode}) score "
+                        f"{self.checkpoint_metric}={score:.3f}"
                     )
                 self.best_model_found = True
                 self.best_iteration = iteration
@@ -106,8 +107,9 @@ class Checkpointer(object):
         if self.best_model_found is None:
             msg = (
                 f"Best model was never found. Confirm that your checkpoint_metric "
-                f"({self.checkpoint_metric}) is 'model/train/loss' or produced by one "
-                f"of your tasks' Scorers and that checkpoint_metric_mode "
+                f"({self.checkpoint_metric}) is of the form "
+                f"'[model or task]/[split]/loss' or produced by one of your tasks' "
+                f"Scorers and that checkpoint_metric_mode "
                 f"({self.checkpoint_metric_mode}) is appropriate for the given "
                 f"checkpoint_metric."
             )
@@ -129,3 +131,7 @@ class Checkpointer(object):
     def restore(self, destination):
         state = torch.load(f"{destination}")
         return state
+
+    def clean_up(self):
+        if os.path.exists(self.checkpoint_dir):
+            os.system(f"rm -r {self.checkpoint_dir}")

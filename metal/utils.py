@@ -240,32 +240,36 @@ def add_flags_from_config(parser, config_dict):
     """
     Adds a flag (and default value) to an ArgumentParser for each parameter in a config
     """
+
+    def OrNone(default):
+        def func(x):
+            return None if x.lower() == "none" else type(default)(x)
+
+        return func
+
     for param in config_dict:
         # Blacklist certain config parameters from being added as flags
         if param in ["verbose"]:
             continue
 
         default = config_dict[param]
-        # This check can be removed if the unnecessary arguments above are removed.
         if isinstance(default, dict):
             parser = add_flags_from_config(parser, default)
-
-        if type(default) == list:
+        elif isinstance(default, list):
             if len(default) > 0:
+                # pass a list as argument
                 parser.add_argument(
-                    f"--{param}", type=type(default[0]), default=default
+                    f"--{param}",
+                    action="append",
+                    type=type(default[0]),
+                    default=default,
                 )
             else:
-                parser.add_argument(f"--{param}", default=default)
-
+                parser.add_argument(f"--{param}", action="append", default=default)
+        elif default is None:
+            parser.add_argument(f"--{param}", default=None)
         else:
-            if default is not None:
-                if isinstance(default, bool):
-                    default = int(default)
-                parser.add_argument(f"--{param}", type=type(default), default=default)
-            else:
-                parser.add_argument(f"--{param}", default=default)
-
+            parser.add_argument(f"--{param}", type=OrNone(default), default=default)
     return parser
 
 
@@ -420,3 +424,12 @@ def move_to_device(obj, device=-1):
         return tuple([move_to_device(item, device) for item in obj])
     else:
         return obj
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.enabled = True  # Is this necessary?
+        torch.cuda.manual_seed(seed)

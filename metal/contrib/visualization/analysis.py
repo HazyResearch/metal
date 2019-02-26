@@ -116,3 +116,31 @@ def plot_predictions_histogram(Y_ph, Y, title=None):
     if isinstance(title, str):
         plt.title(title)
     plt.show()
+
+
+def plot_calibration_histogram(Y_p, Y, title=None, legend=True):
+    """Plot a histogram of correct predictions from an array of probabilities
+
+    Args:
+        Y_p: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
+        Y: An [n] or [n, 1] np.ndarray of gold labels
+    """
+    if Y_p.ndim > 1:
+        Y_ph = np.argmax(np.array(Y_p), axis=1).astype(float) + 1.0
+        Y_p = Y_p[:, 0]
+    else:
+        Y_ph = (np.sign(Y_p - 0.5) + 1.0) / 2.0
+
+    correct_idx = list(np.where(Y_ph == Y)[0])
+    print("Accuracy: ", len(correct_idx) / (1.0 * len(Y_p)))
+
+    Y_p_correct = Y_p[correct_idx]
+    plt.hist(Y_p, bins=20, alpha=0.75)
+    plt.hist(Y_p_correct, bins=20, alpha=0.75)
+    plt.xlim((0, 1.025))
+    plt.xlabel("Probability")
+    plt.ylabel("# Predictions")
+    if isinstance(title, str):
+        plt.title(title)
+    if legend:
+        plt.legend(["All", "Correct"])
