@@ -72,6 +72,7 @@ def create_tasks(
             split_prop=split_prop,
             max_datapoints=max_datapoints,
             splits=splits,
+            seed=seed,
         )
 
         if task_name == "COLA":

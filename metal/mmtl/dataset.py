@@ -448,14 +448,15 @@ class MNLIDataset(BERTDataset):
             "test": -1,
             "test_mismatched": -1,
             "test_matched": -1,
+            "diagnostic": -1,
         }
         label_fn, inv_label_fn = get_label_fn(
             {"entailment": 1, "contradiction": 2, "neutral": 3}
         )
         super(MNLIDataset, self).__init__(
             tsv_path=tsv_path_for_dataset("MNLI", split),
-            sent1_idx=8,
-            sent2_idx=9,
+            sent1_idx=8 if split != "diagnostic" else 1,
+            sent2_idx=9 if split != "diagnostic" else 2,
             label_idx=gold_cols[split],
             skip_rows=1,
             bert_model=bert_model,

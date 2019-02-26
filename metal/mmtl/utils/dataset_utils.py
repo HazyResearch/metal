@@ -9,6 +9,7 @@ def get_all_dataloaders(
     split_prop,
     max_datapoints,
     splits,
+    seed=123,
     verbose=True,
 ):
     """ Initializes train/dev/test dataloaders given dataset_class"""
@@ -37,7 +38,7 @@ def get_all_dataloaders(
     # When split_prop is not None, we use create an artificial dev set from the train set
     if split_prop and "train" in splits:
         dataloaders["train"], dataloaders["valid"] = datasets["train"].get_dataloader(
-            split_prop=split_prop, **dl_kwargs
+            split_prop=split_prop, split_seed=seed, **dl_kwargs
         )
 
         # Use the dev set as test set if available.
