@@ -268,8 +268,6 @@ def add_flags_from_config(parser, config_dict):
                     )
                 else:
                     parser.add_argument(f"--{param}", action="append", default=default)
-            elif default is None:
-                parser.add_argument(f"--{param}", default=None)
             else:
                 parser.add_argument(f"--{param}", type=OrNone(default), default=default)
         except argparse.ArgumentError:
