@@ -43,6 +43,7 @@ def create_tasks(
     max_len=512,
     dl_kwargs={},
     max_datapoints=-1,
+    generate_uids=False,
     splits=["train", "valid", "test"],
     seed=None,
 ):
@@ -97,6 +98,7 @@ def create_tasks(
             max_datapoints=max_datapoints,
             splits=splits,
             seed=seed,
+            generate_uids=generate_uids,
             include_segments=(encoder_type == "bert"),
         )
 
