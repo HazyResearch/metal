@@ -191,13 +191,29 @@ if __name__ == "__main__":
         auxiliary_tasks=AUXILIARY_TASKS,
     )
 
+    # Updating with auxiliary tasks!
+    task_names_all = [task.name for task in tasks]
+
+    # Update logging config
+    if not args.run_name:
+        run_name = ",".join(task_names_all)
+    else:
+        run_name = args.run_name
+
+    writer_config = {
+        "log_dir": f"{os.environ['METALHOME']}/logs",
+        "run_dir": args.run_dir,
+        "run_name": run_name,
+        "include_config": True,
+        "writer_metrics": [],
+    }
+
+    config["writer_config"] = writer_config
+    config["writer"] = "tensorboard"
+
     model = MetalModel(tasks, verbose=False, device=args.device, fp16=args.fp16)
     if args.model_weights:
         model.load_weights(args.model_weights)
-
-    import ipdb
-
-    ipdb.set_trace()
 
     # add metadata to config that will be logged to disk
     config.update(

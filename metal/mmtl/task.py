@@ -79,7 +79,7 @@ class RegressionTask(Task):
         head_module,
         scorer=Scorer(standard_metrics=[]),
         loss_hat_func=(
-            lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold)
+            lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold.float())
         ),
         output_hat_func=(torch.sigmoid),
     ) -> None:

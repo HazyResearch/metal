@@ -5,8 +5,8 @@ from sklearn.metrics import matthews_corrcoef, mean_squared_error
 from metal.metrics import metric_score
 
 
-def mse(gold, outputs):
-    return {"mse": mean_squared_error(gold, outputs)}
+def mse(gold, _, probs):
+    return {"mse": mean_squared_error(gold, probs)}
 
 
 def spearman_corr(gold, _, probs):
