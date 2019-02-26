@@ -22,51 +22,59 @@ from metal.mmtl.utils.metrics import (
     pearson_spearman,
     ranking_acc_f1,
 )
-from metal.utils import recursive_merge_dicts
+from metal.utils import recursive_merge_dicts, set_seed
 
-lstm_defaults = {
-    "emb_size": 300,
-    "hidden_size": 512,
-    "vocab_size": 30522,  # bert-base-uncased-vocab.txt
-    "bidirectional": True,
-    "lstm_num_layers": 1,
+task_defaults = {
+    # General
+    "split_prop": None,
+    "splits": ["train", "valid", "test"],
+    "max_len": 512,
+    "max_datapoints": -1,
+    "seed": None,
+    "dl_kwargs": {
+        "batch_size": 16,
+        "shuffle": True,  # Used only when split_prop is None; otherwise, use Sampler
+    },
+    "encoder_type": "bert",
+    "bert_model": "bert-base-uncased",  # Required for all encoders for BertTokenizer
+    # BERT
+    "bert_kwargs": {"freeze_bert": False},
+    # LSTM
+    "lstm_config": {
+        "emb_size": 300,
+        "hidden_size": 512,
+        "vocab_size": 30522,  # bert-base-uncased-vocab.txt
+        "bidirectional": True,
+        "lstm_num_layers": 1,
+    },
 }
 
 
-def create_tasks(
-    task_names,
-    encoder_type="bert",  # e.g., ['bert', 'lstm']
-    bert_model="bert-base-uncased",
-    bert_kwargs={},
-    lstm_kwargs={},
-    split_prop=None,
-    max_len=512,
-    dl_kwargs={},
-    max_datapoints=-1,
-    splits=["train", "valid", "test"],
-    seed=None,
-):
+def create_tasks(task_names, **kwargs):
     assert len(task_names) > 0
+    config = recursive_merge_dicts(task_defaults, kwargs)
 
-    if seed is None:
-        seed = np.random.randint(1e6)
-        print(f"Using random seed: {seed}.")
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    if config["seed"] is None:
+        config["seed"] = np.random.randint(1e6)
+        print(f"Using random seed: {config['seed']}.")
+    set_seed(config["seed"])
 
     # share bert encoder for all tasks
-    if encoder_type == "bert":
-        bert_encoder = BertEncoder(bert_model, **bert_kwargs)
+
+    if config["encoder_type"] == "bert":
+        bert_kwargs = config["bert_kwargs"]
+        bert_kwargs["freeze"] = bert_kwargs["freeze_bert"]
+        del bert_kwargs["freeze_bert"]
+        bert_encoder = BertEncoder(config["bert_model"], **bert_kwargs)
         bert_hidden_layer = BertHiddenLayer(bert_encoder)
-        if bert_model == "bert-base-uncased":
+        if config["bert_model"] == "bert-base-uncased":
             neck_dim = 768
-        elif bert_model == "bert-large-uncased":
+        elif config["bert_model"] == "bert-large-uncased":
             neck_dim = 1024
         input_module = bert_hidden_layer
-    elif encoder_type == "lstm":
+    elif config["encoder_type"] == "lstm":
         # TODO: Allow these constants to be passed in as arguments
-        lstm_config = recursive_merge_dicts(lstm_defaults, lstm_kwargs)
+        lstm_config = config["lstm_config"]
         neck_dim = lstm_config["hidden_size"]
         if lstm_config["bidirectional"]:
             neck_dim *= 2
@@ -90,14 +98,14 @@ def create_tasks(
         # create data loaders for task
         dataloaders = get_all_dataloaders(
             task_name if not task_name.endswith("_SAN") else task_name[:-4],
-            bert_model,
-            max_len=max_len,
-            dl_kwargs=dl_kwargs,
-            split_prop=split_prop,
-            max_datapoints=max_datapoints,
-            splits=splits,
-            seed=seed,
-            include_segments=(encoder_type == "bert"),
+            config["bert_model"],
+            max_len=config["max_len"],
+            dl_kwargs=config["dl_kwargs"],
+            split_prop=config["split_prop"],
+            max_datapoints=config["max_datapoints"],
+            splits=config["splits"],
+            seed=config["seed"],
+            include_segments=(config["encoder_type"] == "bert"),
         )
 
         if task_name == "COLA":

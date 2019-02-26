@@ -82,9 +82,9 @@ class LogWriter(object):
         with open(log_path, "w") as f:
             json.dump(self.log_dict, f, indent=1)
 
-    def write_config(self, config):
+    def write_config(self, config, config_name="config"):
         """Dump config dict to file"""
-        config_path = os.path.join(self.log_subdir, "config.json")
+        config_path = os.path.join(self.log_subdir, f"{config_name}.json")
         if self.verbose:
             print(f"Writing config to {config_path}")
         with open(config_path, "w") as f:

@@ -38,7 +38,8 @@ else:
     else:
         from tqdm import tqdm
 
-trainer_config = {
+
+trainer_defaults = {
     "verbose": True,
     "seed": None,
     # Commit hash
@@ -159,7 +160,7 @@ class MultitaskTrainer(object):
     """Driver for the MTL training process"""
 
     def __init__(self, **kwargs):
-        self.config = recursive_merge_dicts(trainer_config, kwargs, misses="insert")
+        self.config = recursive_merge_dicts(trainer_defaults, kwargs, misses="insert")
 
         # Set random seeds
         if self.config["seed"] is None:
