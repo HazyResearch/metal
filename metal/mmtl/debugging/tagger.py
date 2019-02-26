@@ -37,6 +37,8 @@ class Tagger(object):
         with open(tag_path, "r+") as f:
             uids = [x.strip() for x in open(tag_path, "r").readlines()]
             uids.remove(uid)
+
+        with open(tag_path, "w+") as f:
             uids = ["%s\n" % uid for uid in uids]
             f.writelines(uids)
             f.close()

@@ -204,7 +204,7 @@ class BERTDataset(data.Dataset):
                 labels.append(label)
 
                 if generate_uids:
-                    uids.append(get_uid(data_file, skip_rows + row_idx))
+                    uids.append(get_uid(data_file, skip_rows + row_idx + 1))
 
         if generate_uids:
             return (tokens, segments, labels), uids
