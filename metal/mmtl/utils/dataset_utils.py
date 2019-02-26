@@ -34,26 +34,18 @@ def get_all_dataloaders(
 
     dataloaders = {}
 
-    # When split_prop is not None, we use create an artificial dev set from the train set and
-
+    # When split_prop is not None, we use create an artificial dev set from the train set
     if split_prop and "train" in splits:
-
         dataloaders["train"], dataloaders["valid"] = datasets["train"].get_dataloader(
             split_prop=split_prop, **dl_kwargs
         )
 
         # Use the dev set as test set if available.
-
         if "valid" in datasets:
-
             dataloaders["test"] = datasets["valid"].get_dataloader(**dl_kwargs)
 
     # When split_prop is None, we use standard train/dev/test splits.
-
     else:
-
         for split_name in datasets:
-
             dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
-
     return dataloaders
