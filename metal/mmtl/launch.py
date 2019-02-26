@@ -75,9 +75,6 @@ if __name__ == "__main__":
         help="Which bert model to use.",
     )
     parser.add_argument(
-        "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
-    )
-    parser.add_argument(
         "--model_weights",
         type=str,
         default=None,
@@ -171,7 +168,6 @@ if __name__ == "__main__":
         max_len=args.max_len,
         dl_kwargs=dl_kwargs,
         bert_kwargs={"freeze": args.freeze_bert},
-        bert_output_dim=args.bert_output_dim,
         max_datapoints=args.max_datapoints,
         splits=splits,
     )

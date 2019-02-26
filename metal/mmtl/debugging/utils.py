@@ -22,7 +22,6 @@ def load_data_and_model(model_path, task_name, split):
     # Create DataLoader
     bert_model = "bert-base-uncased"
     max_len = 256
-    bert_output_dim = 768
     dl_kwargs = {"batch_size": 32, "shuffle": False}
 
     # Load best model for specified task
@@ -31,7 +30,6 @@ def load_data_and_model(model_path, task_name, split):
         bert_model=bert_model,
         max_len=max_len,
         dl_kwargs=dl_kwargs,
-        bert_output_dim=bert_output_dim,
         splits=[split],
         max_datapoints=-1,
     )[0]

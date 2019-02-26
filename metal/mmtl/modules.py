@@ -35,13 +35,13 @@ class BertHiddenLayer(nn.Module):
         return hidden_layer
 
 
-def BertMulticlassHead(input_dim, output_dim):
-    return nn.Linear(input_dim, output_dim, bias=True)
+def MulticlassHead(input_dim, output_dim):
+    return nn.Linear(input_dim, output_dim)
 
 
-def BertBinaryHead(input_dim):
-    return BertMulticlassHead(input_dim, 2)
+def BinaryHead(input_dim):
+    return MulticlassHead(input_dim, 2)
 
 
-def BertRegressionHead(input_dim):
-    return BertMulticlassHead(input_dim, 1)
+def RegressionHead(input_dim):
+    return MulticlassHead(input_dim, 1)

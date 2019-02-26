@@ -17,7 +17,6 @@ launch_args = {
     "device": 0,
     # Model specification
     "bert_model": "bert-base-uncased",
-    "bert_output_dim": 768,
     # Dataloader specification
     "max_len": 256,
     # Checkpointing and logging

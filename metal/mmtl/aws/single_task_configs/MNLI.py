@@ -15,7 +15,6 @@ launch_args = {
     "fp16": 1,
     # Model specification
     "bert_model": "bert-base-uncased",
-    "bert_output_dim": 768,
     # Dataloader specification
     "max_len": 200,
     # Checkpointing and logging

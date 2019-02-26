@@ -6,12 +6,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
 from metal.mmtl.modules import (
-    BertBinaryHead,
     BertEncoder,
     BertHiddenLayer,
-    BertMulticlassHead,
-    BertRegressionHead,
+    BinaryHead,
+    MulticlassHead,
+    RegressionHead,
 )
 from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
@@ -27,12 +28,12 @@ from metal.mmtl.utils.metrics import (
 
 def create_tasks(
     task_names,
+    encoder_type="bert",  # e.g., ['bert', 'bilstm']
     bert_model="bert-base-uncased",
+    bert_kwargs={},
     split_prop=None,
     max_len=512,
     dl_kwargs={},
-    bert_kwargs={},
-    bert_output_dim=768,
     max_datapoints=-1,
     splits=["train", "valid", "test"],
     seed=None,
@@ -47,8 +48,16 @@ def create_tasks(
     torch.manual_seed(seed)
 
     # share bert encoder for all tasks
-    bert_encoder = BertEncoder(bert_model, **bert_kwargs)
-    bert_hidden_layer = BertHiddenLayer(bert_encoder)
+    if encoder_type == "bert":
+        bert_encoder = BertEncoder(bert_model, **bert_kwargs)
+        bert_hidden_layer = BertHiddenLayer(bert_encoder)
+        if bert_model == "bert-base-uncased":
+            neck_dim = 768
+        elif bert_model == "bert-large-uncased":
+            neck_dim = 1024
+        input_module = bert_hidden_layer
+    else:
+        raise NotImplementedError
 
     # creates task and appends to `tasks` list for each `task_name`
     tasks = []
@@ -70,167 +79,61 @@ def create_tasks(
                 standard_metrics=["accuracy"],
                 custom_metric_funcs={matthews_corr: ["matthews_corr"]},
             )
-            tasks.append(
-                ClassificationTask(
-                    task_name,
-                    dataloaders,
-                    bert_hidden_layer,
-                    BertBinaryHead(bert_output_dim),
-                    scorer,
-                )
+            task = ClassificationTask(
+                task_name, dataloaders, input_module, BinaryHead(neck_dim), scorer
             )
 
-        if task_name == "SST2":
-            tasks.append(
-                ClassificationTask(
-                    task_name,
-                    dataloaders,
-                    bert_hidden_layer,
-                    BertBinaryHead(bert_output_dim),
-                )
+        elif task_name == "SST2":
+            task = ClassificationTask(
+                task_name, dataloaders, input_module, BinaryHead(neck_dim)
             )
 
-        if task_name == "MNLI":
-            tasks.append(
-                ClassificationTask(
-                    task_name,
-                    dataloaders,
-                    bert_hidden_layer,
-                    BertMulticlassHead(bert_output_dim, 3),
-                    Scorer(standard_metrics=["accuracy"]),
-                )
+        elif task_name == "MNLI":
+            task = ClassificationTask(
+                task_name,
+                dataloaders,
+                input_module,
+                MulticlassHead(neck_dim, 3),
+                Scorer(standard_metrics=["accuracy"]),
             )
 
-        if task_name == "MNLI_SAN":
-            tasks.append(
-                ClassificationTask(
-                    "MNLI",
-                    dataloaders,
-                    SAN(
-                        bert_model=bert_encoder,
-                        emb_size=bert_output_dim,
-                        hidden_size=bert_output_dim,
-                        num_classes=3,
-                        k=5,
-                    ),
-                    AverageLayer(),
-                    Scorer(standard_metrics=["accuracy"]),
-                )
+        elif task_name == "RTE":
+            task = ClassificationTask(
+                task_name,
+                dataloaders,
+                input_module,
+                BinaryHead(neck_dim),
+                Scorer(standard_metrics=["accuracy"]),
             )
 
-        if task_name == "RTE":
-            tasks.append(
-                ClassificationTask(
-                    task_name,
-                    dataloaders,
-                    bert_hidden_layer,
-                    BertBinaryHead(bert_output_dim),
-                    Scorer(standard_metrics=["accuracy"]),
-                )
+        elif task_name == "WNLI":
+            task = ClassificationTask(
+                task_name,
+                dataloaders,
+                input_module,
+                BinaryHead(neck_dim),
+                Scorer(standard_metrics=["accuracy"]),
             )
 
-        if task_name == "RTE_SAN":
-            tasks.append(
-                ClassificationTask(
-                    "RTE",
-                    dataloaders,
-                    SAN(
-                        bert_model=bert_encoder,
-                        emb_size=bert_output_dim,
-                        hidden_size=bert_output_dim,
-                        num_classes=2,
-                        k=5,
-                    ),
-                    AverageLayer(),
-                    Scorer(standard_metrics=["accuracy"]),
-                )
+        elif task_name == "QQP":
+            task = ClassificationTask(
+                task_name,
+                dataloaders,
+                input_module,
+                BinaryHead(neck_dim),
+                Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
             )
 
-        if task_name == "WNLI":
-            tasks.append(
-                ClassificationTask(
-                    task_name,
-                    dataloaders,
-                    bert_hidden_layer,
-                    BertBinaryHead(bert_output_dim),
-                    Scorer(standard_metrics=["accuracy"]),
-                )
+        elif task_name == "MRPC":
+            task = ClassificationTask(
+                task_name,
+                dataloaders,
+                input_module,
+                BinaryHead(neck_dim),
+                Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
             )
 
-        if task_name == "WNLI_SAN":
-            tasks.append(
-                ClassificationTask(
-                    "WNLI",
-                    dataloaders,
-                    SAN(
-                        bert_model=bert_encoder,
-                        emb_size=bert_output_dim,
-                        hidden_size=bert_output_dim,
-                        num_classes=2,
-                        k=5,
-                    ),
-                    AverageLayer(),
-                    Scorer(standard_metrics=["accuracy"]),
-                )
-            )
-
-        if task_name == "QQP":
-            tasks.append(
-                ClassificationTask(
-                    task_name,
-                    dataloaders,
-                    bert_hidden_layer,
-                    BertBinaryHead(bert_output_dim),
-                    Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-                )
-            )
-
-        if task_name == "QQP_SAN":
-            tasks.append(
-                ClassificationTask(
-                    "QQP",
-                    dataloaders,
-                    SAN(
-                        bert_model=bert_encoder,
-                        emb_size=bert_output_dim,
-                        hidden_size=bert_output_dim,
-                        num_classes=2,
-                        k=5,
-                    ),
-                    AverageLayer(),
-                    Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-                )
-            )
-
-        if task_name == "MRPC":
-            tasks.append(
-                ClassificationTask(
-                    task_name,
-                    dataloaders,
-                    bert_hidden_layer,
-                    BertBinaryHead(bert_output_dim),
-                    Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-                )
-            )
-
-        if task_name == "MRPC_SAN":
-            tasks.append(
-                ClassificationTask(
-                    "MRPC",
-                    dataloaders,
-                    SAN(
-                        bert_model=bert_encoder,
-                        emb_size=bert_output_dim,
-                        hidden_size=bert_output_dim,
-                        num_classes=2,
-                        k=5,
-                    ),
-                    AverageLayer(),
-                    Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-                )
-            )
-
-        if task_name == "STSB":
+        elif task_name == "STSB":
             scorer = Scorer(
                 standard_metrics=[],
                 custom_metric_funcs={
@@ -242,34 +145,97 @@ def create_tasks(
                 },
             )
 
-            tasks.append(
-                RegressionTask(
-                    task_name,
-                    dataloaders,
-                    bert_hidden_layer,
-                    BertRegressionHead(bert_output_dim),
-                    scorer,
-                )
+            task = RegressionTask(
+                task_name, dataloaders, input_module, RegressionHead(neck_dim), scorer
             )
 
-        if task_name == "QNLI":
-            qnli_head = nn.Linear(bert_output_dim, 2, bias=False)
-            tasks.append(
-                ClassificationTask(
-                    name="QNLI",
-                    data_loaders=dataloaders,
-                    input_module=bert_hidden_layer,
-                    head_module=qnli_head,
-                    scorer=Scorer(standard_metrics=["accuracy"]),
-                    # TODO: small fix to map 1 to 1 and 2 to 0 but need more consitent way of doing this
-                    loss_hat_func=lambda y_hat, y_true: F.cross_entropy(
-                        y_hat, y_true - 1
-                    ),
-                    output_hat_func=partial(F.softmax, dim=1),
-                )
+        elif task_name == "QNLI":
+            task = ClassificationTask(
+                task_name,
+                dataloaders,
+                input_module,
+                BinaryHead(neck_dim),
+                Scorer(standard_metrics=["accuracy"]),
             )
 
-        if task_name == "QNLIR":
+        # --------- NON-STANDARD TASK HEADS BELOW THIS POINT ---------
+
+        elif task_name == "MNLI_SAN":
+            task = ClassificationTask(
+                "MNLI",
+                dataloaders,
+                SAN(
+                    bert_model=bert_encoder,
+                    emb_size=neck_dim,
+                    hidden_size=neck_dim,
+                    num_classes=3,
+                    k=5,
+                ),
+                AverageLayer(),
+                Scorer(standard_metrics=["accuracy"]),
+            )
+
+        elif task_name == "RTE_SAN":
+            task = ClassificationTask(
+                "RTE",
+                dataloaders,
+                SAN(
+                    bert_model=bert_encoder,
+                    emb_size=neck_dim,
+                    hidden_size=neck_dim,
+                    num_classes=2,
+                    k=5,
+                ),
+                AverageLayer(),
+                Scorer(standard_metrics=["accuracy"]),
+            )
+
+        elif task_name == "WNLI_SAN":
+            task = ClassificationTask(
+                "WNLI",
+                dataloaders,
+                SAN(
+                    bert_model=bert_encoder,
+                    emb_size=neck_dim,
+                    hidden_size=neck_dim,
+                    num_classes=2,
+                    k=5,
+                ),
+                AverageLayer(),
+                Scorer(standard_metrics=["accuracy"]),
+            )
+
+        elif task_name == "QQP_SAN":
+            task = ClassificationTask(
+                "QQP",
+                dataloaders,
+                SAN(
+                    bert_model=bert_encoder,
+                    emb_size=neck_dim,
+                    hidden_size=neck_dim,
+                    num_classes=2,
+                    k=5,
+                ),
+                AverageLayer(),
+                Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
+            )
+
+        elif task_name == "MRPC_SAN":
+            task = ClassificationTask(
+                "MRPC",
+                dataloaders,
+                SAN(
+                    bert_model=bert_encoder,
+                    emb_size=neck_dim,
+                    hidden_size=neck_dim,
+                    num_classes=2,
+                    k=5,
+                ),
+                AverageLayer(),
+                Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
+            )
+
+        elif task_name == "QNLIR":
             # QNLI ranking task
             def ranking_loss(scores, y_true, gamma=1.0):
                 scores = torch.sigmoid(scores)
@@ -295,16 +261,15 @@ def create_tasks(
                 custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]},
                 standard_metrics=[],
             )
-            tasks.append(
-                ClassificationTask(
-                    name="QNLIR",
-                    data_loaders=dataloaders,
-                    input_module=bert_hidden_layer,
-                    head_module=BertRegressionHead(bert_output_dim),
-                    scorer=scorer,
-                    loss_hat_func=ranking_loss,
-                    output_hat_func=torch.sigmoid,
-                )
+            task = ClassificationTask(
+                name="QNLIR",
+                data_loaders=dataloaders,
+                input_module=input_module,
+                head_module=RegressionHead(neck_dim),
+                scorer=scorer,
+                loss_hat_func=ranking_loss,
+                output_hat_func=torch.sigmoid,
             )
 
+        tasks.append(task)
     return tasks
