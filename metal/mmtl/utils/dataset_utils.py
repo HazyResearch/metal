@@ -1,5 +1,6 @@
 import copy
 
+import numpy as np
 from nltk.translate.bleu_score import sentence_bleu
 
 import metal.mmtl.dataset as dataset
@@ -85,13 +86,11 @@ def get_dataloader_with_label(dataloader, label_obj):
 
 def get_bleu_dataloader(dataloader):
     def get_bleu_label(it):
-        import ipdb
-
-        ipdb.set_trace()
         toks, segs = it[0]
         toks = dataloader.dataset.tokenizer.convert_ids_to_tokens(toks)
-        sent1 = toks[segs == 0]
-        sent2 = toks[segs == 1]
+        toks, segs = np.array(toks), np.array(segs)
+        sent1 = list(toks[segs == 0])
+        sent2 = list(toks[segs == 1])
         bleu_score = sentence_bleu(sent1, sent2, weights=(1, 0, 0, 0))
         return bleu_score
 

@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from utils.dataset_utils import get_bleu_dataloader
 
 from metal.mmtl.modules import (
     BertBinaryHead,
@@ -20,6 +21,7 @@ from metal.mmtl.utils.dataset_utils import get_all_dataloaders
 from metal.mmtl.utils.metrics import (
     acc_f1,
     matthews_corr,
+    mse,
     pearson_spearman,
     ranking_acc_f1,
 )
@@ -35,6 +37,7 @@ def create_tasks(
     bert_output_dim=768,
     max_datapoints=-1,
     splits=["train", "valid", "test"],
+    auxiliary_tasks={},
     seed=None,
 ):
     assert len(task_names) > 0
@@ -64,10 +67,6 @@ def create_tasks(
             max_datapoints=max_datapoints,
             splits=splits,
         )
-
-        import ipdb
-
-        ipdb.set_trace()
 
         if task_name == "COLA":
             scorer = Scorer(
@@ -310,5 +309,23 @@ def create_tasks(
                     output_hat_func=torch.sigmoid,
                 )
             )
+
+        # Adding auxiliary tasks
+        if task_name in auxiliary_tasks.keys():
+            if "BLEU" in auxiliary_tasks[task_name]:
+                bleu_dataloaders = {
+                    split: get_bleu_dataloader(dataloaders[split]) for split in splits
+                }
+
+                # Do we need a loss_hat_func or output_hat_fun?
+                tasks.append(
+                    RegressionTask(
+                        name=f"{task_name}_BLEU",
+                        data_loaders=bleu_dataloaders,
+                        input_module=bert_hidden_layer,
+                        head_module=BertRegressionHead(bert_output_dim),
+                        scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
+                    )
+                )
 
     return tasks

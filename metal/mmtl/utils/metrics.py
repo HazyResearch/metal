@@ -1,8 +1,12 @@
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
-from sklearn.metrics import matthews_corrcoef
+from sklearn.metrics import matthews_corrcoef, mean_squared_error
 
 from metal.metrics import metric_score
+
+
+def mse(gold, outputs):
+    return {"mse": mean_squared_error(gold, outputs)}
 
 
 def spearman_corr(gold, _, probs):
