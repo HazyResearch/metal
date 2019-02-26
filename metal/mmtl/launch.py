@@ -122,21 +122,21 @@ if __name__ == "__main__":
         auxiliary_tasks = AUXILIARY_TASKS
     else:
         auxiliary_tasks = {}
-    
+
     # Getting primary task names
     task_names = [task_name for task_name in args.tasks.split(",")]
 
     # Getting tasks, primary and auxiliary
     tasks = create_tasks(task_names, auxiliary_tasks=auxiliary_tasks, **task_config)
-    
+
     # Updating with auxiliary tasks!
     task_names_with_aux = [task.name for task in tasks]
-    print('Training on tasks:')
+    print("Training on tasks:")
     print(task_names_with_aux)
-    
+
     # Updating run_name here to include auxiliary tasks
     if not trainer_config["writer_config"]["run_name"]:
-        trainer_config["writer_config"]["run_name"] = '.'.join(task_names_with_aux)
+        trainer_config["writer_config"]["run_name"] = ".".join(task_names_with_aux)
 
     model_config["verbose"] = False
     model = MetalModel(tasks, **model_config)

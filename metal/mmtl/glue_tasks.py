@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from metal.mmtl.auxiliary_tasks import get_bleu_dataloader
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
+from metal.mmtl.auxiliary_tasks import get_bleu_dataloader
 from metal.mmtl.modules import (
     BertEncoder,
     BertHiddenLayer,
@@ -20,9 +20,9 @@ from metal.mmtl.utils.dataset_utils import get_all_dataloaders
 from metal.mmtl.utils.metrics import (
     acc_f1,
     matthews_corr,
+    mse,
     pearson_spearman,
     ranking_acc_f1,
-    mse
 )
 from metal.utils import recursive_merge_dicts, set_seed
 
@@ -95,7 +95,7 @@ def create_tasks(task_names, **kwargs):
 
     # creates task and appends to `tasks` list for each `task_name`
     tasks = []
-    auxiliary_tasks = kwargs.get('auxiliary_tasks')
+    auxiliary_tasks = kwargs.get("auxiliary_tasks")
 
     for task_name in task_names:
 
@@ -309,14 +309,14 @@ def create_tasks(task_names, **kwargs):
                 loss_hat_func=ranking_loss,
                 output_hat_func=torch.sigmoid,
             )
-        
 
         # --------- AUXILIARY TASKS BELOW THIS POINT ---------
-        
+
         if task_name in auxiliary_tasks.keys():
             if "BLEU" in auxiliary_tasks[task_name]:
                 bleu_dataloaders = {
-                    split: get_bleu_dataloader(dataloaders[split]) for split in dataloaders.keys()
+                    split: get_bleu_dataloader(dataloaders[split])
+                    for split in dataloaders.keys()
                 }
 
                 # Do we need a loss_hat_func or output_hat_fun?
