@@ -81,9 +81,9 @@ if __name__ == "__main__":
         ),
     )
 
-    # Use auxiliarty tasks
+    # Use auxiliary tasks
     parser.add_argument(
-        "--use_auxiliary", type=int, default=0, help="Use auxiliary tasks or not"
+        "--use_auxiliary", type=int, default=False, help="Use auxiliary tasks or not"
     )
 
     parser = add_flags_from_config(parser, trainer_defaults)
