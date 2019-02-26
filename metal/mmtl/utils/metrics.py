@@ -62,18 +62,23 @@ def pearson_spearman(gold, outputs, probs):
     return metrics_dict
 
 
+GLUE_METRICS = {
+    "COLA": "matthews_corr",
+    "SST2": "accuracy",
+    "MRPC": "acc_f1",
+    "STSB": "pearson_spearman",
+    "QQP": "acc_f1",
+    "MNLI": "accuracy",
+    "QNLI": "accuracy",
+    "RTE": "accuracy",
+    "WNLI": "accuracy",
+}
+
+
 def glue_score(metrics_dict={}, split="valid"):
     """Computes the glue_score (mean of individual task metrics) from a metrics_dict"""
     target_metrics = [
-        f"COLA/{split}/matthews_corr",
-        f"SST/{split}/accuracy",
-        f"MRPC/{split}/f1_acc",
-        f"STSB/{split}/pearson_spearman",
-        f"QQP/{split}/f1_acc",
-        f"MNLI/{split}/accuracy",
-        f"QNLI/{split}/accuracy",
-        f"RTE/{split}/accuracy",
-        f"WNLI/{split}/accuracy",
+        f"{task}/{split}/{metric}" for task, metric in GLUE_METRICS.items()
     ]
     scores = []
     for metric in target_metrics:

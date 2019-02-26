@@ -1,3 +1,4 @@
+import copy
 import os
 import random
 import warnings
@@ -19,8 +20,8 @@ from metal.mmtl.task_scheduler import (
     StagedScheduler,
     SuperStagedScheduler,
 )
-from metal.mmtl.utils.metrics import glue_score
-from metal.utils import recursive_merge_dicts
+from metal.mmtl.utils.metrics import GLUE_METRICS, glue_score
+from metal.utils import recursive_merge_dicts, set_seed
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -37,7 +38,8 @@ else:
     else:
         from tqdm import tqdm
 
-trainer_config = {
+
+trainer_defaults = {
     "verbose": True,
     "seed": None,
     # Commit hash
@@ -85,15 +87,16 @@ trainer_config = {
         # The list of task metrics (task/split/metric) to calculate (and log);
         # if empty, calculate all metrics supported by all tasks' Scorers.
         "task_metrics": [],
-        # The list of trainer standard metrics to calculate (and log)
-        "trainer_metrics": [],  # e.g., "glue"
+        # The list of trainer standard metrics to calculate (and log); e.g., "glue"
+        # Note that glue_partial is no longer supported.
+        "trainer_metrics": ["glue"],
         # Run scorers over a maximum of this many examples if > 0.
         "max_valid_examples": 0,
         # The name of the split to run scoring on during training
         # To score over multiple splits, set valid_split=None and use task_metrics
         "valid_split": "valid",
         # The name of the split to run final evaluation on after training
-        "test_split": "test",
+        "test_split": None,  # If None, calculate final metrics over all splits
         # If non-None, only calculate and report these metrics every `score_every`
         # units (this can include the names of built-in and user-defined metrics);
         # otherwise, include all metrics returned by task Scorers.
@@ -121,11 +124,15 @@ trainer_config = {
         "log_dir": f"{os.environ['METALHOME']}/logs",
         "run_dir": None,
         "run_name": None,
-        "writer_metrics": [],  # May specify a subset of metrics in metrics_dict to be written
-        "include_config": True,  # If True, include model config in log
+        # May specify a subset of metrics in metrics_dict to be written.
+        # If [], write all available metrics to the logs
+        "writer_metrics": [],
     },
     # Checkpointer (see metal/logging/checkpointer.py for descriptions)
     "checkpoint": True,  # If True, checkpoint models when certain conditions are met
+    # EXPERIMENTAL: If True, save a separate set of checkpoints (assuming strategy of
+    # checkpoint_best) for each task
+    "checkpoint_tasks": False,
     # If true, checkpoint directory will be cleaned after training (if checkpoint_best
     # is True, the best model will first be copied to the log_dir/run_dir/run_name/)
     "checkpoint_cleanup": True,
@@ -154,23 +161,23 @@ class MultitaskTrainer(object):
     """Driver for the MTL training process"""
 
     def __init__(self, **kwargs):
-        self.config = recursive_merge_dicts(trainer_config, kwargs, misses="insert")
+        self.config = recursive_merge_dicts(trainer_defaults, kwargs, misses="insert")
 
         # Set random seeds
         if self.config["seed"] is None:
             self.config["seed"] = np.random.randint(1e6)
-        self._set_seed(self.config["seed"])
+        set_seed(self.config["seed"])
 
     def train_model(self, model, tasks, **kwargs):
         # NOTE: misses="insert" so we can log extra metadata (e.g. num_parameters)
         # and eventually write to disk.
         self.config = recursive_merge_dicts(self.config, kwargs, misses="insert")
-        self.task_names = [task.name for task in tasks]
 
         # Calculate epoch statistics
         # NOTE: Because we use SubsetSampler, one dataset may actually include two
         # splits, so we calculate approximate count size using batch_size * num_batches
         # examples_per_epoch = sum([len(t.data_loaders["train"].dataset) for t in tasks])
+        self.task_names = [task.name for task in tasks]
         self.batches_per_epoch = sum([len(t.data_loaders["train"]) for t in tasks])
         self.examples_per_epoch = sum(
             [
@@ -185,6 +192,9 @@ class MultitaskTrainer(object):
                 f"and {self.batches_per_epoch} batches per epoch from {len(tasks)} tasks."
             )
 
+        # Check inputs
+        self._check_metrics()
+
         # Set training components
         self._set_writer()
         self._set_logger()
@@ -192,6 +202,10 @@ class MultitaskTrainer(object):
         self._set_optimizer(model)
         self._set_lr_scheduler(model)  # TODO: Support more detailed training schedules
         self._set_task_scheduler(model, tasks)
+
+        # Record config
+        if self.writer:
+            self.writer.write_config(self.config)
 
         # Train the model
         # TODO: Allow other ways to train besides 1 epoch of all datasets
@@ -285,23 +299,47 @@ class MultitaskTrainer(object):
                 if os.path.isfile(path_to_best):
                     copy2(path_to_best, path_to_logs)
 
-        # Clean up checkpoint
+        # Print final performance values
+        if self.config["verbose"]:
+            print("Finished training")
+        # Calculate metrics for all splits if test_split=None
+        metrics_dict = self.calculate_metrics(model, tasks)
+        test_split = self.config["metrics_config"]["test_split"]
+        metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
+        if self.config["verbose"]:
+            pprint(metrics_dict)
+
+        # EXPERIMENTAL:
+        # Recalculate scores using task-specific checkpoints
+        if self.config["checkpoint_tasks"]:
+            metrics_dict = copy.deepcopy(metrics_dict)
+            test_split = self.config["metrics_config"]["test_split"]
+            for task, checkpointer in zip(tasks, self.task_checkpointers):
+                checkpointer.load_best_model(model=model)
+                # Calculate all supported metrics for given task with loaded checkpoint
+                metrics_dict_task = task.scorer.score(model, task, split=test_split)
+                metrics_dict.update(metrics_dict_task)
+                if self.writer:
+                    path_to_best = os.path.join(
+                        checkpointer.checkpoint_dir, "best_model.pth"
+                    )
+                    path_to_logs = os.path.join(
+                        self.writer.log_subdir, f"{task.name}_best_model.pth"
+                    )
+                    copy2(path_to_best, path_to_logs)
+            print("Final scores using task-specific checkpoints:")
+            pprint(metrics_dict)
+
+        # Clean up checkpoints
         if self.checkpointer and self.config["checkpoint_cleanup"]:
             print("Cleaning checkpoints")
             self.checkpointer.clean_up()
 
         # Write log if applicable
         if self.writer:
-            if self.writer.include_config:
-                self.writer.add_config(self.config)
+            self.writer.write_metrics(metrics_dict)
+            self.writer.write_log()
             self.writer.close()
-
-        # Print final performance values
-        if self.config["verbose"]:
-            print("Finished training")
-            test_split = self.config["metrics_config"]["test_split"]
-            metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
-            pprint(metrics_dict)
 
     def _execute_logging(self, model, tasks, batch_size, force_log=False):
         model.eval()
@@ -407,18 +445,10 @@ class MultitaskTrainer(object):
         metrics_dict = {}
         # HACK: glue should not be hardcoded
         if "glue" in trainer_metrics:
-            if len(tasks) != 9:
-                msg = "You requested glue score but submitted fewer than 9 tasks. Use 'glue_partial' instead."
-                raise Exception(msg)
+            if len(tasks) < 9:
+                msg = "You requested glue score but have fewer than 9 tasks. Be aware."
+                warnings.warn(msg)
             metric = "glue"
-            metrics_dict[f"model/{split}/{metric}"] = glue_score(
-                self.metrics_hist, split
-            )
-        elif "glue_partial" in trainer_metrics:
-            if len(tasks) == 9:
-                msg = "You requested glue_partial score but submitted all 9 tasks. Use 'glue' instead."
-                raise Exception(msg)
-            metric = "glue_partial"
             metrics_dict[f"model/{split}/{metric}"] = glue_score(
                 self.metrics_hist, split
             )
@@ -474,6 +504,12 @@ class MultitaskTrainer(object):
         self.checkpointer.checkpoint(
             metrics_dict, iteration, model, self.optimizer, self.lr_scheduler
         )
+        # EXPERIMENTAL:
+        if self.config["checkpoint_tasks"]:
+            for checkpointer in self.task_checkpointers:
+                checkpointer.checkpoint(
+                    metrics_dict, iteration, model, self.optimizer, self.lr_scheduler
+                )
 
     def _reset_losses(self):
         self.running_losses = defaultdict(float)
@@ -532,6 +568,30 @@ class MultitaskTrainer(object):
             )
         else:
             self.checkpointer = None
+
+        # EXPERIMENTAL: Optionally add task-specific checkpointers
+        # HACK: This is hard-coded in a way specific to Glue!
+        self.task_checkpointers = []
+        if self.config["checkpoint_tasks"]:
+            msg = (
+                "checkpoint_tasks setting does not have the same thorough error "
+                "checking that the normal checkpoint operation has, so you may "
+                "accidentally be trying to checkpoint metrics that aren't going to be "
+                "found in the metrics_dict if you're not careful."
+            )
+            warnings.warn(msg)
+            for task in tasks:
+                checkpoint_config = copy.deepcopy(self.config["checkpoint_config"])
+                checkpoint_config["checkpoint_dir"] += f"/{task.name}"
+                checkpoint_config["checkpoint_best"] = True
+                checkpoint_metric = f"{task.name}/valid/{GLUE_METRICS[task.name]}"
+                checkpoint_config["checkpoint_metric"] = checkpoint_metric
+                print(checkpoint_config["checkpoint_metric"])
+                checkpoint_config["checkpoint_metric_mode"] = "max"
+                task_checkpointer = Checkpointer(
+                    checkpoint_config, verbose=self.config["verbose"]
+                )
+                self.task_checkpointers.append(task_checkpointer)
 
     def _set_optimizer(self, model):
         optimizer_config = self.config["optimizer_config"]
@@ -697,9 +757,9 @@ class MultitaskTrainer(object):
             warmup_steps = self.config["lr_scheduler_config"]["warmup_steps"]
             # Convert warmup unit to batches
             if warmup_unit == "epochs":
-                self.warmup_steps = int(warmup_steps * self.batches_per_epoch)
+                self.warmup_steps = max(1, int(warmup_steps * self.batches_per_epoch))
             elif warmup_unit == "batches":
-                self.warmup_steps = int(warmup_steps)
+                self.warmup_steps = max(1, int(warmup_steps))
             else:
                 msg = f"warmup_unit must be 'epochs' or 'batches', not {warmup_unit}"
                 raise Exception(msg)
@@ -809,7 +869,6 @@ class MultitaskTrainer(object):
             )
             raise Exception(msg)
 
-    def _set_seed(self, seed):
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+    def _check_metrics(self):
+        assert isinstance(self.config["metrics_config"]["task_metrics"], list)
+        assert isinstance(self.config["metrics_config"]["trainer_metrics"], list)

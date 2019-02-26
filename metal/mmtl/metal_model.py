@@ -6,9 +6,9 @@ import torch.nn as nn
 
 from metal.mmtl.task import RegressionTask
 from metal.mmtl.utils.utils import stack_batches
-from metal.utils import move_to_device, recursive_merge_dicts
+from metal.utils import move_to_device, recursive_merge_dicts, set_seed
 
-model_config = {
+model_defaults = {
     "seed": None,
     "device": 0,  # gpu id (int) or -1 for cpu
     "verbose": True,
@@ -27,12 +27,12 @@ class MetalModel(nn.Module):
     """
 
     def __init__(self, tasks, **kwargs):
-        self.config = recursive_merge_dicts(model_config, kwargs, misses="insert")
+        self.config = recursive_merge_dicts(model_defaults, kwargs, misses="insert")
 
         # Set random seed before initializing module weights
         if self.config["seed"] is None:
             self.config["seed"] = np.random.randint(1e6)
-        self._set_seed(self.config["seed"])
+        set_seed(self.config["seed"])
 
         super().__init__()
 
@@ -72,6 +72,7 @@ class MetalModel(nn.Module):
 
         # HACK: this does not allow reuse of intermediate computation or middle modules
         # Not hard to change this, but not necessary for GLUE, so we stay simple
+        # TODO: Restore commit 05237edb to move to trunk + heads design instead
         task_paths = {}
         for task in tasks:
             input_module = self.input_modules[task.name]
@@ -126,14 +127,6 @@ class MetalModel(nn.Module):
     def save_weights(self, model_path):
         """Saves weight in checkpoint directory"""
         raise NotImplementedError
-
-    def _set_seed(self, seed):
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        if self.config["device"] >= 0:
-            torch.backends.cudnn.enabled = True
-            torch.cuda.manual_seed(seed)
 
     # Single task prediction helpers (for convenience)
 

@@ -79,7 +79,6 @@ fi
 python launch.py \
     --device 0 \
     --bert_model bert-base-uncased \
-    --bert_output_dim 768 \
     --max_len 200 \
     --warmup_steps 0.5 \
     --warmup_unit "epochs" \

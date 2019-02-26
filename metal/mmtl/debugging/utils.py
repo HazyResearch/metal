@@ -9,7 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
 import metal.mmtl.dataset as dataset
-from metal.mmtl.bert_tasks import create_tasks
+from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.utils import convert_labels
 
@@ -22,8 +22,7 @@ def load_data_and_model(model_path, task_name, split):
     # Create DataLoader
     bert_model = "bert-base-uncased"
     max_len = 256
-    bert_output_dim = 768
-    dl_kwargs = {"batch_size": 32, "shuffle": False}
+    dl_kwargs = {"batch_size": 1, "shuffle": False}
 
     # Load best model for specified task
     task = create_tasks(
@@ -31,9 +30,9 @@ def load_data_and_model(model_path, task_name, split):
         bert_model=bert_model,
         max_len=max_len,
         dl_kwargs=dl_kwargs,
-        bert_output_dim=bert_output_dim,
         splits=[split],
         max_datapoints=-1,
+        generate_uids=True,
     )[0]
 
     #  Load and EVAL model
@@ -46,13 +45,15 @@ def load_data_and_model(model_path, task_name, split):
 
 
 # Debugging Related Functions
-def create_dataframe(task_name, model, dl):
+def create_dataframe(task_name, model, dl, target_uids=None, max_batches=None):
     """Create dataframe with datapoint, predicted score, and true label.
 
     Args:
         task_name: task to create evaluation information for
         model: MetalModel object of model to evaluate
         dl: DataLoader object for task_name task
+        target_uids: uids to evaluate on
+        max_batches: number of batches to eval before stopping (useful for large datasets)
 
     Returns:
         DataFrame object: info. about datapoints, labels, score
@@ -60,26 +61,28 @@ def create_dataframe(task_name, model, dl):
 
     # Use BERT model to convert tokenization to sentence
     bert_model = "bert-base-uncased"
-    data = {"sentence1": [], "sentence2": [], "label": [], "score": []}
-    max_batches = 100
+    data = {"sentence1": [], "sentence2": [], "label": [], "score": [], "uid": []}
     tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
 
     # Create a list of examples and associated predicted score and true label
     count = 0
-    for x, y in tqdm(list(dl)):
-        for tokens_idx in x[0]:
-            tokens = tokenizer.convert_ids_to_tokens(tokens_idx.numpy())
-            phrases = (
-                " ".join(tokens)
-                .replace("[PAD]", "")
-                .replace("[CLS]", "")
-                .split("[SEP]")
-            )
-            data["sentence1"] += [phrases[0]]
-            if len(phrases) > 1:
-                data["sentence2"] += [phrases[1]]
-            else:
-                data["sentence2"] += ["NA"]
+    all_uids = dl.dataset.uids
+
+    # assuming data_loader batch_size=1
+    for (x, y), uid in tqdm(zip(list(dl), all_uids)):
+        if target_uids and uid not in target_uids:
+            continue
+
+        tokens_idx = x[0][0]
+        tokens = tokenizer.convert_ids_to_tokens(tokens_idx.numpy())
+        phrases = (
+            " ".join(tokens).replace("[PAD]", "").replace("[CLS]", "").split("[SEP]")
+        )
+        data["sentence1"] += [phrases[0]]
+        if len(phrases) > 1:
+            data["sentence2"] += [phrases[1]]
+        else:
+            data["sentence2"] += ["NA"]
         scores = (
             model.calculate_output(x, [task_name])[task_name]
             .detach()
@@ -90,12 +93,15 @@ def create_dataframe(task_name, model, dl):
         # Score is the predicted probabilistic label, label is the ground truth
         data["score"] += list(scores)
         data["label"] += list(convert_labels(y, "categorical", "onezero").numpy())
+        data["uid"].append(uid)
         count += 1
-        if count > max_batches:
+        if max_batches and count > max_batches:
             break
 
     # Create DataFrame with datapoint and scores, labels
-    df_error = pd.DataFrame(data, columns=["sentence1", "sentence2", "score", "label"])
+    df_error = pd.DataFrame(
+        data, columns=["sentence1", "sentence2", "score", "label", "uid"]
+    )
     df_error["is_wrong"] = 1 * (df_error.score > 0.5) != df_error["label"]
     return df_error
 

@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
 
+from metal.utils import set_seed
+
 
 class Encoder(nn.Module):
     """The Encoder implements the encode() method, which maps a batch of data to
@@ -36,7 +38,7 @@ class EmbeddingsEncoder(Encoder):
         embeddings=None,
         freeze=False,
         verbose=True,
-        seed=123,
+        seed=None,
         **kwargs,
     ):
         """
@@ -58,7 +60,7 @@ class EmbeddingsEncoder(Encoder):
         if embeddings is None:
             # Note: Need to set seed here for deterministic init
             if seed is not None:
-                self._set_seed(seed)
+                set_seed(seed)
             self.embeddings = nn.Embedding(vocab_size, encoded_size)
             if self.verbose:
                 print(f"Using randomly initialized embeddings.")
@@ -76,15 +78,6 @@ class EmbeddingsEncoder(Encoder):
                 f"{self.embeddings.embedding_dim})"
             )
             print(f"The embeddings are {'' if freeze else 'NOT '}FROZEN")
-
-    def _set_seed(self, seed):
-        self.seed = seed
-        if torch.cuda.is_available():
-            # TODO: confirm this works for gpus without knowing gpu_id
-            # torch.cuda.set_device(self.config['gpu_id'])
-            torch.backends.cudnn.enabled = True
-            torch.cuda.manual_seed(seed)
-        torch.manual_seed(seed)
 
     def _load_pretrained(self, pretrained):
         if not pretrained.dim() == 2:
@@ -128,7 +121,7 @@ class LSTMModule(nn.Module):
         lstm_reduction="max",
         bidirectional=True,
         verbose=True,
-        seed=123,
+        seed=None,
         lstm_num_layers=1,
         encoder_class=Encoder,
         encoder_kwargs={},
@@ -147,6 +140,9 @@ class LSTMModule(nn.Module):
         super().__init__()
         self.output_dim = hidden_size * 2 if bidirectional else hidden_size
         self.verbose = verbose
+
+        if seed is not None:
+            set_seed(seed)
 
         # Initialize Encoder
         # Note constructing the Encoder here is helpful for e.g. Tuner, as then
