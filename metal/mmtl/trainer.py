@@ -87,8 +87,9 @@ trainer_defaults = {
         # The list of task metrics (task/split/metric) to calculate (and log);
         # if empty, calculate all metrics supported by all tasks' Scorers.
         "task_metrics": [],
-        # The list of trainer standard metrics to calculate (and log)
-        "trainer_metrics": [],  # e.g., "glue", "glue_partial"
+        # The list of trainer standard metrics to calculate (and log); e.g., "glue"
+        # Note that glue_partial is no longer supported.
+        "trainer_metrics": ["glue"],
         # Run scorers over a maximum of this many examples if > 0.
         "max_valid_examples": 0,
         # The name of the split to run scoring on during training
@@ -444,18 +445,10 @@ class MultitaskTrainer(object):
         metrics_dict = {}
         # HACK: glue should not be hardcoded
         if "glue" in trainer_metrics:
-            if len(tasks) != 9:
-                msg = "You requested glue score but submitted fewer than 9 tasks. Use 'glue_partial' instead."
-                raise Exception(msg)
+            if len(tasks) < 9:
+                msg = "You requested glue score but have fewer than 9 tasks. Be aware."
+                warnings.warn(msg)
             metric = "glue"
-            metrics_dict[f"model/{split}/{metric}"] = glue_score(
-                self.metrics_hist, split
-            )
-        elif "glue_partial" in trainer_metrics:
-            if len(tasks) == 9:
-                msg = "You requested glue_partial score but submitted all 9 tasks. Use 'glue' instead."
-                raise Exception(msg)
-            metric = "glue_partial"
             metrics_dict[f"model/{split}/{metric}"] = glue_score(
                 self.metrics_hist, split
             )
