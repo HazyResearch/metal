@@ -8,6 +8,8 @@ import torch.utils.data as data
 from pytorch_pretrained_bert import BertTokenizer
 from torch.utils.data.sampler import Sampler, SubsetRandomSampler
 
+from metal.utils import set_seed
+
 # Import tqdm_notebook if in Jupyter notebook
 try:
     from IPython import get_ipython
@@ -222,12 +224,12 @@ class BERTDataset(data.Dataset):
         returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
 
         if split_prop:
-            assert split_prop >= 0 and split_prop <= 1
+            assert split_prop > 0 and split_prop < 1
 
             # choose random indexes for train/dev
             N = len(self)
             full_idx = np.arange(N)
-            np.random.seed(split_seed)
+            set_seed(split_seed)
             np.random.shuffle(full_idx)
 
             # split into train/dev

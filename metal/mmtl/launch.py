@@ -10,10 +10,10 @@ import os
 
 import numpy as np
 
-from metal.mmtl.glue_tasks import create_tasks
-from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.trainer import MultitaskTrainer, trainer_config
-from metal.utils import add_flags_from_config
+from metal.mmtl.glue_tasks import create_tasks, task_defaults
+from metal.mmtl.metal_model import MetalModel, model_defaults
+from metal.mmtl.trainer import MultitaskTrainer, trainer_defaults
+from metal.utils import add_flags_from_config, recursive_merge_dicts
 
 logging.basicConfig(level=logging.INFO)
 
@@ -44,24 +44,10 @@ def get_dir_name(models_dir):
         return "1"
 
 
-def merge_dicts(d1, d2):
-    """merges d2 into a copy of d1."""
-    d = d1.copy()
-    for param in d:
-        default = d[param]
-        if isinstance(default, dict):
-            d[param] = merge_dicts(default, d2)
-        else:
-            if param in d2.keys():
-                d[param] = d2[param]
-    return d
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train MetalModel on single or multiple tasks.", add_help=False
     )
-    parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
 
     # Model arguments
     # TODO: parse these automatically from model dict
@@ -69,48 +55,10 @@ if __name__ == "__main__":
         "--tasks", required=True, type=str, help="Comma-sep task list e.g. QNLI,QQP"
     )
     parser.add_argument(
-        "--bert_model",
-        type=str,
-        default="bert-base-uncased",
-        help="Which bert model to use.",
-    )
-    parser.add_argument(
         "--model_weights",
         type=str,
         default=None,
         help="Pretrained model for weight initialization",
-    )
-    parser.add_argument(
-        "--freeze_bert", action="store_true", help="Whether to freeze Bert parameters."
-    )
-    parser.add_argument(
-        "--fp16", type=int, default=0, help="fp16 for half precision model training"
-    )
-
-    # Dataset arguments
-    parser.add_argument(
-        "--max_len", type=int, default=512, help="Maximum sequence length."
-    )
-    parser.add_argument(
-        "--max_datapoints",
-        type=int,
-        default=-1,
-        help="Maximum number of examples per datasets. For debugging purposes.",
-    )
-    parser.add_argument(
-        "--batch_size", type=int, default=16, help="Batch size for training."
-    )
-    parser.add_argument(
-        "--shuffle", type=bool, default=True, help="Whether to shuffle the data or not."
-    )
-    parser.add_argument(
-        "--split_prop",
-        type=float,
-        default=None,
-        help="Proportion of training data to use for validation.",
-    )
-    parser.add_argument(
-        "--save_config_path", type=str, default=None, help="Path to save config to."
     )
 
     # Training arguments
@@ -118,74 +66,63 @@ if __name__ == "__main__":
         "--override_train_config",
         type=str,
         default=None,
-        help="Whether to override train_config dict with json loaded from path. For tuning",
+        help=(
+            "Whether to override train_config dict with json loaded from path. "
+            "This is used, e.g., for tuning."
+        ),
     )
-    parser = add_flags_from_config(parser, trainer_config)
+    parser = add_flags_from_config(parser, trainer_defaults)
+    parser = add_flags_from_config(parser, model_defaults)
+    parser = add_flags_from_config(parser, task_defaults)
     args = parser.parse_args()
 
-    config = merge_dicts(trainer_config, vars(args))
+    # Extract flags into their respective config files
+    trainer_config = recursive_merge_dicts(
+        trainer_defaults, vars(args), misses="ignore"
+    )
+    model_config = recursive_merge_dicts(model_defaults, vars(args), misses="ignore")
+    task_config = recursive_merge_dicts(task_defaults, vars(args), misses="ignore")
 
-    # set default run_dir
-    d = datetime.datetime.today()
-
-    # Override json
+    # Override config with config stored in json if specified
     if args.override_train_config is not None:
         with open(args.override_train_config, "r") as f:
             override_config = json.loads(f.read())
-        config = merge_dicts(config, override_config)
+        config = recursive_merge_dicts(trainer_config, override_config, misses="report")
 
-    # Update logging config
-    if not args.run_name:
-        run_name = args.tasks
+    # Set intelligent writer_config settings
+    trainer_config["writer"] = "tensorboard"  # Always store tensorboard logs
+    if not trainer_config["writer_config"]["run_name"]:
+        trainer_config["writer_config"]["run_name"] = args.tasks
+
+    # Set splits based on split_prop
+    if task_config["split_prop"]:
+        # Create a valid set from train set
+        task_config["split_prop"] = float(task_config["split_prop"])
+        # Sampler will be used and handles shuffle automatically
+        task_config["dl_kwargs"]["shuffle"] = False
+        task_config["splits"] = ["train", "test"]
     else:
-        run_name = args.run_name
-
-    writer_config = {
-        "log_dir": f"{os.environ['METALHOME']}/logs",
-        "run_dir": args.run_dir,
-        "run_name": run_name,
-    }
-
-    config["writer_config"] = writer_config
-    config["writer"] = "tensorboard"
+        task_config["splits"] = ["train", "valid", "test"]
 
     task_names = [task_name for task_name in args.tasks.split(",")]
-    dl_kwargs = {"batch_size": args.batch_size}
-    if not args.split_prop:
-        # we use the shuffle argument only when split_prop is None
-        # otherwise Sampler shuffles automatically
-        dl_kwargs["shuffle"] = args.shuffle
+    tasks = create_tasks(task_names, **task_config)
 
-    if args.split_prop:
-        # create a valid set from train set
-        splits = ["train", "test"]
-    else:
-        splits = ["train", "valid", "test"]
-    tasks = create_tasks(
-        task_names=task_names,
-        bert_model=args.bert_model,
-        split_prop=args.split_prop,
-        max_len=args.max_len,
-        dl_kwargs=dl_kwargs,
-        bert_kwargs={"freeze": args.freeze_bert},
-        max_datapoints=args.max_datapoints,
-        splits=splits,
-    )
+    model_config["verbose"] = False
+    model = MetalModel(tasks, **model_config)
 
-    model = MetalModel(tasks, verbose=False, device=args.device, fp16=args.fp16)
     if args.model_weights:
         model.load_weights(args.model_weights)
 
-    # add metadata to config that will be logged to disk
-    config.update(
-        {
-            "n_parameters": sum(
-                p.numel() for p in model.parameters() if p.requires_grad
-            ),
-            "batch_size": args.batch_size,
-            "max_seq_len": args.max_len,
-        }
+    # add metadata to trainer_config that will be logged to disk
+    trainer_config["n_paramaters"] = sum(
+        p.numel() for p in model.parameters() if p.requires_grad
     )
 
-    trainer = MultitaskTrainer()
-    trainer.train_model(model, tasks, **config)
+    trainer = MultitaskTrainer(**trainer_config)
+    # Force early instantiation of writer to write all three configs to dict
+    trainer._set_writer()
+    # trainer_config will get written automatically right before training
+    trainer.writer.write_config(model_config, "model_config")
+    trainer.writer.write_config(task_config, "task_config")
+
+    trainer.train_model(model, tasks)

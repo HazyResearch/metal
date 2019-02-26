@@ -38,7 +38,8 @@ else:
     else:
         from tqdm import tqdm
 
-trainer_config = {
+
+trainer_defaults = {
     "verbose": True,
     "seed": None,
     # Commit hash
@@ -87,14 +88,14 @@ trainer_config = {
         # if empty, calculate all metrics supported by all tasks' Scorers.
         "task_metrics": [],
         # The list of trainer standard metrics to calculate (and log)
-        "trainer_metrics": [],  # e.g., "glue"
+        "trainer_metrics": [],  # e.g., "glue", "glue_partial"
         # Run scorers over a maximum of this many examples if > 0.
         "max_valid_examples": 0,
         # The name of the split to run scoring on during training
         # To score over multiple splits, set valid_split=None and use task_metrics
         "valid_split": "valid",
         # The name of the split to run final evaluation on after training
-        "test_split": "test",
+        "test_split": None,  # If None, calculate final metrics over all splits
         # If non-None, only calculate and report these metrics every `score_every`
         # units (this can include the names of built-in and user-defined metrics);
         # otherwise, include all metrics returned by task Scorers.
@@ -159,7 +160,7 @@ class MultitaskTrainer(object):
     """Driver for the MTL training process"""
 
     def __init__(self, **kwargs):
-        self.config = recursive_merge_dicts(trainer_config, kwargs, misses="insert")
+        self.config = recursive_merge_dicts(trainer_defaults, kwargs, misses="insert")
 
         # Set random seeds
         if self.config["seed"] is None:
@@ -300,9 +301,10 @@ class MultitaskTrainer(object):
         # Print final performance values
         if self.config["verbose"]:
             print("Finished training")
+        # Calculate metrics for all splits if test_split=None
+        metrics_dict = self.calculate_metrics(model, tasks)
         test_split = self.config["metrics_config"]["test_split"]
-        if test_split is not None:
-            metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
+        metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
         if self.config["verbose"]:
             pprint(metrics_dict)
 
@@ -310,16 +312,11 @@ class MultitaskTrainer(object):
         # Recalculate scores using task-specific checkpoints
         if self.config["checkpoint_tasks"]:
             metrics_dict = copy.deepcopy(metrics_dict)
-            valid_split = self.config["metrics_config"]["valid_split"]
             test_split = self.config["metrics_config"]["test_split"]
             for task, checkpointer in zip(tasks, self.task_checkpointers):
                 checkpointer.load_best_model(model=model)
-                task_metrics = [
-                    checkpointer.checkpoint_metric.replace(valid_split, test_split)
-                ]
-                metrics_dict_task = task.scorer.score(
-                    model, task, task_metrics, test_split
-                )
+                # Calculate all supported metrics for given task with loaded checkpoint
+                metrics_dict_task = task.scorer.score(model, task, split=test_split)
                 metrics_dict.update(metrics_dict_task)
                 if self.writer:
                     path_to_best = os.path.join(
