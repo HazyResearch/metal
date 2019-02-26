@@ -22,7 +22,7 @@ class Tagger(object):
         with open(tag_path, "r+") as f:
             uids = set([x.strip() for x in open(tag_path, "r").readlines()])
             uids.add(uid)
-            uids = map(lambda x: x + "\n", uids)
+            uids = sorted(map(lambda x: x + "\n", uids))
             f.writelines(uids)
             f.close()
 

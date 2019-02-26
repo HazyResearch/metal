@@ -105,6 +105,7 @@ def create_tasks(task_names, **kwargs):
             max_datapoints=config["max_datapoints"],
             splits=config["splits"],
             seed=config["seed"],
+            generate_uids=kwargs.get("generate_uids", False),
             include_segments=(config["encoder_type"] == "bert"),
         )
 
