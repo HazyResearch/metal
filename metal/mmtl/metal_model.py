@@ -8,7 +8,7 @@ from metal.mmtl.task import RegressionTask
 from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts, set_seed
 
-model_config = {
+model_defaults = {
     "seed": None,
     "device": 0,  # gpu id (int) or -1 for cpu
     "verbose": True,
@@ -27,7 +27,7 @@ class MetalModel(nn.Module):
     """
 
     def __init__(self, tasks, **kwargs):
-        self.config = recursive_merge_dicts(model_config, kwargs, misses="insert")
+        self.config = recursive_merge_dicts(model_defaults, kwargs, misses="insert")
 
         # Set random seed before initializing module weights
         if self.config["seed"] is None:
