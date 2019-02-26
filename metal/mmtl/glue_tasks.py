@@ -22,13 +22,14 @@ from metal.mmtl.utils.metrics import (
     matthews_corr,
     pearson_spearman,
     ranking_acc_f1,
+    mse
 )
 from metal.utils import recursive_merge_dicts, set_seed
 
 task_defaults = {
     # General
     "split_prop": None,
-    "splits": ["train", "valid", "test"],
+    "splits": None,
     "max_len": 512,
     "max_datapoints": -1,
     "seed": None,
@@ -315,7 +316,7 @@ def create_tasks(task_names, **kwargs):
         if task_name in auxiliary_tasks.keys():
             if "BLEU" in auxiliary_tasks[task_name]:
                 bleu_dataloaders = {
-                    split: get_bleu_dataloader(dataloaders[split]) for split in splits
+                    split: get_bleu_dataloader(dataloaders[split]) for split in dataloaders.keys()
                 }
 
                 # Do we need a loss_hat_func or output_hat_fun?
@@ -324,7 +325,7 @@ def create_tasks(task_names, **kwargs):
                         name=f"{task_name}_BLEU",
                         data_loaders=bleu_dataloaders,
                         input_module=bert_hidden_layer,
-                        head_module=BertRegressionHead(bert_output_dim),
+                        head_module=RegressionHead(neck_dim),
                         scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
                     )
                 )
