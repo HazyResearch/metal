@@ -117,7 +117,7 @@ def convert_labels(Y, source, dest):
         return Y
     if isinstance(Y, np.ndarray):
         Y = Y.copy()
-        assert isinstance(Y, int)
+        assert Y.dtype == np.int64
     elif isinstance(Y, torch.Tensor):
         Y = Y.clone()
         assert np.sum(Y.numpy() - Y.numpy().astype(int)) == 0.0
@@ -244,7 +244,15 @@ def add_flags_from_config(parser, config_dict):
 
     def OrNone(default):
         def func(x):
-            return None if x.lower() == "none" else type(default)(x)
+            # Convert "none" to proper None object
+            if x.lower() == "none":
+                return None
+            # If default is None (and x is not None), return x without conversion
+            elif default is None:
+                return x
+            # Otherwise, default has non-None type; convert x to that type
+            else:
+                return type(default)(x)
 
         return func
 
