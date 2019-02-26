@@ -36,7 +36,7 @@ class EmbeddingsEncoder(Encoder):
         embeddings=None,
         freeze=False,
         verbose=True,
-        seed=123,
+        seed=None,
         **kwargs,
     ):
         """
@@ -80,8 +80,6 @@ class EmbeddingsEncoder(Encoder):
     def _set_seed(self, seed):
         self.seed = seed
         if torch.cuda.is_available():
-            # TODO: confirm this works for gpus without knowing gpu_id
-            # torch.cuda.set_device(self.config['gpu_id'])
             torch.backends.cudnn.enabled = True
             torch.cuda.manual_seed(seed)
         torch.manual_seed(seed)
@@ -128,7 +126,7 @@ class LSTMModule(nn.Module):
         lstm_reduction="max",
         bidirectional=True,
         verbose=True,
-        seed=123,
+        seed=None,
         lstm_num_layers=1,
         encoder_class=Encoder,
         encoder_kwargs={},
@@ -147,6 +145,9 @@ class LSTMModule(nn.Module):
         super().__init__()
         self.output_dim = hidden_size * 2 if bidirectional else hidden_size
         self.verbose = verbose
+
+        if seed is not None:
+            self._set_seed(seed)
 
         # Initialize Encoder
         # Note constructing the Encoder here is helpful for e.g. Tuner, as then
@@ -254,3 +255,10 @@ class LSTMModule(nn.Module):
         outputs_unpacked, _ = rnn_utils.pad_packed_sequence(outputs, batch_first=True)
         reduced = self._reduce_output(outputs_unpacked, seq_lengths)
         return reduced[inv_perm_idx, :]
+
+    def _set_seed(self, seed):
+        self.seed = seed
+        if torch.cuda.is_available():
+            torch.backends.cudnn.enabled = True
+            torch.cuda.manual_seed(seed)
+        torch.manual_seed(seed)
