@@ -190,6 +190,9 @@ class MultitaskTrainer(object):
                 f"and {self.batches_per_epoch} batches per epoch from {len(tasks)} tasks."
             )
 
+        # Check inputs
+        self._check_metrics()
+
         # Set training components
         self._set_writer()
         self._set_logger()
@@ -875,6 +878,10 @@ class MultitaskTrainer(object):
                 "task_metrics is not empty"
             )
             raise Exception(msg)
+
+    def _check_metrics(self):
+        assert isinstance(self.config["task_metrics"], list)
+        assert isinstance(self.config["trainer_metrics"], list)
 
     def _set_seed(self, seed):
         random.seed(seed)
