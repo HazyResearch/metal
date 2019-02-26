@@ -299,7 +299,6 @@ class STSBDataset(BERTDataset):
             bert_model=bert_model,
             label_fn=label_fn,
             inv_label_fn=inv_label_fn,
-            max_len=512,
             label_type=float,
             **kwargs,
         )
