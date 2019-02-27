@@ -37,6 +37,7 @@ task_defaults = {
         "batch_size": 16,
         "shuffle": True,  # Used only when split_prop is None; otherwise, use Sampler
     },
+    "task_dl_kwargs": {},  # Overwrites dl kwargs e.g. {"STSB": {"batch_size": 2}}
     "encoder_type": "bert",
     "bert_model": "bert-base-uncased",  # Required for all encoders for BertTokenizer
     # BERT
@@ -54,7 +55,9 @@ task_defaults = {
 
 def create_tasks(task_names, **kwargs):
     assert len(task_names) > 0
-    config = recursive_merge_dicts(task_defaults, kwargs)
+
+    # NOTE: misses="insert" --> currently inserts "task_dl_kwargs"
+    config = recursive_merge_dicts(task_defaults, kwargs, misses="insert")
 
     if config["seed"] is None:
         config["seed"] = np.random.randint(1e6)
@@ -99,12 +102,20 @@ def create_tasks(task_names, **kwargs):
 
     for task_name in task_names:
 
+        # Override general dl kwargs with task-specific kwargs
+        dl_kwargs = config["dl_kwargs"]
+        if task_name in config["task_dl_kwargs"]:
+            import pdb
+
+            pdb.set_trace()
+            dl_kwargs.update(config["task_dl_kwargs"][task_name])
+
         # create data loaders for task
         dataloaders = get_all_dataloaders(
             task_name if not task_name.endswith("_SAN") else task_name[:-4],
             config["bert_model"],
             max_len=config["max_len"],
-            dl_kwargs=config["dl_kwargs"],
+            dl_kwargs=dl_kwargs,
             split_prop=config["split_prop"],
             max_datapoints=config["max_datapoints"],
             splits=config["splits"],

@@ -81,6 +81,17 @@ if __name__ == "__main__":
         ),
     )
 
+    # Override dl_kwargs for specific task
+    # NOTE: (VC) we currently apply the same data loader kwargs to all tasks
+    # This allows us to override that general config for a specific task.
+    # e.g. --override_task_dl STSB.batch_size.2,SST2.batch_size.16
+    parser.add_argument(
+        "--override_task_dl",
+        type=str,
+        default=None,
+        help="Task-specific config for overriding general dl_kwargs",
+    )
+
     # Use auxiliary tasks
     parser.add_argument(
         "--use_auxiliary", type=int, default=False, help="Use auxiliary tasks or not"
@@ -122,6 +133,20 @@ if __name__ == "__main__":
         auxiliary_tasks = AUXILIARY_TASKS
     else:
         auxiliary_tasks = {}
+
+    # Overrwrite dl_kwargs for specific tasks
+    if args.override_task_dl:
+        task_configs_str = [
+            tuple(config.split(".")) for config in args.override_task_dl.split(",")
+        ]
+        task_dl_kwargs = {}
+        for config in task_configs_str:
+            task_name, kwarg_key, kwarg_val = config
+            if kwarg_key == "batch_size":
+                kwarg_val = int(kwarg_val)
+            task_dl_kwargs[task_name] = {kwarg_key: kwarg_val}
+
+        task_config["task_dl_kwargs"] = task_dl_kwargs
 
     # Getting primary task names
     task_names = [task_name for task_name in args.tasks.split(",")]
