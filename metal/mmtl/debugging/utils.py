@@ -1,14 +1,13 @@
 import os
+import random
 
 import numpy as np
 import pandas as pd
-import torch
 from pytorch_pretrained_bert import BertTokenizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
-import metal.mmtl.dataset as dataset
 from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.utils import convert_labels
@@ -251,3 +250,38 @@ def print_systematic_wrong(df, num_features=5, n=1):
     else:
         print("No matches were found for the given criteria.")
         return False
+
+
+def apply_lfs_to_df(df, lfs):
+    """Applies a list of lfs that operate over rows to each row in a dataframe
+
+    Returns: L, an [m,n] matrix of weak labels
+    """
+    n = len(df)
+    m = len(lfs)
+    L = np.zeros((n, m))
+    for i in range(n):
+        row = df.iloc[i]
+        for j, lf in enumerate(lfs):
+            L[i, j] = lf(row)
+    Y = df["label"].values
+    return L, Y
+
+
+def view_matches(df, lf, n=0, shuffle=True):
+    """Returns up to n rows that lf does not abstain on"""
+    L, Y = apply_lfs_to_df(df, [lf])
+    idxs = np.where(L[:, 0] != 0)[0]
+    if shuffle:
+        random.shuffle(idxs)
+
+    if n == 0:
+        print(f"Displaying all {len(idxs)} matches")
+    else:
+        print(f"Displaying {n}/{len(idxs)} matches")
+    print()
+
+    for i, idx in enumerate(idxs):
+        if n > 0 and i >= n:
+            break
+        print_row(df.iloc[idx])
