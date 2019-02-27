@@ -96,5 +96,4 @@ python launch.py \
     --tasks $TASK \
     --split_prop $SPLIT_PROP \
     --n_epochs $N_EPOCHS \
-    --max_datapoints $MAX_DATAPOINTS
-
+    --max_datapoints $MAX_DATAPOINTS \

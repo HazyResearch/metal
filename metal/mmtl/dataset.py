@@ -84,14 +84,14 @@ class BERTDataset(data.Dataset):
                 True: (tokens, segment), labels
                 False: tokens, labels
         """
-        tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
+        self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
         payload = self.load_tsv(
             tsv_path,
             sent1_idx,
             sent2_idx,
             label_idx,
             skip_rows,
-            tokenizer,
+            self.tokenizer,
             delimiter,
             label_fn,
             max_len,

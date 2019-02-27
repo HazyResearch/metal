@@ -1,3 +1,5 @@
+import copy
+
 import metal.mmtl.dataset as dataset_module
 
 
@@ -54,3 +56,23 @@ def get_all_dataloaders(
         for split_name in datasets:
             dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
     return dataloaders
+
+
+def get_dataloader_with_label(dataloader, label_obj):
+    """
+    dataloader: dataloader wrapping Dataset
+    label_obj: function operating on a dataset item or list of labels in correct order
+    """
+
+    dataloader_new = copy.deepcopy(dataloader)
+
+    if isinstance(label_obj, list):
+        labels_new = label_obj
+    elif callable(label_obj):
+        labels_new = [label_obj(i) for i in dataloader_new.dataset]
+    else:
+        raise ValueError("Incorrect label object type -- supply list or function")
+
+    dataloader_new.dataset.labels = labels_new
+
+    return dataloader_new
