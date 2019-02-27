@@ -1,4 +1,6 @@
-import metal.mmtl.dataset as dataset
+import copy
+
+import metal.mmtl.dataset as dataset_module
 
 
 def get_all_dataloaders(
@@ -9,6 +11,9 @@ def get_all_dataloaders(
     split_prop,
     max_datapoints,
     splits,
+    generate_uids=False,
+    include_segments=True,
+    seed=123,
     verbose=True,
 ):
     """ Initializes train/dev/test dataloaders given dataset_class"""
@@ -16,7 +21,7 @@ def get_all_dataloaders(
     if verbose:
         print(f"Loading {dataset_name} Dataset")
 
-    dataset_cls = getattr(dataset, dataset_name.upper() + "Dataset")
+    dataset_cls = getattr(dataset_module, dataset_name.upper() + "Dataset")
 
     datasets = {}
     for split_name in splits:
@@ -30,30 +35,44 @@ def get_all_dataloaders(
             bert_model=bert_model,
             max_len=max_len,
             max_datapoints=max_datapoints,
+            include_segments=include_segments,
+            generate_uids=generate_uids,
         )
 
     dataloaders = {}
 
-    # When split_prop is not None, we use create an artificial dev set from the train set and
-
+    # When split_prop is not None, we use create an artificial dev set from the train set
     if split_prop and "train" in splits:
-
         dataloaders["train"], dataloaders["valid"] = datasets["train"].get_dataloader(
-            split_prop=split_prop, **dl_kwargs
+            split_prop=split_prop, split_seed=seed, **dl_kwargs
         )
 
         # Use the dev set as test set if available.
-
         if "valid" in datasets:
-
             dataloaders["test"] = datasets["valid"].get_dataloader(**dl_kwargs)
 
     # When split_prop is None, we use standard train/dev/test splits.
-
     else:
-
         for split_name in datasets:
-
             dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
-
     return dataloaders
+
+
+def get_dataloader_with_label(dataloader, label_obj):
+    """
+    dataloader: dataloader wrapping Dataset
+    label_obj: function operating on a dataset item or list of labels in correct order
+    """
+
+    dataloader_new = copy.deepcopy(dataloader)
+
+    if isinstance(label_obj, list):
+        labels_new = label_obj
+    elif callable(label_obj):
+        labels_new = [label_obj(i) for i in dataloader_new.dataset]
+    else:
+        raise ValueError("Incorrect label object type -- supply list or function")
+
+    dataloader_new.dataset.labels = labels_new
+
+    return dataloader_new

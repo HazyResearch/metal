@@ -59,8 +59,9 @@ class Checkpointer(object):
             if self.is_best(score):
                 if self.verbose:
                     print(
-                        f"Saving model at iteration {iteration} with best "
-                        f"({self.checkpoint_metric_mode}) score {score:.3f}"
+                        f"Saving model at iteration {iteration:.2f} with best "
+                        f"({self.checkpoint_metric_mode}) score "
+                        f"{self.checkpoint_metric}={score:.3f}"
                     )
                 self.best_model_found = True
                 self.best_iteration = iteration

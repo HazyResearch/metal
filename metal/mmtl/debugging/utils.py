@@ -1,15 +1,14 @@
 import os
+import random
 
 import numpy as np
 import pandas as pd
-import torch
 from pytorch_pretrained_bert import BertTokenizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
-import metal.mmtl.dataset as dataset
-from metal.mmtl.bert_tasks import create_tasks
+from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
 from metal.utils import convert_labels
 
@@ -22,8 +21,7 @@ def load_data_and_model(model_path, task_name, split):
     # Create DataLoader
     bert_model = "bert-base-uncased"
     max_len = 256
-    bert_output_dim = 768
-    dl_kwargs = {"batch_size": 32, "shuffle": False}
+    dl_kwargs = {"batch_size": 1, "shuffle": False}
 
     # Load best model for specified task
     task = create_tasks(
@@ -31,9 +29,9 @@ def load_data_and_model(model_path, task_name, split):
         bert_model=bert_model,
         max_len=max_len,
         dl_kwargs=dl_kwargs,
-        bert_output_dim=bert_output_dim,
         splits=[split],
         max_datapoints=-1,
+        generate_uids=True,
     )[0]
 
     #  Load and EVAL model
@@ -46,57 +44,70 @@ def load_data_and_model(model_path, task_name, split):
 
 
 # Debugging Related Functions
-def create_dataframe(task_name, model, dl):
+def create_dataframe(task_name, model, dl, target_uids=None, max_batches=None):
     """Create dataframe with datapoint, predicted score, and true label.
 
     Args:
         task_name: task to create evaluation information for
         model: MetalModel object of model to evaluate
         dl: DataLoader object for task_name task
+        target_uids: uids to evaluate on
+        max_batches: number of batches to eval before stopping (useful for large datasets)
 
     Returns:
         DataFrame object: info. about datapoints, labels, score
     """
+    if task_name == "MNLI":
+        raise NotImplementedError("We currently assume binary tasks")
 
     # Use BERT model to convert tokenization to sentence
     bert_model = "bert-base-uncased"
-    data = {"sentence1": [], "sentence2": [], "label": [], "score": []}
-    max_batches = 100
+    data = {"sentence1": [], "sentence2": [], "label": [], "score": [], "uid": []}
     tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
 
     # Create a list of examples and associated predicted score and true label
     count = 0
-    for x, y in tqdm(list(dl)):
-        for tokens_idx in x[0]:
-            tokens = tokenizer.convert_ids_to_tokens(tokens_idx.numpy())
-            phrases = (
-                " ".join(tokens)
-                .replace("[PAD]", "")
-                .replace("[CLS]", "")
-                .split("[SEP]")
-            )
-            data["sentence1"] += [phrases[0]]
-            if len(phrases) > 1:
-                data["sentence2"] += [phrases[1]]
-            else:
-                data["sentence2"] += ["NA"]
+    all_uids = dl.dataset.uids
+
+    # assuming data_loader batch_size=1
+    for (x, y), uid in tqdm(zip(list(dl), all_uids)):
+        if target_uids and uid not in target_uids:
+            continue
+
+        tokens_idx = x[0][0]
+        tokens = tokenizer.convert_ids_to_tokens(tokens_idx.numpy())
+        phrases = (
+            " ".join(tokens).replace("[PAD]", "").replace("[CLS]", "").split("[SEP]")
+        )
+        data["sentence1"] += [phrases[0]]
+        if len(phrases) > 1:
+            data["sentence2"] += [phrases[1]]
+        else:
+            data["sentence2"] += ["NA"]
         scores = (
             model.calculate_output(x, [task_name])[task_name]
             .detach()
             .cpu()
             .numpy()[:, 0]
-        )  # .flatten()
+        )
 
         # Score is the predicted probabilistic label, label is the ground truth
         data["score"] += list(scores)
-        data["label"] += list(convert_labels(y, "categorical", "onezero").numpy())
+        data["label"] += list(y.numpy())
+        data["uid"].append(uid)
         count += 1
-        if count > max_batches:
+        if max_batches and count > max_batches:
             break
 
-    # Create DataFrame with datapoint and scores, labels
-    df_error = pd.DataFrame(data, columns=["sentence1", "sentence2", "score", "label"])
-    df_error["is_wrong"] = 1 * (df_error.score > 0.5) != df_error["label"]
+    # Create DataFrame with datapoint, score, label, pred, uid
+    df_error = pd.DataFrame(
+        data, columns=["sentence1", "sentence2", "score", "label", "uid"]
+    )
+    df_error["label"] = convert_labels(
+        df_error["label"].values, "categorical", "onezero"
+    )
+    df_error["pred"] = 1 * (df_error["score"] > 0.5)
+    df_error["is_wrong"] = df_error["pred"] != df_error["label"]
     return df_error
 
 
@@ -131,7 +142,16 @@ def print_random_pred(df):
     print(row)
 
 
-def print_barely_pred(df, is_incorrect=True, thresh=0.05):
+def print_examples(df, idxs, n=1):
+    n = min(n, len(idxs))
+    for idx in np.random.choice(idxs, size=n):
+        # Select random example and print
+        row = df.iloc[idx]
+        print("UID: ", row["uid"])
+        print_row(row)
+
+
+def print_barely_pred(df, is_incorrect=True, thresh=0.05, n=1):
     """Print prediction that's close to 0.5 and correct/incorrect.
     Args:
         df:  info. about datapoints, labels, score
@@ -139,47 +159,54 @@ def print_barely_pred(df, is_incorrect=True, thresh=0.05):
         thresh (float): distance predicted score is from 0.5
     """
     # Find examples that are is_incorrect and thresh near 0.5
-    thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
+    thresh_idx = np.where(np.abs(df.score - 0.5) <= thresh)[0]
     idx_true = np.where(df.is_wrong == is_incorrect)[0]
-    idx = list(set(thresh_idx).intersection(set(idx_true)))
+    matches = list(set(thresh_idx).intersection(set(idx_true)))
+    if matches:
+        print(f"{len(matches)} matches were found with the given criteria.\n")
+        print_examples(df, matches, n)
+        return True
+    else:
+        print("No matches were found for the given criteria.")
+        return False
 
-    # Select random example and print
-    id = np.random.choice(list(idx))
-    print("ID: ", id)
-    row = df.iloc[id]
-    print_row(row)
+
+def print_barely_right(df, **kwargs):
+    print_barely_pred(df, is_incorrect=False, **kwargs)
 
 
-def print_very_wrong_pred(df, thresh=0.95):
-    """Print prediction that's close to 0.5 and correct/incorrect.
+def print_barely_wrong(df, **kwargs):
+    print_barely_pred(df, is_incorrect=True, **kwargs)
+
+
+def print_very_pred(df, is_incorrect=True, thresh=0.95, n=1):
+    """Print prediction that's very confident and correct/incorrect.
     Args:
         df:  info. about datapoints, labels, score
-        thresh (float): distance predicted score is from true label
+        thresh (float): confidence of the prediction (closer to 1 = more confident)
     """
-    try:
-        # Find examples that are incorrect and thresh away from true label
-        thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
-        idx_true = np.where(df.is_wrong)[0]
-        idx = list(set(thresh_idx).intersection(set(idx_true)))
-
-        # Select random example and print
-        id = np.random.choice(list(idx))
-        print("ID: ", id)
-        row = df.iloc[id]
-    # TODO: can remove try/except by checking if list is empty
-    except ValueError:
-        print("Threshold too high, reducing by 0.05")
-        thresh_idx = np.where(np.abs(df.score - df.label) >= thresh)[0]
-        idx_true = np.where(df.is_wrong)[0]
-        idx = list(set(thresh_idx).intersection(set(idx_true)))
-        id = np.random.choice(list(idx))
-        print("ID: ", id)
-        row = df.iloc[id]
-
-    print_row(row)
+    # Find examples that are incorrect and thresh away from true label
+    thresh_idx = np.where(np.abs(df.score - 0.5) >= (thresh - 0.5))[0]
+    idx_true = np.where(df.is_wrong == is_incorrect)[0]
+    matches = list(set(thresh_idx).intersection(set(idx_true)))
+    if matches:
+        print(f"{len(matches)} matches were found with the given criteria.\n")
+        print_examples(df, matches, n)
+        return True
+    else:
+        print("No matches were found for the given criteria.")
+        return False
 
 
-def print_systematic_wrong(df_error, num_features=5):
+def print_very_right(df, **kwargs):
+    print_very_pred(df, is_incorrect=False, **kwargs)
+
+
+def print_very_wrong(df, **kwargs):
+    print_very_pred(df, is_incorrect=True, **kwargs)
+
+
+def print_systematic_wrong(df, num_features=5, n=1):
     """Print prediction that's close to 0.5 and correct/incorrect.
 
     Args:
@@ -189,15 +216,15 @@ def print_systematic_wrong(df_error, num_features=5):
 
     # Create a vector of correct/incorrect predictions
     # TODO: use MeTaL function for label conversion
-    y = 2 * (np.array(df_error.is_wrong.astype(float)) - 0.5)
+    y = 2 * (np.array(df.is_wrong.astype(float)) - 0.5)
 
     # Create corpus by combining sentences
     combined = []
-    for a, b in zip(np.array(df_error.sentence1), np.array(df_error.sentence2)):
+    for a, b in zip(np.array(df.sentence1), np.array(df.sentence2)):
         combined.append(str(a) + str(b))
 
     # Create BoW featurization
-    corpus = np.array(list(df_error.sentence1))
+    corpus = np.array(list(df.sentence1))
     vectorizer = CountVectorizer(ngram_range=(2, 5), stop_words="english")
     X = vectorizer.fit_transform(corpus)
 
@@ -213,10 +240,49 @@ def print_systematic_wrong(df_error, num_features=5):
         print(names[top_idx[i]])
         feat_idx += list(np.where(X.todense()[:, top_idx[i]] == 1)[0])
 
-    incorrect_idx = np.where(df_error.is_wrong)[0]
-    idx = list(set(feat_idx).intersection(incorrect_idx))
+    incorrect_idx = np.where(df.is_wrong)[0]
+    matches = list(set(feat_idx).intersection(incorrect_idx))
     print()
 
-    # Print random example
-    row = df_error.iloc[np.random.choice(list(idx))]
-    print_row(row)
+    if matches:
+        print(f"{len(matches)} matches were found with the given criteria.\n")
+        print_examples(df, matches, n)
+        return True
+    else:
+        print("No matches were found for the given criteria.")
+        return False
+
+
+def apply_lfs_to_df(df, lfs):
+    """Applies a list of lfs that operate over rows to each row in a dataframe
+
+    Returns: L, an [m,n] matrix of weak labels
+    """
+    n = len(df)
+    m = len(lfs)
+    L = np.zeros((n, m))
+    for i in range(n):
+        row = df.iloc[i]
+        for j, lf in enumerate(lfs):
+            L[i, j] = lf(row)
+    Y = df["label"].values
+    return L, Y
+
+
+def view_matches(df, lf, n=0, shuffle=True):
+    """Returns up to n rows that lf does not abstain on"""
+    L, Y = apply_lfs_to_df(df, [lf])
+    idxs = np.where(L[:, 0] != 0)[0]
+    if shuffle:
+        random.shuffle(idxs)
+
+    if n == 0:
+        print(f"Displaying all {len(idxs)} matches")
+    else:
+        print(f"Displaying {n}/{len(idxs)} matches")
+    print()
+
+    for i, idx in enumerate(idxs):
+        if n > 0 and i >= n:
+            break
+        print_row(df.iloc[idx])

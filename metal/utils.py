@@ -1,3 +1,4 @@
+import argparse
 import copy
 import random
 from collections import defaultdict
@@ -97,13 +98,15 @@ def arraylike_to_numpy(array_like):
     return array_like
 
 
-def convert_labels(Y, source, dest):
+def convert_labels(Y, source, target):
     """Convert a matrix from one label type to another
 
     Args:
-        Y: A np.ndarray or torch.Tensor of labels (ints)
+        Y: A np.ndarray or torch.Tensor of labels (ints) using source convention
         source: The convention the labels are currently expressed in
-        dest: The convention to convert the labels to
+        target: The convention to convert the labels to
+    Returns:
+        Y: an np.ndarray or torch.Tensor of labels (ints) using the target convention
 
     Conventions:
         'categorical': [0: abstain, 1: positive, 2: negative]
@@ -116,14 +119,14 @@ def convert_labels(Y, source, dest):
         return Y
     if isinstance(Y, np.ndarray):
         Y = Y.copy()
-        assert isinstance(Y, int)
+        assert Y.dtype == np.int64
     elif isinstance(Y, torch.Tensor):
         Y = Y.clone()
         assert np.sum(Y.numpy() - Y.numpy().astype(int)) == 0.0
     else:
         raise ValueError("Unrecognized label data type.")
     negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}
-    Y[Y == negative_map[source]] = negative_map[dest]
+    Y[Y == negative_map[source]] = negative_map[target]
     return Y
 
 
@@ -243,7 +246,15 @@ def add_flags_from_config(parser, config_dict):
 
     def OrNone(default):
         def func(x):
-            return None if x.lower() == "none" else type(default)(x)
+            # Convert "none" to proper None object
+            if x.lower() == "none":
+                return None
+            # If default is None (and x is not None), return x without conversion
+            elif default is None:
+                return x
+            # Otherwise, default has non-None type; convert x to that type
+            else:
+                return type(default)(x)
 
         return func
 
@@ -253,23 +264,26 @@ def add_flags_from_config(parser, config_dict):
             continue
 
         default = config_dict[param]
-        if isinstance(default, dict):
-            parser = add_flags_from_config(parser, default)
-        elif isinstance(default, list):
-            if len(default) > 0:
-                # pass a list as argument
-                parser.add_argument(
-                    f"--{param}",
-                    action="append",
-                    type=type(default[0]),
-                    default=default,
-                )
+        try:
+            if isinstance(default, dict):
+                parser = add_flags_from_config(parser, default)
+            elif isinstance(default, list):
+                if len(default) > 0:
+                    # pass a list as argument
+                    parser.add_argument(
+                        f"--{param}",
+                        action="append",
+                        type=type(default[0]),
+                        default=default,
+                    )
+                else:
+                    parser.add_argument(f"--{param}", action="append", default=default)
             else:
-                parser.add_argument(f"--{param}", action="append", default=default)
-        elif default is None:
-            parser.add_argument(f"--{param}", default=None)
-        else:
-            parser.add_argument(f"--{param}", type=OrNone(default), default=default)
+                parser.add_argument(f"--{param}", type=OrNone(default), default=default)
+        except argparse.ArgumentError:
+            print(
+                f"Could not add flag for param {param} because it was already present."
+            )
     return parser
 
 
@@ -424,3 +438,13 @@ def move_to_device(obj, device=-1):
         return tuple([move_to_device(item, device) for item in obj])
     else:
         return obj
+
+
+def set_seed(seed):
+    seed = int(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.enabled = True  # Is this necessary?
+        torch.cuda.manual_seed(seed)

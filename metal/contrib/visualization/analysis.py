@@ -76,19 +76,19 @@ def _get_conflicts_matrix(L, normalize=True):
 ############################################################
 
 
-def plot_probabilities_histogram(Y_p, title=None):
+def plot_probabilities_histogram(Y_probs, title=None):
     """Plot a histogram from a numpy array of probabilities
 
     Args:
-        Y_p: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
+        Y_probs: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
     """
-    if Y_p.ndim > 1:
+    if Y_probs.ndim > 1:
         msg = (
-            f"Arg Y_p should be a 1-dimensional np.ndarray, not of shape "
-            f"{Y_p.shape}."
+            f"Arg Y_probs should be a 1-dimensional np.ndarray, not of shape "
+            f"{Y_probs.shape}."
         )
         raise ValueError(msg)
-    plt.hist(Y_p, bins=20)
+    plt.hist(Y_probs, bins=20)
     plt.xlim((0, 1.025))
     plt.xlabel("Probability")
     plt.ylabel("# Predictions")
@@ -97,17 +97,17 @@ def plot_probabilities_histogram(Y_p, title=None):
     plt.show()
 
 
-def plot_predictions_histogram(Y_ph, Y, title=None):
+def plot_predictions_histogram(Y_preds, Y_gold, title=None):
     """Plot a histogram comparing int predictions vs true labels by class
 
     Args:
-        Y_ph: An [n] or [n, 1] np.ndarray of predicted int labels
-        Y: An [n] or [n, 1] np.ndarray of gold labels
+        Y_gold: An [n] or [n, 1] np.ndarray of gold labels
+        Y_preds: An [n] or [n, 1] np.ndarray of predicted int labels
     """
-    labels = list(set(Y).union(set(Y_ph)))
+    labels = list(set(Y_gold).union(set(Y_preds)))
     edges = [x - 0.5 for x in range(min(labels), max(labels) + 2)]
 
-    plt.hist([Y_ph, Y], bins=edges, label=["Predicted", "Gold"])
+    plt.hist([Y_preds, Y_gold], bins=edges, label=["Predicted", "Gold"])
     ax = plt.gca()
     ax.set_xticks(labels)
     plt.xlabel("Label")
@@ -118,24 +118,24 @@ def plot_predictions_histogram(Y_ph, Y, title=None):
     plt.show()
 
 
-def plot_calibration_histogram(Y_p, Y, title=None, legend=True):
+def plot_calibration_histogram(Y_probs, Y_gold, title=None, legend=True):
     """Plot a histogram of correct predictions from an array of probabilities
 
     Args:
-        Y_p: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
-        Y: An [n] or [n, 1] np.ndarray of gold labels
+        Y_probs: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
+        Y_gold: An [n] or [n, 1] np.ndarray of gold labels
     """
-    if Y_p.ndim > 1:
-        Y_ph = np.argmax(np.array(Y_p), axis=1).astype(float) + 1.0
-        Y_p = Y_p[:, 0]
+    if Y_probs.ndim > 1:
+        Y_preds = np.argmax(np.array(Y_probs), axis=1).astype(float) + 1.0
+        Y_probs = Y_probs[:, 0]
     else:
-        Y_ph = (np.sign(Y_p - 0.5) + 1.0) / 2.0
+        Y_preds = (np.sign(Y_probs - 0.5) + 1.0) / 2.0
 
-    correct_idx = list(np.where(Y_ph == Y)[0])
-    print("Accuracy: ", len(correct_idx) / (1.0 * len(Y_p)))
+    correct_idx = list(np.where(Y_preds == Y_gold)[0])
+    print("Accuracy: ", len(correct_idx) / (1.0 * len(Y_probs)))
 
-    Y_p_correct = Y_p[correct_idx]
-    plt.hist(Y_p, bins=20, alpha=0.75)
+    Y_p_correct = Y_probs[correct_idx]
+    plt.hist(Y_probs, bins=20, alpha=0.75)
     plt.hist(Y_p_correct, bins=20, alpha=0.75)
     plt.xlim((0, 1.025))
     plt.xlabel("Probability")
