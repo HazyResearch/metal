@@ -58,7 +58,7 @@ def create_tasks(task_names, **kwargs):
 
     if config["seed"] is None:
         config["seed"] = np.random.randint(1e6)
-        print(f"Using random seed: {config['seed']}.")
+        print(f"Using random seed: {config['seed']}")
     set_seed(config["seed"])
 
     # share bert encoder for all tasks
