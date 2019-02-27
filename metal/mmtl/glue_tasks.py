@@ -105,9 +105,6 @@ def create_tasks(task_names, **kwargs):
         # Override general dl kwargs with task-specific kwargs
         dl_kwargs = config["dl_kwargs"]
         if task_name in config["task_dl_kwargs"]:
-            import pdb
-
-            pdb.set_trace()
             dl_kwargs.update(config["task_dl_kwargs"][task_name])
 
         # create data loaders for task
