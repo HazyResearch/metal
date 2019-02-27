@@ -95,7 +95,7 @@ def create_tasks(task_names, **kwargs):
 
     # creates task and appends to `tasks` list for each `task_name`
     tasks = []
-    # auxiliary_tasks = kwargs.get("auxiliary_tasks")
+    auxiliary_tasks = kwargs.get("auxiliary_tasks")
 
     for task_name in task_names:
 
@@ -311,24 +311,23 @@ def create_tasks(task_names, **kwargs):
             )
 
         # --------- AUXILIARY TASKS BELOW THIS POINT ---------
+        if task_name in auxiliary_tasks.keys():
+            if "BLEU" in auxiliary_tasks[task_name]:
+                bleu_dataloaders = {
+                    split: get_bleu_dataloader(dataloaders[split])
+                    for split in dataloaders.keys()
+                }
 
-        # if task_name in auxiliary_tasks.keys():
-        #     if "BLEU" in auxiliary_tasks[task_name]:
-        #         bleu_dataloaders = {
-        #             split: get_bleu_dataloader(dataloaders[split])
-        #             for split in dataloaders.keys()
-        #         }
-
-        #         # Do we need a loss_hat_func or output_hat_fun?
-        #         tasks.append(
-        #             RegressionTask(
-        #                 name=f"{task_name}_BLEU",
-        #                 data_loaders=bleu_dataloaders,
-        #                 input_module=bert_hidden_layer,
-        #                 head_module=RegressionHead(neck_dim),
-        #                 scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
-        #             )
-        #         )
+                # Do we need a loss_hat_func or output_hat_fun?
+                tasks.append(
+                    RegressionTask(
+                        name=f"{task_name}_BLEU",
+                        data_loaders=bleu_dataloaders,
+                        input_module=bert_hidden_layer,
+                        head_module=RegressionHead(neck_dim),
+                        scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
+                    )
+                )
 
         tasks.append(task)
     return tasks
