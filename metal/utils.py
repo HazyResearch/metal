@@ -118,7 +118,8 @@ def convert_labels(Y, source, target):
     if Y is None:
         return Y
     if isinstance(Y, np.ndarray):
-        Y = Y.copy().astype(int)
+        Y = Y.copy()
+        assert Y.dtype == np.int64
     elif isinstance(Y, torch.Tensor):
         Y = Y.clone()
         assert np.sum(Y.numpy() - Y.numpy().astype(int)) == 0.0
