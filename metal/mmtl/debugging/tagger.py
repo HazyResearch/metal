@@ -27,6 +27,7 @@ class Tagger(object):
             uids = sorted(map(lambda x: x + "\n", uids))
             f.writelines(uids)
             f.close()
+        print(f"Added 1 tag. Tag set '{tag}' contains {len(uids)} tags.")
 
     def get_uids(self, tag):
         tag_path = self._get_tag_path(tag)
