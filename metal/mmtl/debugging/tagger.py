@@ -6,6 +6,8 @@ class Tagger(object):
         self,
         tags_dir=os.path.join(os.environ["METALHOME"], "metal/mmtl/debugging/tags"),
     ):
+        if not os.path.isdir(tags_dir):
+            os.mkdir(tags_dir)
         self.tags_dir = tags_dir
 
     def _get_tag_path(self, tag):
