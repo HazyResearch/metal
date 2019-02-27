@@ -3,9 +3,8 @@ from nltk.translate.bleu_score import sentence_bleu
 
 from metal.mmtl.utils.dataset_utils import get_dataloader_with_label
 
+
 # Function to create BLEU dataloaders
-
-
 def get_bleu_dataloader(dataloader):
     def get_bleu_label(it):
         toks, segs = it[0]
