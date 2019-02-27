@@ -34,16 +34,16 @@ elif [ $TASK = "MNLI" ]; then
 
 elif [ $TASK = "RTE" ]; then
     LR=5e-5
-    L2=0
-    SPLIT_PROP=0.9
+    L2=0.001
     CHECKPOINT_METRIC="RTE/valid/accuracy"
     CHECKPOINT_METRIC_MODE="max"
+    N_EPOCHS=5
 
 elif [ $TASK = "WNLI" ]; then
-    LR=1e-4
-    L2=0
-    SPLIT_PROP=0.9
+    LR=1e-3
+    L2=0.01
     BATCH_SIZE=32
+    N_EPOCHS=10
 
 elif [ $TASK = "QQP" ]; then
     LR=1e-5
@@ -86,7 +86,6 @@ python launch.py \
     --lr_scheduler "linear" \
     --min_lr $MIN_LR \
     --log_every 0.25 --score_every 0.25 \
-    --checkpoint_dir checkpoints \
     --checkpoint_metric $CHECKPOINT_METRIC \
     --checkpoint_metric_mode $CHECKPOINT_METRIC_MODE \
     --checkpoint_best 1 \
@@ -95,7 +94,6 @@ python launch.py \
     --l2 $L2 \
     --batch_size $BATCH_SIZE \
     --tasks $TASK \
-    --split_prop $SPLIT_PROP \
     --n_epochs $N_EPOCHS \
     --max_datapoints $MAX_DATAPOINTS
 

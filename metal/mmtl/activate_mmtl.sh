@@ -2,7 +2,7 @@ export METALHOME="$( cd "$( dirname "../../${BASH_SOURCE[0]}" )" && pwd )"
 export PYTHONPATH="$PYTHONPATH:$METALHOME"
 echo "Added Snorkel MeTaL repository ($METALHOME) to \$PYTHONPATH."
 
-export GLUEDATA="/dfs/scratch0/bradenjh/glue"
+export GLUEDATA="/dfs/scratch0/paroma/glue"
 echo "Added data path ($GLUEDATA) to environment variables."
 
 export CUDA_VISIBLE_DEVICES="0"
