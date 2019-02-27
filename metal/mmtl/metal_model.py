@@ -97,6 +97,7 @@ class MetalModel(nn.Module):
 
     def calculate_loss(self, X, Y, task_names):
         """Returns a dict of {task_name: loss (an FloatTensor scalar)}."""
+
         return {
             t: self.loss_hat_funcs[t](out, move_to_device(Y, self.config["device"]))
             for t, out in self.forward(X, task_names).items()
