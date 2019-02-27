@@ -143,6 +143,7 @@ def print_random_pred(df):
 
 
 def print_examples(df, idxs, n=1):
+    n = min(n, len(idxs))
     for idx in np.random.choice(idxs, size=n):
         # Select random example and print
         row = df.iloc[idx]
@@ -285,4 +286,3 @@ def view_matches(df, lf, n=0, shuffle=True):
         if n > 0 and i >= n:
             break
         print_row(df.iloc[idx])
-
