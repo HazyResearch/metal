@@ -143,6 +143,7 @@ def print_random_pred(df):
 
 
 def print_examples(df, idxs, n=1):
+    n = min(n, len(idxs))
     for idx in np.random.choice(idxs, size=n):
         # Select random example and print
         row = df.iloc[idx]
