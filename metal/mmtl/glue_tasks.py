@@ -98,7 +98,7 @@ def create_tasks(task_names, **kwargs):
 
     # creates task and appends to `tasks` list for each `task_name`
     tasks = []
-    auxiliary_tasks = kwargs.get("auxiliary_tasks")
+    auxiliary_tasks = kwargs.get("auxiliary_tasks", {})
 
     for task_name in task_names:
 

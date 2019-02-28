@@ -53,7 +53,7 @@ def get_full_sumbisison_dir(submission_dir):
     return os.path.join(submission_dir, submission_count)
 
 
-def get_model_paths(model_paths_list):
+def get_model_paths(model_paths_list, eval_split):
     """Parse model path list and verify that 9 checkpoints are provided, with exactly only per task."""
     task_count = 0
     model_paths = []
@@ -68,7 +68,9 @@ def get_model_paths(model_paths_list):
                 task_count += 1
         # model_paths_dict[','.join(task_names)] = model_path
         model_paths.append((task_names, model_path))
-    assert task_count == 9
+    if eval_split == "test":
+        # make sure we have all 9 tasks for submission
+        assert task_count == 9
     return model_paths
 
 
@@ -155,7 +157,7 @@ if __name__ == "__main__":
             open(os.path.join(submission_dir, "model_paths.json"), "w"),
         )
 
-    model_paths = get_model_paths(args.model_paths)
+    model_paths = get_model_paths(args.model_paths, args.eval_split)
     all_scores = []
 
     dl_kwargs = {"batch_size": args.batch_size, "shuffle": False}
