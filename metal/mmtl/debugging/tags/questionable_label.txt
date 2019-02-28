@@ -1,3 +1,8 @@
+MRPC/dev.tsv:1080
+MRPC/dev.tsv:1156
+MRPC/dev.tsv:1249
+MRPC/dev.tsv:575
+MRPC/dev.tsv:794
 CoLA/dev.tsv:1041
 CoLA/dev.tsv:125
 CoLA/dev.tsv:195
