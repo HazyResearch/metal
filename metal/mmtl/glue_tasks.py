@@ -5,8 +5,7 @@ import torch
 import torch.nn as nn
 
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
-
-# from metal.mmtl.auxiliary_tasks import get_bleu_dataloader  # Comment until fixed
+from metal.mmtl.auxiliary_tasks import get_bleu_dataloader
 from metal.mmtl.modules import (
     BertEncoder,
     BertHiddenLayer,
@@ -38,6 +37,7 @@ task_defaults = {
         "batch_size": 16,
         "shuffle": True,  # Used only when split_prop is None; otherwise, use Sampler
     },
+    "task_dl_kwargs": {},  # Overwrites dl kwargs e.g. {"STSB": {"batch_size": 2}}
     "encoder_type": "bert",
     "bert_model": "bert-base-uncased",  # Required for all encoders for BertTokenizer
     # BERT
@@ -55,7 +55,9 @@ task_defaults = {
 
 def create_tasks(task_names, **kwargs):
     assert len(task_names) > 0
-    config = recursive_merge_dicts(task_defaults, kwargs)
+
+    # NOTE: misses="insert" --> currently inserts "task_dl_kwargs"
+    config = recursive_merge_dicts(task_defaults, kwargs, misses="insert")
 
     if config["seed"] is None:
         config["seed"] = np.random.randint(1e6)
@@ -96,16 +98,21 @@ def create_tasks(task_names, **kwargs):
 
     # creates task and appends to `tasks` list for each `task_name`
     tasks = []
-    # auxiliary_tasks = kwargs.get("auxiliary_tasks")
+    auxiliary_tasks = kwargs.get("auxiliary_tasks", {})
 
     for task_name in task_names:
+
+        # Override general dl kwargs with task-specific kwargs
+        dl_kwargs = config["dl_kwargs"]
+        if task_name in config["task_dl_kwargs"]:
+            dl_kwargs.update(config["task_dl_kwargs"][task_name])
 
         # create data loaders for task
         dataloaders = get_all_dataloaders(
             task_name if not task_name.endswith("_SAN") else task_name[:-4],
             config["bert_model"],
             max_len=config["max_len"],
-            dl_kwargs=config["dl_kwargs"],
+            dl_kwargs=dl_kwargs,
             split_prop=config["split_prop"],
             max_datapoints=config["max_datapoints"],
             splits=config["splits"],
@@ -312,24 +319,23 @@ def create_tasks(task_names, **kwargs):
             )
 
         # --------- AUXILIARY TASKS BELOW THIS POINT ---------
+        if task_name in auxiliary_tasks.keys():
+            if "BLEU" in auxiliary_tasks[task_name]:
+                bleu_dataloaders = {
+                    split: get_bleu_dataloader(dataloaders[split])
+                    for split in dataloaders.keys()
+                }
 
-        # if task_name in auxiliary_tasks.keys():
-        #     if "BLEU" in auxiliary_tasks[task_name]:
-        #         bleu_dataloaders = {
-        #             split: get_bleu_dataloader(dataloaders[split])
-        #             for split in dataloaders.keys()
-        #         }
-
-        #         # Do we need a loss_hat_func or output_hat_fun?
-        #         tasks.append(
-        #             RegressionTask(
-        #                 name=f"{task_name}_BLEU",
-        #                 data_loaders=bleu_dataloaders,
-        #                 input_module=bert_hidden_layer,
-        #                 head_module=RegressionHead(neck_dim),
-        #                 scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
-        #             )
-        #         )
+                # Do we need a loss_hat_func or output_hat_fun?
+                tasks.append(
+                    RegressionTask(
+                        name=f"{task_name}_BLEU",
+                        data_loaders=bleu_dataloaders,
+                        input_module=bert_hidden_layer,
+                        head_module=RegressionHead(neck_dim),
+                        scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
+                    )
+                )
 
         tasks.append(task)
     return tasks

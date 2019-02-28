@@ -286,4 +286,3 @@ def view_matches(df, lf, n=0, shuffle=True):
         if n > 0 and i >= n:
             break
         print_row(df.iloc[idx])
-
