@@ -249,9 +249,9 @@ def add_flags_from_config(parser, config_dict):
             # Convert "none" to proper None object
             if x.lower() == "none":
                 return None
-            # If default is None (and x is not None), return x without conversion
+            # If default is None (and x is not None), return x without conversion as str
             elif default is None:
-                return x
+                return str(x)
             # Otherwise, default has non-None type; convert x to that type
             else:
                 return type(default)(x)
