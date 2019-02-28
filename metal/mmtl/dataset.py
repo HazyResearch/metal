@@ -136,6 +136,9 @@ class BERTDataset(data.Dataset):
             uids = []
 
         tokens, segments, labels = [], [], []
+
+        # TODO: Replace a lot of this boilerplate with:
+        #  pd.read_csv(filepath, sep='\t', error_bad_lines=False)
         with codecs.open(data_file, "r", "utf-8") as data_fh:
             # skip "header" rows
             for _ in range(skip_rows):
