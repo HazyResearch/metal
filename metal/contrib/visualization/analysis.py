@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sparse
 
+from metal.utils import convert_labels
+
 ############################################################
 # Label Matrix Plotting
 ############################################################
@@ -83,11 +85,8 @@ def plot_probabilities_histogram(Y_probs, title=None):
         Y_probs: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
     """
     if Y_probs.ndim > 1:
-        msg = (
-            f"Arg Y_probs should be a 1-dimensional np.ndarray, not of shape "
-            f"{Y_probs.shape}."
-        )
-        raise ValueError(msg)
+        print("Plotting probabilities from the first column of Y_probs")
+        Y_probs = Y_probs[:, 0]
     plt.hist(Y_probs, bins=20)
     plt.xlim((0, 1.025))
     plt.xlabel("Probability")
@@ -118,29 +117,42 @@ def plot_predictions_histogram(Y_preds, Y_gold, title=None):
     plt.show()
 
 
-def plot_calibration_histogram(Y_probs, Y_gold, title=None, legend=True):
-    """Plot a histogram of correct predictions from an array of probabilities
+def plot_calibration_plot(Y_probs, Y_gold, bins=20, title=None):
+    """Plot a histogram of the accuracy for predictions with varying confidences
 
     Args:
         Y_probs: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
         Y_gold: An [n] or [n, 1] np.ndarray of gold labels
+
+    For a well-behaved classifier, the plot should be a U-shape.
     """
+    # For now, we only tackle binary classification with categorical labels
+    assert all(Y_gold > 0)
+    assert all(Y_gold <= 2)
+
     if Y_probs.ndim > 1:
-        Y_preds = np.argmax(np.array(Y_probs), axis=1).astype(float) + 1.0
+        print("Plotting probabilities from the first column of Y_probs")
         Y_probs = Y_probs[:, 0]
-    else:
-        Y_preds = (np.sign(Y_probs - 0.5) + 1.0) / 2.0
+    Y_preds = convert_labels((Y_probs > 0.5).astype(np.int64), "onezero", "categorical")
 
-    correct_idx = list(np.where(Y_preds == Y_gold)[0])
-    print("Accuracy: ", len(correct_idx) / (1.0 * len(Y_probs)))
+    correct_idxs = Y_preds == Y_gold
+    centers = []
+    accuracies = []
+    interval = 1 / bins
+    for i in range(bins + 1):
+        if i == bins:
+            bin_idxs = (interval * i <= Y_probs) * (Y_probs <= 1)
+        else:
+            bin_idxs = (interval * i <= Y_probs) * (Y_probs < interval * (i + 1))
+        bin_accuracy = sum(bin_idxs * correct_idxs) / sum(bin_idxs)
+        centers.append(interval * (i + 0.5))
+        accuracies.append(bin_accuracy)
 
-    Y_p_correct = Y_probs[correct_idx]
-    plt.hist(Y_probs, bins=20, alpha=0.75)
-    plt.hist(Y_p_correct, bins=20, alpha=0.75)
+    # print("Accuracy: ", len(correct_idx) / (1.0 * len(Y_probs)))
+    # Y_p_correct = Y_probs[correct_idx]
+    plt.plot(centers, accuracies)
     plt.xlim((0, 1.025))
     plt.xlabel("Probability")
-    plt.ylabel("# Predictions")
+    plt.ylabel("Accuracy")
     if isinstance(title, str):
         plt.title(title)
-    if legend:
-        plt.legend(["All", "Correct"])
