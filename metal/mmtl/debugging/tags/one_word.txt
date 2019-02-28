@@ -13,3 +13,9 @@ CoLA/dev.tsv:729
 CoLA/dev.tsv:732
 CoLA/dev.tsv:916
 CoLA/dev.tsv:927
+QQP/dev.tsv:3166
+QQP/dev.tsv:402
+QQP/dev.tsv:421
+QQP/dev.tsv:4271
+QQP/dev.tsv:458
+QQP/dev.tsv:663
