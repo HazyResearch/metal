@@ -2,11 +2,11 @@
 
 search_space = {
     # hyperparams
-    "l2": [1e-2],  # 1e-4 looked same as 1e-3
-    "batch_size": [16],
-    "lr": [8e-5, 5e-5, 2e-5, 1e-5],  # 1e-4 and 1e-5 did worse
-    # "min_lr": [1e-5, 1e-6, 0],
-    "lr_scheduler": ["linear"],  # exponential did worse
+    "l2": [0],
+    "batch_size": [2],
+    "lr": [1e-5, 8e-6, 8e-6, 6e-6],
+    "lr_scheduler": ["exponential"],
+    "gamma": [0.99],
 }
 
 launch_args = {
@@ -15,6 +15,7 @@ launch_args = {
     "fp16": 1,
     # Model specification
     "bert_model": "bert-large-uncased",
+    # "bert_output_dim": 1024,
     # Dataloader specification
     "max_len": 200,
     # Checkpointing and logging
@@ -37,5 +38,5 @@ launch_args = {
     # "run_dir": "test_run",
     # "run_name": "test_name"
     # Task arguments
-    "tasks": "MNLI",
+    "tasks": "STSB",
 }
