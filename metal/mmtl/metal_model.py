@@ -95,21 +95,25 @@ class MetalModel(nn.Module):
             for t in task_names
         }
 
-    def calculate_loss(self, X, Y, task_names):
-        """Returns a dict of {task_name: loss (an FloatTensor scalar)}."""
-        # Add special handling for fp16 mode (moving date to appropriate type)
-        if self.config["fp16"] and Y.dtype == torch.float32:
-            return {
-                t: self.loss_hat_funcs[t](
-                    out.half(), move_to_device(Y.half(), self.config["device"])
-                )
-                for t, out in self.forward(X, task_names).items()
-            }
-        else:
-            return {
-                t: self.loss_hat_funcs[t](out, move_to_device(Y, self.config["device"]))
-                for t, out in self.forward(X, task_names).items()
-            }
+    def calculate_loss(self, X, *Ys, task_names=[]):
+        """Returns a dict of {task_name: loss (an FloatTensor scalar)}.
+
+        Args:
+            X: an appropriate input for forward()
+            Ys: an iterable of labels corresponding to task_names appropriate for the
+                corresponding loss functions
+        """
+        outputs = self.forward(X, task_names)
+        loss_dict = {}
+        for task_name, Y in zip(task_names, Ys):
+            out = outputs[task_name]
+            if self.config["fp16"] and Y.dtype == torch.float32:
+                out = out.half()
+                Y = Y.half()
+            loss_dict[task_name] = self.loss_hat_funcs[task_name](
+                out, move_to_device(Y, self.config["device"])
+            )
+        return loss_dict
 
     @torch.no_grad()
     def calculate_output(self, X, task_names):
@@ -140,14 +144,14 @@ class MetalModel(nn.Module):
     # Single task prediction helpers (for convenience)
 
     @torch.no_grad()
-    def predict_probs(self, task, split):
+    def predict_probs(self, task, split, **kwargs):
         """Return probabilistic labels for a single task and split
 
         Returns:
             probs: an [n, k] np.ndarray of probabilities
         """
         self.eval()
-        _, Y_probs = self._predict_probs(task, split)
+        _, Y_probs = self._predict_probs(task, split, **kwargs)
         return Y_probs
 
     @torch.no_grad()
@@ -201,7 +205,9 @@ class MetalModel(nn.Module):
             return scores
 
     @torch.no_grad()
-    def _predict_probs(self, task, split, return_preds=False, max_examples=0, **kwargs):
+    def _predict_probs(
+        self, task, split, return_preds=False, max_examples=0, labelset_idx=0, **kwargs
+    ):
         """Unzips the dataloader of a task's split and returns Y, Y_prods, Y_preds
 
         Note: it is generally preferable to use predict() or predict_probs() unless
@@ -222,7 +228,8 @@ class MetalModel(nn.Module):
         Y_probs = []
         total = 0
         for batch_num, batch in enumerate(task.data_loaders[split]):
-            Xb, Yb = batch
+            Xb = batch[0]
+            Yb = batch[labelset_idx + 1]
             Y.append(Yb)
             Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
             total += Yb.shape[0]

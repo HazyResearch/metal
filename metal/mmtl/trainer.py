@@ -220,22 +220,17 @@ class MultitaskTrainer(object):
                 total=self.batches_per_epoch,
                 disable=(not progress_bar),
             )
-            for batch_num, (task_names, batch) in t:
+            for batch_num, (batch, task_names) in t:
                 # NOTE: actual batch_size may not equal config's target batch_size,
                 # for example due to orphan batches
-                # TODO (BH): Determine very explicitly what we require of X or Y in
-                # order to get the batchsize; we only need one dimension, but would
-                # like to allow for maximum flexibilty of data/label formatting.
-                # Will Y always be a list or 1D np.ndarray? No!
-                _, Y = batch
-                batch_size = len(Y)
+                batch_size = len(batch[0])
                 batch_id = epoch * self.batches_per_epoch + batch_num
 
                 # Zero the parameter gradients
                 self.optimizer.zero_grad()
 
                 # Forward pass to calculate the average loss per example
-                losses = model.calculate_loss(*batch, task_names)
+                losses = model.calculate_loss(*batch, task_names=task_names)
                 loss = sum(losses.values())
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
@@ -472,10 +467,9 @@ class MultitaskTrainer(object):
         # Note that if max_examples > 0, some tasks may be underrepresented in the first
         # max_examples examples.
         task_scheduler = ProportionalScheduler(model, tasks, split)
-        for task_names, batch in task_scheduler.get_batches(tasks, split):
-            _, Y = batch
-            batch_size = len(Y)
-            losses = model.calculate_loss(*batch, task_names)
+        for batch, task_names in task_scheduler.get_batches(tasks, split):
+            batch_size = len(batch[0])
+            losses = model.calculate_loss(*batch, task_names=task_names)
             for task_name, loss in losses.items():
                 task_losses[task_name] += loss.item() * batch_size
                 task_examples[task_name] += batch_size
