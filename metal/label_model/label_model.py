@@ -91,7 +91,7 @@ class LabelModel(Classifier):
         # Get the higher-order clique statistics based on the clique tree
         # First, iterate over the maximal cliques (nodes of c_tree) and
         # separator sets (edges of c_tree)
-        if higher_order:
+        if self.higher_order:
             L_aug = np.copy(L_ind)
             for item in chain(self.c_tree.nodes(), self.c_tree.edges()):
                 if isinstance(item, int):
@@ -159,7 +159,7 @@ class LabelModel(Classifier):
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
         """
-        L_aug = self._get_augmented_label_matrix(L)
+        L_aug = self._get_augmented_label_matrix(L,higher_order=self.higher_order)
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy(L_aug.T @ L_aug / self.n).float()
 
@@ -258,11 +258,13 @@ class LabelModel(Classifier):
         """
         self._set_constants(L)
 
-        L_aug = self._get_augmented_label_matrix(L)
+        L_aug = self._get_augmented_label_matrix(L, higher_order=self.higher_order)
         mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
 
         # Create a "junction tree mask" over the columns of L_aug / mu
         if len(self.deps) > 0:
+            L_aug = self._get_augmented_label_matrix(L, higher_order=self.higher_order)
+            mu = np.clip(self.mu.detach().clone().numpy(), 0.01, 0.99)
             jtm = np.zeros(L_aug.shape[1])
 
             # All maximal cliques are +1
@@ -355,6 +357,11 @@ class LabelModel(Classifier):
         nodes = range(self.m)
         self.deps = deps
         self.c_tree = get_clique_tree(nodes, deps)
+        if len(deps) > 0:
+            self.higher_order = True
+        else:
+            self.higher_order = False
+
 
     def train_model(
         self,
