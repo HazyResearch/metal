@@ -78,9 +78,9 @@ class RegressionTask(Task):
         input_module,
         head_module,
         scorer=Scorer(standard_metrics=[]),
-        # TODO: Figure out why we throw a long-float mismatch error without this .float() cast
+        # TODO: (@JD): fix this with auxiliary -- removed Y_gold[.float()] for fp16
         loss_hat_func=(
-            lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold.float())
+            lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold)
         ),
         output_hat_func=(torch.sigmoid),
     ) -> None:
