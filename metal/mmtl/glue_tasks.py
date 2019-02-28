@@ -37,7 +37,7 @@ task_defaults = {
         "batch_size": 16,
         "shuffle": True,  # Used only when split_prop is None; otherwise, use Sampler
     },
-    "task_dl_kwargs": {},  # Overwrites dl kwargs e.g. {"STSB": {"batch_size": 2}}
+    "task_dl_kwargs": None,  # Overwrites dl kwargs e.g. {"STSB": {"batch_size": 2}}
     "encoder_type": "bert",
     "bert_model": "bert-base-uncased",  # Required for all encoders for BertTokenizer
     # BERT
@@ -56,8 +56,7 @@ task_defaults = {
 def create_tasks(task_names, **kwargs):
     assert len(task_names) > 0
 
-    # NOTE: misses="insert" --> currently inserts "task_dl_kwargs"
-    config = recursive_merge_dicts(task_defaults, kwargs, misses="insert")
+    config = recursive_merge_dicts(task_defaults, kwargs)
 
     if config["seed"] is None:
         config["seed"] = np.random.randint(1e6)
@@ -96,6 +95,18 @@ def create_tasks(task_names, **kwargs):
     else:
         raise NotImplementedError
 
+    # create dict override dl_kwarg for specific task
+    # e.g. {"STSB": {"batch_size": 2}}
+    task_dl_kwargs = {}
+    if config["task_dl_kwargs"]:
+        task_configs_str = [
+            tuple(config.split(".")) for config in config["task_dl_kwargs"].split(",")
+        ]
+        for (task_name, kwarg_key, kwarg_val) in task_configs_str:
+            if kwarg_key == "batch_size":
+                kwarg_val = int(kwarg_val)
+            task_dl_kwargs[task_name] = {kwarg_key: kwarg_val}
+
     # creates task and appends to `tasks` list for each `task_name`
     tasks = []
     auxiliary_tasks = kwargs.get("auxiliary_tasks", {})
@@ -104,8 +115,8 @@ def create_tasks(task_names, **kwargs):
 
         # Override general dl kwargs with task-specific kwargs
         dl_kwargs = config["dl_kwargs"]
-        if task_name in config["task_dl_kwargs"]:
-            dl_kwargs.update(config["task_dl_kwargs"][task_name])
+        if task_name in task_dl_kwargs:
+            dl_kwargs.update(task_dl_kwargs[task_name])
 
         # create data loaders for task
         dataloaders = get_all_dataloaders(
