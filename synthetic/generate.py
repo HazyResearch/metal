@@ -58,6 +58,7 @@ class SingleTaskTreeDepsGenerator(object):
         theta_range: (tuple) The min and max possible values for theta, the
             class conditional accuracy for each labeling source
         edge_prob: edge density in the graph of correlations between sources
+        edges: (list) The list of edges representing correlations between sources
         theta_edge_range: The min and max possible values for theta_edge, the
             strength of correlation between correlated sources
 
@@ -76,15 +77,20 @@ class SingleTaskTreeDepsGenerator(object):
         class_balance=None,
         theta_range=(0, 1.5),
         edge_prob=0.0,
-        theta_edge_range=(-1, 1),
+        edges=None,
+        theta_edge_range=(0.5, 1),
         **kwargs
     ):
         self.n = n
         self.m = m
         self.k = k
 
-        # Generate correlation structure: edges self.E, parents dict self.parent
-        self._generate_edges(edge_prob)
+        if edges is None:
+            # Generate correlation structure: edges self.E, parents dict self.parent
+            self._generate_edges(edge_prob)
+        else:
+            # Save correlation structure: edges self.E, parents dict self.parent
+            self._save_edges(edges)
 
         # Generate class-conditional LF & edge parameters, stored in self.theta
         self._generate_params(theta_range, theta_edge_range)
@@ -116,6 +122,17 @@ class SingleTaskTreeDepsGenerator(object):
                 p_i = choice(i)
                 self.E.append((p_i, i))
                 self.parent[i] = p_i
+
+    def _save_edges(self, edges):
+        """Save tree-structured dependency graph based on a
+        specified list of edges.
+
+        Also create helper data struct mapping child -> parent.
+        """
+        self.E, self.parent = [], {}
+        for p_i, i in edges:
+            self.E.append((p_i, i))
+            self.parent[i] = p_i
 
     def _generate_params(self, theta_range, theta_edge_range):
         self.theta = defaultdict(float)
