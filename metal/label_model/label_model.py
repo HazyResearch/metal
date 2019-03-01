@@ -159,7 +159,7 @@ class LabelModel(Classifier):
         Note that we only include the k non-abstain values of each source,
         otherwise the model not minimal --> leads to singular matrix
         """
-        L_aug = self._get_augmented_label_matrix(L,higher_order=self.higher_order)
+        L_aug = self._get_augmented_label_matrix(L, higher_order=self.higher_order)
         self.d = L_aug.shape[1]
         self.O = torch.from_numpy(L_aug.T @ L_aug / self.n).float()
 
@@ -199,13 +199,26 @@ class LabelModel(Classifier):
         # Note that self.O must have been computed already!
         lps = torch.diag(self.O).numpy()
 
-        # TODO: Update for higher-order cliques!
         self.mu_init = torch.zeros(self.d, self.k)
-        for i in range(self.m):
-            for y in range(self.k):
-                idx = i * self.k + y
-                mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y], 0, 1)
-                self.mu_init[idx, y] += mu_init
+        # If no mu_init passed in
+        if self.cond_probs is None:
+            for i in range(self.m):
+                for y in range(self.k):
+                    idx = i * self.k + y
+                    mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y], 0, 1)
+                    self.mu_init[idx, y] += mu_init
+
+        # mu_init from cond_probs
+        else:
+            if self.ind_lfs is None:
+                raise ValueError(f"Must pass in independent LF indices")
+
+            for i, ind_idx in enumerate(self.ind_lfs):
+                for y in range(self.k):
+                    idx = ind_idx * self.k + y
+                    self.mu_init[idx, y] = torch.FloatTensor(
+                        [self.cond_probs[i, y + 1, y]]
+                    )
 
         # Initialize randomly based on self.mu_init
         self.mu = nn.Parameter(self.mu_init.clone() * np.random.random()).float()
@@ -362,13 +375,14 @@ class LabelModel(Classifier):
         else:
             self.higher_order = False
 
-
     def train_model(
         self,
         L_train,
         Y_dev=None,
         deps=[],
         class_balance=None,
+        cond_probs=None,
+        ind_lfs=None,
         log_writer=None,
         **kwargs,
     ):
@@ -384,6 +398,8 @@ class LabelModel(Classifier):
                 sources. If not provided, sources are assumed to be independent.
                 TODO: add automatic dependency-learning code
             class_balance: (np.array) each class's percentage of the population
+            cond_probs: [m', k+1, k] array estimates of conditional probabilities
+            ind_lfs: indices for labeling functions with cond_probs
 
         (1) No dependencies (conditionally independent sources): Estimate mu
         subject to constraints:
@@ -417,6 +433,10 @@ class LabelModel(Classifier):
         # "inverse form" approach for handling dependencies
         # This flag allows us to eg test the latter even with no deps present
         self.inv_form = len(self.deps) > 0
+
+        # Initialize variables from ClassBalancedModel to set mu constraints
+        self.cond_probs = cond_probs
+        self.ind_lfs = ind_lfs
 
         # Creating this faux dataset is necessary for now because the LabelModel
         # loss functions do not accept inputs, but Classifer._train_model()
