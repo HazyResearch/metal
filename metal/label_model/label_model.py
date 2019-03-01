@@ -199,26 +199,24 @@ class LabelModel(Classifier):
         # Note that self.O must have been computed already!
         lps = torch.diag(self.O).numpy()
 
+        # TODO: mu_init changes somewhere
         self.mu_init = torch.zeros(self.d, self.k)
-        # If no mu_init passed in
-        if self.cond_probs is None:
-            for i in range(self.m):
-                for y in range(self.k):
-                    idx = i * self.k + y
-                    mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y], 0, 1)
-                    self.mu_init[idx, y] += mu_init
+        for i in range(self.m):
+            for y in range(self.k):
+                idx = i * self.k + y
+                mu_init = torch.clamp(lps[idx] * prec_init[i] / self.p[y], 0, 1)
+                self.mu_init[idx, y] += mu_init
 
-        # mu_init from cond_probs
-        else:
+        if self.cond_probs is not None:
             if self.ind_lfs is None:
                 raise ValueError(f"Must pass in independent LF indices")
 
-            for i, ind_idx in enumerate(self.ind_lfs):
-                for y in range(self.k):
-                    idx = ind_idx * self.k + y
-                    self.mu_init[idx, y] = torch.FloatTensor(
-                        [self.cond_probs[i, y + 1, y]]
-                    )
+            mu_idx = [il * self.k + y for il in self.ind_lfs]
+            for y in range(self.k):
+                # import pdb; pdb.set_trace()
+                self.mu_init[mu_idx, y] = torch.FloatTensor(
+                    [self.cond_probs[:, y + 1, y]]
+                )
 
         # Initialize randomly based on self.mu_init
         self.mu = nn.Parameter(self.mu_init.clone() * np.random.random()).float()
