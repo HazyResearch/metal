@@ -211,9 +211,8 @@ class LabelModel(Classifier):
             if self.ind_lfs is None:
                 raise ValueError(f"Must pass in independent LF indices")
 
-            mu_idx = [il * self.k + y for il in self.ind_lfs]
             for y in range(self.k):
-                # import pdb; pdb.set_trace()
+                mu_idx = [il * self.k + y for il in self.ind_lfs]
                 self.mu_init[mu_idx, y] = torch.FloatTensor(
                     [self.cond_probs[:, y + 1, y]]
                 )
