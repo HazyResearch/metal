@@ -15,8 +15,13 @@ class Task(ABC):
             TODO: replace this with a more fully-featured path through the network
         input_module: (nn.Module) The input module
         head_module: (nn.Module) The task head module
-        data: A dict of DataLoaders (instances and labels) to feed through the network
-            with keys in ["train", "valid", "test"]
+        data_loaders: A dict of DataLoaders to feed through the network
+            Each key in data.keys() should be in ["train", "valid", "test"]
+            The DataLoaders should return batches of (X, Ys) pairs, where X[0] returns
+                a complete input for feeding into the input_module, and Ys is a tuple
+                containing S label sets, such that Y[0][0] is the appropriate label(s)
+                to pass into the loss head for the first example and first label set.
+        task_names: an [S] list of task names corresponding to the S label sets
         scorer: A Scorer that returns a metrics_dict object.
         loss_hat_func: A function of the form f(forward(X), Y) -> loss (scalar Tensor)
             We recommend returning an average loss per example so that loss magnitude
@@ -33,6 +38,7 @@ class Task(ABC):
         scorer,
         loss_hat_func,
         output_hat_func,
+        task_names=None,
     ) -> None:
         self.name = name
         self.data_loaders = data_loaders
@@ -41,6 +47,8 @@ class Task(ABC):
         self.scorer = scorer
         self.loss_hat_func = loss_hat_func
         self.output_hat_func = output_hat_func
+        # TODO: get the task_names from the Payload, not the Task
+        self.task_names = tuple(task_names) if task_names is not None else (name,)
 
 
 class ClassificationTask(Task):
@@ -55,6 +63,7 @@ class ClassificationTask(Task):
         scorer=Scorer(standard_metrics=["accuracy"]),
         loss_hat_func=(lambda Y_prob, Y_gold: F.cross_entropy(Y_prob, Y_gold - 1)),
         output_hat_func=(partial(F.softmax, dim=1)),
+        task_names=None,
     ) -> None:
 
         super(ClassificationTask, self).__init__(
@@ -65,6 +74,7 @@ class ClassificationTask(Task):
             scorer,
             loss_hat_func,
             output_hat_func,
+            task_names,
         )
 
 
@@ -78,11 +88,12 @@ class RegressionTask(Task):
         input_module,
         head_module,
         scorer=Scorer(standard_metrics=[]),
-        # TODO: Figure out why we throw a long-float mismatch error without this .float() cast
+        # TODO: (@JD): fix this with auxiliary -- removed Y_gold[.float()] for fp16
         loss_hat_func=(
-            lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold.float())
+            lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold)
         ),
         output_hat_func=(torch.sigmoid),
+        task_names=None,
     ) -> None:
 
         super(RegressionTask, self).__init__(
@@ -93,4 +104,5 @@ class RegressionTask(Task):
             scorer,
             loss_hat_func,
             output_hat_func,
+            task_names,
         )

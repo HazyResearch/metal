@@ -31,7 +31,7 @@ class ProportionalScheduler(TaskScheduler):
         random.shuffle(batch_assignments)
 
         for task_idx in batch_assignments:
-            yield ([tasks[task_idx].name], next(data_loaders[task_idx]))
+            yield (next(data_loaders[task_idx]), [tasks[task_idx].name])
 
 
 class StagedScheduler(TaskScheduler):
@@ -42,11 +42,11 @@ class StagedScheduler(TaskScheduler):
     sampling equally from all tasks.
 
     For example, if X is the largest task, start by training only on batches of X, then
-    on X and Y, then on X, Y, and Z:
+    on X and Y, then on X, Y, and Z. This resets every epoch:
 
-    XXXXXXXXXXXXXXX
-         YYYYYYYYYY
-                ZZZ
+    XXXXXXXXXXXXXXX|XXXXXXXXXXXXXXX
+         YYYYYYYYYY|     YYYYYYYYYY
+                ZZZ|            ZZZ
     """
 
     def get_batches(self, tasks, split, **kwargs):
@@ -56,13 +56,21 @@ class StagedScheduler(TaskScheduler):
         for i in reversed(range(max_count)):
             for task, count, loader in zip(tasks, batch_counts, data_loaders):
                 if count > i:
-                    yield ([task.name], next(loader))
+                    yield (next(loader), [task.name])
 
 
 class SuperStagedScheduler(TaskScheduler):
     """Returns batches from an increasing number of tasks over _all_ epochs
 
-    e.g., the first epoch may only consist of task 1 if it has many more examples than
+    For example, if X is the largest task, start by training only on batches of X, then
+    on X and Y, then on X, Y, and Z. So with two epochs worth of data (where Z has
+    three batches total):
+
+    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+              YYYYYYYYYYYYYYYYYYYY
+                            ZZZZZZ
+
+    Thus, the first "epoch" may only consist of task 1 if it has many more examples than
     the other tasks.
     """
 
@@ -91,5 +99,5 @@ class SuperStagedScheduler(TaskScheduler):
             if batch is None:
                 data_loaders[idx] = iter(tasks[idx].data_loaders[split])
                 batch = next(data_loaders[idx], None)
-            yield ([task_name], batch)
+            yield (batch, [task_name])
         self.epoch += 1

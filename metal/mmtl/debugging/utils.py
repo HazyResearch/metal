@@ -136,7 +136,7 @@ def print_row(row):
 def print_random_pred(df):
     """Print random row of error dataframe"""
     idx = np.range(np.shape(df)[0])
-    id = np.random.choice(list(idx))
+    id = np.random.choice(list(idx), replace=False)
     print("ID: ", id)
     row = df.iloc[id]
     print(row)
@@ -144,7 +144,7 @@ def print_random_pred(df):
 
 def print_examples(df, idxs, n=1):
     n = min(n, len(idxs))
-    for idx in np.random.choice(idxs, size=n):
+    for idx in np.random.choice(idxs, size=n, replace=False):
         # Select random example and print
         row = df.iloc[idx]
         print("UID: ", row["uid"])
