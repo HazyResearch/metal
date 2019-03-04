@@ -71,9 +71,9 @@ def create_tasks(task_names, **kwargs):
         del bert_kwargs["freeze_bert"]
         bert_encoder = BertEncoder(config["bert_model"], **bert_kwargs)
         bert_hidden_layer = BertHiddenLayer(bert_encoder)
-        if config["bert_model"] == "bert-base-uncased":
+        if "base" in config["bert_model"]:
             neck_dim = 768
-        elif config["bert_model"] == "bert-large-uncased":
+        elif "large" in config["bert_model"]:
             neck_dim = 1024
         input_module = bert_hidden_layer
     elif config["encoder_type"] == "lstm":
