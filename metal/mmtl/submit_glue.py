@@ -3,9 +3,12 @@ import argparse
 import datetime
 import json
 import os
+import warnings
 import zipfile
+from collections import Counter
 
 import numpy as np
+from scipy.stats import mode
 
 from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
@@ -16,7 +19,7 @@ task_to_name_dict = {
     "STSB": "STS-B",
     "SST2": "SST-2",
     "COLA": "CoLA",
-    "MNLI": {"mismatched": "MNLI-mm", "matched": "MNLI-m", "diagnostic": "diagnostic"},
+    "MNLI": {"mismatched": "MNLI-mm", "matched": "MNLI-m", "diagnostic": "AX"},
     "MNLI_SAN": {
         "mismatched": "MNLI-mm",
         "matched": "MNLI-m",
@@ -53,27 +56,6 @@ def get_full_sumbisison_dir(submission_dir):
     return os.path.join(submission_dir, submission_count)
 
 
-def get_model_paths(model_paths_list, eval_split):
-    """Parse model path list and verify that 9 checkpoints are provided, with exactly only per task."""
-    task_count = 0
-    model_paths = []
-    seen_tasks = []
-    for model_path in model_paths_list:
-        task_names = []
-        for task_name in task_to_name_dict:
-            if task_name in model_path:
-                assert task_name not in seen_tasks
-                task_names.append(task_name)
-                seen_tasks.append(task_name)
-                task_count += 1
-        # model_paths_dict[','.join(task_names)] = model_path
-        model_paths.append((task_names, model_path))
-    if eval_split == "test":
-        # make sure we have all 9 tasks for submission
-        assert task_count == 9
-    return model_paths
-
-
 def save_tsv(predictions, task_name, state, submission_dir):
     if isinstance(task_to_name_dict[task_name], dict):
         file_name = task_to_name_dict[task_name][state]
@@ -87,10 +69,10 @@ def save_tsv(predictions, task_name, state, submission_dir):
     print("Saved TSV to: ", file_path)
 
 
-def zipdir(submission_dir):
+def zipdir(submission_dir, zip_filename):
     # ziph is zipfile handle
     zipf = zipfile.ZipFile(
-        os.path.join(submission_dir, "submission.zip"), "w", zipfile.ZIP_DEFLATED
+        os.path.join(submission_dir, zip_filename), "w", zipfile.ZIP_DEFLATED
     )
     for root, dirs, files in os.walk(submission_dir):
         for file in files:
@@ -100,11 +82,29 @@ def zipdir(submission_dir):
     zipf.close()
 
 
+def ensemble_preds(predictions):
+    ensemble_preds = {}
+    for (task_name, state), preds in predictions.items():
+        preds = np.array(preds)
+        if preds.shape[0] > 1:
+            warnings.warn(f"Ensembling {preds.shape[0]} models for {task_name} task")
+        if task.name != "STSB":
+            # get majority vote for classification tasks
+            final_pred = mode(preds, axis=0).mode
+        else:
+            # average scores for regression tasks
+            final_pred = preds.mean(0)
+        ensemble_preds[(task_name, state)] = list(final_pred.flatten())
+    return ensemble_preds
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Create sumbission zip file for GLUE MTL challenge.", add_help=True
     )
-    parser.add_argument("--model_paths", action="append", type=str)
+    parser.add_argument(
+        "--model_paths", type=str, help="Path to json dict with model paths."
+    )
     parser.add_argument("--device", type=int, help="0 for gpu, -1 for cpu", default=0)
     parser.add_argument(
         "--copy_models",
@@ -118,25 +118,19 @@ if __name__ == "__main__":
         default=os.path.join(os.environ["METALHOME"], "submissions"),
     )
     parser.add_argument(
+        "--zip_filename",
+        type=str,
+        help="Name for the submission zip.",
+        default="submission.zip",
+    )
+    parser.add_argument(
         "--eval_split",
         type=str,
-        help="Which data split to evaluate on ['test', 'dev']."
-        "If eval_split=test, this scrip will compute predictions on all test splits and save them into a zip."
+        help="Which data split to evaluate on ['test', 'dev']. "
+        "If eval_split=test, this scrip will compute predictions on all test splits and save them into a zip. "
         "If eval_split=dev, the script will only compute and report metric on the dev set"
         "useful to debug before submitting to leaderboard.",
         default="test",
-    )
-    parser.add_argument(
-        "--bert_model",
-        type=str,
-        default="bert-base-uncased",
-        help="Which bert model to use.",
-    )
-    parser.add_argument(
-        "--bert_output_dim", type=int, default=768, help="Bert model output dimension."
-    )
-    parser.add_argument(
-        "--max_len", type=int, default=256, help="Maximum sequence length."
     )
     parser.add_argument(
         "--max_datapoints",
@@ -144,97 +138,131 @@ if __name__ == "__main__":
         default=-1,
         help="Maximum number of examples per datasets. For debugging purposes.",
     )
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size.")
     parser.add_argument(
-        "--batch_size", type=int, default=16, help="Batch size for training."
+        "--use_task_checkpoints",
+        action="store_true",
+        help="Whether to use global checkpoint or task checkpoints for MTL models.",
     )
     args = parser.parse_args()
 
+    with open(args.model_paths) as f:
+        models = json.load(f)
     if args.eval_split == "test":
         submission_dir = get_full_sumbisison_dir(args.submission_dir)
         os.mkdir(submission_dir)
-        json.dump(
-            args.model_paths,
-            open(os.path.join(submission_dir, "model_paths.json"), "w"),
-        )
-
-    model_paths = get_model_paths(args.model_paths, args.eval_split)
-    all_scores = []
+        json.dump(models, open(os.path.join(submission_dir, "model_paths.json"), "w"))
 
     dl_kwargs = {"batch_size": args.batch_size, "shuffle": False}
+    predictions = {}
 
-    for task_names, model_path in model_paths:
+    for names, model_dirs in models.items():
+        task_names = names.split(",")
 
-        # create model
-        tasks = create_tasks(
-            task_names=task_names,
-            bert_model=args.bert_model,
-            max_len=args.max_len,
-            dl_kwargs=dl_kwargs,
-            bert_output_dim=args.bert_output_dim,
-            splits=[args.eval_split],
-            max_datapoints=args.max_datapoints,
-        )
+        for model_dir in model_dirs:
 
-        # load model weights
-        model = MetalModel(tasks, verbose=False, device=args.device)
-        model.load_weights(model_path)
-        model.eval()
-        for task in tasks:
+            with open(os.path.join(model_dir, "task_config.json")) as f:
+                task_config = json.load(f)
 
-            if "MNLI" in task.name:
-                # need to predict on mismatched and matched
-                states = ["mismatched", "matched"]
-                splits = [f"{args.eval_split}_{state}" for state in states]
-                if args.eval_split == "test":
-                    # predict on diagnostic dataset for submission
-                    splits.append("diagnostic")
-                    states.append("diagnostic")
-                task.data_loaders = get_all_dataloaders(
-                    task.name,
-                    args.bert_model,
-                    max_len=args.max_len,
-                    dl_kwargs=dl_kwargs,
-                    max_datapoints=args.max_datapoints,
-                    splits=splits,
-                    split_prop=None,
-                )
-            else:
-                states = [None]
-                splits = [args.eval_split]
+            # TODO: find a nicer way to get task names
+            # create model
+            bert_model = task_config["bert_model"]
+            max_len = task_config["max_len"]
+            tasks = create_tasks(
+                task_names=os.path.basename(os.path.dirname(model_dir))
+                .split("_")[0]
+                .split("."),
+                bert_model=bert_model,
+                max_len=max_len,
+                dl_kwargs={},
+                splits=[],
+                max_datapoints=-1,
+            )
+            model = MetalModel(tasks, verbose=False, device=args.device)
+            if not args.use_task_checkpoints:
+                # load model weights
+                model_path = os.path.join(model_dir, "best_model.pth")
+                model.load_weights(model_path)
+                model.eval()
 
-            if args.eval_split == "dev":
-                # just compute evaluation metrics for debugging
-                score = task.scorer.score(model, task)
-                all_scores.append(score)
+            for task in tasks:
 
-            else:
-                for i, split in enumerate(splits):
-                    # predict on test set
-                    Y, Y_probs, Y_preds = model._predict_probs(
-                        task, split=split, return_preds=True
-                    )
+                # only predict for specified tasks
+                if task.name in task_names:
 
-                    inv_label_fn = task.data_loaders[split].dataset.inv_label_fn
+                    # reload task specific checkpoints for MTL models
+                    if len(tasks) > 0 and args.use_task_checkpoints:
+                        model_path = os.path.join(
+                            model_dir, f"checkpoints/{task.name}/best_model.pth"
+                        )
+                        model.load_weights(model_path)
+                        model.eval()
 
-                    if task.name != "STSB":
-                        predicted_labels = [inv_label_fn(pred) for pred in Y_preds]
+                    # get dataloaders
+                    if "MNLI" in task.name:
+                        # need to predict on mismatched and matched
+                        states = ["mismatched", "matched"]
+                        splits = [f"{args.eval_split}_{state}" for state in states]
+                        if args.eval_split == "test":
+                            # predict on diagnostic dataset for submission
+                            splits.append("diagnostic")
+                            states.append("diagnostic")
+
                     else:
-                        # STSB is a regression task so we directly return scores
-                        predicted_labels = [
-                            round(inv_label_fn(pred), 3) for pred in Y_probs.flatten()
-                        ]
+                        states = [None]
+                        splits = [args.eval_split]
 
-                    # save predictions on test set for submission
-                    save_tsv(predicted_labels, task.name, states[i], submission_dir)
+                    task.data_loaders = get_all_dataloaders(
+                        task.name,
+                        bert_model,
+                        max_len=max_len,
+                        dl_kwargs=dl_kwargs,
+                        max_datapoints=args.max_datapoints,
+                        splits=splits,
+                        split_prop=None,
+                    )
+                    if args.eval_split["dev"]:
+                        # just compute evaluation metrics for debugging
+                        print(model_path)
+                        score = task.scorer.score(model, task)
+                        print(score)
 
-                # copy model weights and config to submission dir
-                model_dir = os.path.dirname(model_path)
+                    else:
+                        for state, split in zip(states, splits):
+                            # predict on test set
+                            Y, Y_probs, Y_preds = model._predict_probs(
+                                task, split=split, return_preds=True
+                            )
+                            inv_label_fn = task.data_loaders[split].dataset.inv_label_fn
+                            if task.name != "STSB":
+                                predicted_labels = [
+                                    inv_label_fn(pred) for pred in Y_preds
+                                ]
+                            else:
+                                # STSB is a regression task so we directly return scores
+                                predicted_labels = [
+                                    round(inv_label_fn(pred), 3)
+                                    for pred in Y_probs.flatten()
+                                ]
+                            if (task.name, state) in predictions:
+                                predictions[(task.name, state)].append(predicted_labels)
+                            else:
+                                predictions[(task.name, state)] = [predicted_labels]
 
+    if len(predictions) != 11 and args.eval_split == "test":
+        # make sure all 11 files are present before zipping
+        warnings.warn(
+            f"You only specified model paths for {len(predictions)} tasks. The submission zip will be malformed."
+        )
+    ensemble_predictions = ensemble_preds(predictions)
+
+    for (task_name, state), predicted_labels in ensemble_predictions.items():
+        # save predictions on test set for submission
+        save_tsv(predicted_labels, task_name, state, submission_dir)
         if args.eval_split == "test" and args.copy_models:
+            # copy model weights and config to submission dir
+            model_dir = os.path.dirname(model_path)
             os.system(f"cp -r {model_dir} {submission_dir}")
 
     if args.eval_split == "test":
-        zipdir(submission_dir)
-    else:
-        for score in all_scores:
-            print(score)
+        zipdir(submission_dir, args.zip_filename)
