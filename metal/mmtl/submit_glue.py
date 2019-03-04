@@ -221,7 +221,7 @@ if __name__ == "__main__":
                         splits=splits,
                         split_prop=None,
                     )
-                    if args.eval_split["dev"]:
+                    if args.eval_split == "dev":
                         # just compute evaluation metrics for debugging
                         print(model_path)
                         score = task.scorer.score(model, task)
