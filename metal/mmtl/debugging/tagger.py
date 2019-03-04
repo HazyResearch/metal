@@ -60,7 +60,7 @@ class Tagger(object):
                 fn_lines = f.readlines()
 
             # take the raw line, remove \n, and split by \t for readability
-            exs = [(uid, fn_lines[l].strip().split("\t")) for l in lines]
+            exs = [(f"{fn}:{l}", fn_lines[l].strip().split("\t")) for l in lines]
             examples.extend(exs)
 
         return examples
