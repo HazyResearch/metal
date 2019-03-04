@@ -47,7 +47,7 @@ def get_label_fn(input_dict):
     return input_dict.get, reverse_dict.get
 
 
-class BERTDataset(data.Dataset):
+class GLUEDataset(data.Dataset):
     """
     Torch dataset object for Glue task, to work with BERT architecture.
     """
@@ -300,7 +300,7 @@ class BERTDataset(data.Dataset):
             return idx_matrix, label_matrix
 
 
-class QNLIDataset(BERTDataset):
+class QNLIDataset(GLUEDataset):
     """
     Torch dataset object for QNLI binary classification task, to work with BERT architecture.
     """
@@ -321,7 +321,7 @@ class QNLIDataset(BERTDataset):
         )
 
 
-class STSBDataset(BERTDataset):
+class STSBDataset(GLUEDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = (
             lambda x: float(x) / 5,
@@ -341,7 +341,7 @@ class STSBDataset(BERTDataset):
         )
 
 
-class SST2Dataset(BERTDataset):
+class SST2Dataset(GLUEDataset):
     def __init__(self, split, bert_model, **kwargs):
         # TODO: why do we want 1 to stay 1?
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})  # reserve 0 for abstain
@@ -359,7 +359,7 @@ class SST2Dataset(BERTDataset):
         )
 
 
-class COLADataset(BERTDataset):
+class COLADataset(GLUEDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(COLADataset, self).__init__(
@@ -376,7 +376,7 @@ class COLADataset(BERTDataset):
         )
 
 
-class MNLIDataset(BERTDataset):
+class MNLIDataset(GLUEDataset):
     def __init__(self, split, bert_model, **kwargs):
         # split = "dev_matched" if split == "dev" else "train"
         gold_cols = {
@@ -406,7 +406,7 @@ class MNLIDataset(BERTDataset):
         )
 
 
-class RTEDataset(BERTDataset):
+class RTEDataset(GLUEDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
         super(RTEDataset, self).__init__(
@@ -423,7 +423,7 @@ class RTEDataset(BERTDataset):
         )
 
 
-class WNLIDataset(BERTDataset):
+class WNLIDataset(GLUEDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(WNLIDataset, self).__init__(
@@ -440,7 +440,7 @@ class WNLIDataset(BERTDataset):
         )
 
 
-class QQPDataset(BERTDataset):
+class QQPDataset(GLUEDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(QQPDataset, self).__init__(
@@ -457,7 +457,7 @@ class QQPDataset(BERTDataset):
         )
 
 
-class MRPCDataset(BERTDataset):
+class MRPCDataset(GLUEDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(MRPCDataset, self).__init__(
@@ -498,7 +498,7 @@ class PairwiseRankingSampler(Sampler):
         return 2 * len(self.indices)
 
 
-class QNLIRDataset(BERTDataset):
+class QNLIRDataset(GLUEDataset):
     """
     Torch dataset object for QNLI pairwise ranking task, to work with BERT architecture.
     The input tsv should be sorted such that every two consecutive lines
