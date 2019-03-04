@@ -1,3 +1,4 @@
+import copy
 import random
 
 import numpy as np
@@ -114,7 +115,7 @@ def create_tasks(task_names, **kwargs):
     for task_name in task_names:
 
         # Override general dl kwargs with task-specific kwargs
-        dl_kwargs = config["dl_kwargs"]
+        dl_kwargs = copy.deepcopy(config["dl_kwargs"])
         if task_name in task_dl_kwargs:
             dl_kwargs.update(task_dl_kwargs[task_name])
 
