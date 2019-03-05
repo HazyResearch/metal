@@ -59,6 +59,25 @@ task_defaults = {
 }
 
 
+def get_attention_module(config, neck_dim):
+    # Get attention head
+    attention_config = config["attention_config"]
+    if attention_config["attention_module"] is None:
+        attention_module = None
+    elif attention_config["attention_module"] == "soft":
+        nonlinearity = attention_config["nonlinearity"]
+        if nonlinearity == "tanh":
+            nl_fun = nn.Tanh()
+        elif nonlinearity == "sigmoid":
+            nl_fun = nn.Sigmoid()
+        else:
+            raise ValueError('Unrecognized attention nonlinearity')
+        attention_module = SoftAttentionModule(neck_dim, nonlinearity=nl_fun)
+    else:
+        raise ValueError('Unrecognized attention layer')
+
+    return attention_module
+
 def create_tasks(task_names, **kwargs):
     assert len(task_names) > 0
 
@@ -100,22 +119,6 @@ def create_tasks(task_names, **kwargs):
         input_module = lstm
     else:
         raise NotImplementedError
-
-    # Get attention head
-    attention_config = config["attention_config"]
-    if attention_config["attention_module"] is None:
-        attention_module = None
-    elif attention_config["attention_module"] == "soft":
-        nonlinearity = attention_config["nonlinearity"]
-        if nonlinearity == "tanh":
-            nl_fun = nn.Tanh()
-        elif nonlinearity == "sigmoid":
-            nl_fun = nn.Sigmoid():
-        else:
-            raise ValueError('Unrecognized attention nonlinearity')
-        attention_module = SoftAttentionModule(neck_dim, nonlinearity=nl_fun)
-    else:
-        raise ValueError('Unrecognized attention layer')
 
     # create dict override dl_kwarg for specific task
     # e.g. {"STSB": {"batch_size": 2}}
@@ -161,13 +164,13 @@ def create_tasks(task_names, **kwargs):
             )
             task = ClassificationTask(
                 task_name, dataloaders, input_module, BinaryHead(neck_dim), scorer,
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "SST2":
             task = ClassificationTask(
                 task_name, dataloaders, input_module, BinaryHead(neck_dim),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "MNLI":
@@ -177,7 +180,7 @@ def create_tasks(task_names, **kwargs):
                 input_module,
                 MulticlassHead(neck_dim, 3),
                 Scorer(standard_metrics=["accuracy"]),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "RTE":
@@ -187,7 +190,7 @@ def create_tasks(task_names, **kwargs):
                 input_module,
                 BinaryHead(neck_dim),
                 Scorer(standard_metrics=["accuracy"]),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "WNLI":
@@ -197,7 +200,7 @@ def create_tasks(task_names, **kwargs):
                 input_module,
                 BinaryHead(neck_dim),
                 Scorer(standard_metrics=["accuracy"]),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "QQP":
@@ -207,7 +210,7 @@ def create_tasks(task_names, **kwargs):
                 input_module,
                 BinaryHead(neck_dim),
                 Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "MRPC":
@@ -217,7 +220,7 @@ def create_tasks(task_names, **kwargs):
                 input_module,
                 BinaryHead(neck_dim),
                 Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "STSB":
@@ -234,7 +237,7 @@ def create_tasks(task_names, **kwargs):
 
             task = RegressionTask(
                 task_name, dataloaders, input_module, RegressionHead(neck_dim), scorer,
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "QNLI":
@@ -244,7 +247,7 @@ def create_tasks(task_names, **kwargs):
                 input_module,
                 BinaryHead(neck_dim),
                 Scorer(standard_metrics=["accuracy"]),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         # --------- NON-STANDARD TASK HEADS BELOW THIS POINT ---------
@@ -262,7 +265,7 @@ def create_tasks(task_names, **kwargs):
                 ),
                 AverageLayer(),
                 Scorer(standard_metrics=["accuracy"]),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "RTE_SAN":
@@ -278,7 +281,7 @@ def create_tasks(task_names, **kwargs):
                 ),
                 AverageLayer(),
                 Scorer(standard_metrics=["accuracy"]),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "WNLI_SAN":
@@ -294,7 +297,7 @@ def create_tasks(task_names, **kwargs):
                 ),
                 AverageLayer(),
                 Scorer(standard_metrics=["accuracy"]),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "QQP_SAN":
@@ -310,7 +313,7 @@ def create_tasks(task_names, **kwargs):
                 ),
                 AverageLayer(),
                 Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "MRPC_SAN":
@@ -326,7 +329,7 @@ def create_tasks(task_names, **kwargs):
                 ),
                 AverageLayer(),
                 Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "QNLIR":
@@ -361,7 +364,7 @@ def create_tasks(task_names, **kwargs):
                 input_module=input_module,
                 head_module=RegressionHead(neck_dim),
                 scorer=scorer,
-                attention_module=attention_module,
+                attention_module=get_attention_module(config, neck_dim),
                 loss_hat_func=ranking_loss,
                 output_hat_func=torch.sigmoid,
             )
@@ -382,7 +385,7 @@ def create_tasks(task_names, **kwargs):
                         input_module=bert_hidden_layer,
                         head_module=RegressionHead(neck_dim),
                         scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
-                        attention_module=attention_module,
+                        attention_module=get_attention_module(config, neck_dim),
                     )
                 )
 
