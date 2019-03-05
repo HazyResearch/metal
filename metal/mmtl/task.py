@@ -79,7 +79,7 @@ class ClassificationTask(Task):
             loss_hat_func,
             output_hat_func,
             task_names,
-            attention_module
+            attention_module,
         )
 
 
@@ -112,5 +112,5 @@ class RegressionTask(Task):
             loss_hat_func,
             output_hat_func,
             task_names,
-            attention_module
+            attention_module,
         )

@@ -47,6 +47,7 @@ def BinaryHead(input_dim):
 def RegressionHead(input_dim):
     return MulticlassHead(input_dim, 1)
 
+
 class SoftAttentionModule(nn.Module):
     def __init__(self, input_dim, nonlinearity=nn.Tanh()):
         super(SoftAttentionModule, self).__init__()

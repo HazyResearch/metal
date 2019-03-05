@@ -53,8 +53,8 @@ task_defaults = {
         "lstm_num_layers": 1,
     },
     "attention_config": {
-        "attention_module": None, #None, soft currently accepted
-        "nonlinearity": "tanh", #tanh, sigmoid currently accepted
+        "attention_module": None,  # None, soft currently accepted
+        "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
     },
 }
 
@@ -71,12 +71,13 @@ def get_attention_module(config, neck_dim):
         elif nonlinearity == "sigmoid":
             nl_fun = nn.Sigmoid()
         else:
-            raise ValueError('Unrecognized attention nonlinearity')
+            raise ValueError("Unrecognized attention nonlinearity")
         attention_module = SoftAttentionModule(neck_dim, nonlinearity=nl_fun)
     else:
-        raise ValueError('Unrecognized attention layer')
+        raise ValueError("Unrecognized attention layer")
 
     return attention_module
+
 
 def create_tasks(task_names, **kwargs):
     assert len(task_names) > 0
@@ -163,13 +164,20 @@ def create_tasks(task_names, **kwargs):
                 custom_metric_funcs={matthews_corr: ["matthews_corr"]},
             )
             task = ClassificationTask(
-                task_name, dataloaders, input_module, BinaryHead(neck_dim), scorer,
+                task_name,
+                dataloaders,
+                input_module,
+                BinaryHead(neck_dim),
+                scorer,
                 attention_module=get_attention_module(config, neck_dim),
             )
 
         elif task_name == "SST2":
             task = ClassificationTask(
-                task_name, dataloaders, input_module, BinaryHead(neck_dim),
+                task_name,
+                dataloaders,
+                input_module,
+                BinaryHead(neck_dim),
                 attention_module=get_attention_module(config, neck_dim),
             )
 
@@ -236,7 +244,11 @@ def create_tasks(task_names, **kwargs):
             )
 
             task = RegressionTask(
-                task_name, dataloaders, input_module, RegressionHead(neck_dim), scorer,
+                task_name,
+                dataloaders,
+                input_module,
+                RegressionHead(neck_dim),
+                scorer,
                 attention_module=get_attention_module(config, neck_dim),
             )
 
