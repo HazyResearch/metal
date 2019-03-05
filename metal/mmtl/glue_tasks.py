@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
-from metal.mmtl.auxiliary_tasks import get_bleu_dataloader
 from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.task import ClassificationTask, RegressionTask

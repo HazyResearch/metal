@@ -85,6 +85,7 @@ class BertTokenClassificationHead(nn.Module):
             emb_size: the size of the embedding for each token
             cardinality: the number of potential labels for each token
         """
+        super().__init__()
         self.linear = nn.Linear(emb_size, cardinality)
 
     def forward(self, X):

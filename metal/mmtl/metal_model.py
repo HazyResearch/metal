@@ -6,7 +6,6 @@ import torch.nn as nn
 
 from metal.end_model import IdentityModule
 from metal.mmtl.task import RegressionTask
-from metal.mmtl.utils.utils import stack_batches
 from metal.utils import move_to_device, recursive_merge_dicts, set_seed
 
 model_defaults = {
@@ -132,11 +131,16 @@ class MetalModel(nn.Module):
 
     @torch.no_grad()
     def calculate_output(self, X, task_names):
-        """Returns a dict of {task_name: probs (an [n, k] Tensor of probabilities)}."""
+        """Returns a dict of {task_name: probs} where probs is [n]-length list}.
+
+        The type of each entry in probs depends on the task type:
+            instance-based tasks: each entry in probs is a [k]-len array
+            token-based tasks: each entry is a  [seq_len, k] array
+        """
         # return F.softmax(self.forward(X), dim=1).data.cpu().numpy()
         assert self.eval()
         return {
-            t: self.output_hat_funcs[t](out)
+            t: [probs.cpu().numpy() for probs in self.output_hat_funcs[t](out)]
             for t, out in self.forward(X, task_names).items()
         }
 
@@ -226,7 +230,7 @@ class MetalModel(nn.Module):
         """Unzips the dataloader of a task's split and returns Y, Y_prods, Y_preds
 
         Note: it is generally preferable to use predict() or predict_probs() unless
-            the gold labels Y are requires as well.
+            the gold labels Y are required as well.
 
         Args:
             task: a Task to predict on
@@ -235,9 +239,9 @@ class MetalModel(nn.Module):
             max_examples: if > 0, predict for a maximum of this many examples
 
         Returns:
-            Y: [n] np.ndarray of ints
-            Y_probs: [n, k] np.ndarray of floats
-            Y_preds: [n, 1] np.ndarray of ints
+            Y: an [n] list of labels (usually ints)
+            Y_probs: an [n] list of probabilities (usually floats)
+            Y_preds: an [n] list of predictions (usually ints)
         """
         Y = []
         Y_probs = []
@@ -245,57 +249,54 @@ class MetalModel(nn.Module):
         for batch_num, batch in enumerate(task.data_loaders[split]):
             Xb = batch[0]
             Yb = batch[1][labelset_idx]
-            Y.append(Yb)
-            Y_probs.append(self.calculate_output(Xb, [task.name])[task.name])
-            total += Yb.shape[0]
+            Y.extend(Yb.numpy())
+            Y_probs.extend(self.calculate_output(Xb, [task.name])[task.name])
+            total += len(Xb)
             if max_examples > 0 and total >= max_examples:
                 break
-        # Stack batches
-        if isinstance(task, RegressionTask):
-            Y = stack_batches(Y).astype(np.float)
-        else:
-            Y = stack_batches(Y).astype(np.int)
-
-        Y_probs = stack_batches(Y_probs).astype(np.float)
 
         if max_examples:
             Y = Y[:max_examples]
-            Y_probs = Y_probs[:max_examples, :]
+            Y_probs = Y_probs[:max_examples]
 
         if return_preds:
-            Y_preds = self._break_ties(Y_probs, **kwargs).astype(np.int)
+            # Add 1 to account for the fact that all labels are categorical (> 0)
+            Y_preds = [np.argmax(probs, axis=-1) + 1 for probs in Y_probs]
+            # Y_preds = self._break_ties(Y_probs, **kwargs).astype(np.int)
             return Y, Y_probs, Y_preds
         else:
             return Y, Y_probs
 
-    def _break_ties(self, Y_probs, break_ties="random"):
-        """Break ties in each row of a tensor according to the specified policy
+    # def _break_ties(self, Y_probs, break_ties="random"):
+    #     """Break ties in each entry of Y_probs according to the specified policy
 
-        Args:
-            Y_probs: An [n, k] np.ndarray of probabilities
-            break_ties: A tie-breaking policy:
-                "abstain": return an abstain vote (0)
-                "random": randomly choose among the tied options
-                    NOTE: if break_ties="random", repeated runs may have
-                    slightly different results due to difference in broken ties
-                [int]: ties will be broken by using this label
-        """
-        n, k = Y_probs.shape
-        Y_preds = np.zeros(n)
-        diffs = np.abs(Y_probs - Y_probs.max(axis=1).reshape(-1, 1))
-
-        TOL = 1e-5
-        for i in range(n):
-            max_idxs = np.where(diffs[i, :] < TOL)[0]
-            if len(max_idxs) == 1:
-                Y_preds[i] = max_idxs[0] + 1
-            # Deal with "tie votes" according to the specified policy
-            elif break_ties == "random":
-                Y_preds[i] = np.random.choice(max_idxs) + 1
-            elif break_ties == "abstain":
-                Y_preds[i] = 0
-            elif isinstance(break_ties, int):
-                Y_preds[i] = break_ties
-            else:
-                ValueError(f"break_ties={break_ties} policy not recognized.")
-        return Y_preds
+    #     Args:
+    #         Y_probs: An [n] list of probabilities for each instance, with probabilities
+    #             to max over in the final dimension
+    #         break_ties: A tie-breaking policy:
+    #             "abstain": return an abstain vote (0)
+    #             "random": randomly choose among the tied options
+    #                 NOTE: if break_ties="random", repeated runs may have
+    #                 slightly different results due to difference in broken ties
+    #             [int]: ties will be broken by using this label
+    #     Returns:
+    #         Y_preds: An [n] list of predictions for each instance
+    #     """
+    #     TOL = 1e-6
+    #     Y_preds = []
+    #     for i, probs in enumerate(Y_probs):
+    #         diffs = abs(probs - probs.max(axis=-1, keepdims=True))
+    #         max_idxs = np.where(diffs < TOL)[0]
+    #         if len(max_idxs) == 1:
+    #             pred = max_idxs[0] + 1
+    #         # Deal with "tie votes" according to the specified policy
+    #         elif break_ties == "random":
+    #             pred = np.random.choice(max_idxs) + 1
+    #         elif break_ties == "abstain":
+    #             pred = 0
+    #         elif isinstance(break_ties, int):
+    #             pred = break_ties
+    #         else:
+    #             ValueError(f"break_ties={break_ties} policy not recognized.")
+    #         Y_preds.append(pred)
+    #     return Y_preds

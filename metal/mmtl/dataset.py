@@ -311,20 +311,24 @@ class BERTDataset(data.Dataset):
         for i, Y in enumerate(Ys):
             if isinstance(Y[0], int):
                 Y = torch.tensor(Y, dtype=torch.long)
+            elif isinstance(Y[0], np.integer):
+                Y = torch.from_numpy(Y)
             elif isinstance(Y[0], float):
                 Y = torch.tensor(Y, dtype=torch.float)
+            elif isinstance(Y[0], np.float):
+                Y = torch.from_numpy(Y)
             elif (
                 isinstance(Y[0], list)
                 or isinstance(Y[0], np.ndarray)
                 or isinstance(Y[0], torch.Tensor)
             ):
-                if isinstance(Y[0][0], int):
+                if isinstance(Y[0][0], (int, np.integer)):
                     dtype = torch.long
-                elif isinstance(Y[0][0], float):
+                elif isinstance(Y[0][0], (float, np.float)):
                     # TODO: WARNING: this may not handle half-precision correctly!
                     dtype = torch.float
                 else:
-                    msg = f"Unrecognized dtype of label set {i}: {type(Y[0][0])}"
+                    msg = f"Unrecognized dtype of elements in label set {i}: {type(Y[0][0])}"
                     raise Exception(msg)
                 Y, _ = padded_tensor(Y, dtype=dtype)
             else:

@@ -4,7 +4,6 @@ import numpy as np
 
 from metal.logging.utils import join_full_metric, split_full_metric
 from metal.metrics import METRICS as STANDARD_METRICS, metric_score
-from metal.mmtl.utils.utils import stack_batches
 
 
 """
