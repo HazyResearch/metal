@@ -1,6 +1,8 @@
 import os
 from collections import defaultdict
 
+from pytorch_pretrained_bert import BertTokenizer
+
 import metal.mmtl.dataset as dataset_module
 
 
@@ -38,7 +40,7 @@ class Tagger(object):
             uids = [x.strip() for x in f.readlines()]
             return uids
 
-    def get_examples(self, tag, bert_tokenizer_vocab=None):
+    def get_examples(self, tag, bert_tokenizer_kwargs=None):
         """ Parses the uids for a particular tag and return appropriate examples.
 
         NOTE: this is done with many assumptions about the naming of the UIDs
@@ -76,11 +78,19 @@ class Tagger(object):
 
             # take the raw line, remove \n, and split by \t for readability
             exs = []
+            tokenizer = (
+                BertTokenizer.from_pretrained(**bert_tokenizer_kwargs)
+                if bert_tokenizer_kwargs
+                else None
+            )
+
             for line in lines:
                 split_line = fn_lines[line].strip().split("\t")
+                sent1 = split_line[dataset.sent1_idx]
+                sent2 = split_line[dataset.sent2_idx]
                 example = {
-                    "sent1": split_line[dataset.sent1_idx],
-                    "sent2": split_line[dataset.sent2_idx],
+                    "sent1": tokenizer.tokenize(sent1) if tokenizer else sent1,
+                    "sent2": tokenizer.tokenize(sent2) if tokenizer else sent2,
                     "label": split_line[dataset.label_idx],
                 }
                 uid = f"{fn}:{line}"
