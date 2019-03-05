@@ -311,79 +311,108 @@ class QNLIDataset(GLUEDataset):
     Torch dataset object for QNLI binary classification task, to work with BERT architecture.
     """
 
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
-        super(QNLIDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("QNLI", split),
-            sent1_idx=1,
-            sent2_idx=2,
-            label_idx=3 if split in ["train", "dev"] else -1,
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            **kwargs,
-        )
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 1
+        self.sent2_idx = 2
+        self.label_idx = 3 if split in ["train", "dev"] else -1
+
+        if load_tsv:
+            super(QNLIDataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("QNLI", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                **kwargs,
+            )
 
 
 class STSBDataset(GLUEDataset):
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
+
         label_fn, inv_label_fn = (
             lambda x: float(x) / 5,
             lambda x: float(x) * 5,
         )  # labels are scores [1, 2, 3, 4, 5]
-        super(STSBDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("STS-B", split),
-            sent1_idx=7,
-            sent2_idx=8,
-            label_idx=9 if split in ["train", "dev"] else -1,
-            skip_rows=1,
-            bert_model=bert_model,
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            label_type=float,
-            **kwargs,
-        )
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 7
+        self.sent2_idx = 8
+        self.label_idx = 9 if split in ["train", "dev"] else -1
+
+        if load_tsv:
+            super(STSBDataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("STS-B", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                label_type=float,
+                **kwargs,
+            )
 
 
 class SST2Dataset(GLUEDataset):
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
         # TODO: why do we want 1 to stay 1?
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})  # reserve 0 for abstain
-        super(SST2Dataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("SST-2", split),
-            sent1_idx=0 if split in ["train", "dev"] else 1,
-            sent2_idx=-1,
-            label_idx=1 if split in ["train", "dev"] else -1,
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            **kwargs,
-        )
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 0 if split in ["train", "dev"] else 1
+        self.sent2_idx = -1
+        self.label_idx = 1 if split in ["train", "dev"] else -1
+
+        if load_tsv:
+            super(SST2Dataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("SST-2", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                **kwargs,
+            )
 
 
 class COLADataset(GLUEDataset):
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
-        super(COLADataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("CoLA", split),
-            sent1_idx=3 if split in ["train", "dev"] else 1,
-            sent2_idx=-1,
-            label_idx=1 if split in ["train", "dev"] else -1,
-            skip_rows=0 if split in ["train", "dev"] else 1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            **kwargs,
-        )
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 3 if split in ["train", "dev"] else 1
+        self.sent2_idx = -1
+        self.label_idx = 1 if split in ["train", "dev"] else -1
+
+        if load_tsv:
+            super(COLADataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("CoLA", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=0 if split in ["train", "dev"] else 1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                **kwargs,
+            )
 
 
 class MNLIDataset(GLUEDataset):
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
         # split = "dev_matched" if split == "dev" else "train"
         gold_cols = {
             "train": 11,
@@ -395,89 +424,125 @@ class MNLIDataset(GLUEDataset):
             "test_matched": -1,
             "diagnostic": -1,
         }
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 8 if split != "diagnostic" else 1
+        self.sent2_idx = 9 if split != "diagnostic" else 2
+        self.label_idx = gold_cols[split]
+
         label_fn, inv_label_fn = get_label_fn(
             {"entailment": 1, "contradiction": 2, "neutral": 3}
         )
-        super(MNLIDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("MNLI", split),
-            sent1_idx=8 if split != "diagnostic" else 1,
-            sent2_idx=9 if split != "diagnostic" else 2,
-            label_idx=gold_cols[split],
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            **kwargs,
-        )
+
+        if load_tsv:
+            super(MNLIDataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("MNLI", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                **kwargs,
+            )
 
 
 class RTEDataset(GLUEDataset):
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
-        super(RTEDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("RTE", split),
-            sent1_idx=1,
-            sent2_idx=2,
-            label_idx=3 if split in ["train", "dev"] else -1,
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            **kwargs,
-        )
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 1
+        self.sent2_idx = 2
+        self.label_idx = 3 if split in ["train", "dev"] else -1
+
+        if load_tsv:
+            super(RTEDataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("RTE", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                **kwargs,
+            )
 
 
 class WNLIDataset(GLUEDataset):
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
-        super(WNLIDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("WNLI", split),
-            sent1_idx=1,
-            sent2_idx=2,
-            label_idx=3 if split in ["train", "dev"] else -1,
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            **kwargs,
-        )
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 1
+        self.sent2_idx = 2
+        self.label_idx = 3 if split in ["train", "dev"] else -1
+
+        if load_tsv:
+            super(WNLIDataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("WNLI", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                **kwargs,
+            )
 
 
 class QQPDataset(GLUEDataset):
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
-        super(QQPDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("QQP", split),
-            sent1_idx=3 if split in ["train", "dev"] else 1,
-            sent2_idx=4 if split in ["train", "dev"] else 2,
-            label_idx=5 if split in ["train", "dev"] else -1,
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            **kwargs,
-        )
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 3 if split in ["train", "dev"] else 1
+        self.sent2_idx = 4 if split in ["train", "dev"] else 2
+        self.label_idx = 5 if split in ["train", "dev"] else -1
+
+        if load_tsv:
+            super(QQPDataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("QQP", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                **kwargs,
+            )
 
 
 class MRPCDataset(GLUEDataset):
-    def __init__(self, split, bert_model, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
-        super(MRPCDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset("MRPC", split),
-            sent1_idx=3,
-            sent2_idx=4,
-            label_idx=0,
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            **kwargs,
-        )
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 3
+        self.sent2_idx = 4
+        self.label_idx = 0
+
+        if load_tsv:
+            super(MRPCDataset, self).__init__(
+                tsv_path=tsv_path_for_dataset("MRPC", split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                **kwargs,
+            )
 
 
 # ----------Exotic Datasets---------
@@ -511,7 +576,7 @@ class QNLIRDataset(GLUEDataset):
     are pairs of positive and negative examples.
     """
 
-    def __init__(self, split, bert_model, max_datapoints=-1, **kwargs):
+    def __init__(self, split, bert_model, load_tsv=True, max_datapoints=-1, **kwargs):
         self.split = split
         max_datapoints *= 2  # make sure we take pairs
         if self.split == "train":
@@ -519,22 +584,29 @@ class QNLIRDataset(GLUEDataset):
         else:
             dataset_folder = "QNLI"
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
-        super(QNLIRDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset(dataset_folder, split),
-            sent1_idx=1,
-            sent2_idx=2,
-            label_idx=3 if split in ["train", "dev"] else -1,
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            max_datapoints=max_datapoints,
-            label_type=float,
-            **kwargs,
-        )
-        if self.split == "train":
-            assert len(self.tokens) % 2 == 0
+
+        # NOTE: saving these instance variables for error analysis
+        self.sent1_idx = 1
+        self.sent2_idx = 2
+        self.label_idx = 3 if split in ["train", "dev"] else -1
+
+        if load_tsv:
+            super(QNLIRDataset, self).__init__(
+                tsv_path=tsv_path_for_dataset(dataset_folder, split),
+                sent1_idx=self.sent1_idx,
+                sent2_idx=self.sent2_idx,
+                label_idx=self.label_idx,
+                skip_rows=1,
+                bert_model=bert_model,
+                delimiter="\t",
+                label_fn=label_fn,
+                inv_label_fn=inv_label_fn,
+                max_datapoints=max_datapoints,
+                label_type=float,
+                **kwargs,
+            )
+            if self.split == "train":
+                assert len(self.tokens) % 2 == 0
 
     def get_dataloader(self, split_prop=None, split_seed=123, **kwargs):
         """Returns a dataloader based on self (dataset). If split_prop is specified,
