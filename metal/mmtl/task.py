@@ -90,9 +90,10 @@ class RegressionTask(Task):
         scorer=Scorer(standard_metrics=[]),
         # TODO: (@JD): fix this with auxiliary -- removed Y_gold[.float()] for fp16
         loss_hat_func=(
-            lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold)
+            lambda Y_prob, Y_gold: F.mse_loss(Y_prob, Y_gold)
+            # lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_prob), Y_gold)
         ),
-        output_hat_func=(torch.sigmoid),
+        output_hat_func=lambda x: x,  # (torch.sigmoid),
         task_names=None,
     ) -> None:
 
