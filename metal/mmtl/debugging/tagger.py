@@ -1,6 +1,10 @@
 import os
 from collections import defaultdict
 
+from pytorch_pretrained_bert import BertTokenizer
+
+import metal.mmtl.dataset as dataset_module
+
 
 class Tagger(object):
     def __init__(
@@ -36,12 +40,18 @@ class Tagger(object):
             uids = [x.strip() for x in f.readlines()]
             return uids
 
-    def get_examples(self, tag):
-        """ Parses the uids for a particular tag and returns tuples of (uid, examples)
-        from raw data e.g. ('RTE/dev.tsv:1, [..., sent1, setn2, label1, ...])
+    def get_examples(self, tag, bert_tokenizer_kwargs=None):
+        """ Parses the uids for a particular tag and return appropriate examples.
 
-        NOTE: this can be improved with additional knowledge of where indexes are
-        located.
+        NOTE: this is done with many assumptions about the naming of the UIDs
+            e.g. "RTE/dev.txt:29 --> "{TASK}/{filename}:{line_number}
+
+        Args:
+            tag: name of tag for which we want to return examples
+        Returns:
+            tuples of (uid, examples) from raw data
+                e.g. ('RTE/dev.tsv:1, [..., sent1, sent2, label1, ...])
+
         """
         assert "GLUEDATA" in os.environ
 
@@ -59,10 +69,34 @@ class Tagger(object):
             with open(path, "r") as f:
                 fn_lines = f.readlines()
 
-            # take the raw line, remove \n, and split by \t for readability
-            exs = [(f"{fn}:{l}", fn_lines[l].strip().split("\t")) for l in lines]
-            examples.extend(exs)
+            task_name, file_suffix = fn.split("/")
+            split = file_suffix.split(".tsv")[0]
 
+            # initialize dataset to find sent/label indexes
+            dataset_cls = getattr(dataset_module, task_name.upper() + "Dataset")
+            dataset = dataset_cls(split, None, load_tsv=False)
+
+            # take the raw line, remove \n, and split by \t for readability
+            exs = []
+            tokenizer = (
+                BertTokenizer.from_pretrained(**bert_tokenizer_kwargs)
+                if bert_tokenizer_kwargs
+                else None
+            )
+
+            for line in lines:
+                split_line = fn_lines[line].strip().split("\t")
+                sent1 = split_line[dataset.sent1_idx]
+                sent2 = split_line[dataset.sent2_idx]
+                example = {
+                    "sent1": tokenizer.tokenize(sent1) if tokenizer else sent1,
+                    "sent2": tokenizer.tokenize(sent2) if tokenizer else sent2,
+                    "label": split_line[dataset.label_idx],
+                }
+                uid = f"{fn}:{line}"
+                exs.append((uid, example))
+
+            examples.extend(exs)
         return examples
 
     def remove_tag(self, uid, tag):
