@@ -45,7 +45,7 @@ from metal.mmtl.aws import grid_search_mmtl
 # IMAGE_ID = "ami-0c82a5c425d9da154" # For West
 # IMAGE_ID = "ami-04f2030e810b07ced"  # For East
 # IMAGE_ID = "ami-0507d23ab4a37c611"  # For East (02-18-2019)
-IMAGE_ID = "ami-01b22f90823e1b2af"  # For East w/ Apex (02-21-2019)
+# IMAGE_ID = "ami-01b22f90823e1b2af"  # For East w/ Apex (02-21-2019)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -66,6 +66,7 @@ parser.add_argument(
 parser.add_argument(
     "--commit_hash", required=True, type=str, help="git commit hash to run with"
 )
+parser.add_argument("--ami", required=True, type=str, help="ami id to run with")
 
 
 def create_dummy_command_dict2():
@@ -230,7 +231,7 @@ def describe_instances(args):
 def launch(args):
     ec2_client, ec2_resource = create_ec2_client(args)
     instances = ec2_resource.create_instances(
-        ImageId=IMAGE_ID,
+        ImageId=args.ami,
         MinCount=args.n_machines,
         MaxCount=args.n_machines,
         KeyName=os.path.basename(args.keypath).split(".")[0],
