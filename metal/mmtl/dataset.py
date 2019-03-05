@@ -84,7 +84,13 @@ class GLUEDataset(data.Dataset):
                 True: (tokens, segment), labels
                 False: tokens, labels
         """
-        self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
+        if "uncased" in bert_model:
+            self.lower_case = True
+        else:
+            self.lower_case = False
+        self.tokenizer = BertTokenizer.from_pretrained(
+            bert_model, do_lower_case=self.lower_case
+        )
         payload = self.load_tsv(
             tsv_path,
             sent1_idx,
