@@ -1,5 +1,6 @@
 import os
 
+import torch
 import torch.nn as nn
 from pytorch_pretrained_bert import BertModel
 
@@ -45,3 +46,17 @@ def BinaryHead(input_dim):
 
 def RegressionHead(input_dim):
     return MulticlassHead(input_dim, 1)
+
+def SoftAttentionModule(nn.Module):
+    def __init__(self, input_dim, nonlinearity=nn.Tanh()):
+        super(SoftAttentionModule, self).__init__()
+        self.nonlinearity = nonlinearity
+        # Initializing as ones to maintain structure
+        self.W = torch.nn.Parameter(torch.ones(input_dim))
+        self.W.requires_grad = True
+
+    def forward(self, data):
+        elmul = torch.mul(self.W, data)
+        nl = self.nonlinearity(elmul)
+        scaled_data = torch.mul(nl, data)
+        return scaled_data
