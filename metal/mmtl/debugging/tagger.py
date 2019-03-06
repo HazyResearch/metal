@@ -10,10 +10,12 @@ class Tagger(object):
     def __init__(
         self,
         tags_dir=os.path.join(os.environ["METALHOME"], "metal/mmtl/debugging/tags"),
+        verbose=True,
     ):
         if not os.path.isdir(tags_dir):
             os.mkdir(tags_dir)
         self.tags_dir = tags_dir
+        self.verbose = verbose
 
     def _get_tag_path(self, tag):
         return os.path.join(self.tags_dir, f"{tag}.txt")
@@ -32,7 +34,8 @@ class Tagger(object):
             uids = sorted(map(lambda x: x + "\n", uids))
             f.writelines(uids)
             f.close()
-        print(f"Added 1 tag. Tag set '{tag}' contains {len(uids)} tags.")
+        if self.verbose:
+            print(f"Added 1 tag. Tag set '{tag}' contains {len(uids)} tags.")
 
     def get_uids(self, tag):
         tag_path = self._get_tag_path(tag)
