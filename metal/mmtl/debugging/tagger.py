@@ -77,17 +77,24 @@ class Tagger(object):
             task_name, file_suffix = fn.split("/")
             split = file_suffix.split(".tsv")[0]
 
-            # take the raw line, remove \n, and split by \t for readability
-            exs = []
+            tokenizer = None
             if bert_vocab:
                 do_lower_case = "uncased" in bert_vocab
                 tokenizer = BertTokenizer.from_pretrained(
                     bert_vocab, do_lower_case=do_lower_case
                 )
 
+            # take the raw line, remove \n, and split by \t for readability
+            exs = []
             config = get_task_tsv_config(task_name.upper(), split)
             for line in lines:
-                split_line = fn_lines[line].strip().split("\t")
+                uid = f"{fn}:{line}"
+                try:
+                    split_line = fn_lines[line].strip().split("\t")
+                except IndexError:
+                    print("Error:", line, uid)
+                    continue
+
                 sent1 = (
                     split_line[config["sent1_idx"]]
                     if config["sent1_idx"] >= 0
@@ -105,7 +112,6 @@ class Tagger(object):
                     if config["label_idx"] >= 0
                     else None,
                 }
-                uid = f"{fn}:{line}"
                 exs.append((uid, example))
 
             examples.extend(exs)
