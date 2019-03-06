@@ -4,7 +4,7 @@ search_space = {
     # hyperparams
     "l2": [1e-2],  # 1e-4 looked same as 1e-3
     "batch_size": [16],
-    "lr": [8e-5, 5e-5, 2e-5, 1e-5],  # 1e-4 and 1e-5 did worse
+    "lr": [5e-5, 5e-5, 5e-5, 5e-5],  # 1e-4 and 1e-5 did worse
     # "min_lr": [1e-5, 1e-6, 0],
     "lr_scheduler": ["linear"],  # exponential did worse
 }
@@ -14,7 +14,7 @@ launch_args = {
     "device": 0,
     "fp16": 1,
     # Model specification
-    "bert_model": "bert-large-uncased",
+    "bert_model": "bert-large-cased",
     # Dataloader specification
     "max_len": 200,
     # Checkpointing and logging
