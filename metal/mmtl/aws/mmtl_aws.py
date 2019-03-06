@@ -61,7 +61,10 @@ parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
 parser.add_argument("--only_print_commands", default=0)
-parser.add_argument("--run_name", default="unspecified")
+parser.add_argument(
+    "--run_name",
+    default=datetime.datetime.fromtimestamp(time.time()).strftime("%Y_%m_%d_%H_%M_%S"),
+)
 parser.add_argument(
     "--configpath", required=True, type=str, help="path to config dicts"
 )
