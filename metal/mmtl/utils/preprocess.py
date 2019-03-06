@@ -61,7 +61,7 @@ def get_task_tsv_config(task_name, split):
         label_fn, inv_label_fn = (
             lambda x: float(x) / 5,
             lambda x: float(x) * 5,
-        )  # labels are scores [1, 2, 3, 4, 5]
+        )  # labels are continuous [0, 5]
         return {
             "tsv_path": tsv_path_for_dataset("STS-B", split),
             "sent1_idx": 7,
@@ -178,7 +178,7 @@ def load_tsv(
     sent2_idx,
     label_idx,
     skip_rows,
-    tokenizer,
+    tokenizer=None,
     delimiter="\t",
     label_fn=lambda x: x,
     max_len=-1,
@@ -195,14 +195,25 @@ def load_tsv(
         label_idx: tsv index for label field
         skip_rows: number of rows to skip (i.e. header rows) in .tsv
         tokenizer: tokenizer to map sentences to tokens using `.tokenize(sent)` method
+            if None, returns raw examples.
         delimiter: delimiter between columns (likely '\t') for tab-separated-values
+        label_fn: maps labels to desired format (usually for training)
+        max_len: maximum sequence length of each sentence
+        max_datapoints: maximum len of the dataset.
+            used for debugging without loading all data.
+        generate_uids: whether to return uids in addition to payload
     """
     # if generating UIDs, must pass in ALL datapoints
     if generate_uids:
         assert max_datapoints == -1
         uids = []
 
-    tokens, segments, labels = [], [], []
+    return_raw = tokenizer is None
+    labels = []
+    if return_raw:
+        raw_examples = []
+    else:
+        tokens, segments = [], []
 
     # TODO: Replace a lot of this boilerplate with:
     #  pd.read_csv(filepath, sep='\t', error_bad_lines=False)
@@ -223,10 +234,30 @@ def load_tsv(
             row = row.strip().split(delimiter)
             if len(row) <= sent1_idx or len(row) <= sent2_idx or len(row) <= label_idx:
                 continue
+
+            if generate_uids:
+                uids.append(get_uid(tsv_path, skip_rows + row_idx + 1))
+
+            # process labels
+            if label_idx >= 0:
+                label = row[label_idx]
+                label = label_fn(label)
+            else:
+                label = -1
+            labels.append(label)
+
+            sent1 = row[sent1_idx]
+            sent2 = row[sent2_idx]
+
+            if return_raw:
+                raw_examples.append({"sent1": sent1, "sent2": sent2})
+                # no need to proceed with remainder of processing
+                continue
+
             # tokenize sentences
-            sent1_tokenized = tokenizer.tokenize(row[sent1_idx])
+            sent1_tokenized = tokenizer.tokenize(sent1)
             if sent2_idx >= 0:
-                sent2_tokenized = tokenizer.tokenize(row[sent2_idx])
+                sent2_tokenized = tokenizer.tokenize(sent2)
             else:
                 sent2_tokenized = []
 
@@ -259,20 +290,15 @@ def load_tsv(
             # sentence-pair segments
             seg = [0] * len(sent1_ids) + [1] * len(sent2_ids)
 
-            # process labels
-            if label_idx >= 0:
-                label = row[label_idx]
-                label = label_fn(label)
-            else:
-                label = -1
             tokens.append(sent)
             segments.append(seg)
-            labels.append(label)
 
-            if generate_uids:
-                uids.append(get_uid(tsv_path, skip_rows + row_idx + 1))
+    if return_raw:
+        payload = (raw_examples, labels)
+    else:
+        payload = (tokens, segments, labels)
 
     if generate_uids:
-        return (tokens, segments, labels), uids
+        return payload, uids
     else:
-        return tokens, segments, labels
+        return payload
