@@ -57,7 +57,7 @@ class SoftAttentionModule(nn.Module):
         self.W.requires_grad = True
 
     def forward(self, data):
-        elmul = torch.mul(self.W, data)
-        nl = self.nonlinearity(elmul)
+        elementwise_multiply = torch.mul(self.W, data)
+        nl = self.nonlinearity(elementwise_multiply)
         scaled_data = torch.mul(nl, data)
         return scaled_data
