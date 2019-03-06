@@ -50,7 +50,8 @@ from metal.mmtl.aws import grid_search_mmtl
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--mode", choices=["list", "launch", "launch_and_run", "run", "shutdown"]
+    "--mode",
+    choices=["list", "launch", "launch_and_run", "run", "shutdown", "shutdown_all"],
 )
 parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
@@ -217,6 +218,14 @@ def get_instances(args, filter_by_user=True):
     return instances
 
 
+def get_all_instances(args, filter_by_user=True):
+    ec2_client, ec2_resource = create_ec2_client(args)
+    instances = ec2_resource.instances.filter()
+    if filter_by_user:
+        instances = [x for x in instances if os.environ["USER"] in get_user(x)]
+    return instances
+
+
 def describe_instances(args):
 
     instances = get_instances(args, filter_by_user=False)
@@ -268,6 +277,13 @@ def launch(args):
 
 def shutdown(args):
     instances = get_instances(args)
+    for instance in instances:
+        instance.terminate()
+    describe_instances(args)
+
+
+def shutdown_all_by_user(args):
+    instances = get_all_instances(args)
     for instance in instances:
         instance.terminate()
     describe_instances(args)
@@ -375,3 +391,5 @@ if __name__ == "__main__":
         run(args, launch_args, search_space)
     if args.mode == "shutdown":
         shutdown(args)
+    if args.mode == "shutdown_all":
+        shutdown_all_by_user(args)
