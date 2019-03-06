@@ -1,11 +1,11 @@
 import copy
 
-import metal.mmtl.dataset as dataset_module
+from metal.mmtl.dataset import get_glue_dataset
 
 
 def get_all_dataloaders(
     dataset_name,
-    bert_model,
+    bert_vocab,
     max_len,
     dl_kwargs,
     split_prop,
@@ -21,8 +21,6 @@ def get_all_dataloaders(
     if verbose:
         print(f"Loading {dataset_name} Dataset")
 
-    dataset_cls = getattr(dataset_module, dataset_name.upper() + "Dataset")
-
     datasets = {}
     for split_name in splits:
         # Codebase uses valid but files are saved as dev.tsv
@@ -30,9 +28,10 @@ def get_all_dataloaders(
             split = "dev"
         else:
             split = split_name
-        datasets[split_name] = dataset_cls(
+        datasets[split_name] = get_glue_dataset(
+            dataset_name,
             split=split,
-            bert_model=bert_model,
+            bert_vocab=bert_vocab,
             max_len=max_len,
             max_datapoints=max_datapoints,
             include_segments=include_segments,
