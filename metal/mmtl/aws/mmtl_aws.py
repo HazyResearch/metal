@@ -61,6 +61,7 @@ parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
 parser.add_argument("--only_print_commands", default=0)
+parser.add_argument("--run_name", default="unspecified")
 parser.add_argument(
     "--configpath", required=True, type=str, help="path to config dicts"
 )
@@ -205,7 +206,11 @@ def get_instances(args, filter_by_user=True):
     ec2_client, ec2_resource = create_ec2_client(args)
     instances = ec2_resource.instances.filter()
     if filter_by_user:
-        instances = [x for x in instances if get_user(x) == os.environ["USER"]]
+        instances = [
+            x
+            for x in instances
+            if get_user(x) == os.environ["USER"] + "_" + args.run_name
+        ]
     return instances
 
 
@@ -242,7 +247,7 @@ def launch(args):
     # Tag with user
     ec2_client.create_tags(
         Resources=[x.id for x in instances],
-        Tags=[{"Key": "user", "Value": os.environ["USER"]}],
+        Tags=[{"Key": "user", "Value": os.environ["USER"] + "_" + args.run_name}],
     )
 
     print("Waiting for instances: %s" % str([x.id for x in instances]))
