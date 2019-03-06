@@ -12,8 +12,8 @@ def mse(gold, _, probs):
 def spearman_corr(gold, _, probs):
     # NOTE: computes using "probs", which is the non-rounded output of the model.
     # TODO: fix this poor naming convention to better support regression tasks.
-    probs = probs.squeeze()
-    corr, p_value = spearmanr(gold, probs)
+    probs_array = np.vstack(probs).squeeze()
+    corr, p_value = spearmanr(gold, probs_array)
     if np.isnan(corr):
         print(f"Warning: converting nan -> 0.0 for spearman_corr")
         corr = 0.0
@@ -23,8 +23,8 @@ def spearman_corr(gold, _, probs):
 def pearson_corr(gold, _, probs):
     # NOTE: computes using "probs", which is the non-rounded output of the model.
     # TODO: fix this poor naming convention to better support regression tasks.
-    probs = probs.squeeze()
-    corr, p_value = pearsonr(gold, probs)
+    probs_array = np.vstack(probs).squeeze()
+    corr, p_value = pearsonr(gold, probs_array)
     if np.isnan(corr):
         print(f"Warning: converting nan -> 0.0 for spearman_corr")
         corr = 0.0
@@ -78,7 +78,7 @@ GLUE_METRICS = {
 def glue_score(metrics_dict={}, split="valid"):
     """Computes the glue_score (mean of individual task metrics) from a metrics_dict"""
     target_metrics = [
-        f"{task}/{split}/{metric}" for task, metric in GLUE_METRICS.items()
+        f"{task}/{task}_valid/{metric}" for task, metric in GLUE_METRICS.items()
     ]
     scores = []
     for metric in target_metrics:

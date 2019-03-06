@@ -59,7 +59,7 @@ for batch in foo.data_loaders["train"]:
     X, Y = batch
     print(model(X, ["foo_task"]))
     print(model.calculate_loss(X, Y, ["foo_task"]))
-    print(model.calculate_output(X, ["foo_task"]))
+    print(model.calculate_probs(X, ["foo_task"]))
     break
 
 print("SUCCESS!")

@@ -1,10 +1,9 @@
 import random
 
 import numpy as np
-import torch
-import torch.nn as nn
 
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
+from metal.mmtl.payload import Payload
 from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.task import ClassificationTask, RegressionTask
@@ -56,7 +55,7 @@ task_defaults = {
 }
 
 
-def create_tasks(task_names, **kwargs):
+def create_tasks_and_payloads(task_names, **kwargs):
     assert len(task_names) > 0
 
     config = recursive_merge_dicts(task_defaults, kwargs)
@@ -117,8 +116,8 @@ def create_tasks(task_names, **kwargs):
             task_dl_kwargs[task_name] = {kwarg_key: kwarg_val}
 
     # creates task and appends to `tasks` list for each `task_name`
-    tasks = []
-    # auxiliary_tasks = kwargs.get("auxiliary_tasks", {})
+    task_list = []
+    payload_list = []
 
     for task_name in task_names:
 
@@ -128,7 +127,7 @@ def create_tasks(task_names, **kwargs):
             dl_kwargs.update(task_dl_kwargs[task_name])
 
         # create data loaders for task
-        dataloaders = get_all_dataloaders(
+        data_loaders = get_all_dataloaders(
             task_name if not task_name.endswith("_SAN") else task_name[:-4],
             config["bert_model"],
             max_len=config["max_len"],
@@ -147,7 +146,6 @@ def create_tasks(task_names, **kwargs):
             )
             task = ClassificationTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=BinaryHead(neck_dim),
@@ -157,7 +155,6 @@ def create_tasks(task_names, **kwargs):
         elif task_name == "SST2":
             task = ClassificationTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=BinaryHead(neck_dim),
@@ -166,7 +163,6 @@ def create_tasks(task_names, **kwargs):
         elif task_name == "MNLI":
             task = ClassificationTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=MulticlassHead(neck_dim, 3),
@@ -176,7 +172,6 @@ def create_tasks(task_names, **kwargs):
         elif task_name == "RTE":
             task = ClassificationTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=BinaryHead(neck_dim),
@@ -186,7 +181,6 @@ def create_tasks(task_names, **kwargs):
         elif task_name == "WNLI":
             task = ClassificationTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=BinaryHead(neck_dim),
@@ -196,7 +190,6 @@ def create_tasks(task_names, **kwargs):
         elif task_name == "QQP":
             task = ClassificationTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=BinaryHead(neck_dim),
@@ -208,7 +201,6 @@ def create_tasks(task_names, **kwargs):
         elif task_name == "MRPC":
             task = ClassificationTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=BinaryHead(neck_dim),
@@ -231,7 +223,6 @@ def create_tasks(task_names, **kwargs):
 
             task = RegressionTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=RegressionHead(neck_dim),
@@ -241,7 +232,6 @@ def create_tasks(task_names, **kwargs):
         elif task_name == "QNLI":
             task = ClassificationTask(
                 name=task_name,
-                data_loaders=dataloaders,
                 input_module=input_module,
                 middle_module=cls_middle_module,
                 head_module=BinaryHead(neck_dim),
@@ -361,25 +351,9 @@ def create_tasks(task_names, **kwargs):
         #         loss_hat_func=ranking_loss,
         #         output_hat_func=torch.sigmoid,
         #     )
-
-        # --------- AUXILIARY TASKS BELOW THIS POINT ---------
-        # if task_name in auxiliary_tasks.keys():
-        #     if "BLEU" in auxiliary_tasks[task_name]:
-        #         bleu_dataloaders = {
-        #             split: get_bleu_dataloader(dataloaders[split])
-        #             for split in dataloaders.keys()
-        #         }
-
-        #         # Do we need a loss_hat_func or output_hat_fun?
-        #         tasks.append(
-        #             RegressionTask(
-        #                 name=f"{task_name}_BLEU",
-        #                 data_loaders=bleu_dataloaders,
-        #                 input_module=bert_hidden_layer,
-        #                 head_module=RegressionHead(neck_dim),
-        #                 scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
-        #             )
-        #         )
-
-        tasks.append(task)
-    return tasks
+        task_list.append(task)
+        for split, data_loader in data_loaders.items():
+            payload_name = f"{task_name}_{split}"
+            payload = Payload(payload_name, data_loader, [task_name], split)
+            payload_list.append(payload)
+    return task_list, payload_list

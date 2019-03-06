@@ -18,46 +18,34 @@ class Task(ABC):
         input_module: (nn.Module) The input module
         middle_module: (nn.Module) A middle module
         head_module: (nn.Module) The task head module
-        data_loaders: A dict of DataLoaders to feed through the network
-            Each key in data.keys() should be in ["train", "valid", "test"]
-            The DataLoaders should return batches of (X, Ys) pairs, where X[0] returns
-                a complete input for feeding into the input_module, and Ys is a tuple
-                containing S label sets, such that Y[0][0] is the appropriate label(s)
-                to pass into the loss head for the first example and first label set.
-        task_names: an [S] list of task names corresponding to the S label sets
-        scorer: A Scorer that returns a metrics_dict object.
         loss_hat_func: A function of the form f(forward(X), Y) -> loss (scalar Tensor)
             We recommend returning an average loss per example so that loss magnitude
             is more consistent in the face of batch size changes
         output_hat_func: A function of the form f(forward(X)) -> output (e.g. probs)
+        scorer: A Scorer that returns a metrics_dict object.
     """
 
     def __init__(
         self,
         name,
-        data_loaders,
         input_module,
         middle_module,
         head_module,
         loss_hat_func,
         output_hat_func,
         scorer,
-        task_names=None,
     ) -> None:
         self.name = name
-        self.data_loaders = data_loaders
         self.input_module = input_module
         self.middle_module = middle_module
         self.head_module = head_module
         self.loss_hat_func = loss_hat_func
         self.output_hat_func = output_hat_func
         self.scorer = scorer
-        # TODO: get the task_names from the Payload, not the Task
-        self.task_names = tuple(task_names) if task_names is not None else (name,)
 
     def __repr__(self):
         cls_name = type(self).__name__
-        return f"{cls_name}(name={self.name}, task_names={','.join(self.task_names)})"
+        return f"{cls_name}(name={self.name})"
 
 
 class ClassificationTask(Task):
@@ -66,26 +54,22 @@ class ClassificationTask(Task):
     def __init__(
         self,
         name,
-        data_loaders,
         input_module=IdentityModule(),
         middle_module=IdentityModule(),
         head_module=IdentityModule(),
         loss_hat_func=(lambda out, Y_gold: F.cross_entropy(out, Y_gold - 1)),
         output_hat_func=(partial(F.softmax, dim=1)),
         scorer=Scorer(standard_metrics=["accuracy"]),
-        task_names=None,
     ) -> None:
 
         super(ClassificationTask, self).__init__(
             name,
-            data_loaders,
             input_module,
             middle_module,
             head_module,
             loss_hat_func,
             output_hat_func,
             scorer,
-            task_names,
         )
 
 
@@ -95,27 +79,22 @@ class RegressionTask(Task):
     def __init__(
         self,
         name,
-        data_loaders,
         input_module=IdentityModule(),
         middle_module=IdentityModule(),
         head_module=IdentityModule(),
-        # TODO: (@JD): fix this with auxiliary -- removed Y_gold[.float()] for fp16
         loss_hat_func=(lambda out, Y_gold: F.mse_loss(torch.sigmoid(out), Y_gold)),
         output_hat_func=(torch.sigmoid),
         scorer=Scorer(standard_metrics=[]),
-        task_names=None,
     ) -> None:
 
         super(RegressionTask, self).__init__(
             name,
-            data_loaders,
             input_module,
             middle_module,
             head_module,
             loss_hat_func,
             output_hat_func,
             scorer,
-            task_names,
         )
 
 
@@ -170,24 +149,20 @@ class TokenClassificationTask(Task):
     def __init__(
         self,
         name,
-        data_loaders,
         input_module=IdentityModule(),
         middle_module=IdentityModule(),
         head_module=IdentityModule(),
         loss_hat_func=tokenwise_ce_loss,
         output_hat_func=tokenwise_softmax,
         scorer=Scorer(custom_metric_funcs={tokenwise_accuracy: ["token_acc"]}),
-        task_names=None,
     ) -> None:
 
         super().__init__(
             name,
-            data_loaders,
             input_module,
             middle_module,
             head_module,
             loss_hat_func,
             output_hat_func,
             scorer,
-            task_names,
         )
