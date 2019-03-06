@@ -17,7 +17,7 @@ from metal.mmtl.modules import (
 from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.task import ClassificationTask, RegressionTask
-from metal.mmtl.utils.dataset_utils import get_all_dataloaders
+from metal.mmtl.utils.dataloaders import get_all_dataloaders
 from metal.mmtl.utils.metrics import (
     acc_f1,
     matthews_corr,
