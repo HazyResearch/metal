@@ -1,8 +1,6 @@
 # import numpy as np
 
-# from metal.mmtl.utils.dataset_utils import get_dataloader_with_label
-
-# from nltk.translate.bleu_score import sentence_bleu
+# from metal.mmtl.utils.dataloaders import get_dataloader_with_label
 
 
 # Function to create BLEU dataloaders

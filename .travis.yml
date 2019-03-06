@@ -30,6 +30,7 @@ before_install:
 install:
   # Create conda environment
   - conda env create -f environment.yml
+  - conda list
   - source activate metal
 
   # Add metal/ to PYTHONPATH

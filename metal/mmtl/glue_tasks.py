@@ -1,13 +1,22 @@
-import random
+import copy
 
 import numpy as np
+import torch.nn as nn
 
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
+from metal.end_model import IdentityModule
+from metal.mmtl.modules import (
+    BertExtractCls,
+    BertRaw,
+    BinaryHead,
+    MulticlassHead,
+    RegressionHead,
+    SoftAttentionModule,
+)
 from metal.mmtl.payload import Payload
-from metal.mmtl.san import SAN, AverageLayer
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.task import ClassificationTask, RegressionTask
-from metal.mmtl.utils.dataset_utils import get_all_dataloaders
+from metal.mmtl.utils.dataloaders import get_all_dataloaders
 from metal.mmtl.utils.metrics import (
     acc_f1,
     matthews_corr,
@@ -16,14 +25,6 @@ from metal.mmtl.utils.metrics import (
     ranking_acc_f1,
 )
 from metal.utils import recursive_merge_dicts, set_seed
-
-from metal.mmtl.modules import (  # BertEncoder,; BertHiddenLayer,
-    BertExtractCls,
-    BertRaw,
-    BinaryHead,
-    MulticlassHead,
-    RegressionHead,
-)
 
 task_defaults = {
     # General
@@ -52,6 +53,10 @@ task_defaults = {
         "bidirectional": True,
         "lstm_num_layers": 1,
     },
+    "attention_config": {
+        "attention_module": None,  # None, soft currently accepted
+        "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
+    },
 }
 
 
@@ -70,12 +75,9 @@ def create_tasks_and_payloads(task_names, **kwargs):
     if config["encoder_type"] == "bert":
         bert_kwargs = config["bert_kwargs"]
         bert_model = BertRaw(config["bert_model"], **bert_kwargs)
-        # bert_model = BertEncoder(config["bert_model"], **bert_kwargs)
-        # bert_encoder = BertEncoder(config["bert_model"], **bert_kwargs)
-        # bert_hidden_layer = BertHiddenLayer(bert_encoder)
-        if config["bert_model"] == "bert-base-uncased":
+        if "base" in config["bert_model"]:
             neck_dim = 768
-        elif config["bert_model"] == "bert-large-uncased":
+        elif "large" in config["bert_model"]:
             neck_dim = 1024
         input_module = bert_model
         cls_middle_module = BertExtractCls(pooler=bert_model.pooler)
@@ -122,7 +124,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
     for task_name in task_names:
 
         # Override general dl kwargs with task-specific kwargs
-        dl_kwargs = config["dl_kwargs"]
+        dl_kwargs = copy.deepcopy(config["dl_kwargs"])
         if task_name in task_dl_kwargs:
             dl_kwargs.update(task_dl_kwargs[task_name])
 
@@ -148,6 +150,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=scorer,
             )
@@ -157,6 +160,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
             )
 
@@ -165,6 +169,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=MulticlassHead(neck_dim, 3),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -174,6 +179,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -183,6 +189,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -192,6 +199,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(
                     custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}
@@ -203,6 +211,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(
                     custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}
@@ -225,6 +234,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=RegressionHead(neck_dim),
                 scorer=scorer,
             )
@@ -234,126 +244,34 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
 
-        # --------- NON-STANDARD TASK HEADS BELOW THIS POINT ---------
-
-        # NOTE: These tasks
-        # elif task_name == "MNLI_SAN":
-        #     task = ClassificationTask(
-        #         name= "MNLI",
-        #         data_loaders=dataloaders,
-        #         SAN(
-        #             bert_model=bert_encoder,
-        #             emb_size=neck_dim,
-        #             hidden_size=neck_dim,
-        #             num_classes=3,
-        #             k=5,
-        #         ),
-        #         AverageLayer(),
-        #         Scorer(standard_metrics=["accuracy"]),
-        #     )
-
-        # elif task_name == "RTE_SAN":
-        #     task = ClassificationTask(
-        #         "RTE",
-        #         data_loaders=dataloaders,
-        #         SAN(
-        #             bert_model=bert_encoder,
-        #             emb_size=neck_dim,
-        #             hidden_size=neck_dim,
-        #             num_classes=2,
-        #             k=5,
-        #         ),
-        #         AverageLayer(),
-        #         Scorer(standard_metrics=["accuracy"]),
-        #     )
-
-        # elif task_name == "WNLI_SAN":
-        #     task = ClassificationTask(
-        #         "WNLI",
-        #         data_loaders=dataloaders,
-        #         SAN(
-        #             bert_model=bert_encoder,
-        #             emb_size=neck_dim,
-        #             hidden_size=neck_dim,
-        #             num_classes=2,
-        #             k=5,
-        #         ),
-        #         AverageLayer(),
-        #         Scorer(standard_metrics=["accuracy"]),
-        #     )
-
-        # elif task_name == "QQP_SAN":
-        #     task = ClassificationTask(
-        #         "QQP",
-        #         data_loaders=dataloaders,
-        #         SAN(
-        #             bert_model=bert_encoder,
-        #             emb_size=neck_dim,
-        #             hidden_size=neck_dim,
-        #             num_classes=2,
-        #             k=5,
-        #         ),
-        #         AverageLayer(),
-        #         Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-        #     )
-
-        # elif task_name == "MRPC_SAN":
-        #     task = ClassificationTask(
-        #         "MRPC",
-        #         data_loaders=dataloaders,
-        #         SAN(
-        #             bert_model=bert_encoder,
-        #             emb_size=neck_dim,
-        #             hidden_size=neck_dim,
-        #             num_classes=2,
-        #             k=5,
-        #         ),
-        #         AverageLayer(),
-        #         Scorer(custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}),
-        #     )
-
-        # elif task_name == "QNLIR":
-        #     # QNLI ranking task
-        #     def ranking_loss(scores, y_true, gamma=1.0):
-        #         scores = torch.sigmoid(scores)
-        #         # TODO: find consistent way to map labels to {0,1}
-        #         y_true = (1 - y_true) + 1
-        #         # TODO: if we're using dev set then these computations won't work
-        #         # make sure we don't compute loss for evaluation
-        #         max_pool = nn.MaxPool1d(kernel_size=2, stride=2)
-        #         pos_scores = torch.exp(
-        #             gamma
-        #             * (max_pool((y_true * scores.view(-1)).view(1, 1, -1)).view(-1))
-        #         )
-        #         neg_scores = torch.exp(
-        #             gamma
-        #             * (max_pool(((1 - y_true) * scores.view(-1)).view(1, 1, -1))).view(
-        #                 -1
-        #             )
-        #         )
-        #         log_likelihood = torch.log(pos_scores / (pos_scores + neg_scores))
-        #         return -torch.mean(log_likelihood)
-
-        #     scorer = Scorer(
-        #         custom_metric_funcs={ranking_acc_f1: ["accuracy", "f1", "acc_f1"]},
-        #         standard_metrics=[],
-        #     )
-        #     task = ClassificationTask(
-        #         name="QNLIR",
-        #         data_loaders=dataloaders,
-        #         input_module=input_module,
-        #         head_module=RegressionHead(neck_dim),
-        #         scorer=scorer,
-        #         loss_hat_func=ranking_loss,
-        #         output_hat_func=torch.sigmoid,
-        #     )
         task_list.append(task)
         for split, data_loader in data_loaders.items():
             payload_name = f"{task_name}_{split}"
             payload = Payload(payload_name, data_loader, [task_name], split)
             payload_list.append(payload)
     return task_list, payload_list
+
+
+def get_attention_module(config, neck_dim):
+    # Get attention head
+    attention_config = config["attention_config"]
+    if attention_config["attention_module"] is None:
+        attention_module = IdentityModule()
+    elif attention_config["attention_module"] == "soft":
+        nonlinearity = attention_config["nonlinearity"]
+        if nonlinearity == "tanh":
+            nl_fun = nn.Tanh()
+        elif nonlinearity == "sigmoid":
+            nl_fun = nn.Sigmoid()
+        else:
+            raise ValueError("Unrecognized attention nonlinearity")
+        attention_module = SoftAttentionModule(neck_dim, nonlinearity=nl_fun)
+    else:
+        raise ValueError("Unrecognized attention layer")
+
+    return attention_module

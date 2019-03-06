@@ -143,3 +143,18 @@ def BinaryHead(input_dim):
 
 def RegressionHead(input_dim):
     return MulticlassHead(input_dim, 1)
+
+
+class SoftAttentionModule(nn.Module):
+    def __init__(self, input_dim, nonlinearity=nn.Tanh()):
+        super(SoftAttentionModule, self).__init__()
+        self.nonlinearity = nonlinearity
+        # Initializing as ones to maintain structure
+        self.W = torch.nn.Parameter(torch.ones(input_dim))
+        self.W.requires_grad = True
+
+    def forward(self, data):
+        elementwise_multiply = torch.mul(self.W, data)
+        nl = self.nonlinearity(elementwise_multiply)
+        scaled_data = torch.mul(nl, data)
+        return scaled_data

@@ -98,6 +98,7 @@ def generate_configs_and_commands(args, launch_args, search_space, n=None):
 
         # Add commit hash to config
         config_to_use["commit_hash"] = args.commit_hash
+        config_to_use["ami"] = args.ami
 
         # Write to directory
         config_path = "%s/config_%d.json" % (configspace_path, i)

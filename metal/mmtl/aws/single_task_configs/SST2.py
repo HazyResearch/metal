@@ -4,9 +4,9 @@ search_space = {
     # hyperparams
     "l2": [0],
     "batch_size": [32],
-    "lr": [6.08e-5],  # [1e-4,7e-5,6.08e-5,6.08e-5,5e-5],
-    "lr_scheduler": ["exponential"],
-    "gamma": [0.999],
+    "lr": [1e-4, 7e-5, 6e-5, 5e-5],
+    "lr_scheduler": ["linear"],
+    # "gamma": [0.999],
 }
 
 launch_args = {
@@ -14,7 +14,7 @@ launch_args = {
     # "device": 0,
     "fp16": 1,
     # Model specification
-    "bert_model": "bert-large-uncased",
+    "bert_model": "bert-large-cased",
     # "bert_output_dim": 1024,
     # Dataloader specification
     "max_len": 200,

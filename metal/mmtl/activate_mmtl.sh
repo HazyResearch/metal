@@ -5,8 +5,7 @@ echo "Added Snorkel MeTaL repository ($METALHOME) to \$PYTHONPATH."
 export GLUEDATA="/dfs/scratch0/bradenjh/glue"
 echo "Added data path ($GLUEDATA) to environment variables."
 
-export CUDA_VISIBLE_DEVICES="0"
-echo "Set CUDA_VISIBLE_DEVICES=0"
+echo "Not setting CUDA_VISIBLE_DEVICES anymore."
 
 source "/dfs/scratch0/vschen/secrets/hazy_aws.sh"
 echo "Added AWS keys to path."

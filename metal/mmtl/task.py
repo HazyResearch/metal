@@ -17,6 +17,7 @@ class Task(ABC):
             TODO: replace this with a more fully-featured path through the network
         input_module: (nn.Module) The input module
         middle_module: (nn.Module) A middle module
+        attention_module: (nn.Module) An attention module right before the task head
         head_module: (nn.Module) The task head module
         loss_hat_func: A function of the form f(forward(X), Y) -> loss (scalar Tensor)
             We recommend returning an average loss per example so that loss magnitude
@@ -30,6 +31,7 @@ class Task(ABC):
         name,
         input_module,
         middle_module,
+        attention_module,
         head_module,
         loss_hat_func,
         output_hat_func,
@@ -38,6 +40,7 @@ class Task(ABC):
         self.name = name
         self.input_module = input_module
         self.middle_module = middle_module
+        self.attention_module = attention_module
         self.head_module = head_module
         self.loss_hat_func = loss_hat_func
         self.output_hat_func = output_hat_func
@@ -56,6 +59,7 @@ class ClassificationTask(Task):
         name,
         input_module=IdentityModule(),
         middle_module=IdentityModule(),
+        attention_module=IdentityModule(),
         head_module=IdentityModule(),
         loss_hat_func=(lambda out, Y_gold: F.cross_entropy(out, Y_gold - 1)),
         output_hat_func=(partial(F.softmax, dim=1)),
@@ -66,6 +70,7 @@ class ClassificationTask(Task):
             name,
             input_module,
             middle_module,
+            attention_module,
             head_module,
             loss_hat_func,
             output_hat_func,
@@ -81,9 +86,14 @@ class RegressionTask(Task):
         name,
         input_module=IdentityModule(),
         middle_module=IdentityModule(),
+        attention_module=IdentityModule(),
         head_module=IdentityModule(),
-        loss_hat_func=(lambda out, Y_gold: F.mse_loss(torch.sigmoid(out), Y_gold)),
-        output_hat_func=(torch.sigmoid),
+        # OLD
+        # loss_hat_func=(lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_out), Y_gold)),
+        # output_hat_func=torch.sigmoid,
+        # NEW
+        output_hat_func=lambda x: x,
+        loss_hat_func=(lambda Y_prob, Y_gold: F.mse_loss(Y_prob, Y_gold)),
         scorer=Scorer(standard_metrics=[]),
     ) -> None:
 
@@ -91,6 +101,7 @@ class RegressionTask(Task):
             name,
             input_module,
             middle_module,
+            attention_module,
             head_module,
             loss_hat_func,
             output_hat_func,
@@ -151,6 +162,7 @@ class TokenClassificationTask(Task):
         name,
         input_module=IdentityModule(),
         middle_module=IdentityModule(),
+        attention_module=IdentityModule(),
         head_module=IdentityModule(),
         loss_hat_func=tokenwise_ce_loss,
         output_hat_func=tokenwise_softmax,
@@ -161,6 +173,7 @@ class TokenClassificationTask(Task):
             name,
             input_module,
             middle_module,
+            attention_module,
             head_module,
             loss_hat_func,
             output_hat_func,

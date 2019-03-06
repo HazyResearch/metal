@@ -13,7 +13,7 @@ from metal.mmtl.metal_model import MetalModel
 from metal.utils import convert_labels
 
 
-def load_data_and_model(model_path, task_name, split):
+def load_data_and_model(model_path, task_names, split):
     """
     Loads the model specified by model_path and dataset specified by task_name, split.
     """
@@ -25,7 +25,7 @@ def load_data_and_model(model_path, task_name, split):
 
     # Load best model for specified task
     tasks, payloads = create_tasks_and_payloads(
-        task_names=[task_name],
+        task_names=task_names,
         bert_model=bert_model,
         max_len=max_len,
         dl_kwargs=dl_kwargs,

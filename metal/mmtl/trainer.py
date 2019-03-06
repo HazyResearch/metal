@@ -44,6 +44,7 @@ trainer_defaults = {
     "seed": None,
     # Commit hash
     "commit_hash": None,
+    "ami": None,  # ami id for aws
     # Display
     "progress_bar": False,
     # Dataloader
