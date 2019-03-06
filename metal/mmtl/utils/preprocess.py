@@ -170,6 +170,8 @@ def get_task_tsv_config(task_name, split):
             "inv_label_fn": inv_label_fn,
             "label_type": int,
         }
+    else:
+        raise ValueError(f"{task_name} not found!")
 
 
 def load_tsv(
