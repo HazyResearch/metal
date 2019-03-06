@@ -299,7 +299,6 @@ class MultitaskTrainer(object):
         if self.config["verbose"]:
             print("Finished training")
         # Calculate metrics for all splits if test_split=None
-        metrics_dict = self.calculate_metrics(model, tasks)
         test_split = self.config["metrics_config"]["test_split"]
         metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
         if self.config["verbose"]:
