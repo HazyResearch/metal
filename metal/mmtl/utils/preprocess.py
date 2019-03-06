@@ -248,8 +248,8 @@ def load_tsv(
                 label = -1
             labels.append(label)
 
-            sent1 = row[sent1_idx]
-            sent2 = row[sent2_idx]
+            sent1 = row[sent1_idx] if sent1_idx >= 0 else None
+            sent2 = row[sent2_idx] if sent2_idx >= 0 else None
 
             if return_raw:
                 raw_examples.append({"sent1": sent1, "sent2": sent2})
