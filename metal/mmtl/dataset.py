@@ -1,6 +1,7 @@
 import codecs
 import os
 import pathlib
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -54,6 +55,7 @@ class BERTDataset(data.Dataset):
 
     def __init__(
         self,
+        task_name,
         tsv_path,
         sent1_idx,
         sent2_idx,
@@ -106,7 +108,7 @@ class BERTDataset(data.Dataset):
         self.inv_label_fn = inv_label_fn
         self.tokens = tokens
         self.segments = segments
-        self.labels = [labels]
+        self.labels = {task_name: labels}
 
     @staticmethod
     def load_tsv(
@@ -218,7 +220,7 @@ class BERTDataset(data.Dataset):
         once the max_seq_len for that batch is known.
         """
         x = (self.tokens[index], self.segments[index])
-        ys = [labelset[index] for labelset in self.labels]
+        ys = {task_name: labelset[index] for task_name, labelset in self.labels.items()}
         return x, ys
 
     def __len__(self):
@@ -271,44 +273,43 @@ class BERTDataset(data.Dataset):
             X: instances for BERT: (tok_matrix, seg_matrix, mask_matrix)
             Y: a list of label sets is any [n, :] tensor.
         """
-        # batch_size = len(batch_list)
-        num_labelsets = len(batch_list[0][1])
         tokens_list = []
         segments_list = []
-        Ys = [[] for _ in range(num_labelsets)]
+        Y_lists = {task_name: [] for task_name in self.labels}
 
         for instance in batch_list:
             x, ys = instance
             (tokens, segments) = x
             tokens_list.append(tokens)
             segments_list.append(segments)
-            for i, y in enumerate(ys):
-                Ys[i].append(y)
+            for task_name, y in ys.items():
+                Y_lists[task_name].append(y)
         tokens_tensor, _ = padded_tensor(tokens_list)
         segments_tensor, _ = padded_tensor(segments_list)
         masks_tensor = torch.gt(tokens_tensor.data, 0)
         assert tokens_tensor.shape == segments_tensor.shape
 
         X = (tokens_tensor.long(), segments_tensor.long(), masks_tensor.long())
-        Ys = self._collate_labels(Ys)
+        Ys = self._collate_labels(Y_lists)
         return X, Ys
 
     def _collate_labels(self, Ys):
         """Collate potentially multiple labelsets
 
         Args:
-            Ys: a [num_labelsets] list, with each entry containing a list of labels
-                (ints, floats, numpy, or torch) belonging to the same labelset
+            Ys: a dict of the form {task_name: label_list}, where label_list is a
+                list of individual labels (ints, floats, numpy, or torch) belonging to
+                the same labelset; labels may be a scalar or a sequence.
         Returns:
-            Ys: a [num_labelsets] list, with each entry containing a torch Tensor
-                (padded if necessary) of labels belonging to the same labelset
+            Ys: a dict of the form {task_name: labels}, with labels containing a torch
+                Tensor (padded if necessary) of labels belonging to the same labelset
 
 
         Convert each Y in Ys from:
             list of scalars (instance labels) -> [n,] tensor
             list of tensors/lists/arrays (token labels) -> [n, seq_len] padded tensor
         """
-        for i, Y in enumerate(Ys):
+        for task_name, Y in Ys.items():
             if isinstance(Y[0], int):
                 Y = torch.tensor(Y, dtype=torch.long)
             elif isinstance(Y[0], np.integer):
@@ -328,13 +329,19 @@ class BERTDataset(data.Dataset):
                     # TODO: WARNING: this may not handle half-precision correctly!
                     dtype = torch.float
                 else:
-                    msg = f"Unrecognized dtype of elements in label set {i}: {type(Y[0][0])}"
+                    msg = (
+                        f"Unrecognized dtype of elements in labelset for task "
+                        f"{task_name}: {type(Y[0][0])}"
+                    )
                     raise Exception(msg)
                 Y, _ = padded_tensor(Y, dtype=dtype)
             else:
-                msg = f"Unrecognized dtype of label set {i}: {type(Y[0])}"
+                msg = (
+                    f"Unrecognized dtype of labelset for task {task_name}: "
+                    f"{type(Y[0])}"
+                )
                 raise Exception(msg)
-            Ys[i] = Y
+            Ys[task_name] = Y
         return Ys
 
 
@@ -346,6 +353,7 @@ class QNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
         super(QNLIDataset, self).__init__(
+            task_name="QNLI",
             tsv_path=tsv_path_for_dataset("QNLI", split),
             sent1_idx=1,
             sent2_idx=2,
@@ -366,6 +374,7 @@ class STSBDataset(BERTDataset):
             lambda x: float(x) * 5,
         )  # labels are scores [1, 2, 3, 4, 5]
         super(STSBDataset, self).__init__(
+            task_name="STSB",
             tsv_path=tsv_path_for_dataset("STS-B", split),
             sent1_idx=7,
             sent2_idx=8,
@@ -384,6 +393,7 @@ class SST2Dataset(BERTDataset):
         # TODO: why do we want 1 to stay 1?
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})  # reserve 0 for abstain
         super(SST2Dataset, self).__init__(
+            task_name="SST2",
             tsv_path=tsv_path_for_dataset("SST-2", split),
             sent1_idx=0 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
@@ -401,6 +411,7 @@ class COLADataset(BERTDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(COLADataset, self).__init__(
+            task_name="COLA",
             tsv_path=tsv_path_for_dataset("CoLA", split),
             sent1_idx=3 if split in ["train", "dev"] else 1,
             sent2_idx=-1,
@@ -431,6 +442,7 @@ class MNLIDataset(BERTDataset):
             {"entailment": 1, "contradiction": 2, "neutral": 3}
         )
         super(MNLIDataset, self).__init__(
+            task_name="MNLI",
             tsv_path=tsv_path_for_dataset("MNLI", split),
             sent1_idx=8 if split != "diagnostic" else 1,
             sent2_idx=9 if split != "diagnostic" else 2,
@@ -448,6 +460,7 @@ class RTEDataset(BERTDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
         super(RTEDataset, self).__init__(
+            task_name="RTE",
             tsv_path=tsv_path_for_dataset("RTE", split),
             sent1_idx=1,
             sent2_idx=2,
@@ -465,6 +478,7 @@ class WNLIDataset(BERTDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(WNLIDataset, self).__init__(
+            task_name="WNLI",
             tsv_path=tsv_path_for_dataset("WNLI", split),
             sent1_idx=1,
             sent2_idx=2,
@@ -482,6 +496,7 @@ class QQPDataset(BERTDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(QQPDataset, self).__init__(
+            task_name="QQP",
             tsv_path=tsv_path_for_dataset("QQP", split),
             sent1_idx=3 if split in ["train", "dev"] else 1,
             sent2_idx=4 if split in ["train", "dev"] else 2,
@@ -499,6 +514,7 @@ class MRPCDataset(BERTDataset):
     def __init__(self, split, bert_model, **kwargs):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         super(MRPCDataset, self).__init__(
+            task_name="MRPC",
             tsv_path=tsv_path_for_dataset("MRPC", split),
             sent1_idx=3,
             sent2_idx=4,
@@ -515,101 +531,101 @@ class MRPCDataset(BERTDataset):
 # ----------Exotic Datasets---------
 
 
-class PairwiseRankingSampler(Sampler):
-    r"""Samples consecutive pairs randomly from a given list of indices, without replacement.
+# class PairwiseRankingSampler(Sampler):
+#     r"""Samples consecutive pairs randomly from a given list of indices, without replacement.
 
-    Arguments:
-        indices (sequence): a sequence of indices
-    """
+#     Arguments:
+#         indices (sequence): a sequence of indices
+#     """
 
-    def __init__(self, indices):
-        self.indices = indices
+#     def __init__(self, indices):
+#         self.indices = indices
 
-    def __iter__(self):
-        return (
-            int(2 * self.indices[i] + j)
-            for i in torch.randperm(len(self.indices))
-            for j in range(2)
-        )
+#     def __iter__(self):
+#         return (
+#             int(2 * self.indices[i] + j)
+#             for i in torch.randperm(len(self.indices))
+#             for j in range(2)
+#         )
 
-    def __len__(self):
-        return 2 * len(self.indices)
+#     def __len__(self):
+#         return 2 * len(self.indices)
 
 
-class QNLIRDataset(BERTDataset):
-    """
-    Torch dataset object for QNLI pairwise ranking task, to work with BERT architecture.
-    The input tsv should be sorted such that every two consecutive lines
-    are pairs of positive and negative examples.
-    """
+# class QNLIRDataset(BERTDataset):
+#     """
+#     Torch dataset object for QNLI pairwise ranking task, to work with BERT architecture.
+#     The input tsv should be sorted such that every two consecutive lines
+#     are pairs of positive and negative examples.
+#     """
 
-    def __init__(self, split, bert_model, max_datapoints=-1, **kwargs):
-        self.split = split
-        max_datapoints *= 2  # make sure we take pairs
-        if self.split == "train":
-            dataset_folder = "QNLIR"
-        else:
-            dataset_folder = "QNLI"
-        label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
-        super(QNLIRDataset, self).__init__(
-            tsv_path=tsv_path_for_dataset(dataset_folder, split),
-            sent1_idx=1,
-            sent2_idx=2,
-            label_idx=3 if split in ["train", "dev"] else -1,
-            skip_rows=1,
-            bert_model=bert_model,
-            delimiter="\t",
-            label_fn=label_fn,
-            inv_label_fn=inv_label_fn,
-            max_datapoints=max_datapoints,
-            label_type=float,
-            **kwargs,
-        )
-        if self.split == "train":
-            assert len(self.tokens) % 2 == 0
+#     def __init__(self, split, bert_model, max_datapoints=-1, **kwargs):
+#         self.split = split
+#         max_datapoints *= 2  # make sure we take pairs
+#         if self.split == "train":
+#             dataset_folder = "QNLIR"
+#         else:
+#             dataset_folder = "QNLI"
+#         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
+#         super(QNLIRDataset, self).__init__(
+#             tsv_path=tsv_path_for_dataset(dataset_folder, split),
+#             sent1_idx=1,
+#             sent2_idx=2,
+#             label_idx=3 if split in ["train", "dev"] else -1,
+#             skip_rows=1,
+#             bert_model=bert_model,
+#             delimiter="\t",
+#             label_fn=label_fn,
+#             inv_label_fn=inv_label_fn,
+#             max_datapoints=max_datapoints,
+#             label_type=float,
+#             **kwargs,
+#         )
+#         if self.split == "train":
+#             assert len(self.tokens) % 2 == 0
 
-    def get_dataloader(self, split_prop=None, split_seed=123, **kwargs):
-        """Returns a dataloader based on self (dataset). If split_prop is specified,
-        returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
-        if self.split == "train":
-            # choose random indices
-            num_pairs = len(self) / 2
-            full_idx = np.arange(num_pairs)
-            np.random.seed(split_seed)
-            np.random.shuffle(full_idx)
-            assert kwargs["batch_size"] % 2 == 0
-            if split_prop:
-                assert split_prop >= 0 and split_prop <= 1
+#     def get_dataloader(self, split_prop=None, split_seed=123, **kwargs):
+#         """Returns a dataloader based on self (dataset). If split_prop is specified,
+#         returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
+#         if self.split == "train":
+#             # choose random indices
+#             num_pairs = len(self) / 2
+#             full_idx = np.arange(num_pairs)
+#             np.random.seed(split_seed)
+#             np.random.shuffle(full_idx)
+#             assert kwargs["batch_size"] % 2 == 0
+#             if split_prop:
+#                 assert split_prop >= 0 and split_prop <= 1
 
-                # split into train/dev
-                split_div = int(split_prop * num_pairs)
-                train_idx = full_idx[:split_div]
-                dev_idx = full_idx[split_div:]
+#                 # split into train/dev
+#                 split_div = int(split_prop * num_pairs)
+#                 train_idx = full_idx[:split_div]
+#                 dev_idx = full_idx[split_div:]
 
-                # create data loaders
-                train_dataloader = data.DataLoader(
-                    self,
-                    collate_fn=self._collate_fn,
-                    sampler=PairwiseRankingSampler(train_idx),
-                    **kwargs,
-                )
+#                 # create data loaders
+#                 train_dataloader = data.DataLoader(
+#                     self,
+#                     collate_fn=self._collate_fn,
+#                     sampler=PairwiseRankingSampler(train_idx),
+#                     **kwargs,
+#                 )
 
-                dev_dataloader = data.DataLoader(
-                    self,
-                    collate_fn=self._collate_fn,
-                    sampler=PairwiseRankingSampler(dev_idx),
-                    **kwargs,
-                )
+#                 dev_dataloader = data.DataLoader(
+#                     self,
+#                     collate_fn=self._collate_fn,
+#                     sampler=PairwiseRankingSampler(dev_idx),
+#                     **kwargs,
+#                 )
 
-                return train_dataloader, dev_dataloader
-            else:
-                # create data loaders
-                train_dataloader = data.DataLoader(
-                    self,
-                    collate_fn=self._collate_fn,
-                    sampler=PairwiseRankingSampler(full_idx),
-                    **kwargs,
-                )
-                return train_dataloader
-        else:
-            return data.DataLoader(self, collate_fn=self._collate_fn, **kwargs)
+#                 return train_dataloader, dev_dataloader
+#             else:
+#                 # create data loaders
+#                 train_dataloader = data.DataLoader(
+#                     self,
+#                     collate_fn=self._collate_fn,
+#                     sampler=PairwiseRankingSampler(full_idx),
+#                     **kwargs,
+#                 )
+#                 return train_dataloader
+#         else:
+#             return data.DataLoader(self, collate_fn=self._collate_fn, **kwargs)

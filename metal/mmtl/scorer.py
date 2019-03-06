@@ -1,54 +1,24 @@
 from collections import defaultdict
 
-import numpy as np
-
 from metal.logging.utils import join_full_metric, split_full_metric
 from metal.metrics import METRICS as STANDARD_METRICS, metric_score
 
 
-"""
-Scorer class which evaluates metrics given a task and model.
-
-#TODO: Update this after redesign
-Example usage 1: standalone
-scorer = Scorer(standard_metrics=["accuracy"])
-model = MetalModel(tasks)
-trainer = Trainer()
-trainer.train_model(model, tasks)
-scorer.score(model, tasks[0])
-
-Example usage 2: integrated into task
-scorer = Scorer(standard_metrics=["accuracy"])
-task1 = Task(...,scorer=scorer)
-...
-taskn = ...
-tasks = [task1, ..., taskn]
-model = MetalModel(tasks)
-"""
-
-
 class Scorer(object):
     """
-    # TODO: clarify this even further
     DESIGN:
     - A Scorer is a bundle of metrics; it defines what metrics _can_ be calculated on a
     given task (may be able to use smart defaults based on the Task subclass; e.g.,
     classification comes with many nicely defined).
         - custom functions come with a list of names of the metrics they produce (with
         error checking to confirm they don't produce more than that)
-    - A Scorer is applied to a task with a list of metrics to return
+    - A Scorer operates over gold labels, probabilities, and predictions
+        NOTE: we use
     - All metrics in a scorer produce simple metric name only
-        - score() has task and split so it can create the full metric name
-        - The metrics dict only ever contains full metric names
-    - The user submits a list of task_metrics and test_metrics to the trainer
-        - test_metrics defaults to task_metrics
-        - when score() is called, only task_metrics are calculated and returned
-        - task_metrics and test_metrics contain only full metric names
-            - these can use arbitrary split names
-        - [later] we can optionally allow regexes instead of explicit names
+        - a simple metric name looks like "accuracy"
+        - a full metric name looks like "foo_task/bar_payload/accuracy"
 
     Args:
-        data_loader: DataLoader on which to calculate metrics.
         standard_metrics: List of strings of standard metrics for which to evaluate.
             By default, calculate on valid split. Optionally, prepend metric with
             "train/" to calculate on train split instead.
@@ -61,9 +31,6 @@ class Scorer(object):
 
             metric_fn1(Y, Y_preds, probs=Y_probs) ->
                 {metric1a: value1, ..., metric1z: valueN}
-
-            Note that metric_names will automatically have task and split prefixes
-            added by the Scorer;
     """
 
     def __init__(self, standard_metrics=[], custom_metric_funcs={}):
@@ -96,106 +63,64 @@ class Scorer(object):
                     raise Exception(msg)
                 self.custom_metric_map[metric_name] = metric_fn
 
-    def score(self, model, task, target_metrics=[], split=None, max_examples=0):
+    def score(self, Y, Y_probs, Y_preds, target_metrics=None):
         """
-        Calculates and returns a metrics_dict for a given task
+        Calculates and returns a metrics_dict for a given set of predictions and labels
 
         Args:
-            model: MetalModel to score (data will be moved to the same device as model)
-            task: Task to calculate metrics on
-            target_metrics: List of full metric names (task/split/metric) or
-                (split/metric) to be calculated; if empty, calculate all metrics
-                supported by this scorer.
-            split: If not-None, only calculate metrics for this split
-            max_examples: If > 0, score a maximum of this many examples
+            Y: an [n] list of gold labels
+            Y_probs: an [n] list of probabilities
+            Y_preds: an [n] list of predictions
+            target_metrics: a list of simple metrics to calculate
         Returns:
             a metrics_dict object of the form:
-                {task/split/metric1 : score1, ...., task/split/metricN: score N}
+                {metric1 : score1, ...., metricN: score N}
+
+        Note that the returned metrics dict will be transformed to have full metric
+        names (e.g., "accuracy" -> "foo_task/bar_payload/accuracy") in the trainer.
         """
-        metrics_dict = {}
+        self.validate_target_metrics(target_metrics)
 
-        # Identify splits and functions required to collect the target_metrics
-        target_standard_metrics, target_custom_metrics = self._extract_target_metrics(
-            task, target_metrics, split
-        )
-
-        # Calculate the requested metrics for each split of this task
-        for split in task.data_loaders:
-            if not (target_standard_metrics[split] or target_custom_metrics[split]):
+        simple_metrics_dict = {}
+        for metric in self.standard_metrics:
+            # If target metrics were specified and this is not one of them, skip it
+            if target_metrics and metric not in target_metrics:
                 continue
+            score = metric_score(Y, Y_preds, metric, probs=Y_probs)
+            simple_metrics_dict[metric] = score
 
-            # Calculate probs and preds from model
-            Y, Y_probs, Y_preds = model._predict_probs(
-                task, split, return_preds=True, max_examples=max_examples
-            )
+        for metric, custom_metric_func in self.custom_metric_map.items():
+            # If target metrics were specified and this is not one of them, skip it
+            if target_metrics and metric not in target_metrics:
+                continue
+            # If the current metric is already in the simple_metrics_dict, skip it
+            # This is possible because a custom_metric_func can return multiple metrics
+            if metric in simple_metrics_dict:
+                continue
+            custom_metric_dict = custom_metric_func(Y, Y_preds, probs=Y_probs)
+            for metric, score in custom_metric_dict.items():
+                if not target_metrics or metric in target_metrics:
+                    simple_metrics_dict[metric] = score
 
-            # From the labels and predictions calculate metrics
-            for metric in target_standard_metrics[split]:
-                score = metric_score(Y, Y_preds, metric, probs=Y_probs)
-                full_metric_name = join_full_metric(task.name, split, metric)
-                metrics_dict[full_metric_name] = score
+        return simple_metrics_dict
 
-            # Calculate custom fns
-            for custom_metric_func in target_custom_metrics[split]:
-                custom_metric_dict = custom_metric_func(Y, Y_preds, probs=Y_probs)
-                for metric, score in custom_metric_dict.items():
-                    if metric not in self.custom_metric_map:
-                        expected_metrics = [
-                            metrics
-                            for func, metrics in self.custom_metric_funcs
-                            if func == custom_metric_func
-                        ][0]
-                        msg = (
-                            f"Custom metric func {custom_metric_func} yielded a "
-                            f"metric `{metric}` that was not included in the list "
-                            f"of corresponding metrics: {expected_metrics}"
-                        )
-                        raise Exception(msg)
-                    full_metric_name = join_full_metric(task.name, split, metric)
-                    metrics_dict[full_metric_name] = score
-
-        return metrics_dict
-
-    def _extract_target_metrics(self, task, target_metrics, only_split=None):
-        """Creates dictionaries of target standard and custom metrics by split:
-
-        Example:
-        target_standard_metrics['valid'] = set(['accuracy', 'f1'])
-        target_custom_metrics['valid'] = [ custom_func_1, custom_func2 ]
-
-        If target_metrics is empty, calculate all metrics supported by this scorer.
-        If only_split is not None, only target metrics for that split.
-        """
-        target_standard_metrics = defaultdict(set)
-        target_custom_metrics = defaultdict(set)
+    def validate_target_metrics(self, target_metrics):
         if not target_metrics:
-            # Add all metrics for every split (unless only_split is not None)
-            for split in task.data_loaders:
-                if only_split and split != only_split:
-                    continue
-                target_standard_metrics[split] = self.standard_metrics
-                target_custom_metrics[split] = [
-                    f for f in self.custom_metric_funcs.keys()
-                ]
-        else:
-            # Separate metrics by specified split
-            for full_metric_name in target_metrics:
-                target_task, split, metric = split_full_metric(full_metric_name)
-                if target_task != task.name:
-                    continue
-                if only_split and split != only_split:
-                    continue
-                if metric in self.standard_metrics:
-                    target_standard_metrics[split].add(metric)
-                elif metric in self.custom_metric_map:
-                    target_custom_metrics[split].add(metric)
-                else:
-                    msg = (
-                        f"Target metric {full_metric_name} is not supported by the "
-                        f"Scorer for task {task.name}"
-                    )
-                    raise Exception(msg)
-        return target_standard_metrics, target_custom_metrics
+            return
+        for metric in target_metrics:
+            if "/" in metric:
+                msg = (
+                    "Target metrics must be in simple form (e.g., accuracy), "
+                    "not full form (e.g., foo_task/bar_payload/accuracy) and "
+                    "should not include the character '/'."
+                )
+                raise Exception(msg)
+            elif metric not in self.metrics:
+                msg = (
+                    f"Target metric {metric} is not supported by the given Scorer. "
+                    f"Supported tasks are: {self.metrics}."
+                )
+                raise Exception(msg)
 
     @property
     def metrics(self):

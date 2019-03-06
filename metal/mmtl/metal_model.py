@@ -1,11 +1,7 @@
-import warnings
-
 import numpy as np
 import torch
 import torch.nn as nn
 
-from metal.end_model import IdentityModule
-from metal.mmtl.task import RegressionTask
 from metal.utils import move_to_device, recursive_merge_dicts, set_seed
 
 model_defaults = {
@@ -38,6 +34,7 @@ class MetalModel(nn.Module):
 
         # Build network
         self._build(tasks)
+        self.task_map = {task.name: task for task in tasks}
 
         # Half precision
         if self.config["fp16"]:
@@ -55,6 +52,8 @@ class MetalModel(nn.Module):
             print("\nNetwork architecture:")
             print(self)
             print()
+            num_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+            print(f"Total number of parameters: {num_params}")
 
     def _build(self, tasks):
         """Iterates over tasks, adding their input_modules and head_modules"""
@@ -71,16 +70,6 @@ class MetalModel(nn.Module):
 
         self.loss_hat_funcs = {task.name: task.loss_hat_func for task in tasks}
         self.output_hat_funcs = {task.name: task.output_hat_func for task in tasks}
-
-        warnings.warn("nn.DataParallel has been removed!")
-        # task_paths = {}
-        # for task in tasks:
-        #     input_module = self.input_modules[task.name]
-        #     head_module = self.head_modules[task.name]
-        #     task_paths[task.name] = nn.DataParallel(
-        #         nn.Sequential(input_module, head_module)
-        #     )
-        # self.task_paths = nn.ModuleDict(task_paths)
 
     def forward(self, X, task_names):
         """Returns the outputs of the requested task heads in a dictionary
@@ -109,17 +98,18 @@ class MetalModel(nn.Module):
                 outputs[head_module] = head_module(outputs[middle_module])
         return {t: outputs[self.head_modules[t]] for t in task_names}
 
-    def calculate_loss(self, X, Ys, task_names=[]):
-        """Returns a dict of {task_name: loss (an FloatTensor scalar)}.
+    def calculate_loss(self, X, Ys, task_names):
+        """Returns a dict of {task_name: loss (a FloatTensor scalar)}.
 
         Args:
             X: an appropriate input for forward()
-            Ys: an iterable of labels corresponding to task_names appropriate for the
-                corresponding loss functions
+            Ys: a dict of {task_name: labels}
+            task_names: a list of the names of the tasks to compute loss for
         """
         outputs = self.forward(X, task_names)
         loss_dict = {}
-        for task_name, Y in zip(task_names, Ys):
+        for task_name in task_names:
+            Y = Ys[task_name]
             out = outputs[task_name]
             if self.config["fp16"] and Y.dtype == torch.float32:
                 out = out.half()
@@ -130,14 +120,13 @@ class MetalModel(nn.Module):
         return loss_dict
 
     @torch.no_grad()
-    def calculate_output(self, X, task_names):
+    def calculate_probs(self, X, task_names):
         """Returns a dict of {task_name: probs} where probs is [n]-length list}.
 
         The type of each entry in probs depends on the task type:
             instance-based tasks: each entry in probs is a [k]-len array
             token-based tasks: each entry is a  [seq_len, k] array
         """
-        # return F.softmax(self.forward(X), dim=1).data.cpu().numpy()
         assert self.eval()
         return {
             t: [probs.cpu().numpy() for probs in self.output_hat_funcs[t](out)]
@@ -160,143 +149,195 @@ class MetalModel(nn.Module):
         """Saves weight in checkpoint directory"""
         raise NotImplementedError
 
-    # Single task prediction helpers (for convenience)
-
     @torch.no_grad()
-    def predict_probs(self, task, split, **kwargs):
-        """Return probabilistic labels for a single task and split
-
-        Returns:
-            probs: an [n, k] np.ndarray of probabilities
-        """
-        self.eval()
-        _, Y_probs = self._predict_probs(task, split, **kwargs)
-        return Y_probs
-
-    @torch.no_grad()
-    def predict(self, task, split, return_probs=False, **kwargs):
-        """Return predictions for a single task and split (and optionally return probs)
-
-        Returns:
-            preds: an [n, 1] np.ndarray of predictions
-            probs: (optional) an [n, k] np.ndarray of probabilities if return_probs=True
-        """
-        self.eval()
-        _, Y_probs, Y_preds = self._predict_probs(
-            task, split, return_preds=True, **kwargs
-        )
-        if return_probs:
-            return Y_preds, Y_probs
-        else:
-            return Y_preds
-
-    @torch.no_grad()
-    def score(self, task, split, metrics, verbose=True, **kwargs):
-        """Calculate one or more metrics for a single task and split
+    def score(self, payload, metrics=[], verbose=True, **kwargs):
+        """Calculate the requested metrics for the given payload
 
         Args:
-            task: a Task
-            split: a target split to score on
-            metrics: a list of simple metric names supported by the task's Scorer
-                (optionally a string may be passed instead and a single score returned)
+            payload: a Payload to score
+            metrics: a list of full metric names, a single full metric name, or []:
+                list: a list of full metric names supported by the tasks' Scorers.
+                    (full metric names are of the form task/payload/metric)
+                    Only these metrics will be calculated and returned.
+                []: defaults to all supported metrics for the given payload's Tasks
+                str: a single full metric name
+                    A single score will be returned instead of a dictionary
 
         Returns:
-            scores: a list of scores corresponding to the requested metrics
-                (optionally a single score if metrics is a string instead of a list)
+            scores: a dict of the form {metric_name: score} corresponding to the
+                requested metrics (optionally a single score if metrics is a string
+                instead of a list)
         """
         self.eval()
-        return_list = isinstance(metrics, list)
-        metrics_list = metrics if isinstance(metrics, list) else [metrics]
-        target_metrics = [f"{task.name}/{split}/{metric}" for metric in metrics_list]
-        metrics_dict = task.scorer.score(self, task, target_metrics=target_metrics)
+        return_unwrapped = isinstance(metrics, str)
 
-        scores = []
-        for metric in target_metrics:
-            score = metrics_dict[metric]
-            scores.append(score)
-            if self.config["verbose"]:
-                print(f"{metric.capitalize()}: {score:.3f}")
+        # If no specific metrics were requested, calculate all available metrics
+        if metrics:
+            metrics_list = metrics if isinstance(metrics, list) else [metrics]
+            assert all(len(metric.split("/")) == 2 for metric in metrics_list)
+            task_names = set([metric.split("/")[0] for metric in metrics_list])
+            target_metrics = {}
+            for task_name in task_names:
+                target_metrics[task_name] = [m for m in metrics if task_name in m]
+        else:
+            task_names = payload.task_names
+            target_metrics = {task_name: None for task_name in task_names}
+
+        Ys, Ys_probs, Ys_preds = self.predict_with_gold(
+            payload, task_names, return_preds=True, **kwargs
+        )
+
+        metrics_dict = {}
+        for task_name in task_names:
+            scorer = self.task_map[task_name].scorer
+            task_metrics_dict = scorer.score(
+                Ys[task_name],
+                Ys_probs[task_name],
+                Ys_preds[task_name],
+                target_metrics=target_metrics[task_name],
+            )
+            # Expand short metric names into full metric names
+            for metric, score in task_metrics_dict.items():
+                full_metric_name = f"{task_name}/{payload.name}/{metric}"
+                metrics_dict[full_metric_name] = score
 
         # If a single metric was given as a string (not list), return a float
-        if len(scores) == 1 and not return_list:
-            return scores[0]
+        if return_unwrapped:
+            metric, score = metrics_dict.popitem()
+            return score
         else:
-            return scores
+            return metrics_dict
 
     @torch.no_grad()
-    def _predict_probs(
-        self, task, split, return_preds=False, max_examples=0, labelset_idx=0, **kwargs
+    def predict_with_gold(
+        self, payload, task_names=None, return_preds=False, max_examples=0, **kwargs
     ):
-        """Unzips the dataloader of a task's split and returns Y, Y_prods, Y_preds
+        """Extracts (Y) or calculates (Y_prods, Y_preds) for the given payload and tasks
 
-        Note: it is generally preferable to use predict() or predict_probs() unless
-            the gold labels Y are required as well.
+        To get just the probabilities or predictions for a single task, consider using
+        predict() or predict_probs().
 
         Args:
-            task: a Task to predict on
-            split: the split to predict on
+            payload: the Payload to make predictions for
+            task_names: if not None, predict probs only for the specified tasks;
+                otherwise, predict probs for all tasks present in the payload
             return_preds: if True, also include preds in return values
             max_examples: if > 0, predict for a maximum of this many examples
 
         Returns:
-            Y: an [n] list of labels (usually ints)
-            Y_probs: an [n] list of probabilities (usually floats)
-            Y_preds: an [n] list of predictions (usually ints)
+            Ys: a {task_name: Y} dict where Y is an [n] list of labels (often ints)
+            Ys_probs: a {task_name: Y_probs} dict where Y_probs is a [n] list of
+                probabilities
+            Ys_preds: a {task_name: Y_preds} dict where Y_preds is a [n] list of
+                predictions
         """
-        Y = []
-        Y_probs = []
+        if task_names:
+            for task_name in task_names:
+                if task_name not in payload.task_names:
+                    msg = (
+                        f"Could not find the specified task_name {task_name} in "
+                        f"payload {payload}"
+                    )
+                    raise Exception(msg)
+        else:
+            task_names = payload.task_names
+
+        Ys = {task_name: [] for task_name in task_names}
+        Ys_probs = {task_name: [] for task_name in task_names}
+
         total = 0
-        for batch_num, batch in enumerate(task.data_loaders[split]):
+        for batch_num, batch in enumerate(payload.data_loader):
             Xb = batch[0]
-            Yb = batch[1][labelset_idx]
-            Y.extend(Yb.numpy())
-            Y_probs.extend(self.calculate_output(Xb, [task.name])[task.name])
+            Yb = batch[1]
+            Yb_probs = self.calculate_probs(Xb, task_names)
+            for task_name in task_names:
+                Ys[task_name].extend(Yb[task_name].cpu().numpy())
+                Ys_probs[task_name].extend(Yb_probs[task_name])
             total += len(Xb)
             if max_examples > 0 and total >= max_examples:
                 break
 
         if max_examples:
-            Y = Y[:max_examples]
-            Y_probs = Y_probs[:max_examples]
+            Ys = {task_name: Y[:max_examples] for task_name, Y in Ys.items()}
+            Ys_probs = {
+                task_name: Y_probs[:max_examples]
+                for task_name, Y_probs in Ys_probs.items()
+            }
 
         if return_preds:
-            # Add 1 to account for the fact that all labels are categorical (> 0)
-            Y_preds = [np.argmax(probs, axis=-1) + 1 for probs in Y_probs]
-            # Y_preds = self._break_ties(Y_probs, **kwargs).astype(np.int)
-            return Y, Y_probs, Y_preds
+            Ys_preds = {
+                task_name: [probs_to_preds(y_probs) for y_probs in Y_probs]
+                for task_name, Y_probs in Ys_probs.items()
+            }
+            return Ys, Ys_probs, Ys_preds
         else:
-            return Y, Y_probs
+            return Ys, Ys_probs
 
-    # def _break_ties(self, Y_probs, break_ties="random"):
-    #     """Break ties in each entry of Y_probs according to the specified policy
+    # Single-task prediction helpers (for convenience)
+    @torch.no_grad()
+    def predict_probs(self, payload, task_name=None, **kwargs):
+        """Return probabilistic labels for a single task of a payload
 
-    #     Args:
-    #         Y_probs: An [n] list of probabilities for each instance, with probabilities
-    #             to max over in the final dimension
-    #         break_ties: A tie-breaking policy:
-    #             "abstain": return an abstain vote (0)
-    #             "random": randomly choose among the tied options
-    #                 NOTE: if break_ties="random", repeated runs may have
-    #                 slightly different results due to difference in broken ties
-    #             [int]: ties will be broken by using this label
-    #     Returns:
-    #         Y_preds: An [n] list of predictions for each instance
-    #     """
-    #     TOL = 1e-6
-    #     Y_preds = []
-    #     for i, probs in enumerate(Y_probs):
-    #         diffs = abs(probs - probs.max(axis=-1, keepdims=True))
-    #         max_idxs = np.where(diffs < TOL)[0]
-    #         if len(max_idxs) == 1:
-    #             pred = max_idxs[0] + 1
-    #         # Deal with "tie votes" according to the specified policy
-    #         elif break_ties == "random":
-    #             pred = np.random.choice(max_idxs) + 1
-    #         elif break_ties == "abstain":
-    #             pred = 0
-    #         elif isinstance(break_ties, int):
-    #             pred = break_ties
-    #         else:
-    #             ValueError(f"break_ties={break_ties} policy not recognized.")
-    #         Y_preds.append(pred)
-    #     return Y_preds
+        Args:
+            payload: a Payload
+            task_name: the task to calculate probabilities for; defaults to the name of
+                the payload if none
+        Returns:
+            Y_probs: an [n] list of probabilities
+        """
+        self.eval()
+        if task_name is None and payload.name in payload.task_names:
+            task_name = payload.name
+        else:
+            msg = (
+                f"Argument task_name must be in payload.task_names "
+                f"({payload.task_names})"
+            )
+            raise Exception(msg)
+
+        _, Ys_probs = self.predict_with_gold(payload, task_name, **kwargs)
+        return Ys_probs[task_name]
+
+    @torch.no_grad()
+    def predict(self, payload, task_name=None, return_probs=False, **kwargs):
+        """Return predicted labels for a single task of a payload
+
+        Args:
+            payload: a Payload
+            task_name: the task to calculate probabilities for; defaults to the name of
+                the payload if none
+        Returns:
+            Y_probs: an [n] list of probabilities
+            Y_preds: an [n] list of predictions
+        """
+        self.eval()
+        if task_name is None and payload.name in payload.task_names:
+            task_name = payload.name
+        else:
+            msg = (
+                f"Argument task_name must be in payload.task_names "
+                f"({payload.task_names})"
+            )
+            raise Exception(msg)
+
+        _, Ys_probs, Ys_preds = self.predict_with_gold(
+            payload, task_name, return_preds=True, **kwargs
+        )
+        Y_probs = Ys_probs[task_name]
+        Y_preds = Ys_preds[task_name]
+        if return_probs:
+            return Y_preds, Y_probs
+        else:
+            return Y_preds
+
+
+def probs_to_preds(probs):
+    """Identifies the largest probability in each column on the last axis
+
+    We add 1 to the argmax to account for the fact that all labels in MeTaL are
+    categorical and the 0 label is reserved for abstaining weak labels.
+    """
+    # TODO: Consider replacing argmax with a version of the rargmax utility to randomly
+    # break ties instead of accepting the first one, or allowing other tie-breaking
+    # strategies
+    return np.argmax(probs, axis=-1) + 1

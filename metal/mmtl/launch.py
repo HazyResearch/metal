@@ -10,21 +10,12 @@ import os
 
 import numpy as np
 
-from metal.mmtl.glue_tasks import create_tasks, task_defaults
+from metal.mmtl.glue_tasks import create_tasks_and_payloads, task_defaults
 from metal.mmtl.metal_model import MetalModel, model_defaults
 from metal.mmtl.trainer import MultitaskTrainer, trainer_defaults
 from metal.utils import add_flags_from_config, recursive_merge_dicts
 
 logging.basicConfig(level=logging.INFO)
-
-# Auxiliary task dict -- global for now!
-AUXILIARY_TASKS = {
-    "STSB": ["BLEU"],
-    "MRPC": ["BLEU"],
-    "MRPC_SAN": ["BLEU"],
-    "QQP": ["BLEU"],
-    "QQP_SAN": ["BLEU"],
-}
 
 
 def get_dir_name(models_dir):
@@ -81,11 +72,6 @@ if __name__ == "__main__":
         ),
     )
 
-    # Use auxiliary tasks
-    parser.add_argument(
-        "--use_auxiliary", type=int, default=False, help="Use auxiliary tasks or not"
-    )
-
     parser = add_flags_from_config(parser, trainer_defaults)
     parser = add_flags_from_config(parser, model_defaults)
     parser = add_flags_from_config(parser, task_defaults)
@@ -117,26 +103,11 @@ if __name__ == "__main__":
     else:
         task_config["splits"] = ["train", "valid", "test"]
 
-    # Creating auxiliarty task dict
-    if args.use_auxiliary:
-        auxiliary_tasks = AUXILIARY_TASKS
-    else:
-        auxiliary_tasks = {}
-
     # Getting primary task names
     task_names = [task_name for task_name in args.tasks.split(",")]
 
-    # Getting tasks, primary and auxiliary
-    tasks = create_tasks(task_names, auxiliary_tasks=auxiliary_tasks, **task_config)
-
-    # Updating with auxiliary tasks!
-    task_names_with_aux = [task.name for task in tasks]
-    print("Training on tasks:")
-    print(task_names_with_aux)
-
-    # Updating run_name here to include auxiliary tasks
-    if not trainer_config["writer_config"]["run_name"]:
-        trainer_config["writer_config"]["run_name"] = ".".join(task_names_with_aux)
+    # Getting tasks
+    tasks, payloads = create_tasks_and_payloads(task_names, **task_config)
 
     model_config["verbose"] = False
     model = MetalModel(tasks, **model_config)
@@ -156,4 +127,4 @@ if __name__ == "__main__":
     trainer.writer.write_config(model_config, "model_config")
     trainer.writer.write_config(task_config, "task_config")
 
-    trainer.train_model(model, tasks)
+    trainer.train_model(model, payloads)
