@@ -47,6 +47,7 @@ class GLUEDataset(data.Dataset):
         label_type,
         label_fn,
         inv_label_fn,
+        max_len=0,
         bert_vocab=None,
         tokenize_bert=True,
         tokenize_spacy=True,
@@ -59,13 +60,13 @@ class GLUEDataset(data.Dataset):
             label_type: data type (int, float) of labels. used to cast values downstream.
             label_fn: dictionary or function mapping from raw labels to desired format
             inv_label_fn: inverse function mapping format back to raw labels
+            max_len: if non-zero, truncate inputs to a maximum of this many tokens
 
         After tokenization:
             bert_tokens: an [n] list of longs corresponding to the indices of each
                 bert-tokenized wordpiece token in the vocabulary for that bert model
-            # tokens: list of sentences (lists) containing token indexes
-            # segments: list of segment masks indicating whether each token in sent1/sent2
-            #     e.g. [[0, 0, 0, 0, 1, 1, 1], ...]
+            bert_segments: an [n] list of segment masks indicating whether each token
+                is in sent1/sent2 (e.g. [[0, 0, 0, 0, 1, 1, 1], ...])
         """
         self.sentences = sentences
         self.labels = {task_name: labels}
@@ -75,7 +76,7 @@ class GLUEDataset(data.Dataset):
 
         if tokenize_bert:
             assert bert_vocab is not None
-            bert_tokens, bert_segments = self.tokenize_bert(bert_vocab)
+            bert_tokens, bert_segments = self.tokenize_bert(bert_vocab, max_len)
             self.bert_tokens = bert_tokens
             self.bert_segments = bert_segments
         if tokenize_spacy:
@@ -92,7 +93,7 @@ class GLUEDataset(data.Dataset):
         return x, ys
 
     def __len__(self):
-        return len(self.tokens)
+        return len(self.bert_tokens)
 
     def get_dataloader(self, split_prop=None, split_seed=123, **kwargs):
         """Returns a dataloader based on self (dataset). If split_prop is specified,
@@ -213,7 +214,7 @@ class GLUEDataset(data.Dataset):
             Ys[task_name] = Y
         return Ys
 
-    def tokenize_bert(self, bert_vocab):
+    def tokenize_bert(self, bert_vocab, max_len):
         # Initialize BERT tokenizer
         do_lower_case = "uncased" in bert_vocab
         tokenizer = BertTokenizer.from_pretrained(
@@ -222,45 +223,42 @@ class GLUEDataset(data.Dataset):
         bert_tokens = []
         bert_segments = []
 
-        for sentence_list in self.sentences:
-            assert len(sentence_list) in [1, 2]
+        for sentence_pair in self.sentences:
+            assert len(sentence_pair) in [1, 2]
 
             # Tokenize sentences
-            tokenized_sentences = [tokenizer.tokenize(sent) for sent in sentence_list]
-            sent1_tokens = tokenized_sentences[0]
-            sent2_tokens = tokenized_sentences[1] if len(tokenized_sentences) > 1
+            tokenized_sents = [tokenizer.tokenize(sent) for sent in sentence_pair]
+            sent1_tokens = tokenized_sents[0]
+            sent2_tokens = tokenized_sents[1] if len(tokenized_sents) > 1 else None
 
             # Truncate if necessary
-            if len(sentence_list) == 1:
-                if len(tokenized_sentences[0]) > max_len - 1:  # [CLS]
-                    tokenized_sentences[0] = tokenized_sentences[0][: max_len - 1]
-            else:
-                # remove tokens from the longer sequence
-                while len(tokenized_sentences[0]) + len(tokenized_sentences[1]) > max_len - 2:
-                    if len(tokenized_sentences[0]) > len(tokenized_sentences[1]):
-                        tokenized_sentences[0].pop()
-                    else:
-                        tokenized_sentences[1].pop()
+            if max_len > 0:
+                if sent2_tokens:
+                    # Remove tokens from the longer sentence
+                    # Save room for [CLS] and [SEP] x 2
+                    while len(sent1_tokens) + len(sent2_tokens) > max_len - 3:
+                        if len(sent1_tokens) > len(sent2_tokens):
+                            sent1_tokens.pop()
+                        else:
+                            sent2_tokens.pop()
+                else:
+                    # Remove tokens from the only sentence
+                    if len(sent1_tokens) > max_len - 2:  # Save room for [CLS], [SEP]
+                        sent1_tokens = sent1_tokens[: max_len - 2]
 
             # Add markers
-            tokenized_sentences[0] = ["CLS"] + tokenized_sentences[0]
-            if len(tokenized_sentences)
-            sent1_ids = tokenizer.convert_tokens_to_ids(
-                ["[CLS]"] + sent1_tokenized + ["[SEP]"]
-            )
-            if sent2_idx >= 0:
-                sent2_ids = tokenizer.convert_tokens_to_ids(sent2_tokenized + ["[SEP]"])
+            sent1_tokens = ["[CLS]"] + sent1_tokens + ["[SEP]"]
+            if sent2_tokens:
+                sent2_tokens += ["[SEP]"]
             else:
-                sent2_ids = []
+                sent2_tokens = []
+            token_ids = tokenizer.convert_tokens_to_ids(sent1_tokens + sent2_tokens)
+            segments = [0] * len(sent1_tokens) + [1] * len(sent2_tokens)
 
-            # combine sentence pair
-            sent = sent1_ids + sent2_ids
+            bert_tokens.append(token_ids)
+            bert_segments.append(segments)
 
-            # sentence-pair segments
-            seg = [0] * len(sent1_ids) + [1] * len(sent2_ids)
-
-            tokens.append(sent)
-            segments.append(seg)
+        return bert_tokens, bert_segments
 
     def tokenize_spacy(self):
         pass
@@ -298,7 +296,6 @@ class GLUEDataset(data.Dataset):
             skip_rows,
             delimiter,
             label_fn,
-            max_len,
             max_datapoints,
             generate_uids,
         )
@@ -311,7 +308,8 @@ class GLUEDataset(data.Dataset):
             label_type,
             label_fn,
             inv_label_fn,
-            bert_vocab=None,
+            max_len=-1,
+            bert_vocab=bert_vocab,
             tokenize_bert=True,
-            tokenize_spacy=True
+            tokenize_spacy=True,
         )
