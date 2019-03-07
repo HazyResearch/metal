@@ -13,14 +13,13 @@ from metal.mmtl.metal_model import MetalModel
 from metal.utils import convert_labels
 
 
-def load_data_and_model(model_path, task_names, split):
+def load_data_and_model(model_path, task_names, split, bert_model="bert-base-uncased"):
     """
     Loads the model specified by model_path and dataset specified by task_name, split.
     """
 
     # Create DataLoader
-    bert_model = "bert-base-uncased"
-    max_len = 256
+    max_len = 200
     dl_kwargs = {"batch_size": 1, "shuffle": False}
 
     # Load best model for specified task
@@ -32,19 +31,26 @@ def load_data_and_model(model_path, task_names, split):
         splits=[split],
         max_datapoints=-1,
         generate_uids=True,
-    )[0]
+    )
 
     #  Load and EVAL model
     model_path = os.path.join(model_path)
-    model = MetalModel([task], verbose=False, device=0)
+    model = MetalModel(task, verbose=False, device=0)
     model.load_weights(model_path)
     model.eval()
 
-    return model, task.data_loaders[split]
+    return model, task[0].data_loaders[split]
 
 
 # Debugging Related Functions
-def create_dataframe(task_name, model, dl, target_uids=None, max_batches=None):
+def create_dataframe(
+    task_name,
+    model,
+    dl,
+    target_uids=None,
+    max_batches=None,
+    bert_model="bert-base-uncased",
+):
     """Create dataframe with datapoint, predicted score, and true label.
 
     Args:
@@ -61,9 +67,9 @@ def create_dataframe(task_name, model, dl, target_uids=None, max_batches=None):
         raise NotImplementedError("We currently assume binary tasks")
 
     # Use BERT model to convert tokenization to sentence
-    bert_model = "bert-base-uncased"
     data = {"sentence1": [], "sentence2": [], "label": [], "score": [], "uid": []}
-    tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
+    do_lower_case = "uncased" in bert_model
+    tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=do_lower_case)
 
     # Create a list of examples and associated predicted score and true label
     count = 0

@@ -21,6 +21,10 @@ class Tagger(object):
     def _get_tag_path(self, tag):
         return os.path.join(self.tags_dir, f"{tag}.txt")
 
+    def clear_tag(self, tag):
+        tag_path = self._get_tag_path(tag)
+        os.remove(tag_path)
+
     def add_tag(self, uid, tag):
         tag_path = self._get_tag_path(tag)
 
