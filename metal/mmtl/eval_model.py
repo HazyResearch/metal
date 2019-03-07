@@ -12,7 +12,7 @@ from scipy.stats import mode
 
 from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.utils.dataset_utils import get_all_dataloaders
+from metal.mmtl.utils.dataloaders import get_all_dataloaders
 
 task_to_name_dict = {
     "QNLI": "QNLI",
