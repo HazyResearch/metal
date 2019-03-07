@@ -12,13 +12,13 @@ from metal.mmtl.utils.preprocess import get_task_tsv_config, load_tsv
 from metal.utils import padded_tensor, set_seed
 
 
-def get_glue_dataset(task_name, split, bert_vocab, **kwargs):
+def get_glue_dataset(dataset_name, split, bert_vocab, **kwargs):
     """ Create and returns specified glue dataset from data in tsv file."""
-    config = get_task_tsv_config(task_name, split)
+    config = get_task_tsv_config(dataset_name, split)
 
     return GLUEDataset.from_tsv(
         # class kwargs
-        task_name,
+        dataset_name,
         bert_vocab=bert_vocab,
         # load_tsv kwargs
         tsv_path=config["tsv_path"],
@@ -41,7 +41,7 @@ class GLUEDataset(data.Dataset):
 
     def __init__(
         self,
-        task_name,
+        dataset_name,
         sentences,
         labels,
         label_type,
@@ -69,7 +69,7 @@ class GLUEDataset(data.Dataset):
                 is in sent1/sent2 (e.g. [[0, 0, 0, 0, 1, 1, 1], ...])
         """
         self.sentences = sentences
-        self.labels = {task_name: labels}
+        self.labels = {dataset_name: labels}
         self.label_type = label_type
         self.label_fn = label_fn
         self.inv_label_fn = inv_label_fn
@@ -261,13 +261,15 @@ class GLUEDataset(data.Dataset):
         return bert_tokens, bert_segments
 
     def tokenize_spacy(self):
+        # TODO: Import spacy
+        # apply to sentence_pairs
         pass
 
     @classmethod
     def from_tsv(
         # class kwargs
         cls,
-        task_name,
+        dataset_name,
         bert_vocab,
         # load_tsv kwargs
         tsv_path,
@@ -289,25 +291,25 @@ class GLUEDataset(data.Dataset):
 
         # load and preprocess data from tsv
         sentences, labels = load_tsv(
-            tsv_path,
-            sent1_idx,
-            sent2_idx,
-            label_idx,
-            skip_rows,
-            delimiter,
-            label_fn,
-            max_datapoints,
-            generate_uids,
+            tsv_path=tsv_path,
+            sent1_idx=sent1_idx,
+            sent2_idx=sent2_idx,
+            label_idx=label_idx,
+            skip_rows=skip_rows,
+            delimiter=delimiter,
+            label_fn=label_fn,
+            max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
         )
 
         # initialize class with data
         return cls(
-            task_name,
-            sentences,
-            labels,
-            label_type,
-            label_fn,
-            inv_label_fn,
+            dataset_name,
+            sentences=sentences,
+            labels=labels,
+            label_type=label_type,
+            label_fn=label_fn,
+            inv_label_fn=inv_label_fn,
             max_len=-1,
             bert_vocab=bert_vocab,
             tokenize_bert=True,

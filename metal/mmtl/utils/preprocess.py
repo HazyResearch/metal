@@ -182,7 +182,6 @@ def load_tsv(
     skip_rows,
     delimiter="\t",
     label_fn=lambda x: x,
-    max_len=-1,
     max_datapoints=-1,
     generate_uids=False,
 ):
@@ -197,7 +196,6 @@ def load_tsv(
         skip_rows: number of rows to skip (i.e. header rows) in .tsv
         delimiter: delimiter between columns (likely '\t') for tab-separated-values
         label_fn: maps labels to desired format (usually for training)
-        max_len: maximum sequence length of each sentence
         max_datapoints: maximum len of the dataset.
             used for debugging without loading all data.
         generate_uids: whether to return uids in addition to payload
