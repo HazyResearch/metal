@@ -12,7 +12,7 @@ from scipy.stats import mode
 
 from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.utils.dataset_utils import get_all_dataloaders
+from metal.mmtl.utils.dataloaders import get_all_dataloaders
 
 task_to_name_dict = {
     "QNLI": "QNLI",
@@ -65,7 +65,11 @@ def save_tsv(predictions, task_name, state, submission_dir):
     with open(file_path, "w") as f:
         f.write("index\tprediction\n")
         for idx, pred in enumerate(predictions):
-            f.write(f"{int(idx)}\t{str(pred)}\n")
+            if task_name != "STSB":
+                f.write(f"{int(idx)}\t{str(pred)}\n")
+            else:
+                # STSB is a regression task so we directly return scores
+                f.write(f"{int(idx)}\t" + "{:.3f}\n".format(pred))
     print("Saved TSV to: ", file_path)
 
 
@@ -82,19 +86,38 @@ def zipdir(submission_dir, zip_filename):
     zipf.close()
 
 
-def ensemble_preds(predictions):
+def apply_inv_fn(preds, inv_label_fn):
+    predicted_labels = [inv_label_fn(pred) for pred in preds.flatten()]
+    return predicted_labels
+
+
+def ensemble_preds_mv(predictions, inv_fns):
+    """Majority vote for classification and average for regression."""
     ensemble_preds = {}
-    for (task_name, state), preds in predictions.items():
-        preds = np.array(preds)
+    for (task_name, state), scores in predictions.items():
+        preds = np.array([apply_inv_fn(score, inv_fns[task_name]) for score in scores])
         if preds.shape[0] > 1:
             warnings.warn(f"Ensembling {preds.shape[0]} models for {task_name} task")
-        if task.name != "STSB":
+        if task_name != "STSB":
             # get majority vote for classification tasks
             final_pred = mode(preds, axis=0).mode
         else:
             # average scores for regression tasks
             final_pred = preds.mean(0)
         ensemble_preds[(task_name, state)] = list(final_pred.flatten())
+    return ensemble_preds
+
+
+def ensemble_preds_av(predictions, inv_fns):
+    """Average scores, then apply inv_label_fn."""
+    ensemble_preds = {}
+    for (task_name, state), preds in predictions.items():
+        preds = np.array(preds)
+        if preds.shape[0] > 1:
+            warnings.warn(f"Ensembling {preds.shape[0]} models for {task_name} task")
+        # average scores for regression tasks
+        final_preds = apply_inv_fn(preds.mean(0), inv_fns[task_name])
+        ensemble_preds[(task_name, state)] = final_preds
     return ensemble_preds
 
 
@@ -155,7 +178,7 @@ if __name__ == "__main__":
 
     dl_kwargs = {"batch_size": args.batch_size, "shuffle": False}
     predictions = {}
-
+    inv_fns = {}
     for names, model_dirs in models.items():
         task_names = names.split(",")
 
@@ -179,9 +202,10 @@ if __name__ == "__main__":
                 max_datapoints=-1,
             )
             model = MetalModel(tasks, verbose=False, device=args.device)
-            if not args.use_task_checkpoints:
+            if not args.use_task_checkpoints or len(tasks) == 1:
                 # load model weights
                 model_path = os.path.join(model_dir, "best_model.pth")
+                print(f"Loading model checkpoint: {model_path}")
                 model.load_weights(model_path)
                 model.eval()
 
@@ -191,10 +215,11 @@ if __name__ == "__main__":
                 if task.name in task_names:
 
                     # reload task specific checkpoints for MTL models
-                    if len(tasks) > 0 and args.use_task_checkpoints:
+                    if len(tasks) > 1 and args.use_task_checkpoints:
                         model_path = os.path.join(
-                            model_dir, f"checkpoints/{task.name}/best_model.pth"
+                            model_dir, f"{task.name}_best_model.pth"
                         )
+                        print(f"Loading task specific checkpoint: {model_path}")
                         model.load_weights(model_path)
                         model.eval()
 
@@ -233,36 +258,33 @@ if __name__ == "__main__":
                             Y, Y_probs, Y_preds = model._predict_probs(
                                 task, split=split, return_preds=True
                             )
-                            inv_label_fn = task.data_loaders[split].dataset.inv_label_fn
                             if task.name != "STSB":
-                                predicted_labels = [
-                                    inv_label_fn(pred) for pred in Y_preds
-                                ]
+                                predicted_labels = Y_preds
                             else:
-                                # STSB is a regression task so we directly return scores
-                                predicted_labels = [
-                                    round(inv_label_fn(pred), 3)
-                                    for pred in Y_probs.flatten()
-                                ]
+                                predicted_labels = Y_probs
                             if (task.name, state) in predictions:
                                 predictions[(task.name, state)].append(predicted_labels)
                             else:
                                 predictions[(task.name, state)] = [predicted_labels]
-
-    if len(predictions) != 11 and args.eval_split == "test":
-        # make sure all 11 files are present before zipping
-        warnings.warn(
-            f"You only specified model paths for {len(predictions)} tasks. The submission zip will be malformed."
-        )
-    ensemble_predictions = ensemble_preds(predictions)
-
-    for (task_name, state), predicted_labels in ensemble_predictions.items():
-        # save predictions on test set for submission
-        save_tsv(predicted_labels, task_name, state, submission_dir)
-        if args.eval_split == "test" and args.copy_models:
-            # copy model weights and config to submission dir
-            model_dir = os.path.dirname(model_path)
-            os.system(f"cp -r {model_dir} {submission_dir}")
+                                inv_fns[task.name] = task.data_loaders[
+                                    split
+                                ].dataset.inv_label_fn
 
     if args.eval_split == "test":
+        if len(predictions) != 11:
+            # make sure all 11 files are present before zipping
+            warnings.warn(
+                f"You only specified model paths for {len(predictions)} tasks. The submission zip will be malformed."
+            )
+        ensemble_predictions = ensemble_preds_mv(predictions, inv_fns)
+        # ensemble_predictions = ensemble_preds_av(predictions, inv_fns)
+
+        for (task_name, state), predicted_labels in ensemble_predictions.items():
+            # save predictions on test set for submission
+            save_tsv(predicted_labels, task_name, state, submission_dir)
+            if args.copy_models:
+                # copy model weights and config to submission dir
+                model_dir = os.path.dirname(model_path)
+                os.system(f"cp -r {model_dir} {submission_dir}")
+
         zipdir(submission_dir, args.zip_filename)
