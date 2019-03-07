@@ -123,7 +123,7 @@ class MetalModel(nn.Module):
             task_loss = self.loss_hat_funcs[task_name](
                 out, move_to_device(Y, self.config["device"])
             )
-            loss_dict[task_name] = task_loss * self.tasks[task_name].loss_multiplier
+            loss_dict[task_name] = task_loss * self.task_map[task_name].loss_multiplier
         return loss_dict
 
     @torch.no_grad()
