@@ -19,10 +19,12 @@ class Task(ABC):
         middle_module: (nn.Module) A middle module
         attention_module: (nn.Module) An attention module right before the task head
         head_module: (nn.Module) The task head module
+        output_hat_func: A function of the form f(forward(X)) -> output (e.g. probs)
         loss_hat_func: A function of the form f(forward(X), Y) -> loss (scalar Tensor)
             We recommend returning an average loss per example so that loss magnitude
             is more consistent in the face of batch size changes
-        output_hat_func: A function of the form f(forward(X)) -> output (e.g. probs)
+        loss_multiplier: A scalar by which the loss for this task will be multiplied.
+            Default is 1 (no scaling effect at all)
         scorer: A Scorer that returns a metrics_dict object.
     """
 
@@ -33,8 +35,9 @@ class Task(ABC):
         middle_module,
         attention_module,
         head_module,
-        loss_hat_func,
         output_hat_func,
+        loss_hat_func,
+        loss_multiplier,
         scorer,
     ) -> None:
         self.name = name
@@ -42,8 +45,9 @@ class Task(ABC):
         self.middle_module = middle_module
         self.attention_module = attention_module
         self.head_module = head_module
-        self.loss_hat_func = loss_hat_func
         self.output_hat_func = output_hat_func
+        self.loss_hat_func = loss_hat_func
+        self.loss_multiplier = loss_multiplier
         self.scorer = scorer
 
     def __repr__(self):
@@ -61,8 +65,9 @@ class ClassificationTask(Task):
         middle_module=IdentityModule(),
         attention_module=IdentityModule(),
         head_module=IdentityModule(),
-        loss_hat_func=(lambda out, Y_gold: F.cross_entropy(out, Y_gold - 1)),
         output_hat_func=(partial(F.softmax, dim=1)),
+        loss_hat_func=(lambda out, Y_gold: F.cross_entropy(out, Y_gold - 1)),
+        loss_multiplier=1,
         scorer=Scorer(standard_metrics=["accuracy"]),
     ) -> None:
 
@@ -72,8 +77,9 @@ class ClassificationTask(Task):
             middle_module,
             attention_module,
             head_module,
-            loss_hat_func,
             output_hat_func,
+            loss_hat_func,
+            loss_multiplier,
             scorer,
         )
 
@@ -89,11 +95,12 @@ class RegressionTask(Task):
         attention_module=IdentityModule(),
         head_module=IdentityModule(),
         # OLD
-        # loss_hat_func=(lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_out), Y_gold)),
         # output_hat_func=torch.sigmoid,
+        # loss_hat_func=(lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_out), Y_gold)),
         # NEW
         output_hat_func=lambda x: x,
         loss_hat_func=(lambda Y_prob, Y_gold: F.mse_loss(Y_prob, Y_gold)),
+        loss_multiplier=1,
         scorer=Scorer(standard_metrics=[]),
     ) -> None:
 
@@ -103,8 +110,9 @@ class RegressionTask(Task):
             middle_module,
             attention_module,
             head_module,
-            loss_hat_func,
             output_hat_func,
+            loss_hat_func,
+            loss_multiplier,
             scorer,
         )
 
@@ -164,8 +172,9 @@ class TokenClassificationTask(Task):
         middle_module=IdentityModule(),
         attention_module=IdentityModule(),
         head_module=IdentityModule(),
-        loss_hat_func=tokenwise_ce_loss,
         output_hat_func=tokenwise_softmax,
+        loss_hat_func=tokenwise_ce_loss,
+        loss_multiplier=1,
         scorer=Scorer(custom_metric_funcs={tokenwise_accuracy: ["token_acc"]}),
     ) -> None:
 
@@ -175,7 +184,8 @@ class TokenClassificationTask(Task):
             middle_module,
             attention_module,
             head_module,
-            loss_hat_func,
             output_hat_func,
+            loss_hat_func,
+            loss_multiplier,
             scorer,
         )

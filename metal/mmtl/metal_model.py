@@ -120,9 +120,10 @@ class MetalModel(nn.Module):
             if self.config["fp16"] and Y.dtype == torch.float32:
                 out = out.half()
                 Y = Y.half()
-            loss_dict[task_name] = self.loss_hat_funcs[task_name](
+            task_loss = self.loss_hat_funcs[task_name](
                 out, move_to_device(Y, self.config["device"])
             )
+            loss_dict[task_name] = task_loss * self.tasks[task_name].loss_multiplier
         return loss_dict
 
     @torch.no_grad()
