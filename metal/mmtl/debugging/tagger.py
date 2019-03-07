@@ -3,17 +3,20 @@ from collections import defaultdict
 
 from pytorch_pretrained_bert import BertTokenizer
 
-import metal.mmtl.dataset as dataset_module
+from metal.mmtl.dataset import get_glue_dataset
+from metal.mmtl.utils.preprocess import get_task_tsv_config, load_tsv
 
 
 class Tagger(object):
     def __init__(
         self,
         tags_dir=os.path.join(os.environ["METALHOME"], "metal/mmtl/debugging/tags"),
+        verbose=True,
     ):
         if not os.path.isdir(tags_dir):
             os.mkdir(tags_dir)
         self.tags_dir = tags_dir
+        self.verbose = verbose
 
     def _get_tag_path(self, tag):
         return os.path.join(self.tags_dir, f"{tag}.txt")
@@ -32,7 +35,8 @@ class Tagger(object):
             uids = sorted(map(lambda x: x + "\n", uids))
             f.writelines(uids)
             f.close()
-        print(f"Added 1 tag. Tag set '{tag}' contains {len(uids)} tags.")
+        if self.verbose:
+            print(f"Added 1 tag. Tag set '{tag}' contains {len(uids)} tags.")
 
     def get_uids(self, tag):
         tag_path = self._get_tag_path(tag)
@@ -40,7 +44,7 @@ class Tagger(object):
             uids = [x.strip() for x in f.readlines()]
             return uids
 
-    def get_examples(self, tag, bert_tokenizer_kwargs=None):
+    def get_examples(self, tag, bert_vocab=None):
         """ Parses the uids for a particular tag and return appropriate examples.
 
         NOTE: this is done with many assumptions about the naming of the UIDs
@@ -48,6 +52,7 @@ class Tagger(object):
 
         Args:
             tag: name of tag for which we want to return examples
+            bert_vocab: vocab file for bert tokenizer
         Returns:
             tuples of (uid, examples) from raw data
                 e.g. ('RTE/dev.tsv:1, [..., sent1, sent2, label1, ...])
@@ -72,28 +77,41 @@ class Tagger(object):
             task_name, file_suffix = fn.split("/")
             split = file_suffix.split(".tsv")[0]
 
-            # initialize dataset to find sent/label indexes
-            dataset_cls = getattr(dataset_module, task_name.upper() + "Dataset")
-            dataset = dataset_cls(split, None, load_tsv=False)
+            tokenizer = None
+            if bert_vocab:
+                do_lower_case = "uncased" in bert_vocab
+                tokenizer = BertTokenizer.from_pretrained(
+                    bert_vocab, do_lower_case=do_lower_case
+                )
 
             # take the raw line, remove \n, and split by \t for readability
             exs = []
-            tokenizer = (
-                BertTokenizer.from_pretrained(**bert_tokenizer_kwargs)
-                if bert_tokenizer_kwargs
-                else None
-            )
-
+            config = get_task_tsv_config(task_name.upper(), split)
             for line in lines:
-                split_line = fn_lines[line].strip().split("\t")
-                sent1 = split_line[dataset.sent1_idx]
-                sent2 = split_line[dataset.sent2_idx]
+                uid = f"{fn}:{line}"
+                try:
+                    split_line = fn_lines[line].strip().split("\t")
+                except IndexError:
+                    print("Error:", line, uid)
+                    continue
+
+                sent1 = (
+                    split_line[config["sent1_idx"]]
+                    if config["sent1_idx"] >= 0
+                    else None
+                )
+                sent2 = (
+                    split_line[config["sent2_idx"]]
+                    if config["sent2_idx"] >= 0
+                    else None
+                )
                 example = {
                     "sent1": tokenizer.tokenize(sent1) if tokenizer else sent1,
                     "sent2": tokenizer.tokenize(sent2) if tokenizer else sent2,
-                    "label": split_line[dataset.label_idx],
+                    "label": split_line[config["label_idx"]]
+                    if config["label_idx"] >= 0
+                    else None,
                 }
-                uid = f"{fn}:{line}"
                 exs.append((uid, example))
 
             examples.extend(exs)

@@ -50,7 +50,8 @@ from metal.mmtl.aws import grid_search_mmtl
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--mode", choices=["list", "launch", "launch_and_run", "run", "shutdown"]
+    "--mode",
+    choices=["list", "launch", "launch_and_run", "run", "shutdown", "shutdown_all"],
 )
 parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
@@ -61,6 +62,10 @@ parser.add_argument("--keypath", required=True)
 parser.add_argument("--outputpath", default="output")
 parser.add_argument("--instance_type", default="t2.medium")
 parser.add_argument("--only_print_commands", default=0)
+parser.add_argument(
+    "--run_name",
+    default=datetime.datetime.fromtimestamp(time.time()).strftime("%Y_%m_%d_%H_%M_%S"),
+)
 parser.add_argument(
     "--configpath", required=True, type=str, help="path to config dicts"
 )
@@ -205,7 +210,19 @@ def get_instances(args, filter_by_user=True):
     ec2_client, ec2_resource = create_ec2_client(args)
     instances = ec2_resource.instances.filter()
     if filter_by_user:
-        instances = [x for x in instances if get_user(x) == os.environ["USER"]]
+        instances = [
+            x
+            for x in instances
+            if get_user(x) == os.environ["USER"] + "_" + args.run_name
+        ]
+    return instances
+
+
+def get_all_instances(args, filter_by_user=True):
+    ec2_client, ec2_resource = create_ec2_client(args)
+    instances = ec2_resource.instances.filter()
+    if filter_by_user:
+        instances = [x for x in instances if os.environ["USER"] in get_user(x)]
     return instances
 
 
@@ -242,7 +259,7 @@ def launch(args):
     # Tag with user
     ec2_client.create_tags(
         Resources=[x.id for x in instances],
-        Tags=[{"Key": "user", "Value": os.environ["USER"]}],
+        Tags=[{"Key": "user", "Value": os.environ["USER"] + "_" + args.run_name}],
     )
 
     print("Waiting for instances: %s" % str([x.id for x in instances]))
@@ -260,6 +277,13 @@ def launch(args):
 
 def shutdown(args):
     instances = get_instances(args)
+    for instance in instances:
+        instance.terminate()
+    describe_instances(args)
+
+
+def shutdown_all_by_user(args):
+    instances = get_all_instances(args)
     for instance in instances:
         instance.terminate()
     describe_instances(args)
@@ -367,3 +391,5 @@ if __name__ == "__main__":
         run(args, launch_args, search_space)
     if args.mode == "shutdown":
         shutdown(args)
+    if args.mode == "shutdown_all":
+        shutdown_all_by_user(args)

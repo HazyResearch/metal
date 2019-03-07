@@ -61,6 +61,9 @@ class MetalModel(nn.Module):
         self.input_modules = nn.ModuleDict(
             {task.name: task.input_module for task in tasks}
         )
+        self.attention_modules = nn.ModuleDict(
+            {task.name: task.attention_module for task in tasks}
+        )
         self.head_modules = nn.ModuleDict(
             {task.name: task.head_module for task in tasks}
         )
@@ -76,10 +79,16 @@ class MetalModel(nn.Module):
         task_paths = {}
         for task in tasks:
             input_module = self.input_modules[task.name]
+            attention_module = self.attention_modules[task.name]
             head_module = self.head_modules[task.name]
-            task_paths[task.name] = nn.DataParallel(
-                nn.Sequential(input_module, head_module)
-            )
+            if attention_module is not None:
+                task_paths[task.name] = nn.DataParallel(
+                    nn.Sequential(input_module, attention_module, head_module)
+                )
+            else:
+                task_paths[task.name] = nn.DataParallel(
+                    nn.Sequential(input_module, head_module)
+                )
         self.task_paths = nn.ModuleDict(task_paths)
 
     def forward(self, X, task_names):

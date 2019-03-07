@@ -14,6 +14,7 @@ class Task(ABC):
         name: (str) The name of the task
             TODO: replace this with a more fully-featured path through the network
         input_module: (nn.Module) The input module
+        attention_module: The attention module between the input and task head
         head_module: (nn.Module) The task head module
         data_loaders: A dict of DataLoaders to feed through the network
             Each key in data.keys() should be in ["train", "valid", "test"]
@@ -39,10 +40,12 @@ class Task(ABC):
         loss_hat_func,
         output_hat_func,
         task_names=None,
+        attention_module=None,
     ) -> None:
         self.name = name
         self.data_loaders = data_loaders
         self.input_module = input_module
+        self.attention_module = attention_module
         self.head_module = head_module
         self.scorer = scorer
         self.loss_hat_func = loss_hat_func
@@ -64,6 +67,7 @@ class ClassificationTask(Task):
         loss_hat_func=(lambda Y_prob, Y_gold: F.cross_entropy(Y_prob, Y_gold - 1)),
         output_hat_func=(partial(F.softmax, dim=1)),
         task_names=None,
+        attention_module=None,
     ) -> None:
 
         super(ClassificationTask, self).__init__(
@@ -75,6 +79,7 @@ class ClassificationTask(Task):
             loss_hat_func,
             output_hat_func,
             task_names,
+            attention_module,
         )
 
 
@@ -92,6 +97,7 @@ class RegressionTask(Task):
         loss_hat_func=(lambda Y_prob, Y_gold: F.mse_loss(Y_prob, Y_gold)),
         output_hat_func=lambda x: x,
         task_names=None,
+        attention_module=None,
     ) -> None:
 
         super(RegressionTask, self).__init__(
@@ -103,4 +109,5 @@ class RegressionTask(Task):
             loss_hat_func,
             output_hat_func,
             task_names,
+            attention_module,
         )
