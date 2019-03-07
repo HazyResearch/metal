@@ -122,6 +122,20 @@ def get_task_tsv_config(task_name, split):
             "inv_label_fn": inv_label_fn,
             "label_type": int,
         }
+    elif task_name == "SNLI":
+        label_fn, inv_label_fn = get_label_fn(
+            {"entailment": 1, "contradiction": 2, "neutral": 3}
+        )
+        return {
+            "tsv_path": tsv_path_for_dataset("SNLI", split),
+            "sent1_idx": 6,
+            "sent2_idx": 7,
+            "label_idx": 1,
+            "skip_rows": 1,
+            "label_fn": label_fn,
+            "inv_label_fn": inv_label_fn,
+            "label_type": int,
+        }
     elif task_name == "RTE":
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
         return {

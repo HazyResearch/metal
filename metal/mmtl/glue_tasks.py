@@ -191,6 +191,16 @@ def create_tasks(task_names, **kwargs):
                 attention_module=get_attention_module(config, neck_dim),
             )
 
+        elif task_name == "SNLI":
+            task = ClassificationTask(
+                task_name,
+                dataloaders,
+                input_module,
+                MulticlassHead(neck_dim, 3),
+                Scorer(standard_metrics=["accuracy"]),
+                attention_module=get_attention_module(config, neck_dim),
+            )
+
         elif task_name == "RTE":
             task = ClassificationTask(
                 task_name,
