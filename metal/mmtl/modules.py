@@ -63,15 +63,17 @@ class BertRaw(nn.Module):
 class BertExtractCls(nn.Module):
     """Extracts the hidden state for just the [CLS] token and may run through pooler"""
 
-    def __init__(self, pooler=None):
+    def __init__(self, pooler=None, dropout=0.1):
         super().__init__()
         self.pooler = pooler
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, X):
         sequence_output, attention_mask = X
         if self.pooler:
             # self.pooler pulls out the [CLS] token, applies square linear, then tanh
-            return self.pooler(sequence_output)
+            output = self.pooler(sequence_output)
+            return self.dropout(output)
         else:
             return sequence_output[:, 0]
 

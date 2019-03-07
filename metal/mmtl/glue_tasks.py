@@ -38,9 +38,14 @@ task_defaults = {
         "shuffle": True,  # Used only when split_prop is None; otherwise, use Sampler
     },
     "task_dl_kwargs": None,  # Overwrites dl kwargs e.g. {"STSB": {"batch_size": 2}}
+    # NOTE: This dropout only applies to the output of the pooler; it will not change
+    # the dropout rate of BERT (defaults to 0.1) or add dropout to other modules.
+    # The main BERT module ends with a dropout layer already, so token-based tasks
+    # that do not use BertExtractCls middle module do not need additional dropout first
+    "dropout": 0.1,
+    # BERT
     "encoder_type": "bert",
     "bert_model": "bert-base-uncased",  # Required for all encoders for BertTokenizer
-    # BERT
     "bert_kwargs": {
         "freeze_bert": False,
         "pooler": True,  # If True, include the [768, 768] linear on top of [CLS] token
@@ -80,7 +85,9 @@ def create_tasks_and_payloads(task_names, **kwargs):
         elif "large" in config["bert_model"]:
             neck_dim = 1024
         input_module = bert_model
-        cls_middle_module = BertExtractCls(pooler=bert_model.pooler)
+        cls_middle_module = BertExtractCls(
+            pooler=bert_model.pooler, dropout=config["dropout"]
+        )
     elif config["encoder_type"] == "lstm":
         # TODO: Allow these constants to be passed in as arguments
         msg = (
