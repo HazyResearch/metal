@@ -17,13 +17,15 @@ def get_glue_dataset(task_name, split, bert_vocab, **kwargs):
     config = get_task_tsv_config(task_name, split)
 
     return GLUEDataset.from_tsv(
+        # class kwargs
         task_name,
+        bert_vocab=bert_vocab,
+        # load_tsv kwargs
         tsv_path=config["tsv_path"],
         sent1_idx=config["sent1_idx"],
         sent2_idx=config["sent2_idx"],
         label_idx=config["label_idx"],
         skip_rows=config["skip_rows"],
-        bert_vocab=bert_vocab,
         delimiter="\t",
         label_fn=config["label_fn"],
         inv_label_fn=config["inv_label_fn"],
@@ -40,34 +42,44 @@ class GLUEDataset(data.Dataset):
     def __init__(
         self,
         task_name,
-        tokens,
-        segments,
+        sentences,
         labels,
         label_type,
         label_fn,
         inv_label_fn,
-        include_segments=True,
+        bert_vocab=None,
+        tokenize_bert=True,
+        tokenize_spacy=True,
     ):
         """
         Args:
-            tokens: list of sentences (lists) containing token indexes
-            segments: list of segment masks indicating whether each token in sent1/sent2
-                e.g. [[0, 0, 0, 0, 1, 1, 1], ...]
-            labels: list of labels (int or float)
+            sentences: [n] list of lists containing a string for each sentence
+            labels: [n] list of labels (int or float for glue tasks, but potentially
+                anything)
             label_type: data type (int, float) of labels. used to cast values downstream.
             label_fn: dictionary or function mapping from raw labels to desired format
             inv_label_fn: inverse function mapping format back to raw labels
-            include_segments: __getitem__() will return:
-                True: (tokens, segment), labels
-                False: tokens, labels
+
+        After tokenization:
+            bert_tokens: an [n] list of longs corresponding to the indices of each
+                bert-tokenized wordpiece token in the vocabulary for that bert model
+            # tokens: list of sentences (lists) containing token indexes
+            # segments: list of segment masks indicating whether each token in sent1/sent2
+            #     e.g. [[0, 0, 0, 0, 1, 1, 1], ...]
         """
-        self.tokens = tokens
-        self.segments = segments
+        self.sentences = sentences
         self.labels = {task_name: labels}
         self.label_type = label_type
         self.label_fn = label_fn
         self.inv_label_fn = inv_label_fn
-        self.include_segments = include_segments
+
+        if tokenize_bert:
+            assert bert_vocab is not None
+            bert_tokens, bert_segments = self.tokenize_bert(bert_vocab)
+            self.bert_tokens = bert_tokens
+            self.bert_segments = bert_segments
+        if tokenize_spacy:
+            self.spacy_tokens = self.tokenize_spacy()
 
     def __getitem__(self, index):
         """Retrieves a single instance with its labels
@@ -75,7 +87,7 @@ class GLUEDataset(data.Dataset):
         Note that the attention mask for each batch is added in the collate function,
         once the max_seq_len for that batch is known.
         """
-        x = (self.tokens[index], self.segments[index])
+        x = (self.bert_tokens[index], self.bert_segments[index])
         ys = {task_name: labelset[index] for task_name, labelset in self.labels.items()}
         return x, ys
 
@@ -127,7 +139,8 @@ class GLUEDataset(data.Dataset):
             batch_list: a list of tuples containing ((tokens, segments), labels)
         Returns:
             X: instances for BERT: (tok_matrix, seg_matrix, mask_matrix)
-            Y: a list of label sets is any [n, :] tensor.
+            Y: a dict of {task_name: labels} where labels[idx] are the appropriate
+                labels for that task
         """
         tokens_list = []
         segments_list = []
@@ -135,9 +148,9 @@ class GLUEDataset(data.Dataset):
 
         for instance in batch_list:
             x, ys = instance
-            (tokens, segments) = x
-            tokens_list.append(tokens)
-            segments_list.append(segments)
+            (bert_tokens, bert_segments) = x
+            tokens_list.append(bert_tokens)
+            segments_list.append(bert_segments)
             for task_name, y in ys.items():
                 Y_lists[task_name].append(y)
         tokens_tensor, _ = padded_tensor(tokens_list)
@@ -200,40 +213,89 @@ class GLUEDataset(data.Dataset):
             Ys[task_name] = Y
         return Ys
 
+    def tokenize_bert(self, bert_vocab):
+        # Initialize BERT tokenizer
+        do_lower_case = "uncased" in bert_vocab
+        tokenizer = BertTokenizer.from_pretrained(
+            bert_vocab, do_lower_case=do_lower_case
+        )
+        bert_tokens = []
+        bert_segments = []
+
+        for sentence_list in self.sentences:
+            assert len(sentence_list) in [1, 2]
+
+            # Tokenize sentences
+            tokenized_sentences = [tokenizer.tokenize(sent) for sent in sentence_list]
+            sent1_tokens = tokenized_sentences[0]
+            sent2_tokens = tokenized_sentences[1] if len(tokenized_sentences) > 1
+
+            # Truncate if necessary
+            if len(sentence_list) == 1:
+                if len(tokenized_sentences[0]) > max_len - 1:  # [CLS]
+                    tokenized_sentences[0] = tokenized_sentences[0][: max_len - 1]
+            else:
+                # remove tokens from the longer sequence
+                while len(tokenized_sentences[0]) + len(tokenized_sentences[1]) > max_len - 2:
+                    if len(tokenized_sentences[0]) > len(tokenized_sentences[1]):
+                        tokenized_sentences[0].pop()
+                    else:
+                        tokenized_sentences[1].pop()
+
+            # Add markers
+            tokenized_sentences[0] = ["CLS"] + tokenized_sentences[0]
+            if len(tokenized_sentences)
+            sent1_ids = tokenizer.convert_tokens_to_ids(
+                ["[CLS]"] + sent1_tokenized + ["[SEP]"]
+            )
+            if sent2_idx >= 0:
+                sent2_ids = tokenizer.convert_tokens_to_ids(sent2_tokenized + ["[SEP]"])
+            else:
+                sent2_ids = []
+
+            # combine sentence pair
+            sent = sent1_ids + sent2_ids
+
+            # sentence-pair segments
+            seg = [0] * len(sent1_ids) + [1] * len(sent2_ids)
+
+            tokens.append(sent)
+            segments.append(seg)
+
+    def tokenize_spacy(self):
+        pass
+
     @classmethod
     def from_tsv(
+        # class kwargs
         cls,
         task_name,
+        bert_vocab,
+        # load_tsv kwargs
         tsv_path,
         sent1_idx,
         sent2_idx,
         label_idx,
         skip_rows,
-        bert_vocab,
         delimiter="\t",
         label_fn=lambda x: x,
         inv_label_fn=lambda x: x,
-        max_len=-1,
         label_type=int,
+        # class kwargs
+        max_len=-1,
         max_datapoints=-1,
         generate_uids=False,
-        include_segments=True,
+        tokenize_bert=True,
+        tokenize_spacy=True,
     ):
 
-        # initialize BERT tokenizer
-        do_lower_case = "uncased" in bert_vocab
-        tokenizer = BertTokenizer.from_pretrained(
-            bert_vocab, do_lower_case=do_lower_case
-        )
-
         # load and preprocess data from tsv
-        tokens, segments, labels = load_tsv(
+        sentences, labels = load_tsv(
             tsv_path,
             sent1_idx,
             sent2_idx,
             label_idx,
             skip_rows,
-            tokenizer,
             delimiter,
             label_fn,
             max_len,
@@ -244,11 +306,12 @@ class GLUEDataset(data.Dataset):
         # initialize class with data
         return cls(
             task_name,
-            tokens,
-            segments,
+            sentences,
             labels,
             label_type,
             label_fn,
             inv_label_fn,
-            include_segments,
+            bert_vocab=None,
+            tokenize_bert=True,
+            tokenize_spacy=True
         )
