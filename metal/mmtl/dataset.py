@@ -17,6 +17,7 @@ def get_glue_dataset(task_name, split, bert_vocab, **kwargs):
     config = get_task_tsv_config(task_name, split)
 
     return GLUEDataset.from_tsv(
+        task_name,
         tsv_path=config["tsv_path"],
         sent1_idx=config["sent1_idx"],
         sent2_idx=config["sent2_idx"],
@@ -202,6 +203,7 @@ class GLUEDataset(data.Dataset):
     @classmethod
     def from_tsv(
         cls,
+        task_name,
         tsv_path,
         sent1_idx,
         sent2_idx,
@@ -241,6 +243,7 @@ class GLUEDataset(data.Dataset):
 
         # initialize class with data
         return cls(
+            task_name,
             tokens,
             segments,
             labels,

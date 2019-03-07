@@ -98,10 +98,10 @@ class MetalModel(nn.Module):
                 outputs[middle_module] = middle_module(outputs[input_module])
             attention_module = self.attention_modules[task_name]
             if attention_module not in outputs:
-                outputs[attention_module] = attention_module(outputs[attention_module])
+                outputs[attention_module] = attention_module(outputs[middle_module])
             head_module = self.head_modules[task_name]
             if head_module not in outputs:
-                outputs[head_module] = head_module(outputs[middle_module])
+                outputs[head_module] = head_module(outputs[attention_module])
         return {t: outputs[self.head_modules[t]] for t in task_names}
 
     def calculate_loss(self, X, Ys, task_names):
