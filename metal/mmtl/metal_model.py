@@ -98,10 +98,10 @@ class MetalModel(nn.Module):
                 outputs[middle_module] = middle_module(outputs[input_module])
             attention_module = self.attention_modules[task_name]
             if attention_module not in outputs:
-                outputs[attention_module] = attention_module(outputs[attention_module])
+                outputs[attention_module] = attention_module(outputs[middle_module])
             head_module = self.head_modules[task_name]
             if head_module not in outputs:
-                outputs[head_module] = head_module(outputs[middle_module])
+                outputs[head_module] = head_module(outputs[attention_module])
         return {t: outputs[self.head_modules[t]] for t in task_names}
 
     def calculate_loss(self, X, Ys, task_names):
@@ -120,9 +120,11 @@ class MetalModel(nn.Module):
             if self.config["fp16"] and Y.dtype == torch.float32:
                 out = out.half()
                 Y = Y.half()
-            loss_dict[task_name] = self.loss_hat_funcs[task_name](
+            task_loss = self.loss_hat_funcs[task_name](
                 out, move_to_device(Y, self.config["device"])
             )
+            assert isinstance(task_loss.item(), float)
+            loss_dict[task_name] = task_loss * self.task_map[task_name].loss_multiplier
         return loss_dict
 
     @torch.no_grad()
