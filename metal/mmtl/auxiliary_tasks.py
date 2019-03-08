@@ -132,8 +132,8 @@ def add_spacy_ner_labels(payload):
                 ]
             ] = ent.label_
 
-        sent_1_tags = [SPACY_INFO["NER_TAGS"].index(tag)+1 for tag in sent_1_tag_strs]
-        sent_2_tags = [SPACY_INFO["NER_TAGS"].index(tag)+1 for tag in sent_2_tag_strs]
+        sent_1_tags = [SPACY_INFO["NER_TAGS"].index(tag) + 1 for tag in sent_1_tag_strs]
+        sent_2_tags = [SPACY_INFO["NER_TAGS"].index(tag) + 1 for tag in sent_2_tag_strs]
 
         spacy_ner_tags = list(sent_1_tags) + list(sent_2_tags)
 

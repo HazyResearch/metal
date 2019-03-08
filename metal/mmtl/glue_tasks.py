@@ -70,7 +70,7 @@ task_defaults = {
     "auxiliary_task_dict": {  # A map of each aux. task to the payloads it applies to
         "THIRD": ["RTE"],
         "BLEU": ["MNLI", "RTE", "WNLI", "QQP", "MRPC", "STSB", "QNLI"],
-        "SPACY_NER":["MRPC"],
+        "SPACY_NER": ["MRPC"],
     },
 }
 
