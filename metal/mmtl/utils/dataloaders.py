@@ -14,6 +14,7 @@ def get_all_dataloaders(
     generate_uids=False,
     seed=123,
     verbose=True,
+    run_spacy=False,
 ):
     """ Initializes train/dev/test dataloaders given dataset_class"""
 
@@ -34,6 +35,7 @@ def get_all_dataloaders(
             max_len=max_len,
             max_datapoints=max_datapoints,
             generate_uids=generate_uids,
+            run_spacy=run_spacy,
         )
 
     dataloaders = {}
@@ -55,17 +57,21 @@ def get_all_dataloaders(
     return dataloaders
 
 
-def add_labels_to_payload(payload, task_name, label_fn):
+def add_labels_to_payload(payload, task_name, label_set=None, label_fn=None):
     """
     payload: a Payload to add labels to
-    label_fn: a function which maps a dataset item to a label OR a list of labels in
-        the correct order
+    label_fn: a function which maps a dataset item to a label
+    label_set: a list of labels in the correct order
     """
 
-    if isinstance(label_fn, list):
-        labels_new = label_fn
-    elif callable(label_fn):
-        labels_new = [label_fn(i) for i in range(len(payload.data_loader.dataset))]
+    if label_fn is not None:
+        assert callable(label_fn)
+        assert label_set is None
+        labels_new = [label_fn(x) for x in range(len(payload.data_loader.dataset))]
+    elif label_set is not None:
+        assert isinstance(label_set, list)
+        assert label_fn is None
+        labels_new = label_set
     else:
         raise ValueError("Incorrect label object type -- supply list or function")
 
