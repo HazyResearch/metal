@@ -197,7 +197,7 @@ class MultitaskTrainer(object):
         # Set training components
         self._set_writer()
         self._set_logger()
-        self._set_checkpointer()
+        self._set_checkpointer(model)
         self._set_optimizer(model)
         self._set_lr_scheduler(model)  # TODO: Support more detailed training schedules
         self._set_task_scheduler(model, payloads)
@@ -504,12 +504,12 @@ class MultitaskTrainer(object):
             verbose=self.config["verbose"],
         )
 
-    def _set_checkpointer(self):
+    def _set_checkpointer(self, model):
         if (
             self.config["checkpoint"]
             or self.config["lr_scheduler"] == "reduce_on_plateau"
         ):
-            self._validate_checkpoint_metric()
+            self._validate_checkpoint_metric(model)
             # Set checkpoint_dir to log_dir/checkpoints/
             if self.writer:
                 if not self.config["checkpoint_config"]["checkpoint_dir"]:
@@ -787,7 +787,7 @@ class MultitaskTrainer(object):
         else:
             raise NotImplementedError
 
-    def _validate_checkpoint_metric(self):
+    def _validate_checkpoint_metric(self, model):
         # Confirm that checkpoint_metric is a metric that will be available
         checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
         if checkpoint_metric.startswith("model"):
@@ -811,7 +811,7 @@ class MultitaskTrainer(object):
 
             task_name, split, metric = split_full_metric(checkpoint_metric)
             try:
-                task = [t for t in self.task_names if t == task_name][0]
+                task = model.task_map[task_name]
             except IndexError:
                 msg = (
                     f"The task for your specified checkpoint_metric "
