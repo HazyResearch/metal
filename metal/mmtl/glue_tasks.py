@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
 from metal.end_model import IdentityModule
+from metal.mmtl.auxiliary_tasks import auxiliary_task_functions
 from metal.mmtl.modules import (
     BertExtractCls,
     BertRaw,
@@ -62,6 +63,13 @@ task_defaults = {
         "attention_module": None,  # None, soft currently accepted
         "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
     },
+    # Auxiliary Tasks
+    "auxiliary_task_dict": {  # A map of each aux. task to the payloads it applies to
+        "BLEU": ["STSB", "MRPC", "QQP"],
+        # "STSB": ["BLEU"],
+        # "MRPC": ["BLEU"],
+        # "QQP": ["BLEU"],
+    },
 }
 
 
@@ -88,31 +96,10 @@ def create_tasks_and_payloads(task_names, **kwargs):
         cls_middle_module = BertExtractCls(
             pooler=bert_model.pooler, dropout=config["dropout"]
         )
-    elif config["encoder_type"] == "lstm":
-        # TODO: Allow these constants to be passed in as arguments
-        msg = (
-            "Non-BERT options are currently broken because of the BertExtractCls "
-            "hardcoded into most task heads."
-        )
-        raise NotImplementedError(msg)
-        lstm_config = config["lstm_config"]
-        neck_dim = lstm_config["hidden_size"]
-        if lstm_config["bidirectional"]:
-            neck_dim *= 2
-        lstm = LSTMModule(
-            lstm_config["emb_size"],
-            lstm_config["hidden_size"],
-            lstm_reduction="max",
-            bidirectional=lstm_config["bidirectional"],
-            lstm_num_layers=lstm_config["lstm_num_layers"],
-            encoder_class=EmbeddingsEncoder,
-            encoder_kwargs={"vocab_size": lstm_config["vocab_size"]},
-        )
-        input_module = lstm
     else:
         raise NotImplementedError
 
-    # create dict override dl_kwarg for specific task
+    # Create dict override dl_kwarg for specific task
     # e.g. {"STSB": {"batch_size": 2}}
     task_dl_kwargs = {}
     if config["task_dl_kwargs"]:
@@ -124,29 +111,30 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 kwarg_val = int(kwarg_val)
             task_dl_kwargs[task_name] = {kwarg_key: kwarg_val}
 
-    # creates task and appends to `tasks` list for each `task_name`
-    task_list = []
-    payload_list = []
-
+    tasks = []
+    payloads = []
     for task_name in task_names:
+        # Pull out names of auxiliary tasks to be dealt with in a second step
+        has_payload = task_name not in config["auxiliary_task_dict"]
 
         # Override general dl kwargs with task-specific kwargs
         dl_kwargs = copy.deepcopy(config["dl_kwargs"])
         if task_name in task_dl_kwargs:
             dl_kwargs.update(task_dl_kwargs[task_name])
 
-        # create data loaders for task
-        data_loaders = get_all_dataloaders(
-            task_name if not task_name.endswith("_SAN") else task_name[:-4],
-            config["bert_model"],
-            max_len=config["max_len"],
-            dl_kwargs=dl_kwargs,
-            split_prop=config["split_prop"],
-            max_datapoints=config["max_datapoints"],
-            splits=config["splits"],
-            seed=config["seed"],
-            generate_uids=kwargs.get("generate_uids", False),
-        )
+        # Each primary task has data_loaders to load
+        if has_payload:
+            data_loaders = get_all_dataloaders(
+                task_name if not task_name.endswith("_SAN") else task_name[:-4],
+                config["bert_model"],
+                max_len=config["max_len"],
+                dl_kwargs=dl_kwargs,
+                split_prop=config["split_prop"],
+                max_datapoints=config["max_datapoints"],
+                splits=config["splits"],
+                seed=config["seed"],
+                generate_uids=kwargs.get("generate_uids", False),
+            )
 
         if task_name == "COLA":
             scorer = Scorer(
@@ -256,12 +244,49 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
 
-        task_list.append(task)
-        for split, data_loader in data_loaders.items():
-            payload_name = f"{task_name}_{split}"
-            payload = Payload(payload_name, data_loader, [task_name], split)
-            payload_list.append(payload)
-    return task_list, payload_list
+        # AUXILIARY TASKS
+
+        elif task_name == "BLEU":
+            task = RegressionTask(
+                name=task_name,
+                input_module=input_module,
+                middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
+                head_module=RegressionHead(neck_dim),
+                scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
+            )
+
+        elif task_name == "SPACY_NER":
+            task = ClassificationTask(
+                name=task_name,
+                input_module=input_module,
+                middle_module=cls_middle_module,
+                attention_module=get_attention_module(config, neck_dim),
+                head_module=BinaryHead(neck_dim),
+                scorer=Scorer(standard_metrics=["accuracy"]),
+            )
+
+        else:
+            msg = (
+                f"Task name {task_name} was not recognized as a primary or "
+                f"auxiliary task."
+            )
+            raise Exception(msg)
+
+        tasks.append(task)
+        if has_payload:
+            for split, data_loader in data_loaders.items():
+                payload_name = f"{task_name}_{split}"
+                payload = Payload(payload_name, data_loader, [task_name], split)
+                # Add auxiliary label sets if applicable
+                auxiliary_task_dict = config["auxiliary_task_dict"]
+                for aux_task_name, target_payloads in auxiliary_task_dict.items():
+                    if task_name in target_payloads:
+                        aux_task_func = auxiliary_task_functions[task_name]
+                        payload = aux_task_func(payload)
+                payloads.append(payload)
+
+    return tasks, payloads
 
 
 def get_attention_module(config, neck_dim):
@@ -282,3 +307,28 @@ def get_attention_module(config, neck_dim):
         raise ValueError("Unrecognized attention layer")
 
     return attention_module
+
+
+### Code Graveyard (for code that we're just not ready to delete yet)
+#
+# elif config["encoder_type"] == "lstm":
+#     # TODO: Allow these constants to be passed in as arguments
+#     msg = (
+#         "Non-BERT options are currently broken because of the BertExtractCls "
+#         "hardcoded into most task heads."
+#     )
+#     raise NotImplementedError(msg)
+#     lstm_config = config["lstm_config"]
+#     neck_dim = lstm_config["hidden_size"]
+#     if lstm_config["bidirectional"]:
+#         neck_dim *= 2
+#     lstm = LSTMModule(
+#         lstm_config["emb_size"],
+#         lstm_config["hidden_size"],
+#         lstm_reduction="max",
+#         bidirectional=lstm_config["bidirectional"],
+#         lstm_num_layers=lstm_config["lstm_num_layers"],
+#         encoder_class=EmbeddingsEncoder,
+#         encoder_kwargs={"vocab_size": lstm_config["vocab_size"]},
+#     )
+#     input_module = lstm

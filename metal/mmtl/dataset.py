@@ -3,6 +3,7 @@ import pathlib
 from collections import defaultdict
 
 import numpy as np
+import spacy
 import torch
 import torch.utils.data as data
 from pytorch_pretrained_bert import BertTokenizer
@@ -10,6 +11,8 @@ from torch.utils.data.sampler import Sampler, SubsetRandomSampler
 
 from metal.mmtl.utils.preprocess import get_task_tsv_config, load_tsv
 from metal.utils import padded_tensor, set_seed
+
+nlp = spacy.load("en_core_web_sm")
 
 
 def get_glue_dataset(dataset_name, split, bert_vocab, **kwargs):
@@ -50,7 +53,7 @@ class GLUEDataset(data.Dataset):
         max_len=0,
         bert_vocab=None,
         tokenize_bert=True,
-        tokenize_spacy=True,
+        run_spacy=False,
     ):
         """
         Args:
@@ -76,11 +79,14 @@ class GLUEDataset(data.Dataset):
 
         if tokenize_bert:
             assert bert_vocab is not None
-            bert_tokens, bert_segments = self.tokenize_bert(bert_vocab, max_len)
+            bert_tokenizer, bert_tokens, bert_segments = self.tokenize_bert(
+                bert_vocab, max_len
+            )
+            self.bert_tokenizer = bert_tokenizer
             self.bert_tokens = bert_tokens
             self.bert_segments = bert_segments
-        if tokenize_spacy:
-            self.spacy_tokens = self.tokenize_spacy()
+        if run_spacy:
+            self.spacy_tokens = self.run_spacy()
 
     def __getitem__(self, index):
         """Retrieves a single instance with its labels
@@ -258,12 +264,14 @@ class GLUEDataset(data.Dataset):
             bert_tokens.append(token_ids)
             bert_segments.append(segments)
 
-        return bert_tokens, bert_segments
+        return tokenizer, bert_tokens, bert_segments
 
-    def tokenize_spacy(self):
-        # TODO: Import spacy
-        # apply to sentence_pairs
-        pass
+    def run_spacy(self):
+        nlp_out = []
+        print("Applying spacy to all sentence pairs in dataset")
+        for sentence_pair in self.sentences:
+            nlp_out.append([nlp(sent) for sent in sentence_pair])
+        return nlp_out
 
     @classmethod
     def from_tsv(
@@ -286,7 +294,7 @@ class GLUEDataset(data.Dataset):
         max_datapoints=-1,
         generate_uids=False,
         tokenize_bert=True,
-        tokenize_spacy=True,
+        run_spacy=True,
     ):
 
         # load and preprocess data from tsv
@@ -313,5 +321,5 @@ class GLUEDataset(data.Dataset):
             max_len=-1,
             bert_vocab=bert_vocab,
             tokenize_bert=True,
-            tokenize_spacy=True,
+            run_spacy=True,
         )
