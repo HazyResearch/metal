@@ -6,7 +6,7 @@ from metal.metrics import metric_score
 
 
 def mse(gold, _, probs):
-    return {"mse": mean_squared_error(gold, probs)}
+    return {"mse": float(mean_squared_error(gold, probs))}
 
 
 def spearman_corr(gold, _, probs):
