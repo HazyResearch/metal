@@ -55,17 +55,20 @@ def get_all_dataloaders(
     return dataloaders
 
 
-def add_labels_to_payload(payload, task_name, label_obj):
+def add_labels_to_payload(payload, task_name, label_fn):
     """
-    payload: dataloader wrapping Payload
-    label_obj: function operating on a dataset item or list of labels in correct order
+    payload: a Payload to add labels to
+    label_fn: a function which maps a dataset item to a label OR a list of labels in
+        the correct order
     """
 
-    if isinstance(label_obj, list):
-        labels_new = label_obj
-    elif callable(label_obj):
-        labels_new = [label_obj(i) for i in range(len(payload.data_loader.dataset))]
+    if isinstance(label_fn, list):
+        labels_new = label_fn
+    elif callable(label_fn):
+        labels_new = [label_fn(i) for i in range(len(payload.data_loader.dataset))]
     else:
         raise ValueError("Incorrect label object type -- supply list or function")
 
     payload.data_loader.dataset.labels[task_name] = labels_new
+    payload.task_names.append(task_name)
+    return payload

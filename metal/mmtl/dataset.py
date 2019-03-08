@@ -8,6 +8,7 @@ import torch
 import torch.utils.data as data
 from pytorch_pretrained_bert import BertTokenizer
 from torch.utils.data.sampler import Sampler, SubsetRandomSampler
+from tqdm import tqdm
 
 from metal.mmtl.utils.preprocess import get_task_tsv_config, load_tsv
 from metal.utils import padded_tensor, set_seed
@@ -269,7 +270,7 @@ class GLUEDataset(data.Dataset):
     def run_spacy(self):
         nlp_out = []
         print("Applying spacy to all sentence pairs in dataset")
-        for sentence_pair in self.sentences:
+        for sentence_pair in tqdm(self.sentences):
             nlp_out.append([nlp(sent) for sent in sentence_pair])
         return nlp_out
 
@@ -294,7 +295,7 @@ class GLUEDataset(data.Dataset):
         max_datapoints=-1,
         generate_uids=False,
         tokenize_bert=True,
-        run_spacy=True,
+        run_spacy=False,
     ):
 
         # load and preprocess data from tsv
@@ -320,6 +321,6 @@ class GLUEDataset(data.Dataset):
             inv_label_fn=inv_label_fn,
             max_len=-1,
             bert_vocab=bert_vocab,
-            tokenize_bert=True,
-            run_spacy=True,
+            tokenize_bert=tokenize_bert,
+            run_spacy=run_spacy,
         )

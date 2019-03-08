@@ -1,7 +1,9 @@
 import copy
 
 import numpy as np
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
 from metal.end_model import IdentityModule
@@ -65,7 +67,7 @@ task_defaults = {
     },
     # Auxiliary Tasks
     "auxiliary_task_dict": {  # A map of each aux. task to the payloads it applies to
-        "BLEU": ["STSB", "MRPC", "QQP"],
+        "BLEU": ["MNLI", "RTE", "WNLI", "QQP", "MRPC", "STSB", "QNLI"],
         # "STSB": ["BLEU"],
         # "MRPC": ["BLEU"],
         # "QQP": ["BLEU"],
@@ -253,6 +255,10 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 middle_module=cls_middle_module,
                 attention_module=get_attention_module(config, neck_dim),
                 head_module=RegressionHead(neck_dim),
+                output_hat_func=torch.sigmoid,
+                loss_hat_func=(
+                    lambda out, Y_gold: F.mse_loss(torch.sigmoid(out), Y_gold)
+                ),
                 scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
             )
 
@@ -279,10 +285,11 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 payload_name = f"{task_name}_{split}"
                 payload = Payload(payload_name, data_loader, [task_name], split)
                 # Add auxiliary label sets if applicable
+
                 auxiliary_task_dict = config["auxiliary_task_dict"]
                 for aux_task_name, target_payloads in auxiliary_task_dict.items():
                     if task_name in target_payloads:
-                        aux_task_func = auxiliary_task_functions[task_name]
+                        aux_task_func = auxiliary_task_functions[aux_task_name]
                         payload = aux_task_func(payload)
                 payloads.append(payload)
 

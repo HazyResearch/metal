@@ -36,7 +36,7 @@ def add_bleu_labels(payload):
         bleu_score = sentence_bleu(sent1, sent2, weights=(1, 0, 0, 0))
         return bleu_score
 
-    add_labels_to_payload(payload, "BLEU", get_bleu_label)
+    return add_labels_to_payload(payload, "BLEU", get_bleu_label)
 
 
 # Adding NER labels from Spacy
@@ -80,7 +80,7 @@ def add_spacy_ner_labels(payload):
         spacy_ner_tags = list(sent_1_tags) + list(sent_2_tags)
         return spacy_ner_tags
 
-    add_labels_to_payload(payload, "SPACY_NER", get_spacy_ner_tags)
+    return add_labels_to_payload(payload, "SPACY_NER", get_spacy_ner_tags)
 
 
 auxiliary_task_functions = {"BLEU": add_bleu_labels, "SPACY_NER": add_spacy_ner_labels}
