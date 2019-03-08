@@ -402,6 +402,56 @@ def split_data(
             return outputs
 
 
+def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None, dtype=torch.long):
+    """Create a right-padded matrix from an uneven iterable of iterables.
+    Modified from github.com/facebookresearch/ParlAI
+
+    Returns (padded, lengths), where padded is the padded matrix, and lengths
+    is a list containing the lengths of each row.
+
+    Matrix is right-padded (filled to the right) by default, but can be
+    left padded if the flag is set to True.
+
+    Matrix can also be placed on cuda automatically.
+
+    :param list[iter[int]] items: List of items
+    :param bool sort: If True, orders by the length
+    :param int pad_idx: the value to use for padding
+    :param bool left_padded:
+    :param int max_len: if None, the max length is the maximum item length
+
+    :returns: (padded, lengths) tuple
+    :rtype: (Tensor[int64], list[int])
+    """
+    # number of items
+    n = len(items)
+    # length of each item
+    lens = [len(item) for item in items]
+    # max in time dimension
+    t = max(lens) if max_len is None else max_len
+
+    # if input tensors are empty, we should expand to nulls
+    t = max(t, 1)
+
+    output = torch.full((n, t), pad_idx, dtype=dtype)
+
+    for i, (item, length) in enumerate(zip(items, lens)):
+        if length == 0:
+            # skip empty items
+            continue
+        if not isinstance(item, torch.Tensor):
+            # put non-tensors into a tensor
+            item = torch.Tensor(item)
+        if left_padded:
+            # place at end
+            output[i, t - length :] = item
+        else:
+            # place at beginning
+            output[i, :length] = item
+
+    return output, lens
+
+
 # DEPRECATION: This is replaced by move_to_device
 def place_on_gpu(data):
     """Utility to place data on GPU, where data could be a torch.Tensor, a tuple

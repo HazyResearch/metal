@@ -8,7 +8,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
-from metal.mmtl.glue_tasks import create_tasks
+from metal.mmtl.glue_tasks import create_tasks_and_payloads
 from metal.mmtl.metal_model import MetalModel
 from metal.utils import convert_labels
 
@@ -23,7 +23,7 @@ def load_data_and_model(model_path, task_names, split, bert_model="bert-base-unc
     dl_kwargs = {"batch_size": 1, "shuffle": False}
 
     # Load best model for specified task
-    task = create_tasks(
+    tasks, payloads = create_tasks_and_payloads(
         task_names=task_names,
         bert_model=bert_model,
         max_len=max_len,
@@ -34,12 +34,16 @@ def load_data_and_model(model_path, task_names, split, bert_model="bert-base-unc
     )
 
     #  Load and EVAL model
-    model_path = os.path.join(model_path)
-    model = MetalModel(task, verbose=False, device=0)
+    model_path = os.path.join(model_path, "best_model.pth")
+    model = MetalModel(tasks, verbose=False, device=0)
     model.load_weights(model_path)
     model.eval()
 
-    return model, task[0].data_loaders[split]
+    for payload in payloads:
+        if payload.split == split:
+            break
+
+    return model, payload.data_loader
 
 
 # Debugging Related Functions
@@ -91,7 +95,7 @@ def create_dataframe(
         else:
             data["sentence2"] += ["NA"]
         scores = (
-            model.calculate_output(x, [task_name])[task_name]
+            model.calculate_probs(x, [task_name])[task_name]
             .detach()
             .cpu()
             .numpy()[:, 0]

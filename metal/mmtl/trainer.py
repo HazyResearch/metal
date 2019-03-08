@@ -169,7 +169,7 @@ class MultitaskTrainer(object):
             self.config["seed"] = np.random.randint(1e6)
         set_seed(self.config["seed"])
 
-    def train_model(self, model, tasks, **kwargs):
+    def train_model(self, model, payloads, **kwargs):
         # NOTE: misses="insert" so we can log extra metadata (e.g. num_parameters)
         # and eventually write to disk.
         self.config = recursive_merge_dicts(self.config, kwargs, misses="insert")
@@ -177,20 +177,18 @@ class MultitaskTrainer(object):
         # Calculate epoch statistics
         # NOTE: Because we use SubsetSampler, one dataset may actually include two
         # splits, so we calculate approximate count size using batch_size * num_batches
-        # examples_per_epoch = sum([len(t.data_loaders["train"].dataset) for t in tasks])
-        self.task_names = [task.name for task in tasks]
-        self.batches_per_epoch = sum([len(t.data_loaders["train"]) for t in tasks])
+        self.task_names = [task_name for task_name in model.task_map]
+        train_payloads = [p for p in payloads if p.split == "train"]
+        self.batches_per_epoch = sum([len(p.data_loader) for p in train_payloads])
         self.examples_per_epoch = sum(
-            [
-                len(t.data_loaders["train"]) * t.data_loaders["train"].batch_size
-                for t in tasks
-            ]
+            [len(p.data_loader) * p.data_loader.batch_size for p in train_payloads]
         )
         if self.config["verbose"]:
             print(f"Beginning train loop.")
             print(
-                f"Expecting a total of approximately {self.examples_per_epoch} examples "
-                f"and {self.batches_per_epoch} batches per epoch from {len(tasks)} tasks."
+                f"Expecting a total of approximately {self.examples_per_epoch} "
+                f"examples and {self.batches_per_epoch} batches per epoch from "
+                f"{len(train_payloads)} payload(s) in the train split."
             )
 
         # Check inputs
@@ -199,10 +197,10 @@ class MultitaskTrainer(object):
         # Set training components
         self._set_writer()
         self._set_logger()
-        self._set_checkpointer(tasks)
+        self._set_checkpointer(model)
         self._set_optimizer(model)
         self._set_lr_scheduler(model)  # TODO: Support more detailed training schedules
-        self._set_task_scheduler(model, tasks)
+        self._set_task_scheduler(model, payloads)
 
         # Record config
         if self.writer:
@@ -217,14 +215,17 @@ class MultitaskTrainer(object):
         for epoch in range(self.config["n_epochs"]):
             progress_bar = self.config["progress_bar"] and self.config["verbose"]
             t = tqdm(
-                enumerate(self.task_scheduler.get_batches(tasks, "train")),
+                enumerate(self.task_scheduler.get_batches(payloads, "train")),
                 total=self.batches_per_epoch,
                 disable=(not progress_bar),
             )
             for batch_num, (batch, task_names) in t:
                 # NOTE: actual batch_size may not equal config's target batch_size,
-                # for example due to orphan batches
-                batch_size = len(batch[0])
+                # for example due to orphan batches. We base batch size off of Y instead
+                # of X because we know Y will contain tensors, whereas X can be of any
+                # format the input_module accepts, including tuples of tensors, etc.
+                _, Ys = batch
+                batch_size = len(next(iter(Ys.values())))
                 batch_id = epoch * self.batches_per_epoch + batch_num
 
                 # Zero the parameter gradients
@@ -262,19 +263,19 @@ class MultitaskTrainer(object):
                     self.running_examples[task_name] += batch_size
 
                 # Calculate metrics, log, and checkpoint as necessary
-                metrics_dict = self._execute_logging(model, tasks, batch_size)
+                metrics_dict = self._execute_logging(model, payloads, batch_size)
 
                 # Apply learning rate scheduler
                 self._update_lr_scheduler(model, batch_id)
 
                 # tqdm output
-                if len(tasks) == 1:
+                if len(model.task_map) == 1:
                     t.set_postfix(loss=metrics_dict["model/train/loss"])
                 else:
                     losses = {}
-                    for key in metrics_dict:
+                    for key, val in metrics_dict.items():
                         if "loss" in key:
-                            losses[key] = metrics_dict[key]
+                            losses[key] = val
                     t.set_postfix(losses)
 
         model.eval()
@@ -282,7 +283,7 @@ class MultitaskTrainer(object):
         if self.checkpointer and self.checkpointer.checkpoint_best:
             # First do a final checkpoint at the end of training
             metrics_dict = self._execute_logging(
-                model, tasks, batch_size, force_log=True
+                model, payloads, batch_size, force_log=True
             )
 
             self.checkpointer.load_best_model(model=model)
@@ -300,7 +301,7 @@ class MultitaskTrainer(object):
             print("Finished training")
         # Calculate metrics for all splits if test_split=None
         test_split = self.config["metrics_config"]["test_split"]
-        metrics_dict = self.calculate_metrics(model, tasks, split=test_split)
+        metrics_dict = self.calculate_metrics(model, payloads, split=test_split)
         if self.config["verbose"]:
             pprint(metrics_dict)
 
@@ -309,19 +310,25 @@ class MultitaskTrainer(object):
         if self.config["checkpoint_tasks"]:
             metrics_dict = copy.deepcopy(metrics_dict)
             test_split = self.config["metrics_config"]["test_split"]
-            for task, checkpointer in zip(tasks, self.task_checkpointers):
+            for task_name, checkpointer in zip(model.task_map, self.task_checkpointers):
                 checkpointer.load_best_model(model=model)
-                # Calculate all supported metrics for given task with loaded checkpoint
-                metrics_dict_task = task.scorer.score(model, task, split=test_split)
-                metrics_dict.update(metrics_dict_task)
-                if self.writer:
-                    path_to_best = os.path.join(
-                        checkpointer.checkpoint_dir, "best_model.pth"
-                    )
-                    path_to_logs = os.path.join(
-                        self.writer.log_subdir, f"{task.name}_best_model.pth"
-                    )
-                    copy2(path_to_best, path_to_logs)
+                checkpoint_metric = checkpointer.checkpoint_metric
+                for payload in payloads:
+                    if (
+                        payload.split == test_split
+                        and payload.name in checkpoint_metric
+                    ):
+                        # Calculate all supported metrics for given task with loaded checkpoint
+                        metrics_dict_task = model.score(payload, [checkpoint_metric])
+                        metrics_dict.update(metrics_dict_task)
+                        if self.writer:
+                            path_to_best = os.path.join(
+                                checkpointer.checkpoint_dir, "best_model.pth"
+                            )
+                            path_to_logs = os.path.join(
+                                self.writer.log_subdir, f"{task_name}_best_model.pth"
+                            )
+                            copy2(path_to_best, path_to_logs)
             print("Final scores using task-specific checkpoints:")
             pprint(metrics_dict)
 
@@ -336,10 +343,10 @@ class MultitaskTrainer(object):
             self.writer.write_log()
             self.writer.close()
 
-    def _execute_logging(self, model, tasks, batch_size, force_log=False):
+    def _execute_logging(self, model, payloads, batch_size, force_log=False):
         model.eval()
         metrics_dict = {}
-        metrics_dict.update(self.aggregate_losses(tasks))
+        metrics_dict.update(self.aggregate_losses())
         self.logger.increment(batch_size)
 
         do_log = False
@@ -349,7 +356,9 @@ class MultitaskTrainer(object):
         if self.logger.metrics_time() or force_log:
             # Unless valid_split is None, Scorers will only score on one split
             valid_split = self.config["metrics_config"]["valid_split"]
-            metrics_dict.update(self.calculate_metrics(model, tasks, split=valid_split))
+            metrics_dict.update(
+                self.calculate_metrics(model, payloads, split=valid_split)
+            )
             do_log = True
         if do_log or force_log:
             # Log to screen/file/TensorBoard
@@ -361,7 +370,7 @@ class MultitaskTrainer(object):
         model.train()
         return metrics_dict
 
-    def aggregate_losses(self, tasks):
+    def aggregate_losses(self):
         """Calculate the average loss for each task since the last calculation
 
         If no examples of a certain task have been seen since the losses were reset,
@@ -369,14 +378,14 @@ class MultitaskTrainer(object):
         If the loss for a certain task has never been reported, report it as None.
         """
         metrics_dict = {}
-        for task in tasks:
-            if self.running_examples[task.name]:
-                loss = self.running_losses[task.name] / self.running_examples[task.name]
-            elif self.metrics_hist.get(f"{task.name}/train/loss"):
-                loss = self.metrics_hist[f"{task.name}/train/loss"]
+        for task_name in self.task_names:
+            if self.running_examples[task_name]:
+                loss = self.running_losses[task_name] / self.running_examples[task_name]
+            elif self.metrics_hist.get(f"{task_name}/train/loss"):
+                loss = self.metrics_hist[f"{task_name}/train/loss"]
             else:
                 loss = None
-            metrics_dict[f"{task.name}/train/loss"] = loss
+            metrics_dict[f"{task_name}/train/loss"] = loss
         # Report micro average of losses
         total_loss = sum(self.running_losses.values())
         total_examples = sum(self.running_examples.values())
@@ -388,107 +397,69 @@ class MultitaskTrainer(object):
             metrics_dict[f"model/train/lr"] = self.optimizer.param_groups[0]["lr"]
         return metrics_dict
 
-    def calculate_metrics(self, model, tasks, split=None):
+    def calculate_metrics(self, model, payloads, split=None):
         metrics_dict = {}
         # Update metrics_hist after task_metrics so trainer_metrics have access to most
         # recently calculated numbers (e.g., glue score aggregates task scores)
-        metrics_dict.update(self.calculate_task_metrics(model, tasks, split))
+        metrics_dict.update(self.calculate_task_metrics(model, payloads, split))
         self.metrics_hist.update(metrics_dict)
-        metrics_dict.update(self.calculate_trainer_metrics(model, tasks, split))
+        metrics_dict.update(self.calculate_trainer_metrics(model, payloads, split))
         self.metrics_hist.update(metrics_dict)
         return metrics_dict
 
-    def calculate_task_metrics(self, model, tasks, split=None):
+    def calculate_task_metrics(self, model, payloads, split=None):
         metrics_dict = {}
+        max_examples = self.config["metrics_config"]["max_valid_examples"]
         task_metrics = self.config["metrics_config"]["task_metrics"]
-        trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
-        # Pull out any requested loss metrics
+        # Losses are handled specially; we drop them from task_metrics
+        target_metrics = [metric for metric in task_metrics if "/loss" not in metric]
+
         # NOTE: We currently break our own rule and calculate model-wide overall loss
         # in calculate_task_metrics. We do this because we need access to the total
         # loss and examples counts; we can't just average the task-specific losses
         # equally after the fact.
-        loss_metrics = [
+        trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
+        target_loss_metrics = [
             metric
             for metric in (task_metrics + trainer_metrics)
             if "/loss" in metric and "/train/" not in metric
         ]
-        task_metrics = [metric for metric in task_metrics if "/loss" not in metric]
-        max_examples = self.config["metrics_config"]["max_valid_examples"]
-
         # Calculate loss for non-train splits
-        if loss_metrics:
-            # TODO: (BH) handle max_examples
-            loss_dict = self._calculate_valid_losses(
-                model, tasks, split, max_examples=max_examples
-            )
-            # TODO: improve efficiency by only calculating the losses the user requested
-            # rather than computing all and filtering at the end.
-            for loss_name, loss_value in loss_dict.items():
-                if loss_name in loss_metrics:
-                    metrics_dict[loss_name] = loss_value
+        if target_loss_metrics:
+            if split is None:
+                splits = set(p.split for p in payloads) - set(["train"])
+            else:
+                splits = [split]
+            for loss_split in splits:
+                loss_dict = self._calculate_valid_losses(
+                    model, payloads, loss_split, max_examples=max_examples
+                )
+                for loss_name, loss_value in loss_dict.items():
+                    if loss_name in target_loss_metrics:
+                        metrics_dict[loss_name] = loss_value
 
         # Calculate metrics from Scorers
-        for task in tasks:
-            metrics_dict_task = task.scorer.score(
-                model, task, task_metrics, split, max_examples=max_examples
+        for payload in payloads:
+            if split and payload.split != split:
+                continue
+            payload_metrics_dict = model.score(
+                payload, target_metrics, max_examples=max_examples
             )
-            metrics_dict.update(metrics_dict_task)
+            metrics_dict.update(payload_metrics_dict)
         return metrics_dict
 
-    def calculate_trainer_metrics(self, model, tasks, split):
+    def calculate_trainer_metrics(self, model, payloads, split):
         trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
         metrics_dict = {}
         # HACK: glue should not be hardcoded
         if "glue" in trainer_metrics:
-            if len(tasks) < 9:
+            if len(model.task_map) < 9:
                 msg = "You requested glue score but have fewer than 9 tasks. Be aware."
                 warnings.warn(msg)
             metric = "glue"
             metrics_dict[f"model/{split}/{metric}"] = glue_score(
                 self.metrics_hist, split
             )
-        return metrics_dict
-
-    @torch.no_grad()
-    def _calculate_valid_losses(self, model, tasks, split, max_examples=0):
-        """Calculate the loss for the valid split"""
-        # Error checing
-        assert split != "train"
-        if split is None:
-            msg = "MeTaL does not currently support calculating the loss for multiple non-train splits"
-            raise NotImplementedError(msg)
-        elif split == "test":
-            msg = "MeTaL does not support calculating loss on the test set during training."
-        # Calculate task-specific losses
-        task_losses = defaultdict(float)
-        task_examples = defaultdict(float)
-        total_examples = 0
-        # WARNING: For calculating valid loss, we simply use a proportional scheduler.
-        # Note that if max_examples > 0, some tasks may be underrepresented in the first
-        # max_examples examples.
-        task_scheduler = ProportionalScheduler(model, tasks, split)
-        for batch, task_names in task_scheduler.get_batches(tasks, split):
-            batch_size = len(batch[0])
-            losses = model.calculate_loss(*batch, task_names=task_names)
-            for task_name, loss in losses.items():
-                task_losses[task_name] += loss.item() * batch_size
-                task_examples[task_name] += batch_size
-            total_examples += batch_size
-            if max_examples > 0 and total_examples >= max_examples:
-                break
-        # Aggregate losses and store in dictionary
-        metrics_dict = {}
-        for task in tasks:
-            full_name = f"{task.name}/{split}/loss"
-            if task_examples[task.name] > 0:
-                metrics_dict[full_name] = (
-                    task_losses[task.name] / task_examples[task.name]
-                )
-            else:
-                metrics_dict[full_name] = np.nan
-        metrics_dict[f"model/{split}/loss"] = sum(task_losses.values()) / sum(
-            task_examples.values()
-        )
         return metrics_dict
 
     def _checkpoint(self, model, metrics_dict):
@@ -533,12 +504,12 @@ class MultitaskTrainer(object):
             verbose=self.config["verbose"],
         )
 
-    def _set_checkpointer(self, tasks):
+    def _set_checkpointer(self, model):
         if (
             self.config["checkpoint"]
             or self.config["lr_scheduler"] == "reduce_on_plateau"
         ):
-            self._validate_checkpoint_metric(tasks)
+            self._validate_checkpoint_metric(model)
             # Set checkpoint_dir to log_dir/checkpoints/
             if self.writer:
                 if not self.config["checkpoint_config"]["checkpoint_dir"]:
@@ -574,13 +545,17 @@ class MultitaskTrainer(object):
                 "found in the metrics_dict if you're not careful."
             )
             warnings.warn(msg)
-            for task in tasks:
+            for task_name in self.task_names:
+                # We only make task_specific checkpoints for the glue tasks
+                if task_name not in GLUE_METRICS:
+                    continue
                 checkpoint_config = copy.deepcopy(self.config["checkpoint_config"])
-                checkpoint_config["checkpoint_dir"] += f"/{task.name}"
+                checkpoint_config["checkpoint_dir"] += f"/{task_name}"
                 checkpoint_config["checkpoint_best"] = True
-                checkpoint_metric = f"{task.name}/valid/{GLUE_METRICS[task.name]}"
+                checkpoint_metric = (
+                    f"{task_name}/{task_name}_valid/{GLUE_METRICS[task_name]}"
+                )
                 checkpoint_config["checkpoint_metric"] = checkpoint_metric
-                print(checkpoint_config["checkpoint_metric"])
                 checkpoint_config["checkpoint_metric_mode"] = "max"
                 task_checkpointer = Checkpointer(
                     checkpoint_config, verbose=self.config["verbose"]
@@ -794,11 +769,11 @@ class MultitaskTrainer(object):
                 if min_lr and optimizer_to_use.param_groups[0]["lr"] < min_lr:
                     optimizer_to_use.param_groups[0]["lr"] = min_lr
 
-    def _set_task_scheduler(self, model, tasks):
+    def _set_task_scheduler(self, model, payloads):
         if self.config["task_scheduler"] == "proportional":
-            self.task_scheduler = ProportionalScheduler(model, tasks, "train")
+            self.task_scheduler = ProportionalScheduler(model, payloads, "train")
         elif self.config["task_scheduler"] == "staged":
-            self.task_scheduler = StagedScheduler(model, tasks, "train")
+            self.task_scheduler = StagedScheduler(model, payloads, "train")
         elif self.config["task_scheduler"] == "superstaged":
             if self.config["lr_scheduler"] is not None:
                 msg = (
@@ -807,12 +782,12 @@ class MultitaskTrainer(object):
                 )
                 warnings.warn(msg)
             self.task_scheduler = SuperStagedScheduler(
-                model, tasks, self.config["n_epochs"], "train"
+                model, payloads, self.config["n_epochs"], "train"
             )
         else:
             raise NotImplementedError
 
-    def _validate_checkpoint_metric(self, tasks):
+    def _validate_checkpoint_metric(self, model):
         # Confirm that checkpoint_metric is a metric that will be available
         checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
         if checkpoint_metric.startswith("model"):
@@ -836,12 +811,12 @@ class MultitaskTrainer(object):
 
             task_name, split, metric = split_full_metric(checkpoint_metric)
             try:
-                task = [t for t in tasks if t.name == task_name][0]
+                task = model.task_map[task_name]
             except IndexError:
                 msg = (
                     f"The task for your specified checkpoint_metric "
                     f"({checkpoint_metric}) was not found in the list of "
-                    f"submitted tasks: {[t.name for t in tasks]}."
+                    f"submitted tasks: {[t for t in self.task_names]}."
                 )
                 raise Exception(msg)
 
@@ -866,3 +841,51 @@ class MultitaskTrainer(object):
     def _check_metrics(self):
         assert isinstance(self.config["metrics_config"]["task_metrics"], list)
         assert isinstance(self.config["metrics_config"]["trainer_metrics"], list)
+
+    @torch.no_grad()
+    def _calculate_valid_losses(self, model, payloads, split, max_examples=0):
+        """Calculate the loss for the valid split"""
+        # Error checking
+        assert split != "train"
+        if split is None:
+            msg = (
+                "MeTaL does not currently support calculating the loss for "
+                "multiple non-train splits"
+            )
+            raise NotImplementedError(msg)
+        elif split == "test":
+            msg = "MeTaL does not support calculating loss on the test set."
+            warnings.warn(msg)
+            return {}
+        # Calculate task-specific losses
+        task_losses = defaultdict(float)
+        task_examples = defaultdict(float)
+        total_examples = 0
+        # WARNING: For calculating valid loss, we simply use a proportional scheduler.
+        # Note that if max_examples > 0, some tasks may be underrepresented in the first
+        # max_examples examples.
+        task_scheduler = ProportionalScheduler(model, payloads, split)
+        for batch, task_names in task_scheduler.get_batches(payloads, split):
+            _, Ys = batch
+            batch_size = len(next(iter(Ys.values())))
+            losses = model.calculate_loss(*batch, task_names=task_names)
+            for task_name, loss in losses.items():
+                task_losses[task_name] += loss.item() * batch_size
+                task_examples[task_name] += batch_size
+            total_examples += batch_size
+            if max_examples > 0 and total_examples >= max_examples:
+                break
+        # Aggregate losses and store in dictionary
+        metrics_dict = {}
+        for task_name in self.task_names:
+            full_name = f"{task_name}/{split}/loss"
+            if task_examples[task_name] > 0:
+                metrics_dict[full_name] = (
+                    task_losses[task_name] / task_examples[task_name]
+                )
+            else:
+                metrics_dict[full_name] = np.nan
+        metrics_dict[f"model/{split}/loss"] = sum(task_losses.values()) / sum(
+            task_examples.values()
+        )
+        return metrics_dict

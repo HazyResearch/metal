@@ -59,8 +59,8 @@ def get_task_tsv_config(task_name, split):
         }
     elif task_name == "STSB":
         label_fn, inv_label_fn = (
-            lambda x: float(x)/5.0,
-            lambda x: float(x)*5.0,
+            lambda x: float(x) / 5.0,
+            lambda x: float(x) * 5.0,
         )  # labels are continuous [0, 5]
         return {
             "tsv_path": tsv_path_for_dataset("STS-B", split),
@@ -194,10 +194,8 @@ def load_tsv(
     sent2_idx,
     label_idx,
     skip_rows,
-    tokenizer=None,
     delimiter="\t",
     label_fn=lambda x: x,
-    max_len=-1,
     max_datapoints=-1,
     generate_uids=False,
 ):
@@ -210,11 +208,8 @@ def load_tsv(
         sent2_idx: tsv index for sentence2
         label_idx: tsv index for label field
         skip_rows: number of rows to skip (i.e. header rows) in .tsv
-        tokenizer: tokenizer to map sentences to tokens using `.tokenize(sent)` method
-            if None, returns raw examples.
         delimiter: delimiter between columns (likely '\t') for tab-separated-values
         label_fn: maps labels to desired format (usually for training)
-        max_len: maximum sequence length of each sentence
         max_datapoints: maximum len of the dataset.
             used for debugging without loading all data.
         generate_uids: whether to return uids in addition to payload
@@ -224,12 +219,8 @@ def load_tsv(
         assert max_datapoints == -1
         uids = []
 
-    return_raw = tokenizer is None
+    sentences = []
     labels = []
-    if return_raw:
-        raw_examples = []
-    else:
-        tokens, segments = [], []
 
     # TODO: Replace a lot of this boilerplate with:
     #  pd.read_csv(filepath, sep='\t', error_bad_lines=False)
@@ -265,56 +256,11 @@ def load_tsv(
             sent1 = row[sent1_idx] if sent1_idx >= 0 else None
             sent2 = row[sent2_idx] if sent2_idx >= 0 else None
 
-            if return_raw:
-                raw_examples.append({"sent1": sent1, "sent2": sent2})
-                # no need to proceed with remainder of processing
-                continue
-
-            # tokenize sentences
-            sent1_tokenized = tokenizer.tokenize(sent1)
-            if sent2_idx >= 0:
-                sent2_tokenized = tokenizer.tokenize(sent2)
-            else:
-                sent2_tokenized = []
-
-            # truncate sequences if number of tokens is greater than max_len
-            if max_len > 0:
-                if sent2_idx >= 0:
-                    # remove tokens from the longer sequence
-                    while len(sent1_tokenized) + len(sent2_tokenized) > max_len - 3:
-                        if len(sent1_tokenized) > len(sent2_tokenized):
-                            sent1_tokenized.pop()
-                        else:
-                            sent2_tokenized.pop()
-                else:
-                    # remove tokens from sentence 2 to match max_len
-                    if len(sent1_tokenized) > max_len - 2:
-                        sent1_tokenized = sent1_tokenized[: max_len - 2]
-
-            # convert to token ids
-            sent1_ids = tokenizer.convert_tokens_to_ids(
-                ["[CLS]"] + sent1_tokenized + ["[SEP]"]
-            )
-            if sent2_idx >= 0:
-                sent2_ids = tokenizer.convert_tokens_to_ids(sent2_tokenized + ["[SEP]"])
-            else:
-                sent2_ids = []
-
-            # combine sentence pair
-            sent = sent1_ids + sent2_ids
-
-            # sentence-pair segments
-            seg = [0] * len(sent1_ids) + [1] * len(sent2_ids)
-
-            tokens.append(sent)
-            segments.append(seg)
-
-    if return_raw:
-        payload = (raw_examples, labels)
-    else:
-        payload = (tokens, segments, labels)
+            assert sent1 is not None
+            sentence_list = [sent1] if sent2 is None else [sent1, sent2]
+            sentences.append(sentence_list)
 
     if generate_uids:
-        return payload, uids
+        return (sentences, labels), uids
     else:
-        return payload
+        return (sentences, labels)

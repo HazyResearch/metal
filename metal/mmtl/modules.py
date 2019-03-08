@@ -2,38 +2,137 @@ import os
 
 import torch
 import torch.nn as nn
-from pytorch_pretrained_bert import BertModel
+from pytorch_pretrained_bert.modeling import (
+    BertEmbeddings,
+    BertEncoder,
+    BertModel,
+    BertPreTrainedModel,
+)
 
 
-class BertEncoder(nn.Module):
-    def __init__(self, bert_model, dropout=0.1, freeze=False, cache_dir="./cache/"):
-        super(BertEncoder, self).__init__()
+class BertRaw(nn.Module):
+    """The Huggingface BertModel that passes on attention and drop extra linear layer
+
+    Returns:
+        encoded_layers: [batch_size, seq_len, hidden_size]
+        attention_mask: [batch_size, seq_len] \in {0, 1}
+    """
+
+    def __init__(
+        self, bert_model_name, freeze_bert=False, pooler=True, cache_dir="./cache/"
+    ):
+        super().__init__()
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
-        self.bert_model = BertModel.from_pretrained(bert_model, cache_dir=cache_dir)
-        self.dropout = nn.Dropout(dropout)
-        if freeze:
-            for param in self.bert_model.parameters():
+        bert_model = BertModel.from_pretrained(bert_model_name, cache_dir=cache_dir)
+        self.embeddings = bert_model.embeddings
+        self.encoder = bert_model.encoder
+        # NOTE: We may not want this extra [768, 768] Linear + tanh, but it's pretrained
+        self.pooler = bert_model.pooler if pooler else None
+        if freeze_bert:
+            for param in self.parameters():
                 param.requires_grad = False
+        # Don't re-initialize
+        # bert_model.apply(bert_model.init_bert_weights)
 
-    def forward(self, data):
-        tokens, segments, mask = data
-        output_layer, hidden_layer = self.bert_model(
-            tokens, segments, mask, output_all_encoded_layers=False
+    def forward(self, X, output_all_encoded_layers=False):
+        input_ids, token_type_ids, attention_mask = X
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
+        if token_type_ids is None:
+            token_type_ids = torch.zeros_like(input_ids)
+
+        # For details on extended attention ops, see the details in HuggingFace repo
+        extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
+        extended_attention_mask = extended_attention_mask.to(
+            dtype=next(self.parameters()).dtype
+        )  # fp16 compatibility
+        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+
+        embedding_output = self.embeddings(input_ids, token_type_ids)
+        encoded_layers = self.encoder(
+            embedding_output,
+            extended_attention_mask,
+            output_all_encoded_layers=output_all_encoded_layers,
         )
-        output_layer = self.dropout(output_layer)
-        hidden_layer = self.dropout(hidden_layer)
-        return output_layer, hidden_layer
+        if not output_all_encoded_layers:
+            encoded_layers = encoded_layers[-1]
+        return encoded_layers, attention_mask
 
 
-class BertHiddenLayer(nn.Module):
-    def __init__(self, bert_model):
-        super(BertHiddenLayer, self).__init__()
-        self.bert_model = bert_model
+class BertExtractCls(nn.Module):
+    """Extracts the hidden state for just the [CLS] token and may run through pooler"""
 
-    def forward(self, data):
-        _, hidden_layer = self.bert_model.forward(data)
-        return hidden_layer
+    def __init__(self, pooler=None, dropout=0.1):
+        super().__init__()
+        self.pooler = pooler
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, X):
+        sequence_output, attention_mask = X
+        if self.pooler:
+            # self.pooler pulls out the [CLS] token, applies square linear, then tanh
+            output = self.pooler(sequence_output)
+            return self.dropout(output)
+        else:
+            return sequence_output[:, 0]
+
+
+class BertTokenClassificationHead(nn.Module):
+    """Predicts the class for each unmasked token in a sequence"""
+
+    def __init__(self, emb_size, cardinality):
+        """
+        Args:
+            emb_size: the size of the embedding for each token
+            cardinality: the number of potential labels for each token
+        """
+        super().__init__()
+        self.linear = nn.Linear(emb_size, cardinality)
+
+    def forward(self, X):
+        sequence_output, attention_mask = X
+        return self.linear(sequence_output), attention_mask
+
+
+### DEPRECATED
+# class BertModel(nn.Module):
+#     def __init__(self, bert_model_name, freeze=False, cache_dir="./cache/"):
+#         super(BertModel, self).__init__()
+#         if not os.path.exists(cache_dir):
+#             os.makedirs(cache_dir)
+#         self.bert_model = BertModel.from_pretrained(bert_model, cache_dir=cache_dir)
+
+# class BertEncoder(nn.Module):
+#     def __init__(self, bert_model, dropout=0.1, freeze=False, cache_dir="./cache/"):
+#         super(BertEncoder, self).__init__()
+#         if not os.path.exists(cache_dir):
+#             os.makedirs(cache_dir)
+#         self.bert_model = BertModel.from_pretrained(bert_model, cache_dir=cache_dir)
+#         self.dropout = nn.Dropout(dropout)
+#         if freeze:
+#             for param in self.bert_model.parameters():
+#                 param.requires_grad = False
+
+#     def forward(self, data):
+#         tokens, segments, mask = data
+#         output_layer, hidden_layer = self.bert_model(
+#             tokens, segments, mask, output_all_encoded_layers=False
+#         )
+#         output_layer = self.dropout(output_layer)
+#         hidden_layer = self.dropout(hidden_layer)
+#         return output_layer, hidden_layer
+
+
+# class BertHiddenLayer(nn.Module):
+#     def __init__(self, bert_model):
+#         super(BertHiddenLayer, self).__init__()
+#         self.bert_model = bert_model
+
+#     def forward(self, data):
+#         _, hidden_layer = self.bert_model.forward(data)
+#         return hidden_layer
+### DEPRECATED
 
 
 def MulticlassHead(input_dim, output_dim):
