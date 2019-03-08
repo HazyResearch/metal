@@ -34,7 +34,7 @@ def add_bleu_labels(payload):
         sent1 = list(toks[segs == 0])
         sent2 = list(toks[segs == 1])
         bleu_score = sentence_bleu(sent1, sent2, weights=(1, 0, 0, 0))
-        return bleu_score
+        return float(bleu_score)
 
     return add_labels_to_payload(payload, "BLEU", get_bleu_label)
 
