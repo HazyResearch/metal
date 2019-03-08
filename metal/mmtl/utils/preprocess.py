@@ -59,8 +59,8 @@ def get_task_tsv_config(task_name, split):
         }
     elif task_name == "STSB":
         label_fn, inv_label_fn = (
-            lambda x: float(x) / 5,
-            lambda x: float(x) * 5,
+            lambda x: float(x),
+            lambda x: float(x),
         )  # labels are continuous [0, 5]
         return {
             "tsv_path": tsv_path_for_dataset("STS-B", split),
