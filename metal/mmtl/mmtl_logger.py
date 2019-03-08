@@ -97,25 +97,19 @@ class Logger(object):
 
     def print_to_screen(self, metrics_dict):
         """Print all metrics in metrics_dict to screen"""
-        score_strings = defaultdict(list)
+        score_strings_by_task = defaultdict(list)
         for full_name, value in metrics_dict.items():
             if full_name.count("/") == 2:
-                task, split, metric = full_name.split("/")
-            elif full_name.count("/") == 1:
-                task = None
-                split, metric = full_name.split("/")
+                task, payload, metric = full_name.split("/")
             else:
-                msg = f"Metric should have form task/split/metric or split/metric, not: {full_name}"
+                msg = f"Metric should have form task/payload/metric, not: {full_name}"
                 raise Exception(msg)
 
-            if task:
-                metric_name = f"{task}/{metric}"
-            else:
-                metric_name = metric
+            metric_name = f"{payload}/{metric}"
             if isinstance(value, float):
-                score_strings[split].append(f"{metric_name}={value:0.2e}")
+                score_strings_by_task[task].append(f"{metric_name}={value:0.2e}")
             else:
-                score_strings[split].append(f"{metric_name}={value}")
+                score_strings_by_task[task].append(f"{metric_name}={value}")
 
         if self.log_unit == "epochs":
             if int(self.unit_total) == self.unit_total:
@@ -127,12 +121,9 @@ class Logger(object):
             header = f" ({epochs:0.2f} epo)"
         string = f"[{header}]:"
 
-        if score_strings["train"]:
-            train_scores = f"{', '.join(score_strings['train'])}"
-            string += f" TRAIN:[{train_scores}]"
-        if score_strings["valid"]:
-            valid_scores = f"{', '.join(score_strings['valid'])}"
-            string += f" VALID:[{valid_scores}]"
+        for task, score_strings in score_strings_by_task.items():
+            concatenated_scores = f"{', '.join(score_strings)}"
+            string += f" {task}:[{concatenated_scores}]"
         print(string)
 
     def write_to_file(self, metrics_dict):

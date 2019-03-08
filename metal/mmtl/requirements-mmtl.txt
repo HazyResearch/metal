@@ -12,6 +12,7 @@ nose
 jupyter
 runipy
 scikit-learn
+spacy
 torchvision
 pytorch-pretrained-bert
 paramiko
