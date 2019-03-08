@@ -52,7 +52,7 @@ class Task(ABC):
 
     def __repr__(self):
         cls_name = type(self).__name__
-        return f"{cls_name}(name={self.name})"
+        return f"{cls_name}(name={self.name}, loss_multiplier={self.loss_multiplier})"
 
 
 class ClassificationTask(Task):
@@ -66,7 +66,7 @@ class ClassificationTask(Task):
         attention_module=IdentityModule(),
         head_module=IdentityModule(),
         output_hat_func=(partial(F.softmax, dim=1)),
-        loss_hat_func=(lambda out, Y_gold: F.cross_entropy(out, Y_gold - 1)),
+        loss_hat_func=(lambda Y_out, Y_gold: F.cross_entropy(Y_out, Y_gold - 1)),
         loss_multiplier=1,
         scorer=Scorer(standard_metrics=["accuracy"]),
     ) -> None:
@@ -94,12 +94,12 @@ class RegressionTask(Task):
         middle_module=IdentityModule(),
         attention_module=IdentityModule(),
         head_module=IdentityModule(),
-        # OLD
-        # output_hat_func=torch.sigmoid,
-        # loss_hat_func=(lambda Y_prob, Y_gold: F.mse_loss(torch.sigmoid(Y_out), Y_gold)),
-        # NEW
-        output_hat_func=lambda x: x,
-        loss_hat_func=(lambda Y_prob, Y_gold: F.mse_loss(Y_prob, Y_gold)),
+        # w/ sigmoid (make sure target labels are scaled to [0,1])
+        output_hat_func=torch.sigmoid,
+        loss_hat_func=(lambda Y_out, Y_gold: F.mse_loss(torch.sigmoid(Y_out), Y_gold)),
+        # w/o sigmoid (target labels can be in any range)
+        # output_hat_func=lambda x: x,
+        # loss_hat_func=(lambda Y_out, Y_gold: F.mse_loss(Y_out, Y_gold)),
         loss_multiplier=1,
         scorer=Scorer(standard_metrics=[]),
     ) -> None:
@@ -154,7 +154,7 @@ def tokenwise_accuracy(gold, preds, probs=None):
     for y, y_preds in zip(gold, preds):
         acc = np.mean(y[: len(y_preds)] == y_preds)
         accs.append(acc)
-    return {"token_acc": np.mean(accs)}
+    return {"token_acc": float(np.mean(accs))}
 
 
 class TokenClassificationTask(Task):
