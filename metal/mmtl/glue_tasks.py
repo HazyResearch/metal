@@ -77,6 +77,8 @@ task_defaults = {
 # List of tasks requiring Spacy tokenization\
 SPACY_TASKS = ["SPACY_NER"]
 
+# Auxiliary task loss multplier
+AUX_LOSS_MULTIPLIER = 1.0
 
 def create_tasks_and_payloads(task_names, **kwargs):
     assert len(task_names) > 0
@@ -128,7 +130,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
         run_spacy = False
         for aux_task, target_payloads in config["auxiliary_task_dict"].items():
             run_spacy = run_spacy or (
-                task_name in target_payloads and aux_task in SPACY_TASKS
+                task_name in target_payloads and aux_task in SPACY_TASKS and aux_task in task_names
             )
 
         # Override general dl kwargs with task-specific kwargs
@@ -267,6 +269,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
+                loss_multiplier=AUX_LOSS_MULTIPLIER
             )
 
         # AUXILIARY TASKS
@@ -278,6 +281,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name="THIRD",
                 input_module=input_module,
                 head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
+                loss_multiplier=AUX_LOSS_MULTIPLIER
             )
 
         elif task_name == "BLEU":
@@ -292,15 +296,17 @@ def create_tasks_and_payloads(task_names, **kwargs):
                     lambda out, Y_gold: F.mse_loss(torch.sigmoid(out), Y_gold)
                 ),
                 scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
+                loss_multiplier=AUX_LOSS_MULTIPLIER
             )
 
         elif task_name == "SPACY_NER":
-            # Length of SPACY_INFO['NER_TAGS']
-            NUM_NER_TAGS = 19
+            # Length of SPACY_INFO['NER_TAGS'] + 1
+            OUT_DIM = 19
             task = TokenClassificationTask(
                 name=task_name,
                 input_module=input_module,
-                head_module=BertTokenClassificationHead(neck_dim, NUM_NER_TAGS),
+                head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
+                loss_multiplier=AUX_LOSS_MULTIPLIER
             )
 
         else:

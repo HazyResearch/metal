@@ -139,7 +139,8 @@ def add_spacy_ner_labels(payload):
 
         # HACK: Dealing with misalignment by padding/truncating
         while len(spacy_ner_tags) < len(bert_tokens_orig):
-            spacy_ner_tags.append(0)
+            # Because of 1-indexing for metal labels!
+            spacy_ner_tags.append(1)
 
         if len(spacy_ner_tags) > len(bert_tokens_orig):
             spacy_ner_tags = spacy_ner_tags[: len(bert_tokens_orig)]
