@@ -61,7 +61,7 @@ def add_bleu_labels(payload):
         bleu_score = sentence_bleu(sent1, sent2, weights=(1, 0, 0, 0))
         return float(bleu_score)
 
-    return add_labels_to_payload(payload, "BLEU", get_bleu_label)
+    return add_labels_to_payload(payload, "BLEU", label_fn=get_bleu_label)
 
 
 # Function add THIRD labels
@@ -132,8 +132,8 @@ def add_spacy_ner_labels(payload):
                 ]
             ] = ent.label_
 
-        sent_1_tags = [SPACY_INFO["NER_TAGS"].index(tag) for tag in sent_1_tag_strs]
-        sent_2_tags = [SPACY_INFO["NER_TAGS"].index(tag) for tag in sent_2_tag_strs]
+        sent_1_tags = [SPACY_INFO["NER_TAGS"].index(tag) + 1 for tag in sent_1_tag_strs]
+        sent_2_tags = [SPACY_INFO["NER_TAGS"].index(tag) + 1 for tag in sent_2_tag_strs]
 
         spacy_ner_tags = list(sent_1_tags) + list(sent_2_tags)
 
@@ -147,7 +147,7 @@ def add_spacy_ner_labels(payload):
         assert len(spacy_ner_tags) == len(bert_tokens_orig)
         return spacy_ner_tags
 
-    return add_labels_to_payload(payload, "SPACY_NER", get_spacy_ner_tags)
+    return add_labels_to_payload(payload, "SPACY_NER", label_fn=get_spacy_ner_tags)
 
 
 auxiliary_task_functions = {

@@ -70,7 +70,7 @@ task_defaults = {
     "auxiliary_task_dict": {  # A map of each aux. task to the payloads it applies to
         "THIRD": ["RTE"],
         "BLEU": ["MNLI", "RTE", "WNLI", "QQP", "MRPC", "STSB", "QNLI"],
-        # "SPACY_NER":["MRPC"],
+        "SPACY_NER": ["MRPC"],
     },
 }
 
@@ -284,6 +284,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
             task = RegressionTask(
                 name=task_name,
                 input_module=input_module,
+                middle_module=cls_middle_module,
                 attention_module=get_attention_module(config, neck_dim),
                 head_module=RegressionHead(neck_dim),
                 output_hat_func=torch.sigmoid,
@@ -299,7 +300,6 @@ def create_tasks_and_payloads(task_names, **kwargs):
             task = TokenClassificationTask(
                 name=task_name,
                 input_module=input_module,
-                attention_module=get_attention_module(config, neck_dim),  # DROP THIS?
                 head_module=BertTokenClassificationHead(neck_dim, NUM_NER_TAGS),
             )
 
