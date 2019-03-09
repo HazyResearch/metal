@@ -71,11 +71,12 @@ task_defaults = {
         "THIRD": ["RTE"],
         "BLEU": ["MNLI", "RTE", "WNLI", "QQP", "MRPC", "STSB", "QNLI"],
         "SPACY_NER": ["MRPC"],
+        "SPACY_POS": ["MRPC"],
     },
 }
 
 # List of tasks requiring Spacy tokenization\
-SPACY_TASKS = ["SPACY_NER"]
+SPACY_TASKS = ["SPACY_NER", "SPACY_POS"]
 
 # Auxiliary task loss multplier
 AUX_LOSS_MULTIPLIER = 1.0
@@ -300,7 +301,17 @@ def create_tasks_and_payloads(task_names, **kwargs):
             )
 
         elif task_name == "SPACY_NER":
-            # Length of SPACY_INFO['NER_TAGS'] + 1
+            # Length of SPACY_INFO['NER_TAGS']
+            OUT_DIM = 19
+            task = TokenClassificationTask(
+                name=task_name,
+                input_module=input_module,
+                head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
+                loss_multiplier=AUX_LOSS_MULTIPLIER
+            )
+
+        elif task_name == "SPACY_POS":
+            # Length of SPACY_INFO['POS_TAGS'] 
             OUT_DIM = 19
             task = TokenClassificationTask(
                 name=task_name,
