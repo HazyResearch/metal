@@ -226,8 +226,11 @@ def load_tsv(
     #  pd.read_csv(filepath, sep='\t', error_bad_lines=False)
     with codecs.open(tsv_path, "r", "utf-8") as data_fh:
         # skip "header" rows
+        num_cols = None
         for _ in range(skip_rows):
-            data_fh.readline()
+            headers = data_fh.readline()
+            headers = headers.strip().split(delimiter)
+            num_cols = len(headers)
 
         # process data rows
         rows = list(enumerate(data_fh))
@@ -240,8 +243,13 @@ def load_tsv(
                     break
             row = row.strip().split(delimiter)
             if len(row) <= sent1_idx or len(row) <= sent2_idx or len(row) <= label_idx:
+                print(
+                    "WARNING: skipping example due to sentence or label index greater than number of columns"
+                )
                 continue
-
+            if num_cols is not None and num_cols != len(row):
+                print("WARNING: skipping example with mismatched number of columns")
+                continue
             if generate_uids:
                 uids.append(get_uid(tsv_path, skip_rows + row_idx + 1))
 
