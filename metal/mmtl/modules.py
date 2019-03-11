@@ -2,12 +2,7 @@ import os
 
 import torch
 import torch.nn as nn
-from pytorch_pretrained_bert.modeling import (
-    BertEmbeddings,
-    BertEncoder,
-    BertModel,
-    BertPreTrainedModel,
-)
+from pytorch_pretrained_bert.modeling import BertModel
 
 
 class BertRaw(nn.Module):
