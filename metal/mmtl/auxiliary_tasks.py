@@ -27,25 +27,25 @@ SPACY_INFO = {
         "CARDINAL",
     ],
     "POS_TAGS": [
-         "0.0",
-         "PUNCT",
-         "SYM",
-         "X",
-         "ADJ",
-         "VERB",
-         "CONJ",
-         "CCONJ",
-         "NUM",
-         "DET",
-         "ADV",
-         "ADP",
-         "", 
-         "NOUN",
-         "PROPN",
-         "PART",
-         "PRON",
-         "SPACE",
-         "INTJ",
+        "0.0",
+        "PUNCT",
+        "SYM",
+        "X",
+        "ADJ",
+        "VERB",
+        "CONJ",
+        "CCONJ",
+        "NUM",
+        "DET",
+        "ADV",
+        "ADP",
+        "",
+        "NOUN",
+        "PROPN",
+        "PART",
+        "PRON",
+        "SPACE",
+        "INTJ",
     ],
 }
 
@@ -171,6 +171,7 @@ def add_spacy_ner_labels(payload):
 
     return add_labels_to_payload(payload, "SPACY_NER", label_fn=get_spacy_ner_tags)
 
+
 # Adding NER labels from Spacy
 def add_spacy_pos_labels(payload):
     """
@@ -209,13 +210,13 @@ def add_spacy_pos_labels(payload):
         for ii, token in enumerate(sent1):
             sent_1_tag_strs[
                 sent1_token_map[ii] : sent1_token_map[
-                    min(ii+1, len(sent1_token_map) - 1)
+                    min(ii + 1, len(sent1_token_map) - 1)
                 ]
             ] = token.pos_
         for ii, token in enumerate(sent2):
             sent_2_tag_strs[
                 sent2_token_map[ii] : sent2_token_map[
-                    min(ii+1, len(sent2_token_map) - 1)
+                    min(ii + 1, len(sent2_token_map) - 1)
                 ]
             ] = token.pos_
 
@@ -236,6 +237,7 @@ def add_spacy_pos_labels(payload):
         return spacy_pos_tags
 
     return add_labels_to_payload(payload, "SPACY_POS", label_fn=get_spacy_pos_tags)
+
 
 auxiliary_task_functions = {
     "BLEU": add_bleu_labels,
