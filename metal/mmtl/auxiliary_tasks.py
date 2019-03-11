@@ -64,6 +64,36 @@ def get_bert_spacy_index(spc, tokenizer, add_cls):
     bert_tokens.append("[SEP]")
     return orig_to_tok_map, bert_tokens
 
+def get_bert_spacy_index_char(spc, bert, add_cls):
+    """
+    Map spacy to bert
+    """
+    orig_to_tok_map = []
+    bert_tokens = []
+    if add_cls:
+        bert_tokens.append("[CLS]")
+   # Removing hashes
+    bert_no_hash = [t if '##' not in t else t[2:] for t in bert]
+    for orig_token in spc:
+        orig_to_tok_map.append(len(bert_tokens))
+        bert_end = bert_no_hash[len(bert_tokens):]
+        # NOTE: Using all lower for now!
+        orig_token = orig_token.text.lower()
+        for t in bert_end:
+            if t.lower() in orig_token:
+                orig_token = orig_token[len(t):]
+                bert_tokens.append(t)
+            elif orig_token in t.lower():
+                bert_tokens.append(t)
+            if (t.lower() not in orig_token) and (orig_token not in t.lower()):
+                break
+            orig_token = orig_token[len(t):]
+            bert_tokens.append(t)
+        
+    bert_tokens.append("[SEP]")
+    if len(bert_tokens) != len(bert):
+        import ipdb; ipdb.set_trace()
+    return orig_to_tok_map, bert_tokens
 
 # Function to add BLEU labels
 def add_bleu_labels(payload):
@@ -180,23 +210,30 @@ def add_spacy_pos_labels(payload):
     def get_spacy_pos_tags(it):
         sent1, sent2 = payload.data_loader.dataset.spacy_tokens[it]
         tokenizer = payload.data_loader.dataset.bert_tokenizer
-        sent1_token_map, sent1_bert = get_bert_spacy_index(
-            sent1, tokenizer, add_cls=True
-        )
-        sent2_token_map, sent2_bert = get_bert_spacy_index(
-            sent2, tokenizer, add_cls=False
-        )
+        #sent1_token_map, sent1_bert = get_bert_spacy_index(
+        #    sent1, tokenizer, add_cls=True
+        #)
+        #sent2_token_map, sent2_bert = get_bert_spacy_index(
+        #    sent2, tokenizer, add_cls=False
+        #)
+
+        bert_tokenizer = payload.data_loader.dataset.bert_tokenizer
+        bert_tokens_orig = bert_tokenizer.convert_ids_to_tokens(
+            payload.data_loader.dataset.bert_tokens[it])
+        segments_orig = np.array(payload.data_loader.dataset.bert_segments[it])
+        bert_tokens_arr, segments_arr = np.array(bert_tokens_orig), np.array(segments_orig)
+        sent_1_bert_orig = list(bert_tokens_arr[segments_arr==0])
+        sent_2_bert_orig = list(bert_tokens_arr[segments_arr==1])
+        sent1_token_map, sent1_bert = get_bert_spacy_index_char(
+            sent1, sent_1_bert_orig, add_cls=True)
+
+        sent2_token_map, sent2_bert = get_bert_spacy_index_char(
+            sent2, sent_2_bert_orig, add_cls=False)
 
         spacy_pos_tags = np.zeros((len(sent1_bert + sent2_bert),))
 
         # This condition should be true if we've done things correctly!
-        bert_tokenizer = payload.data_loader.dataset.bert_tokenizer
-        bert_tokens_orig = bert_tokenizer.convert_ids_to_tokens(
-            payload.data_loader.dataset.bert_tokens[it]
-        )
-        #        if not np.array_equal(sent1_bert + sent2_bert, bert_tokens_orig):
-        #            import ipdb; ipdb.set_trace()
-
+        
         # Sometimes, weird things happen with apostrophes; just make sure length aligns
         # assert len(sent1_bert + sent2_bert) == len(bert_tokens_orig)
 
@@ -227,10 +264,13 @@ def add_spacy_pos_labels(payload):
         # HACK: Dealing with misalignment by padding/truncating
         while len(spacy_pos_tags) < len(bert_tokens_orig):
             # Because of 1-indexing for metal labels!
+            import ipdb; ipdb.set_trace()
             spacy_pos_tags.append(1)
+            print('Misaligned POS tags!')
 
         if len(spacy_pos_tags) > len(bert_tokens_orig):
             spacy_pos_tags = spacy_pos_tags[: len(bert_tokens_orig)]
+            print('Misaligned POS tags!')
 
         assert len(spacy_pos_tags) == len(bert_tokens_orig)
         return spacy_pos_tags
