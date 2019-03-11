@@ -56,6 +56,7 @@ task_defaults = {
         "attention_module": None,  # None, soft currently accepted
         "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
     },
+    "dropout": 0.1,  # Dropout for task heads (this is not dropout in Bert)
 }
 
 
@@ -95,7 +96,9 @@ def create_tasks(task_names, **kwargs):
         bert_kwargs = config["bert_kwargs"]
         bert_kwargs["freeze"] = bert_kwargs["freeze_bert"]
         del bert_kwargs["freeze_bert"]
-        bert_encoder = BertEncoder(config["bert_model"], **bert_kwargs)
+        bert_encoder = BertEncoder(
+            config["bert_model"], config["dropout"], **bert_kwargs
+        )
         bert_hidden_layer = BertHiddenLayer(bert_encoder)
         if "base" in config["bert_model"]:
             neck_dim = 768
