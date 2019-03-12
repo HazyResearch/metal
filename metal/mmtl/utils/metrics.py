@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import matthews_corrcoef, mean_squared_error
 
-from metal.metrics import arraylike_to_numpy, metric_score
+from metal.metrics import metric_score
 
 
 def mse(gold, _, probs):
@@ -13,8 +13,7 @@ def spearman_corr(gold, _, probs):
     # NOTE: computes using "probs", which is the non-rounded output of the model.
     # TODO: fix this poor naming convention to better support regression tasks.
     probs_array = np.vstack(probs).squeeze()
-    gold = arraylike_to_numpy(gold)
-    corr, p_value = spearmanr(gold, probs_array)
+    corr, p_value = spearmanr(gold.view(-1), probs_array)
     if np.isnan(corr):
         print(f"Warning: converting nan -> 0.0 for spearman_corr")
         corr = 0.0
@@ -25,8 +24,7 @@ def pearson_corr(gold, _, probs):
     # NOTE: computes using "probs", which is the non-rounded output of the model.
     # TODO: fix this poor naming convention to better support regression tasks.
     probs_array = np.vstack(probs).squeeze()
-    gold = arraylike_to_numpy(gold)
-    corr, p_value = pearsonr(gold, probs_array)
+    corr, p_value = pearsonr(gold.view(-1), probs_array)
     if np.isnan(corr):
         print(f"Warning: converting nan -> 0.0 for spearman_corr")
         corr = 0.0
