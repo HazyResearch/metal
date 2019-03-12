@@ -108,8 +108,8 @@ class MetalModel(nn.Module):
         """Returns a dict of {task_name: loss (a FloatTensor scalar)}.
 
         Args:
-            X: an appropriate input for forward()
-            Ys: a dict of {task_name: labels}
+            X: an appropriate input for forward(), either a Tensor or tuple
+            Ys: a dict of {task_name: labels} where labels is [n, ?]
             task_names: a list of the names of the tasks to compute loss for
         """
         outputs = self.forward(X, task_names)
@@ -120,11 +120,26 @@ class MetalModel(nn.Module):
             if self.config["fp16"] and Y.dtype == torch.float32:
                 out = out.half()
                 Y = Y.half()
-            task_loss = self.loss_hat_funcs[task_name](
-                out, move_to_device(Y, self.config["device"])
-            )
-            assert isinstance(task_loss.item(), float)
-            loss_dict[task_name] = task_loss * self.task_map[task_name].loss_multiplier
+            # Only evaluate loss on examples that have non-zero target labels
+            active = Y.sum(dim=1) != 0  # Either 0 sequence label or all 0 token labels
+            if 0 in active:
+                Y = Y[active]
+                # NOTE: This makes an assumption we should list elsewhere (and confirm
+                # with helpful error messages) that if X has multiple fields, they'll
+                # be arranged in a tuple where each component has batch_size first dim.
+                if isinstance(out, torch.Tensor):
+                    out = out[active]
+                elif isinstance(out, tuple):
+                    out = move_to_device(tuple(x[active] for x in out))
+            # If no examples in this batch have labels for this task, skip loss calc
+            if active.sum():
+                task_loss = self.loss_hat_funcs[task_name](
+                    out, move_to_device(Y, self.config["device"])
+                )
+                assert isinstance(task_loss.item(), float)
+                loss_dict[task_name] = (
+                    task_loss * self.task_map[task_name].loss_multiplier
+                )
         return loss_dict
 
     @torch.no_grad()
