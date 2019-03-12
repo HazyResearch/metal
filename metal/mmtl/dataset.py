@@ -174,7 +174,7 @@ class GLUEDataset(data.Dataset):
         )
 
         # load and preprocess data from tsv
-        tokens, segments, labels = load_tsv(
+        out = load_tsv(
             tsv_path,
             sent1_idx,
             sent2_idx,
@@ -188,8 +188,16 @@ class GLUEDataset(data.Dataset):
             generate_uids,
         )
 
+        if generate_uids:
+            payload, uids = out
+        else:
+            payload = out
+            uids = None
+
+        tokens, segments, labels = payload
+
         # initialize class with data
-        return cls(
+        module = cls(
             tokens,
             segments,
             labels,
@@ -198,3 +206,7 @@ class GLUEDataset(data.Dataset):
             inv_label_fn,
             include_segments,
         )
+
+        # TODO: Hack to add uids as instance variable
+        module.uids = uids
+        return module

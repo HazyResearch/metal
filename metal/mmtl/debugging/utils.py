@@ -19,7 +19,7 @@ def load_data_and_model(model_path, task_names, split):
     """
 
     # Create DataLoader
-    bert_model = "bert-base-uncased"
+    bert_model = "bert-large-uncased"
     max_len = 256
     dl_kwargs = {"batch_size": 1, "shuffle": False}
 
@@ -35,7 +35,7 @@ def load_data_and_model(model_path, task_names, split):
     )[0]
 
     #  Load and EVAL model
-    model_path = os.path.join(model_path)
+    # model_path = os.path.join(model_path)
     model = MetalModel([task], verbose=False, device=0)
     model.load_weights(model_path)
     model.eval()
@@ -98,7 +98,6 @@ def create_dataframe(task_name, model, dl, target_uids=None, max_batches=None):
         count += 1
         if max_batches and count > max_batches:
             break
-
     # Create DataFrame with datapoint, score, label, pred, uid
     df_error = pd.DataFrame(
         data, columns=["sentence1", "sentence2", "score", "label", "uid"]

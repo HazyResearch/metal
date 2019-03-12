@@ -12,7 +12,7 @@ from scipy.stats import mode
 
 from metal.mmtl.glue_tasks import create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.utils.dataset_utils import get_all_dataloaders
+from metal.mmtl.utils.dataloaders import get_all_dataloaders
 
 task_to_name_dict = {
     "QNLI": "QNLI",
@@ -94,7 +94,10 @@ def ensemble_preds(predictions):
         else:
             # average scores for regression tasks
             final_pred = preds.mean(0)
-        ensemble_preds[(task_name, state)] = list(final_pred.flatten())
+        final_pred = final_pred.flatten()
+        # if task_name == 'STSB':
+        #    final_pred = final_pred * (final_pred > 0) * (final_pred < 5) + 5 * (final_pred > 5)
+        ensemble_preds[(task_name, state)] = list(final_pred)
     return ensemble_preds
 
 
@@ -148,7 +151,8 @@ if __name__ == "__main__":
 
     with open(args.model_paths) as f:
         models = json.load(f)
-    if args.eval_split == "test":
+    if True:
+        # if args.eval_split == "test":
         submission_dir = get_full_sumbisison_dir(args.submission_dir)
         os.mkdir(submission_dir)
         json.dump(models, open(os.path.join(submission_dir, "model_paths.json"), "w"))
@@ -227,7 +231,8 @@ if __name__ == "__main__":
                         score = task.scorer.score(model, task)
                         print(score)
 
-                    else:
+                    if True:
+                        # else:
                         for state, split in zip(states, splits):
                             # predict on test set
                             Y, Y_probs, Y_preds = model._predict_probs(

@@ -11,6 +11,7 @@ class BertEncoder(nn.Module):
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         self.bert_model = BertModel.from_pretrained(bert_model, cache_dir=cache_dir)
+        dropout = 0
         self.dropout = nn.Dropout(dropout)
         if freeze:
             for param in self.bert_model.parameters():
