@@ -8,7 +8,9 @@ import json
 import logging
 import os
 
+import dill
 import numpy as np
+import torch
 
 from metal.mmtl.glue_tasks import create_tasks_and_payloads, task_defaults
 from metal.mmtl.metal_model import MetalModel, model_defaults
@@ -128,3 +130,8 @@ if __name__ == "__main__":
     trainer.writer.write_config(task_config, "task_config")
 
     trainer.train_model(model, payloads)
+
+    # pickle and save the full model
+    full_model_path = os.path.join(trainer.writer.log_subdir, "model.pkl")
+    torch.save(model, full_model_path, pickle_module=dill)
+    print(f"Full model saved at {full_model_path}")
