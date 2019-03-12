@@ -67,7 +67,7 @@ def add_labels_to_payload(payload, task_name, label_set=None, label_fn=None):
     if label_fn is not None:
         assert callable(label_fn)
         assert label_set is None
-        labels_new = [label_fn(x) for x in range(len(payload.data_loader.dataset))]
+        labels_new = [label_fn(x) for x in payload.data_loader.dataset]
     elif label_set is not None:
         assert isinstance(label_set, list)
         assert label_fn is None

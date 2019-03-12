@@ -3,10 +3,9 @@ from nltk.translate.bleu_score import sentence_bleu
 
 from metal.mmtl.utils.dataloaders import add_labels_to_payload
 
-SPACY_INFO = {
-    # 0.0 is null, for clarity
-    "NER_TAGS": [
-        "0.0",
+SPACY_TAGS = {
+    "SPACY_NER": [
+        "NULL",
         "PERSON",
         "NORP",
         "FAC",
@@ -26,43 +25,29 @@ SPACY_INFO = {
         "ORDINAL",
         "CARDINAL",
     ],
-    "POS_TAGS": [
-         "0.0",
-         "PUNCT",
-         "SYM",
-         "X",
-         "ADJ",
-         "VERB",
-         "CONJ",
-         "CCONJ",
-         "NUM",
-         "DET",
-         "ADV",
-         "ADP",
-         "", 
-         "NOUN",
-         "PROPN",
-         "PART",
-         "PRON",
-         "SPACE",
-         "INTJ",
+    "SPACY_POS": [  # Coarse-grained POS tags
+        "NULL",
+        "ADJ",
+        "ADP",
+        "ADV",
+        "AUX",
+        "CONJ",
+        "CCONJ",
+        "DET",
+        "INTJ",
+        "NOUN",
+        "NUM",
+        "PART",
+        "PRON",
+        "PROPN",
+        "PUNCT",
+        "SCONJ",
+        "SYM",
+        "VERB",
+        "X",
+        "SPACE",
     ],
 }
-
-
-def get_bert_spacy_index(spc, tokenizer, add_cls):
-    """
-    Map spacy to bert
-    """
-    bert_tokens = []
-    orig_to_tok_map = []
-    if add_cls:
-        bert_tokens.append("[CLS]")
-    for orig_token in spc:
-        orig_to_tok_map.append(len(bert_tokens))
-        bert_tokens.extend(tokenizer.tokenize(orig_token.text))
-    bert_tokens.append("[SEP]")
-    return orig_to_tok_map, bert_tokens
 
 
 # Function to add BLEU labels
@@ -105,137 +90,85 @@ def add_third_labels(payload):
     return add_labels_to_payload(payload, "THIRD", label_set=Y)
 
 
-# Adding NER labels from Spacy
-def add_spacy_ner_labels(payload):
-    """
-    Adds spacy ner labelset, maps Spacy to Wordpiece tokens
-    """
-
-    def get_spacy_ner_tags(it):
-        sent1, sent2 = payload.data_loader.dataset.spacy_tokens[it]
-        tokenizer = payload.data_loader.dataset.bert_tokenizer
-        sent1_token_map, sent1_bert = get_bert_spacy_index(
-            sent1, tokenizer, add_cls=True
-        )
-        sent2_token_map, sent2_bert = get_bert_spacy_index(
-            sent2, tokenizer, add_cls=False
-        )
-
-        spacy_ner_tags = np.zeros((len(sent1_bert + sent2_bert),))
-
-        # This condition should be true if we've done things correctly!
-        bert_tokenizer = payload.data_loader.dataset.bert_tokenizer
-        bert_tokens_orig = bert_tokenizer.convert_ids_to_tokens(
-            payload.data_loader.dataset.bert_tokens[it]
-        )
-        #        if not np.array_equal(sent1_bert + sent2_bert, bert_tokens_orig):
-        #            import ipdb; ipdb.set_trace()
-
-        # Sometimes, weird things happen with apostrophes; just make sure length aligns
-        # assert len(sent1_bert + sent2_bert) == len(bert_tokens_orig)
-
-        # Creating tags -- string labels for now!
-        sent_1_tag_strs = np.zeros((len(sent1_bert),)).astype(str)
-        sent_2_tag_strs = np.zeros((len(sent2_bert),)).astype(str)
-
-        # label_ for string, label for int
-        # HACK: due to occasional misalignment, need to make sure we don't go over end of sentence
-        for ent in sent1.ents:
-            sent_1_tag_strs[
-                sent1_token_map[ent.start] : sent1_token_map[
-                    min(ent.end, len(sent1_token_map) - 1)
-                ]
-            ] = ent.label_
-        for ent in sent2.ents:
-            sent_2_tag_strs[
-                sent2_token_map[ent.start] : sent2_token_map[
-                    min(ent.end, len(sent2_token_map) - 1)
-                ]
-            ] = ent.label_
-
-        sent_1_tags = [SPACY_INFO["NER_TAGS"].index(tag) + 1 for tag in sent_1_tag_strs]
-        sent_2_tags = [SPACY_INFO["NER_TAGS"].index(tag) + 1 for tag in sent_2_tag_strs]
-
-        spacy_ner_tags = list(sent_1_tags) + list(sent_2_tags)
-
-        # HACK: Dealing with misalignment by padding/truncating
-        while len(spacy_ner_tags) < len(bert_tokens_orig):
-            # Because of 1-indexing for metal labels!
-            spacy_ner_tags.append(1)
-
-        if len(spacy_ner_tags) > len(bert_tokens_orig):
-            spacy_ner_tags = spacy_ner_tags[: len(bert_tokens_orig)]
-
-        assert len(spacy_ner_tags) == len(bert_tokens_orig)
-        return spacy_ner_tags
-
-    return add_labels_to_payload(payload, "SPACY_NER", label_fn=get_spacy_ner_tags)
-
-# Adding NER labels from Spacy
 def add_spacy_pos_labels(payload):
+    return add_spacy_labels(payload, label_type="SPACY_POS", spacy_attr="pos_")
+
+
+def add_spacy_ner_labels(payload):
+    return add_spacy_labels(payload, label_type="SPACY_NER", spacy_attr="ent_type_")
+
+
+# Add token-based tags from Spacy
+def add_spacy_labels(payload, label_type, spacy_attr, null_label="NULL"):
     """
-    Adds spacy ner labelset, maps Spacy to Wordpiece tokens
+    Adds a spacy POS labelset, mapping through the different tokenizations
+
+    Args:
+        payload
+        attr: the name of the spacy attribute to extract
+        tag_name:
     """
+    Y = []
+    bert_tokenizer = payload.data_loader.dataset.bert_tokenizer
 
-    def get_spacy_pos_tags(it):
-        sent1, sent2 = payload.data_loader.dataset.spacy_tokens[it]
-        tokenizer = payload.data_loader.dataset.bert_tokenizer
-        sent1_token_map, sent1_bert = get_bert_spacy_index(
-            sent1, tokenizer, add_cls=True
-        )
-        sent2_token_map, sent2_bert = get_bert_spacy_index(
-            sent2, tokenizer, add_cls=False
-        )
+    for i, data in enumerate(payload.data_loader.dataset):
+        X, _ = data
+        (tokens, segments) = X
+        bert_ints = tokens
+        bert_tokens = bert_tokenizer.convert_ids_to_tokens(bert_ints)
+        spacy_tokens = []
+        for sentence_tokens in payload.data_loader.dataset.spacy_tokens[i]:
+            spacy_tokens.extend(sentence_tokens)
+        # bert_to_spacy maps a bert token index to the corresponding spacy token index
+        assignments = map_bert_to_spacy_tokens(bert_tokens, spacy_tokens)
+        if assignments is None:
+            # If a mapping could not be found, abstain from labelling this example
+            token_labels = [0 for _ in bert_tokens]
+        else:
+            token_tags = []
+            for idx in assignments:
+                if idx is None:
+                    token_tags.append(null_label)
+                else:
+                    tag = getattr(spacy_tokens[idx], spacy_attr)
+                    if not tag:  # 'not' covers default None and "" (ner)
+                        tag = null_label
+                    token_tags.append(tag)
+            token_labels = [SPACY_TAGS[label_type].index(tag) + 1 for tag in token_tags]
+            # print([(token, tag) for token, tag in zip(bert_tokens, token_tags)])
+        Y.append(token_labels)
 
-        spacy_pos_tags = np.zeros((len(sent1_bert + sent2_bert),))
+    return add_labels_to_payload(payload, label_type, label_set=Y)
 
-        # This condition should be true if we've done things correctly!
-        bert_tokenizer = payload.data_loader.dataset.bert_tokenizer
-        bert_tokens_orig = bert_tokenizer.convert_ids_to_tokens(
-            payload.data_loader.dataset.bert_tokens[it]
-        )
-        #        if not np.array_equal(sent1_bert + sent2_bert, bert_tokens_orig):
-        #            import ipdb; ipdb.set_trace()
 
-        # Sometimes, weird things happen with apostrophes; just make sure length aligns
-        # assert len(sent1_bert + sent2_bert) == len(bert_tokens_orig)
+def map_bert_to_spacy_tokens(bert_tokens, spacy_tokens):
+    # If the token sets do not have the same number of characters, abstain
+    spacy_chars = "".join([token.text.strip() for token in spacy_tokens])
+    bert_chars = "".join(
+        [
+            token.replace("##", "")
+            for token in bert_tokens
+            if token not in ["[CLS]", "[SEP]"]
+        ]
+    )
+    if len(spacy_chars) != len(bert_chars):
+        print("SKIPPING: len(spacy_chars) != len(bert_chars)")
+        return None
 
-        # Creating tags -- string labels for now!
-        sent_1_tag_strs = np.zeros((len(sent1_bert),)).astype(str)
-        sent_2_tag_strs = np.zeros((len(sent2_bert),)).astype(str)
+    # Otherwise, find a mapping
+    spacy_token_index_by_char = []
+    for i, token in enumerate(spacy_tokens):
+        spacy_token_index_by_char.extend([i for _ in range(len(token.text))])
+    char_count = 0
+    assignments = []
+    for token in bert_tokens:
+        if token in ["[CLS]", "[SEP]"]:
+            assignments.append(None)
+        else:
+            assignments.append(spacy_token_index_by_char[char_count])
+            char_count += len(token.replace("##", ""))
+    return assignments
 
-        # label_ for string, label for int
-        # HACK: due to occasional misalignment, need to make sure we don't go over end of sentence
-        for ii, token in enumerate(sent1):
-            sent_1_tag_strs[
-                sent1_token_map[ii] : sent1_token_map[
-                    min(ii+1, len(sent1_token_map) - 1)
-                ]
-            ] = token.pos_
-        for ii, token in enumerate(sent2):
-            sent_2_tag_strs[
-                sent2_token_map[ii] : sent2_token_map[
-                    min(ii+1, len(sent2_token_map) - 1)
-                ]
-            ] = token.pos_
-
-        sent_1_tags = [SPACY_INFO["POS_TAGS"].index(tag) + 1 for tag in sent_1_tag_strs]
-        sent_2_tags = [SPACY_INFO["POS_TAGS"].index(tag) + 1 for tag in sent_2_tag_strs]
-
-        spacy_pos_tags = list(sent_1_tags) + list(sent_2_tags)
-
-        # HACK: Dealing with misalignment by padding/truncating
-        while len(spacy_pos_tags) < len(bert_tokens_orig):
-            # Because of 1-indexing for metal labels!
-            spacy_pos_tags.append(1)
-
-        if len(spacy_pos_tags) > len(bert_tokens_orig):
-            spacy_pos_tags = spacy_pos_tags[: len(bert_tokens_orig)]
-
-        assert len(spacy_pos_tags) == len(bert_tokens_orig)
-        return spacy_pos_tags
-
-    return add_labels_to_payload(payload, "SPACY_POS", label_fn=get_spacy_pos_tags)
 
 auxiliary_task_functions = {
     "BLEU": add_bleu_labels,

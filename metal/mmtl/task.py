@@ -66,8 +66,10 @@ class ClassificationTask(Task):
         attention_module=IdentityModule(),
         head_module=IdentityModule(),
         output_hat_func=(partial(F.softmax, dim=1)),
-        loss_hat_func=(lambda Y_out, Y_gold: F.cross_entropy(Y_out, Y_gold - 1)),
-        loss_multiplier=1,
+        loss_hat_func=(
+            lambda Y_out, Y_gold: F.cross_entropy(Y_out, Y_gold.view(-1) - 1)
+        ),
+        loss_multiplier=1.0,
         scorer=Scorer(standard_metrics=["accuracy"]),
     ) -> None:
 
@@ -96,11 +98,13 @@ class RegressionTask(Task):
         head_module=IdentityModule(),
         # w/ sigmoid (make sure target labels are scaled to [0,1])
         output_hat_func=torch.sigmoid,
-        loss_hat_func=(lambda Y_out, Y_gold: F.mse_loss(torch.sigmoid(Y_out), Y_gold)),
+        loss_hat_func=(
+            lambda Y_out, Y_gold: F.mse_loss(torch.sigmoid(Y_out), Y_gold.view(-1))
+        ),
         # w/o sigmoid (target labels can be in any range)
         # output_hat_func=lambda x: x,
         # loss_hat_func=(lambda Y_out, Y_gold: F.mse_loss(Y_out, Y_gold)),
-        loss_multiplier=1,
+        loss_multiplier=1.0,
         scorer=Scorer(standard_metrics=[]),
     ) -> None:
 
@@ -174,7 +178,7 @@ class TokenClassificationTask(Task):
         head_module=IdentityModule(),
         output_hat_func=tokenwise_softmax,
         loss_hat_func=tokenwise_ce_loss,
-        loss_multiplier=1,
+        loss_multiplier=1.0,
         scorer=Scorer(custom_metric_funcs={tokenwise_accuracy: ["token_acc"]}),
     ) -> None:
 
