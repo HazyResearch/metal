@@ -220,6 +220,9 @@ class GLUEDataset(data.Dataset):
                     f"{type(Y[0])}"
                 )
                 raise Exception(msg)
+            # Ensure that first dimension of Y is n
+            if Y.dim() == 1:
+                Y = Y.view(-1, 1)
             Ys[task_name] = Y
         return Ys
 
