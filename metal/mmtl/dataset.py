@@ -55,6 +55,7 @@ class GLUEDataset(data.Dataset):
         bert_vocab=None,
         tokenize_bert=True,
         run_spacy=False,
+        uids=None,
     ):
         """
         Args:
@@ -77,6 +78,7 @@ class GLUEDataset(data.Dataset):
         self.label_type = label_type
         self.label_fn = label_fn
         self.inv_label_fn = inv_label_fn
+        self.uids = uids
 
         if tokenize_bert:
             assert bert_vocab is not None
@@ -299,7 +301,7 @@ class GLUEDataset(data.Dataset):
     ):
 
         # load and preprocess data from tsv
-        sentences, labels = load_tsv(
+        out = load_tsv(
             tsv_path=tsv_path,
             sent1_idx=sent1_idx,
             sent2_idx=sent2_idx,
@@ -310,6 +312,12 @@ class GLUEDataset(data.Dataset):
             max_datapoints=max_datapoints,
             generate_uids=generate_uids,
         )
+
+        if generate_uids:
+            (sentences, labels), uids = out
+        else:
+            sentences, labels = out
+            uids = None
 
         # initialize class with data
         return cls(
@@ -323,4 +331,5 @@ class GLUEDataset(data.Dataset):
             bert_vocab=bert_vocab,
             tokenize_bert=tokenize_bert,
             run_spacy=run_spacy,
+            uids=uids,
         )
