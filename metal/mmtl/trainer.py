@@ -6,6 +6,7 @@ from collections import defaultdict
 from pprint import pprint
 from shutil import copy2
 
+import dill
 import numpy as np
 import torch
 import torch.optim as optim
@@ -21,7 +22,7 @@ from metal.mmtl.task_scheduler import (
     SuperStagedScheduler,
 )
 from metal.mmtl.utils.metrics import GLUE_METRICS, glue_score
-from metal.utils import recursive_merge_dicts, set_seed
+from metal.utils import recursive_merge_dicts, recursive_transform, set_seed
 
 # Import tqdm_notebook if in Jupyter notebook
 try:
@@ -339,9 +340,19 @@ class MultitaskTrainer(object):
 
         # Write log if applicable
         if self.writer:
+            # convert from numpy to python float
+            metrics_dict = recursive_transform(
+                metrics_dict, lambda x: type(x).__module__ == np.__name__, float
+            )
+
             self.writer.write_metrics(metrics_dict)
             self.writer.write_log()
             self.writer.close()
+
+        # pickle and save the full model
+        full_model_path = os.path.join(self.writer.log_subdir, "model.pkl")
+        torch.save(model, full_model_path, pickle_module=dill)
+        print(f"Full model saved at {full_model_path}")
 
     def _execute_logging(self, model, payloads, batch_size, force_log=False):
         model.eval()
