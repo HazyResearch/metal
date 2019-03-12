@@ -10,7 +10,15 @@ def slice_dashsemicolon(row):
         return False
 
 
-def slicing_function(row):
+def slice_endquestionword(row):
+    word_list = row["sentence1"].split()
+    if word_list[-2] in ["who", "what", "where", "when", "why", "how"]:
+        return True
+    else:
+        return False
+
+
+def slice_4people(row):
     people = 0
     for pronoun in ["she", "her", "hers"]:
         if regex_present(row, pronoun, fields=["sentence1"]):
