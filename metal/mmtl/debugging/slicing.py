@@ -1,4 +1,5 @@
 import pandas as pd
+from nltk.translate.bleu_score import sentence_bleu
 
 from metal.mmtl.debugging.lf_helpers import regex_present
 
@@ -18,22 +19,30 @@ def slice_endquestionword(row):
         return False
 
 
-def slice_4people(row):
+def slice_morepeople(row):
     people = 0
+    sentence = row["sentence1"].split()
     for pronoun in ["she", "her", "hers"]:
-        if regex_present(row, pronoun, fields=["sentence1"]):
+        if pronoun in sentence:
             people += 1
-            continue
+            break
     for pronoun in ["he", "him", "his"]:
-        if regex_present(row, pronoun, fields=["sentence1"]):
+        if pronoun in sentence:
             people += 1
-            continue
+            break
     for pronoun in ["you", "your", "yours"]:
-        if regex_present(row, pronoun, fields=["sentence1"]):
+        if pronoun in sentence:
             people += 1
-            continue
+            break
     for pronoun in ["I", "my", "me", "mine"]:
-        if regex_present(row, pronoun, fields=["sentence1"]):
+        if pronoun in sentence:
             people += 1
-            continue
-    return people > 3
+            break
+    return people > 1
+
+
+def slice_lowbleu(row):
+    sentence1 = row["sentence1"].split()
+    sentence2 = row["sentence2"].split()
+    bleu = sentence_bleu([sentence1], sentence2)
+    return bleu < 0.05
