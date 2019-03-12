@@ -78,6 +78,7 @@ parser.add_argument("--ami", required=True, type=str, help="ami id to run with")
 def create_dummy_command_dict2():
     COMMAND_PREFIX = (
         "source activate pytorch_p36;"
+        "python -m spacy download en;"  # TODO: add to env by default
         "rm -rf metal;"
         "git clone https://github.com/HazyResearch/metal.git;"
         "git checkout 868fb01a48e4031b8f1ac568e3bd0b413c904541;"
