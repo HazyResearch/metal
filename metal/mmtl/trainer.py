@@ -6,6 +6,7 @@ from collections import defaultdict
 from pprint import pprint
 from shutil import copy2
 
+import dill
 import numpy as np
 import torch
 import torch.optim as optim
@@ -347,6 +348,11 @@ class MultitaskTrainer(object):
             self.writer.write_metrics(metrics_dict)
             self.writer.write_log()
             self.writer.close()
+
+        # pickle and save the full model
+        full_model_path = os.path.join(self.writer.log_subdir, "model.pkl")
+        torch.save(model, full_model_path, pickle_module=dill)
+        print(f"Full model saved at {full_model_path}")
 
     def _execute_logging(self, model, payloads, batch_size, force_log=False):
         model.eval()
