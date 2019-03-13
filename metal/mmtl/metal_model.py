@@ -121,7 +121,9 @@ class MetalModel(nn.Module):
                 out = out.half()
                 Y = Y.half()
             # Only evaluate loss on examples that have non-zero target labels
-            active = Y.sum(dim=1) != 0  # Either 0 sequence label or all 0 token labels
+            active = (
+                torch.sum(Y, dim=1) != 0
+            )  # Either 0 sequence label or all 0 token labels
             if 0 in active:
                 Y = Y[active]
                 # NOTE: This makes an assumption we should list elsewhere (and confirm
