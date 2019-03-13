@@ -55,19 +55,19 @@ def add_bleu_labels(payload):
     """
     Adds 1-gram bleu score labelset for sentence similarity tasks
     """
+    raise NotImplementedError("Update the signature of label_fn")
+    # def get_bleu_label(it):
+    #     # toks, segs = payload.data_loader.dataset[it][0]
+    #     toks = payload.data_loader.dataset.bert_tokens[it]
+    #     toks = payload.data_loader.dataset.bert_tokenizer.convert_ids_to_tokens(toks)
+    #     segs = payload.data_loader.dataset.bert_segments[it]
+    #     toks, segs = np.array(toks), np.array(segs)
+    #     sent1 = list(toks[segs == 0])
+    #     sent2 = list(toks[segs == 1])
+    #     bleu_score = sentence_bleu(sent1, sent2, weights=(1, 0, 0, 0))
+    #     return float(bleu_score)
 
-    def get_bleu_label(it):
-        # toks, segs = payload.data_loader.dataset[it][0]
-        toks = payload.data_loader.dataset.bert_tokens[it]
-        toks = payload.data_loader.dataset.bert_tokenizer.convert_ids_to_tokens(toks)
-        segs = payload.data_loader.dataset.bert_segments[it]
-        toks, segs = np.array(toks), np.array(segs)
-        sent1 = list(toks[segs == 0])
-        sent2 = list(toks[segs == 1])
-        bleu_score = sentence_bleu(sent1, sent2, weights=(1, 0, 0, 0))
-        return float(bleu_score)
-
-    return add_labels_to_payload(payload, "BLEU", label_fn=get_bleu_label)
+    # return add_labels_to_payload(payload, "BLEU", label_fn=get_bleu_label)
 
 
 # Function add THIRD labels
