@@ -3,7 +3,6 @@ from collections import defaultdict
 
 from pytorch_pretrained_bert import BertTokenizer
 
-from metal.mmtl.dataset import get_glue_dataset
 from metal.mmtl.utils.preprocess import get_task_tsv_config, load_tsv
 
 

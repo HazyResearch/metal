@@ -54,6 +54,7 @@ def create_command_dict(args, config_path, launch_args):
         "rm -rf metal;"
         "git clone -b mmtl https://github.com/HazyResearch/metal.git;"
         "cd metal; source add_to_path.sh; pip install -r metal/mmtl/requirements-mmtl.txt;"
+        "python -m spacy download en_core_web_sm;"
         f"git fetch --all; git checkout {args.commit_hash};"
         "mkdir logs;"
         " ( screen -dm tensorboard --logdir logs );"

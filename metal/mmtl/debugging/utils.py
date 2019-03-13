@@ -21,6 +21,8 @@ def load_data_and_model(model_path, task_names, split, bert_model="bert-base-unc
     # Create DataLoader
     max_len = 200
     dl_kwargs = {"batch_size": 1, "shuffle": False}
+    if not isinstance(task_names, list):
+        task_names = [task_name for task_name in task_names.split(",")]
 
     # Load best model for specified task
     tasks, payloads = create_tasks_and_payloads(
@@ -94,16 +96,12 @@ def create_dataframe(
             data["sentence2"] += [phrases[1]]
         else:
             data["sentence2"] += ["NA"]
-        scores = (
-            model.calculate_probs(x, [task_name])[task_name]
-            .detach()
-            .cpu()
-            .numpy()[:, 0]
-        )
+
+        scores = np.array(model.calculate_probs(x, [task_name])[task_name])[:, 0]
 
         # Score is the predicted probabilistic label, label is the ground truth
         data["score"] += list(scores)
-        data["label"] += list(y.numpy())
+        data["label"] += list(y[task_name].numpy())
         data["uid"].append(uid)
         count += 1
         if max_batches and count > max_batches:
@@ -117,6 +115,7 @@ def create_dataframe(
         df_error["label"].values, "categorical", "onezero"
     )
     df_error["pred"] = 1 * (df_error["score"] > 0.5)
+
     df_error["is_wrong"] = df_error["pred"] != df_error["label"]
     return df_error
 

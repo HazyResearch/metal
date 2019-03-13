@@ -13,7 +13,8 @@ def spearman_corr(gold, _, probs):
     # NOTE: computes using "probs", which is the non-rounded output of the model.
     # TODO: fix this poor naming convention to better support regression tasks.
     probs_array = np.vstack(probs).squeeze()
-    corr, p_value = spearmanr(gold, probs_array)
+    gold_array = np.vstack(gold).squeeze()
+    corr, p_value = spearmanr(gold_array, probs_array)
     if np.isnan(corr):
         print(f"Warning: converting nan -> 0.0 for spearman_corr")
         corr = 0.0
@@ -24,7 +25,8 @@ def pearson_corr(gold, _, probs):
     # NOTE: computes using "probs", which is the non-rounded output of the model.
     # TODO: fix this poor naming convention to better support regression tasks.
     probs_array = np.vstack(probs).squeeze()
-    corr, p_value = pearsonr(gold, probs_array)
+    gold_array = np.vstack(gold).squeeze()
+    corr, p_value = pearsonr(gold_array, probs_array)
     if np.isnan(corr):
         print(f"Warning: converting nan -> 0.0 for spearman_corr")
         corr = 0.0
