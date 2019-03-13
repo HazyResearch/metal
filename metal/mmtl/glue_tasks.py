@@ -46,9 +46,6 @@ ALL_TASKS = [
 # List of tasks requiring Spacy tokenization
 SPACY_TASKS = ["SPACY_NER", "SPACY_POS"]
 
-# Auxiliary task loss multplier
-AUX_LOSS_MULTIPLIER = 1.0
-
 task_defaults = {
     # General
     "split_prop": None,
@@ -92,6 +89,7 @@ task_defaults = {
         "SPACY_NER": ALL_TASKS,
         "SPACY_POS": ALL_TASKS,
     },
+    "auxiliary_loss_multiplier": 1.0,
 }
 
 
@@ -286,7 +284,6 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
-                loss_multiplier=AUX_LOSS_MULTIPLIER,
             )
 
         # AUXILIARY TASKS
@@ -298,7 +295,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name="THIRD",
                 input_module=input_module,
                 head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
-                loss_multiplier=AUX_LOSS_MULTIPLIER,
+                loss_multiplier=config["auxiliary_loss_multiplier"],
             )
 
         elif task_name == "BLEU":
@@ -313,7 +310,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                     lambda out, Y_gold: F.mse_loss(torch.sigmoid(out), Y_gold)
                 ),
                 scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
-                loss_multiplier=AUX_LOSS_MULTIPLIER,
+                loss_multiplier=config["auxiliary_loss_multiplier"],
             )
 
         elif task_name == "SPACY_NER":
@@ -322,7 +319,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
-                loss_multiplier=AUX_LOSS_MULTIPLIER,
+                loss_multiplier=config["auxiliary_loss_multiplier"],
             )
 
         elif task_name == "SPACY_POS":
@@ -331,7 +328,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
-                loss_multiplier=AUX_LOSS_MULTIPLIER,
+                loss_multiplier=config["auxiliary_loss_multiplier"],
             )
 
         else:
