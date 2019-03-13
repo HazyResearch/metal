@@ -120,6 +120,11 @@ if __name__ == "__main__":
         p.numel() for p in model.parameters() if p.requires_grad
     )
 
+    if trainer_config["verbose"]:
+        print(f"Task config:\n{task_config}")
+        print(f"Model config:\n{model_config}")
+        print(f"Trainer config:\n{trainer_config}")
+
     trainer = MultitaskTrainer(**trainer_config)
     # Force early instantiation of writer to write all three configs to dict
     trainer._set_writer()
