@@ -330,7 +330,7 @@ class GLUEDataset(data.Dataset):
             label_type=label_type,
             label_fn=label_fn,
             inv_label_fn=inv_label_fn,
-            max_len=-1,
+            max_len=max_len,
             bert_vocab=bert_vocab,
             tokenize_bert=tokenize_bert,
             run_spacy=run_spacy,
