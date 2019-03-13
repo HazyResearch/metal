@@ -47,6 +47,7 @@ from metal.mmtl.aws import grid_search_mmtl
 # IMAGE_ID = "ami-0507d23ab4a37c611"  # For East (02-18-2019)
 # IMAGE_ID = "ami-01b22f90823e1b2af"  # For East w/ Apex (02-21-2019)
 # IMAGE_ID = "ami-0334863e514e3c3df"  # For ensemble GLUE datasets (03-04-2019)
+# IMAGE_ID = "ami-0be2f9acd392d909a"  # For ensemble GLUE datasets (03-13-2019) with MNLI fixed.
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
