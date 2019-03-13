@@ -96,14 +96,11 @@ class RegressionTask(Task):
         middle_module=IdentityModule(),
         attention_module=IdentityModule(),
         head_module=IdentityModule(),
-        # w/ sigmoid (make sure target labels are scaled to [0,1])
-        output_hat_func=torch.sigmoid,
-        loss_hat_func=(
-            lambda Y_out, Y_gold: F.mse_loss(torch.sigmoid(Y_out), Y_gold.view(-1))
-        ),
+        output_hat_func=lambda x: x,
         # w/o sigmoid (target labels can be in any range)
-        # output_hat_func=lambda x: x,
-        # loss_hat_func=(lambda Y_out, Y_gold: F.mse_loss(Y_out, Y_gold)),
+        loss_hat_func=(
+            lambda Y_out, Y_gold: F.mse_loss(Y_out.view(-1), Y_gold.view(-1))
+        ),
         loss_multiplier=1.0,
         scorer=Scorer(standard_metrics=[]),
     ) -> None:
