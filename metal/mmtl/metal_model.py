@@ -117,13 +117,11 @@ class MetalModel(nn.Module):
         for task_name in task_names:
             Y = Ys[task_name]
             out = outputs[task_name]
+            # Only evaluate loss on examples that have 1+ non-zero target labels
+            active = torch.any(Y != 0, dim=1)
             if self.config["fp16"] and Y.dtype == torch.float32:
                 out = out.half()
                 Y = Y.half()
-            # Only evaluate loss on examples that have non-zero target labels
-            active = (
-                torch.sum(Y, dim=1) != 0
-            )  # Either 0 sequence label or all 0 token labels
             if 0 in active:
                 Y = Y[active]
                 # NOTE: This makes an assumption we should list elsewhere (and confirm
