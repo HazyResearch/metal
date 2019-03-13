@@ -1,5 +1,3 @@
-import copy
-
 from metal.mmtl.dataset import get_glue_dataset
 
 
