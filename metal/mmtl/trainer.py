@@ -232,7 +232,7 @@ class MultitaskTrainer(object):
                 # Zero the parameter gradients
                 self.optimizer.zero_grad()
 
-                # Forward pass to calculate the average loss per example
+                # Forward pass to calculate the average loss per example by task
                 losses = model.calculate_loss(*batch, task_names=task_names)
                 loss = sum(losses.values())
                 if torch.isnan(loss):
