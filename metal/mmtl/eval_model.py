@@ -10,7 +10,11 @@ from collections import Counter
 import numpy as np
 from scipy.stats import mode
 
-from metal.mmtl.glue.glue_tasks import create_glue_dataloaders, create_tasks
+from metal.mmtl.glue.glue_tasks import (
+    create_glue_dataloaders,
+    create_glue_datasets,
+    create_tasks,
+)
 from metal.mmtl.metal_model import MetalModel
 
 task_to_name_dict = {
@@ -236,14 +240,19 @@ if __name__ == "__main__":
                         states = [None]
                         splits = [args.eval_split]
 
-                    task.data_loaders = create_glue_dataloaders(
-                        task.name,
-                        bert_model,
-                        max_len=max_len,
-                        dl_kwargs=dl_kwargs,
-                        max_datapoints=args.max_datapoints,
+                    datasets = create_glue_datasets(
+                        dataset_name=task.name,
                         splits=splits,
+                        bert_vocab=bert_model,
+                        max_len=max_len,
+                        max_datapoints=args.max_datapoints,
+                    )
+                    task.data_loaders = create_glue_dataloaders(
+                        datasets,
+                        dl_kwargs=dl_kwargs,
                         split_prop=None,
+                        splits=splits,
+                        seed=123,
                     )
                     if args.eval_split == "dev":
                         # just compute evaluation metrics for debugging
