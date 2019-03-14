@@ -119,9 +119,6 @@ class MetalModel(nn.Module):
             out = outputs[task_name]
             # Only evaluate loss on examples that have 1+ non-zero target labels
             active = torch.any(Y != 0, dim=1)
-            if self.config["fp16"] and Y.dtype == torch.float32:
-                out = out.half()
-                Y = Y.half()
             if 0 in active:
                 Y = Y[active]
                 # NOTE: This makes an assumption we should list elsewhere (and confirm
@@ -132,6 +129,9 @@ class MetalModel(nn.Module):
                 elif isinstance(out, tuple):
                     out = move_to_device(tuple(x[active] for x in out))
             # If no examples in this batch have labels for this task, skip loss calc
+            if self.config["fp16"] and Y.dtype == torch.float32:
+                out = out.half()
+                Y = Y.half()
             if active.sum():
                 task_loss = self.loss_hat_funcs[task_name](
                     out, move_to_device(Y, self.config["device"])
