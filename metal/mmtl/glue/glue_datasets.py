@@ -10,7 +10,7 @@ from pytorch_pretrained_bert import BertTokenizer
 from torch.utils.data.sampler import Sampler, SubsetRandomSampler
 from tqdm import tqdm
 
-from metal.mmtl.utils.preprocess import get_task_tsv_config, load_tsv
+from metal.mmtl.glue.glue_preprocess import get_task_tsv_config, load_tsv
 from metal.utils import padded_tensor, set_seed
 
 nlp = spacy.load("en_core_web_sm")
@@ -98,7 +98,9 @@ class GLUEDataset(data.Dataset):
         once the max_seq_len for that batch is known.
         """
         x = (self.bert_tokens[index], self.bert_segments[index])
-        ys = {task_name: labelset[index] for task_name, labelset in self.labels.items()}
+        ys = {
+            task_name: label_set[index] for task_name, label_set in self.labels.items()
+        }
         return x, ys
 
     def __len__(self):
@@ -173,15 +175,15 @@ class GLUEDataset(data.Dataset):
         return X, Ys
 
     def _collate_labels(self, Ys):
-        """Collate potentially multiple labelsets
+        """Collate potentially multiple label_sets
 
         Args:
             Ys: a dict of the form {task_name: label_list}, where label_list is a
                 list of individual labels (ints, floats, numpy, or torch) belonging to
-                the same labelset; labels may be a scalar or a sequence.
+                the same label_set; labels may be a scalar or a sequence.
         Returns:
             Ys: a dict of the form {task_name: labels}, with labels containing a torch
-                Tensor (padded if necessary) of labels belonging to the same labelset
+                Tensor (padded if necessary) of labels belonging to the same label_set
 
 
         Convert each Y in Ys from:
@@ -209,14 +211,14 @@ class GLUEDataset(data.Dataset):
                     dtype = torch.float
                 else:
                     msg = (
-                        f"Unrecognized dtype of elements in labelset for task "
+                        f"Unrecognized dtype of elements in label_set for task "
                         f"{task_name}: {type(Y[0][0])}"
                     )
                     raise Exception(msg)
                 Y, _ = padded_tensor(Y, dtype=dtype)
             else:
                 msg = (
-                    f"Unrecognized dtype of labelset for task {task_name}: "
+                    f"Unrecognized dtype of label_set for task {task_name}: "
                     f"{type(Y[0])}"
                 )
                 raise Exception(msg)

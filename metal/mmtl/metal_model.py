@@ -117,8 +117,9 @@ class MetalModel(nn.Module):
         for task_name in task_names:
             Y = Ys[task_name]
             out = outputs[task_name]
-            # Only evaluate loss on examples that have 1+ non-zero target labels
+            # Identify which instances have at least one non-zero target labels
             active = torch.any(Y != 0, dim=1)
+            # If there are inactive instances, slice them out to save computation
             if 0 in active:
                 Y = Y[active]
                 # NOTE: This makes an assumption we should list elsewhere (and confirm

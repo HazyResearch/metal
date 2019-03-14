@@ -10,7 +10,7 @@ import os
 
 import numpy as np
 
-from metal.mmtl.glue_tasks import create_tasks_and_payloads, task_defaults
+from metal.mmtl.glue.glue_tasks import create_tasks_and_payloads, task_defaults
 from metal.mmtl.metal_model import MetalModel, model_defaults
 from metal.mmtl.trainer import MultitaskTrainer, trainer_defaults
 from metal.utils import add_flags_from_config, recursive_merge_dicts

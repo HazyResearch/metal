@@ -15,13 +15,13 @@ from torch.nn.utils import clip_grad_norm_
 
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.logging.utils import split_full_metric
+from metal.mmtl.glue.glue_metrics import GLUE_METRICS, glue_score
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
 from metal.mmtl.task_scheduler import (
     ProportionalScheduler,
     StagedScheduler,
     SuperStagedScheduler,
 )
-from metal.mmtl.utils.metrics import GLUE_METRICS, glue_score
 from metal.utils import recursive_merge_dicts, recursive_transform, set_seed
 
 # Import tqdm_notebook if in Jupyter notebook

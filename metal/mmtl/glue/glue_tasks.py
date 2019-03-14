@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from metal.contrib.modules.lstm_module import EmbeddingsEncoder, LSTMModule
 from metal.end_model import IdentityModule
 from metal.mmtl.auxiliary_tasks import SPACY_TAGS, auxiliary_task_functions
+from metal.mmtl.glue.glue_datasets import get_glue_dataset
+from metal.mmtl.glue.glue_metrics import acc_f1, matthews_corr, mse, pearson_spearman
 from metal.mmtl.modules import (
     BertExtractCls,
     BertRaw,
@@ -20,14 +22,6 @@ from metal.mmtl.modules import (
 from metal.mmtl.payload import Payload
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.task import ClassificationTask, RegressionTask, TokenClassificationTask
-from metal.mmtl.utils.dataloaders import get_all_dataloaders
-from metal.mmtl.utils.metrics import (
-    acc_f1,
-    matthews_corr,
-    mse,
-    pearson_spearman,
-    ranking_acc_f1,
-)
 from metal.utils import recursive_merge_dicts, set_seed
 
 ALL_TASKS = [
@@ -155,17 +149,22 @@ def create_tasks_and_payloads(task_names, **kwargs):
 
         # Each primary task has data_loaders to load
         if has_payload:
-            data_loaders = get_all_dataloaders(
-                task_name if not task_name.endswith("_SAN") else task_name[:-4],
-                config["bert_model"],
-                max_len=config["max_len"],
-                dl_kwargs=dl_kwargs,
-                split_prop=config["split_prop"],
-                max_datapoints=config["max_datapoints"],
+            datasets = create_glue_datasets(
+                dataset_name=task_name,
                 splits=config["splits"],
-                seed=config["seed"],
+                bert_vocab=config["bert_model"],
+                max_len=config["max_len"],
+                max_datapoints=config["max_datapoints"],
                 generate_uids=kwargs.get("generate_uids", False),
                 run_spacy=run_spacy,
+                verbose=True,
+            )
+            data_loaders = create_glue_dataloaders(
+                datasets,
+                dl_kwargs=dl_kwargs,
+                split_prop=config["split_prop"],
+                splits=config["splits"],
+                seed=config["seed"],
             )
 
         if task_name == "COLA":
@@ -374,6 +373,59 @@ def get_attention_module(config, neck_dim):
         raise ValueError("Unrecognized attention layer")
 
     return attention_module
+
+
+def create_glue_datasets(
+    dataset_name,
+    splits,
+    bert_vocab,
+    max_len,
+    max_datapoints,
+    generate_uids=False,
+    run_spacy=False,
+    verbose=True,
+):
+    if verbose:
+        print(f"Loading {dataset_name} Dataset")
+
+    datasets = {}
+    for split_name in splits:
+        # Codebase uses valid but files are saved as dev.tsv
+        if split_name == "valid":
+            split = "dev"
+        else:
+            split = split_name
+        datasets[split_name] = get_glue_dataset(
+            dataset_name,
+            split=split,
+            bert_vocab=bert_vocab,
+            max_len=max_len,
+            max_datapoints=max_datapoints,
+            generate_uids=generate_uids,
+            run_spacy=run_spacy,
+        )
+    return datasets
+
+
+def create_glue_dataloaders(datasets, dl_kwargs, split_prop, splits, seed=123):
+    """ Initializes train/dev/test dataloaders given dataset_class"""
+    dataloaders = {}
+
+    # When split_prop is not None, we use create an artificial dev set from the train set
+    if split_prop and "train" in splits:
+        dataloaders["train"], dataloaders["valid"] = datasets["train"].get_dataloader(
+            split_prop=split_prop, split_seed=seed, **dl_kwargs
+        )
+
+        # Use the dev set as test set if available.
+        if "valid" in datasets:
+            dataloaders["test"] = datasets["valid"].get_dataloader(**dl_kwargs)
+
+    # When split_prop is None, we use standard train/dev/test splits.
+    else:
+        for split_name in datasets:
+            dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
+    return dataloaders
 
 
 ### Code Graveyard (for code that we're just not ready to delete yet)

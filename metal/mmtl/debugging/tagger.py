@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from pytorch_pretrained_bert import BertTokenizer
 
-from metal.mmtl.utils.preprocess import get_task_tsv_config, load_tsv
+from metal.mmtl.glue.glue_preprocess import get_task_tsv_config, load_tsv
 
 
 class Tagger(object):
