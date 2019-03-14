@@ -1,7 +1,12 @@
 import pandas as pd
 from nltk.translate.bleu_score import sentence_bleu
 
-from metal.mmtl.debugging.lf_helpers import regex_present
+
+def slice_longsentence1(row, thresh):
+    sent1 = row["sentence1"].split()
+    if len(sent1) > thresh:
+        return True
+    return False
 
 
 def slice_dashsemicolon(row):
