@@ -2,7 +2,7 @@ import unittest
 
 from nose.tools import nottest
 
-from metal.mmtl.glue_tasks import create_tasks_and_payloads
+from metal.mmtl.glue.glue_tasks import create_tasks_and_payloads
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.trainer import MultitaskTrainer
 

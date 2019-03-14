@@ -8,7 +8,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
-from metal.mmtl.glue_tasks import create_tasks_and_payloads
+from metal.mmtl.glue.glue_tasks import create_tasks_and_payloads
 from metal.mmtl.metal_model import MetalModel
 from metal.utils import convert_labels
 

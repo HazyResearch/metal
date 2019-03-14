@@ -10,9 +10,8 @@ from collections import Counter
 import numpy as np
 from scipy.stats import mode
 
-from metal.mmtl.glue_tasks import create_tasks
+from metal.mmtl.glue.glue_tasks import create_glue_dataloaders, create_tasks
 from metal.mmtl.metal_model import MetalModel
-from metal.mmtl.utils.dataloaders import get_all_dataloaders
 
 task_to_name_dict = {
     "QNLI": "QNLI",
@@ -237,7 +236,7 @@ if __name__ == "__main__":
                         states = [None]
                         splits = [args.eval_split]
 
-                    task.data_loaders = get_all_dataloaders(
+                    task.data_loaders = create_glue_dataloaders(
                         task.name,
                         bert_model,
                         max_len=max_len,

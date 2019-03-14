@@ -1,8 +1,6 @@
 import numpy as np
 from nltk.translate.bleu_score import sentence_bleu
 
-from metal.mmtl.utils.dataloaders import add_labels_to_payload
-
 SPACY_TAGS = {
     "SPACY_NER": [
         "NULL",
@@ -53,7 +51,7 @@ SPACY_TAGS = {
 # Function to add BLEU labels
 def add_bleu_labels(payload):
     """
-    Adds 1-gram bleu score labelset for sentence similarity tasks
+    Adds 1-gram bleu score label_set for sentence similarity tasks
     """
     raise NotImplementedError("Update the signature of label_fn")
     # def get_bleu_label(it):
@@ -67,7 +65,7 @@ def add_bleu_labels(payload):
     #     bleu_score = sentence_bleu(sent1, sent2, weights=(1, 0, 0, 0))
     #     return float(bleu_score)
 
-    # return add_labels_to_payload(payload, "BLEU", label_fn=get_bleu_label)
+    # return payload.add_label_set("BLEU", label_fn=get_bleu_label)
 
 
 # Function add THIRD labels
@@ -87,7 +85,8 @@ def add_third_labels(payload):
     for x in X:
         Y.append(mark_thirds(x))
 
-    return add_labels_to_payload(payload, "THIRD", label_set=Y)
+    payload.add_label_set("THIRD", label_set=Y)
+    return payload
 
 
 def add_spacy_pos_labels(payload):
@@ -101,7 +100,7 @@ def add_spacy_ner_labels(payload):
 # Add token-based tags from Spacy
 def add_spacy_labels(payload, label_type, spacy_attr, null_label="NULL"):
     """
-    Adds a spacy POS labelset, mapping through the different tokenizations
+    Adds a spacy POS label_set, mapping through the different tokenizations
 
     Args:
         payload
@@ -138,7 +137,8 @@ def add_spacy_labels(payload, label_type, spacy_attr, null_label="NULL"):
             # print([(token, tag) for token, tag in zip(bert_tokens, token_tags)])
         Y.append(token_labels)
 
-    return add_labels_to_payload(payload, label_type, label_set=Y)
+    payload.add_label_set(label_type, label_set=Y)
+    return payload
 
 
 def map_bert_to_spacy_tokens(bert_tokens, spacy_tokens):

@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from metal.mmtl.debugging.tagger import Tagger
-from metal.mmtl.glue_tasks import create_tasks_and_payloads
+from metal.mmtl.glue.glue_tasks import create_tasks_and_payloads
 from metal.mmtl.metal_model import MetalModel
 
 
