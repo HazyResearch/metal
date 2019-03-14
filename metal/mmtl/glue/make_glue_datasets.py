@@ -7,12 +7,9 @@ from metal.mmtl.glue.glue_datasets import get_glue_dataset
 
 
 def make_datasets(task, bert_version):
-    for task in ["WNLI"]:
-        datasets = {}
-        for split in ["train", "dev", "test"]:
-            datasets[split] = get_glue_dataset(
-                task, split, bert_version, run_spacy=True
-            )
+    datasets = {}
+    for split in ["train", "dev", "test"]:
+        datasets[split] = get_glue_dataset(task, split, bert_version, run_spacy=True)
     return datasets
 
 

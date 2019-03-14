@@ -1,5 +1,8 @@
 import copy
+import os
+import warnings
 
+import dill
 import numpy as np
 import torch
 import torch.nn as nn
@@ -44,9 +47,10 @@ task_defaults = {
     # General
     "split_prop": None,
     "splits": ["train", "valid", "test"],
-    "max_len": 512,
+    "max_len": 200,
     "max_datapoints": -1,
     "seed": None,
+    "preprocessed": False,  # If True, load the cached datasets with spacy tokens saved
     "dl_kwargs": {
         "batch_size": 16,
         "shuffle": True,  # Used only when split_prop is None; otherwise, use Sampler
@@ -149,16 +153,28 @@ def create_tasks_and_payloads(task_names, **kwargs):
 
         # Each primary task has data_loaders to load
         if has_payload:
-            datasets = create_glue_datasets(
-                dataset_name=task_name,
-                splits=config["splits"],
-                bert_vocab=config["bert_model"],
-                max_len=config["max_len"],
-                max_datapoints=config["max_datapoints"],
-                generate_uids=kwargs.get("generate_uids", False),
-                run_spacy=run_spacy,
-                verbose=True,
-            )
+            if config["preprocessed"]:
+                datasets = load_glue_datasets(
+                    dataset_name=task_name,
+                    splits=config["splits"],
+                    bert_vocab=config["bert_model"],
+                    max_len=config["max_len"],
+                    max_datapoints=config["max_datapoints"],
+                    run_spacy=run_spacy,
+                    verbose=True,
+                )
+            else:
+                datasets = create_glue_datasets(
+                    dataset_name=task_name,
+                    splits=config["splits"],
+                    bert_vocab=config["bert_model"],
+                    max_len=config["max_len"],
+                    max_datapoints=config["max_datapoints"],
+                    generate_uids=kwargs.get("generate_uids", False),
+                    run_spacy=run_spacy,
+                    verbose=True,
+                )
+            # Wrap datasets with DataLoader objects
             data_loaders = create_glue_dataloaders(
                 datasets,
                 dl_kwargs=dl_kwargs,
@@ -373,6 +389,32 @@ def get_attention_module(config, neck_dim):
         raise ValueError("Unrecognized attention layer")
 
     return attention_module
+
+
+def load_glue_datasets(
+    dataset_name, splits, bert_vocab, max_len, max_datapoints, verbose=True
+):
+    bert_str = bert_vocab.replace("-", "_")
+    filename = f"{dataset_name}_{bert_str}_spacy_datasets"
+    filepath = f"{os.environ['GLUEDATA']}/datasets/{filename}.dill"
+    if verbose:
+        print(f"Loading preprocessed datasets for task {dataset_name} from {filepath}.")
+    with open(filepath, "rb") as f:
+        all_datasets = dill.load(f)
+
+    datasets = {}
+    for split, dataset in all_datasets.items():
+        if split not in splits:
+            continue
+        datasets[split] = dataset
+
+    if max_len != 200:
+        warnings.warn("max_len for preprocessed data must be 200.")
+
+    if max_datapoints > 0:
+        warnings.warn("max_datapoints for preprocessed data must be -1")
+
+    return datasets
 
 
 def create_glue_datasets(
