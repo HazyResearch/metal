@@ -251,6 +251,7 @@ def load_tsv(
                 print("WARNING: skipping example with mismatched number of columns")
                 continue
             if generate_uids:
+                # Creates UID to match line number in specificed file, accounting for header rows/1-idx
                 uids.append(get_uid(tsv_path, skip_rows + row_idx + 1))
 
             # process labels
