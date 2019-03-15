@@ -13,7 +13,7 @@ from scipy.stats import mode
 from metal.mmtl.glue.glue_tasks import (
     create_glue_dataloaders,
     create_glue_datasets,
-    create_tasks,
+    create_tasks_and_payloads,
 )
 from metal.mmtl.metal_model import MetalModel
 
@@ -192,17 +192,12 @@ if __name__ == "__main__":
 
             # TODO: find a nicer way to get task names
             # create model
-            bert_model = task_config["bert_model"]
-            max_len = task_config["max_len"]
-            tasks = create_tasks(
+            task_config["splits"] = []
+            tasks, payloads = create_tasks_and_payloads(
                 task_names=os.path.basename(os.path.dirname(model_dir))
                 .split("_")[0]
                 .split("."),
-                bert_model=bert_model,
-                max_len=max_len,
-                dl_kwargs={},
-                splits=[],
-                max_datapoints=-1,
+                **task_config,
             )
             model = MetalModel(tasks, verbose=False, device=args.device)
             if not args.use_task_checkpoints or len(tasks) == 1:
@@ -243,8 +238,8 @@ if __name__ == "__main__":
                     datasets = create_glue_datasets(
                         dataset_name=task.name,
                         splits=splits,
-                        bert_vocab=bert_model,
-                        max_len=max_len,
+                        bert_vocab=task_config["bert_model"],
+                        max_len=task_config["max_len"],
                         max_datapoints=args.max_datapoints,
                     )
                     task.data_loaders = create_glue_dataloaders(
@@ -257,6 +252,9 @@ if __name__ == "__main__":
                     if args.eval_split == "dev":
                         # just compute evaluation metrics for debugging
                         print(model_path)
+                        import IPython
+
+                        IPython.embed()
                         score = task.scorer.score(model, task)
                         print(score)
 
