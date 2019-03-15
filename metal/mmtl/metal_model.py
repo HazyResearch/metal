@@ -113,12 +113,14 @@ class MetalModel(nn.Module):
             task_names: a list of the names of the tasks to compute loss for
         """
         outputs = self.forward(X, task_names)
-        loss_dict = {}
+        loss_dict = {}  # Stores the loss by task
+        count_dict = {}  # Stores the number of active examples by task
         for task_name in task_names:
             Y = Ys[task_name]
             out = outputs[task_name]
             # Identify which instances have at least one non-zero target labels
-            active = torch.any(Y != 0, dim=1)
+            active = torch.any(Y.detach() != 0, dim=1)
+            count_dict[task_name] = active.sum().item()
             # If there are inactive instances, slice them out to save computation
             if 0 in active:
                 Y = Y[active]
@@ -141,7 +143,7 @@ class MetalModel(nn.Module):
                 loss_dict[task_name] = (
                     task_loss * self.task_map[task_name].loss_multiplier
                 )
-        return loss_dict
+        return loss_dict, count_dict
 
     @torch.no_grad()
     def calculate_probs(self, X, task_names):

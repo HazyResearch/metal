@@ -111,7 +111,6 @@ def get_task_tsv_config(task_name, split):
         label_fn, inv_label_fn = get_label_fn(
             {"entailment": 1, "contradiction": 2, "neutral": 3}
         )
-
         return {
             "tsv_path": tsv_path_for_dataset("MNLI", split),
             "sent1_idx": 8 if split != "diagnostic" else 1,

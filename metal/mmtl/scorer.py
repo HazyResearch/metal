@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+import numpy as np
+
 from metal.logging.utils import join_full_metric, split_full_metric
 from metal.metrics import METRICS as STANDARD_METRICS, metric_score
 
@@ -80,6 +82,23 @@ class Scorer(object):
         names (e.g., "accuracy" -> "foo_task/bar_payload/accuracy") in the trainer.
         """
         self.validate_target_metrics(target_metrics)
+
+        # TODO: Tighen this up; it can be much more efficient
+        # The main issue is that we currently require Y/Y_probs/Y_preds to be lists
+        # so that they can support sequence-based tasks that have arbitrary length
+        # labels. But there is certainly a way we can be more strict/certain about
+        # what our data types will be and do some much more efficient slice operation
+        # instead of list comprehension.
+
+        # Identify all examples with at least one non-zero (i.e., non-abstain) label
+        active = [bool(y != 0) for y in Y]
+        print(sum(active), len(active))
+        if sum(active) != len(active):
+            Y = [y for a, y in zip(active, Y) if a]
+            if Y_probs:
+                Y_probs = [y for a, y in zip(active, Y_probs) if a]
+            if Y_preds:
+                Y_preds = [y for a, y in zip(active, Y_preds) if a]
 
         simple_metrics_dict = {}
         for metric in self.standard_metrics:
