@@ -91,9 +91,7 @@ task_defaults = {
     },
     "auxiliary_loss_multiplier": 1.0,
     # Slicing
-    "slice_dict": {  # A map of the slices that apply to each task
-        "COLA": ["ends_with_question"]
-    },
+    "slice_dict": {},  # A map of the slices that apply to each task
 }
 
 
