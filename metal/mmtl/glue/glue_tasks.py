@@ -13,6 +13,7 @@ from metal.end_model import IdentityModule
 from metal.mmtl.auxiliary_tasks import SPACY_TAGS, auxiliary_task_functions
 from metal.mmtl.glue.glue_datasets import get_glue_dataset
 from metal.mmtl.glue.glue_metrics import acc_f1, matthews_corr, mse, pearson_spearman
+from metal.mmtl.glue.glue_slices import create_slice_labels
 from metal.mmtl.modules import (
     BertExtractCls,
     BertRaw,
@@ -24,6 +25,7 @@ from metal.mmtl.modules import (
 )
 from metal.mmtl.payload import Payload
 from metal.mmtl.scorer import Scorer
+from metal.mmtl.slicing import create_slice_task
 from metal.mmtl.task import ClassificationTask, RegressionTask, TokenClassificationTask
 from metal.utils import recursive_merge_dicts, set_seed
 
@@ -88,6 +90,10 @@ task_defaults = {
         "SPACY_POS": ALL_TASKS,
     },
     "auxiliary_loss_multiplier": 1.0,
+    # Slicing
+    "slice_dict": {  # A map of the slices that apply to each task
+        "COLA": ["ends_with_question"]
+    },
 }
 
 
@@ -355,17 +361,32 @@ def create_tasks_and_payloads(task_names, **kwargs):
 
         tasks.append(task)
         if has_payload:
-            # Add any requested (and applicable) aux. label sets to existing payload
+            # Create payloads (and add slices/auxiliary tasks as applicable)
             for split, data_loader in data_loaders.items():
                 payload_name = f"{task_name}_{split}"
                 payload = Payload(payload_name, data_loader, [task_name], split)
-                # Add auxiliary label sets if applicable
 
+                # Add auxiliary label sets if applicable
                 auxiliary_task_dict = config["auxiliary_task_dict"]
                 for aux_task_name, target_payloads in auxiliary_task_dict.items():
                     if aux_task_name in task_names and task_name in target_payloads:
                         aux_task_func = auxiliary_task_functions[aux_task_name]
                         payload = aux_task_func(payload)
+
+                # Add slice task and label sets if applicable
+                slice_names = config["slice_dict"].get(task_name, [])
+                if slice_names:
+                    dataset = payload.data_loader.dataset
+                    for slice_name in slice_names:
+                        slice_task_name = f"{task_name}:{slice_name}"
+                        slice_task = create_slice_task(task, slice_task_name)
+                        tasks.append(slice_task)
+
+                        slice_labels = create_slice_labels(
+                            dataset, base_task_name=task_name, slice_name=slice_name
+                        )
+                        payload.add_label_set(slice_task_name, slice_labels)
+
                 payloads.append(payload)
 
     return tasks, payloads
