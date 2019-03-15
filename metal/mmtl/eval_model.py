@@ -10,12 +10,14 @@ from collections import Counter
 import numpy as np
 from scipy.stats import mode
 
+from metal.mmtl.glue.glue_preprocess import get_task_tsv_config
 from metal.mmtl.glue.glue_tasks import (
     create_glue_dataloaders,
     create_glue_datasets,
     create_tasks_and_payloads,
 )
 from metal.mmtl.metal_model import MetalModel
+from metal.mmtl.payload import Payload
 
 task_to_name_dict = {
     "QNLI": "QNLI",
@@ -193,7 +195,7 @@ if __name__ == "__main__":
             # TODO: find a nicer way to get task names
             # create model
             task_config["splits"] = []
-            tasks, payloads = create_tasks_and_payloads(
+            tasks, _ = create_tasks_and_payloads(
                 task_names=os.path.basename(os.path.dirname(model_dir))
                 .split("_")[0]
                 .split("."),
@@ -242,28 +244,40 @@ if __name__ == "__main__":
                         max_len=task_config["max_len"],
                         max_datapoints=args.max_datapoints,
                     )
-                    task.data_loaders = create_glue_dataloaders(
+                    data_loaders = create_glue_dataloaders(
                         datasets,
                         dl_kwargs=dl_kwargs,
                         split_prop=None,
                         splits=splits,
                         seed=123,
                     )
-                    if args.eval_split == "dev":
-                        # just compute evaluation metrics for debugging
-                        print(model_path)
-                        import IPython
 
-                        IPython.embed()
-                        score = task.scorer.score(model, task)
-                        print(score)
+                    for i, (split, data_loader) in enumerate(data_loaders.items()):
+                        state = states[i]
+                        payload_name = f"{task.name}_{split}"
+                        payload = Payload(payload_name, data_loader, [task.name], split)
 
-                    else:
-                        for state, split in zip(states, splits):
-                            # predict on test set
-                            Y, Y_probs, Y_preds = model._predict_probs(
-                                task, split=split, return_preds=True
+                        Ys, Ys_probs, Ys_preds = model.predict_with_gold(
+                            payload, [task.name], return_preds=True
+                        )
+
+                        if args.eval_split == "dev":
+                            target_metrics = {task.name: None}
+                            metrics_dict = {}
+                            scorer = model.task_map[task.name].scorer
+                            print(model_path)
+                            task_metrics_dict = scorer.score(
+                                Ys[task.name],
+                                Ys_probs[task.name],
+                                Ys_preds[task.name],
+                                target_metrics=target_metrics[task.name],
                             )
+                            print(task_metrics_dict)
+                        else:
+                            Y = np.array(Ys[task.name])
+                            Y_probs = np.array(Ys_probs[task.name])
+                            Y_preds = np.array(Ys_preds[task.name])
+
                             if task.name != "STSB":
                                 predicted_labels = Y_preds
                             else:
@@ -272,9 +286,9 @@ if __name__ == "__main__":
                                 predictions[(task.name, state)].append(predicted_labels)
                             else:
                                 predictions[(task.name, state)] = [predicted_labels]
-                                inv_fns[task.name] = task.data_loaders[
-                                    split
-                                ].dataset.inv_label_fn
+                                inv_fns[task.name] = get_task_tsv_config(
+                                    task.name, split
+                                )["inv_label_fn"]
 
     if args.eval_split == "test":
         if len(predictions) != 11:
