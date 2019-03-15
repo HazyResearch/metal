@@ -2,6 +2,33 @@ import pandas as pd
 from nltk.translate.bleu_score import sentence_bleu
 
 
+def slice_quotes(row):
+    sent1 = row["sentence1"].split()
+    quotes = 0
+    for tok in sent1:
+        if tok == "'" or tok == '"':
+            quotes += 1
+    return quotes == 2
+
+
+def slice_modals(row):
+    sent1 = row["sentence1"].split()
+    if any(
+        [word in sent1 for word in ["could", "would"]]
+    ):  # could train on 'should' too
+        return True
+    return False
+
+
+def slice_qualifier(row):
+    sent1 = row["sentence1"].split()
+    if any(
+        [word in sent1 for word in ["while", "although", "aside"]]
+    ):  # could train on 'but' too
+        return True
+    return False
+
+
 def slice_longsentence1(row, thresh):
     sent1 = row["sentence1"].split()
     if len(sent1) > thresh:

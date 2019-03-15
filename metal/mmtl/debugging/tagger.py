@@ -78,6 +78,7 @@ class Tagger(object):
                 fn_lines = f.readlines()
 
             task_name, file_suffix = fn.split("/")
+            task_name = task_name.replace("-", "")
             split = file_suffix.split(".tsv")[0]
 
             tokenizer = None
