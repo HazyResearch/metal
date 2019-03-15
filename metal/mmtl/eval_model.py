@@ -16,7 +16,7 @@ from metal.mmtl.glue.glue_tasks import (
     create_glue_datasets,
     create_tasks_and_payloads,
 )
-from metal.mmtl.metal_model import MetalModel
+from metal.mmtl.metal_model import MetalModel, probs_to_preds
 from metal.mmtl.payload import Payload
 
 task_to_name_dict = {
@@ -99,14 +99,21 @@ def apply_inv_fn(preds, inv_label_fn):
 def ensemble_preds_mv(predictions, inv_fns):
     """Majority vote for classification and average for regression."""
     ensemble_preds = {}
-    for (task_name, state), scores in predictions.items():
-        preds = np.array([apply_inv_fn(score, inv_fns[task_name]) for score in scores])
-        if preds.shape[0] > 1:
-            warnings.warn(f"Ensembling {preds.shape[0]} models for {task_name} task")
+    for (task_name, state), Y_probs in predictions.items():
+        Y_probs = np.array(Y_probs)
+        if Y_probs.shape[0] > 1:
+            warnings.warn(f"Ensembling {Y_probs.shape[0]} models for {task_name} task")
         if task_name != "STSB":
+            scores = [probs_to_preds(y_probs) for y_probs in Y_probs]
+            preds = np.array(
+                [apply_inv_fn(score, inv_fns[task_name]) for score in scores]
+            )
             # get majority vote for classification tasks
             final_pred = mode(preds, axis=0).mode
         else:
+            preds = np.array(
+                [apply_inv_fn(score, inv_fns[task_name]) for score in Y_probs]
+            )
             # average scores for regression tasks
             final_pred = preds.mean(0)
         ensemble_preds[(task_name, state)] = list(final_pred.flatten())
@@ -116,12 +123,18 @@ def ensemble_preds_mv(predictions, inv_fns):
 def ensemble_preds_av(predictions, inv_fns):
     """Average scores, then apply inv_label_fn."""
     ensemble_preds = {}
-    for (task_name, state), preds in predictions.items():
-        preds = np.array(preds)
+    for (task_name, state), Y_probs in predictions.items():
+        preds = np.array(Y_probs)
         if preds.shape[0] > 1:
             warnings.warn(f"Ensembling {preds.shape[0]} models for {task_name} task")
         # average scores for regression tasks
-        final_preds = apply_inv_fn(preds.mean(0), inv_fns[task_name])
+        if task_name != "STSB":
+            final_scores = np.array(
+                [probs_to_preds(y_probs) for y_probs in preds.mean(0)]
+            )
+        else:
+            final_scores = preds.mean(0)
+        final_preds = apply_inv_fn(final_scores, inv_fns[task_name])
         ensemble_preds[(task_name, state)] = final_preds
     return ensemble_preds
 
@@ -167,6 +180,13 @@ if __name__ == "__main__":
         help="Maximum number of examples per datasets. For debugging purposes.",
     )
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size.")
+    parser.add_argument(
+        "--ensemble_mode",
+        type=str,
+        default="mv",
+        help="Mode to ensemble model predictions. majority vote or average scores: ['mv', 'avg']",
+    )
+    args = parser.parse_args()
     parser.add_argument(
         "--use_task_checkpoints",
         action="store_true",
@@ -276,19 +296,14 @@ if __name__ == "__main__":
                         else:
                             Y = np.array(Ys[task.name])
                             Y_probs = np.array(Ys_probs[task.name])
-                            Y_preds = np.array(Ys_preds[task.name])
 
-                            if task.name != "STSB":
-                                predicted_labels = Y_preds
-                            else:
-                                predicted_labels = Y_probs
-                            if (task.name, state) in predictions:
-                                predictions[(task.name, state)].append(predicted_labels)
-                            else:
-                                predictions[(task.name, state)] = [predicted_labels]
-                                inv_fns[task.name] = get_task_tsv_config(
-                                    task.name, split
-                                )["inv_label_fn"]
+                        if (task.name, state) in predictions:
+                            predictions[(task.name, state)].append(Y_probs)
+                        else:
+                            predictions[(task.name, state)] = [Y_probs]
+                            inv_fns[task.name] = get_task_tsv_config(task.name, split)[
+                                "inv_label_fn"
+                            ]
 
     if args.eval_split == "test":
         if len(predictions) != 11:
@@ -296,8 +311,10 @@ if __name__ == "__main__":
             warnings.warn(
                 f"You only specified model paths for {len(predictions)} tasks. The submission zip will be malformed."
             )
-        ensemble_predictions = ensemble_preds_mv(predictions, inv_fns)
-        # ensemble_predictions = ensemble_preds_av(predictions, inv_fns)
+        if args.ensemble_mode == "mv":
+            ensemble_predictions = ensemble_preds_mv(predictions, inv_fns)
+        else:
+            ensemble_predictions = ensemble_preds_av(predictions, inv_fns)
 
         for (task_name, state), predicted_labels in ensemble_predictions.items():
             # save predictions on test set for submission
