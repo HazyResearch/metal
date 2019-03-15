@@ -233,8 +233,11 @@ class MultitaskTrainer(object):
                 self.optimizer.zero_grad()
 
                 # Forward pass to calculate the average loss per example by task
-                losses = model.calculate_loss(*batch, task_names=task_names)
-                loss = sum(losses.values())
+                # Counts stores the number of examples in each batch with labels by task
+                loss_dict, count_dict = model.calculate_loss(
+                    *batch, task_names=task_names
+                )
+                loss = sum(loss_dict.values())
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
                     raise Exception(msg)
@@ -258,10 +261,11 @@ class MultitaskTrainer(object):
 
                 # Update loss
                 for task_name in task_names:
-                    self.running_losses[task_name] += (
-                        losses[task_name].item() * batch_size
-                    )
-                    self.running_examples[task_name] += batch_size
+                    if count_dict[task_name]:
+                        self.running_losses[task_name] += (
+                            loss_dict[task_name].item() * count_dict[task_name]
+                        )
+                        self.running_examples[task_name] += count_dict[task_name]
 
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(model, payloads, batch_size)
@@ -879,10 +883,11 @@ class MultitaskTrainer(object):
         for batch, task_names in task_scheduler.get_batches(payloads, split):
             _, Ys = batch
             batch_size = len(next(iter(Ys.values())))
-            losses = model.calculate_loss(*batch, task_names=task_names)
-            for task_name, loss in losses.items():
-                task_losses[task_name] += loss.item() * batch_size
-                task_examples[task_name] += batch_size
+            loss_dict, count_dict = model.calculate_loss(*batch, task_names=task_names)
+            for task_name, loss in loss_dict.items():
+                if count_dict[task_name]:
+                    task_losses[task_name] += loss.item() * count_dict[task_name]
+                    task_examples[task_name] += count_dict[task_name]
             total_examples += batch_size
             if max_examples > 0 and total_examples >= max_examples:
                 break
