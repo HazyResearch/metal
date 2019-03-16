@@ -91,11 +91,9 @@ task_defaults = {
         "SPACY_POS": ALL_TASKS,
     },
     "auxiliary_loss_multiplier": 1.0,
-    # Slicing
-    "slice_dict": {  # A map of the slices that apply to each task
-        "COLA": ["ends_with_question"]
-    },
     "tasks": None,  # Comma-sep task list e.g. QNLI,QQP
+    # Slicing
+    "slice_dict": None,  # A map of the slices that apply to each task
 }
 
 
@@ -376,7 +374,12 @@ def create_tasks_and_payloads(task_names, **kwargs):
                         payload = aux_task_func(payload)
 
                 # Add slice task and label sets if applicable
-                slice_names = config["slice_dict"].get(task_name, [])
+                slice_names = (
+                    config["slice_dict"].get(task_name, [])
+                    if config["slice_dict"]
+                    else []
+                )
+
                 if slice_names:
                     dataset = payload.data_loader.dataset
                     for slice_name in slice_names:
