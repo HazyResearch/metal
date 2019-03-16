@@ -82,6 +82,7 @@ task_defaults = {
         "attention_module": None,  # None, soft currently accepted
         "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
     },
+    #
     # Auxiliary Tasks
     "auxiliary_task_dict": {  # A map of each aux. task to the payloads it applies to
         "THIRD": ALL_TASKS,
@@ -94,6 +95,7 @@ task_defaults = {
     "slice_dict": {  # A map of the slices that apply to each task
         "COLA": ["ends_with_question"]
     },
+    "tasks": None,
 }
 
 
