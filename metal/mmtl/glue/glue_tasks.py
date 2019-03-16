@@ -95,7 +95,7 @@ task_defaults = {
     "slice_dict": {  # A map of the slices that apply to each task
         "COLA": ["ends_with_question"]
     },
-    "tasks": None,
+    "tasks": None,  # Comma-sep task list e.g. QNLI,QQP
 }
 
 
