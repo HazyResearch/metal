@@ -297,13 +297,13 @@ if __name__ == "__main__":
                             Y = np.array(Ys[task.name])
                             Y_probs = np.array(Ys_probs[task.name])
 
-                        if (task.name, state) in predictions:
-                            predictions[(task.name, state)].append(Y_probs)
-                        else:
-                            predictions[(task.name, state)] = [Y_probs]
-                            inv_fns[task.name] = get_task_tsv_config(task.name, split)[
-                                "inv_label_fn"
-                            ]
+                            if (task.name, state) in predictions:
+                                predictions[(task.name, state)].append(Y_probs)
+                            else:
+                                predictions[(task.name, state)] = [Y_probs]
+                                inv_fns[task.name] = get_task_tsv_config(
+                                    task.name, split
+                                )["inv_label_fn"]
 
     if args.eval_split == "test":
         if len(predictions) != 11:
