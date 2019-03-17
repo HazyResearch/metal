@@ -23,6 +23,16 @@ def ends_with_question_word(dataset, idx):
     # return match
 
 
+def is_statement_has_question(dataset, idx):
+    """Returns True if question word exists in statement that doesn't end with ?"""
+    bert_ints = dataset.bert_tokens[idx]
+    bert_tokens = dataset.bert_tokenizer.convert_ids_to_tokens(bert_ints)
+
+    return (
+        any(t.lower() in question_words for t in bert_tokens) and bert_tokens[-2] != "?"
+    )
+
+
 def ends_with_question_mark(dataset, idx):
     """Returns True if last token is '?" symbol"""
     bert_ints = dataset.bert_tokens[idx]
@@ -41,6 +51,7 @@ def ends_with_question_mark(dataset, idx):
 slice_functions = {
     "ends_with_question_word": ends_with_question_word,
     "ends_with_question_mark": ends_with_question_mark,
+    "is_statement_has_question": is_statement_has_question,
 }
 
 

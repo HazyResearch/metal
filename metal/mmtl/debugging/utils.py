@@ -156,7 +156,7 @@ def print_examples(df, idxs, n=1):
     for idx in np.random.choice(idxs, size=n, replace=False):
         # Select random example and print
         row = df.iloc[idx]
-        print("UID: ", row["uid"])
+        # print("UID: ", row["uid"])
         print_row(row)
 
 

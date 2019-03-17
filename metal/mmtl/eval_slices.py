@@ -17,8 +17,7 @@ from metal.mmtl.metal_model import MetalModel
 
 
 def get_task_config(model_dir):
-    with open(os.path.join(args.model_dir, "task_config.json")) as f:
-
+    with open(os.path.join(model_dir, "task_config.json")) as f:
         task_config = json.load(f)
     return task_config
 
@@ -33,7 +32,7 @@ def get_slice_metrics(task, Y, Y_probs, Y_preds, mask=None):
     }
 
 
-def eval_on_slices(model_dir, task_names, slice_names):
+def eval_on_slices(model_dir, task_names, slice_names, split="dev"):
 
     # initialize tasks/payloads with previous task_config
     task_config = get_task_config(model_dir)
@@ -46,7 +45,7 @@ def eval_on_slices(model_dir, task_names, slice_names):
         bert_model=bert_model,
         max_len=max_len,
         dl_kwargs=dl_kwargs,
-        splits=[args.split],
+        splits=[split],
         max_datapoints=-1,
         generate_uids=True,  # NOTE: this must be True to match with slice_uids!
     )
@@ -129,6 +128,7 @@ if __name__ == "__main__":
 
     task_names = [task_name for task_name in args.tasks.split(",")]
     slices_to_evaluate = [slice_name for slice_name in args.slices.split(",")]
-
-    slice_scores = eval_on_slices(args.model_dir, task_names, slices_to_evaluate)
+    slice_scores = eval_on_slices(
+        args.model_dir, task_names, slices_to_evaluate, split=args.split
+    )
     print(slice_scores)

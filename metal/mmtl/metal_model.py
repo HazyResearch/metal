@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -74,18 +76,50 @@ class MetalModel(nn.Module):
         self.loss_hat_funcs = {task.name: task.loss_hat_func for task in tasks}
         self.output_hat_funcs = {task.name: task.output_hat_func for task in tasks}
 
-    def _shallow_copy_task_modules(self, from_task, to_task):
+    def _copy_task_modules(self, from_task, to_task, deepcopy=False):
         """ Maps all modules from_task --> to_task."""
         if self.config["verbose"]:
             print(f"Shallow copying modules from {from_task} to {to_task}")
 
-        self.task_map[to_task] = self.task_map[from_task]
-        self.input_modules[to_task] = self.input_modules[from_task]
-        self.middle_modules[to_task] = self.middle_modules[from_task]
-        self.attention_modules[to_task] = self.attention_modules[from_task]
-        self.head_modules[to_task] = self.head_modules[from_task]
-        self.loss_hat_funcs[to_task] = self.loss_hat_funcs[from_task]
-        self.output_hat_funcs[to_task] = self.output_hat_funcs[from_task]
+        if deepcopy:
+            self.task_map[to_task] = copy.deepcopy(self.task_map[from_task])
+            self.input_modules[to_task] = copy.deepcopy(self.input_modules[from_task])
+            self.middle_modules[to_task] = copy.deepcopy(self.middle_modules[from_task])
+            self.attention_modules[to_task] = copy.deepcopy(
+                self.attention_modules[from_task]
+            )
+            self.head_modules[to_task] = copy.deepcopy(self.head_modules[from_task])
+            self.loss_hat_funcs[to_task] = copy.deepcopy(self.loss_hat_funcs[from_task])
+            self.output_hat_funcs[to_task] = copy.deepcopy(
+                self.output_hat_funcs[from_task]
+            )
+        else:
+            self.task_map[to_task] = self.task_map[from_task]
+            self.input_modules[to_task] = self.input_modules[from_task]
+            self.middle_modules[to_task] = self.middle_modules[from_task]
+            self.attention_modules[to_task] = self.attention_modules[from_task]
+            self.head_modules[to_task] = self.head_modules[from_task]
+            self.loss_hat_funcs[to_task] = self.loss_hat_funcs[from_task]
+            self.output_hat_funcs[to_task] = self.output_hat_funcs[from_task]
+
+    def add_missing_slice_heads(self, all_tasks, deepcopy):
+        """Given a set of all tasks (likely defined by model payloads), add additional
+        task heads that are copies (deep or shallow) of the original tasks.
+
+        For example, "COLA:question" might be a labelset, but the model might be missing
+        the corresponding task head. Call this function to make a copy of the (pretrained)
+        "COLA" task head with the key "COLA:question"
+        """
+
+        for task_name in all_tasks:
+            if task_name not in self.task_map:
+                # NOTE: assume that all slice tasks are structured "{foo_task}:{bar_slice}"
+                orig_task_name = task_name.split(":")[0]
+                if orig_task_name not in all_tasks:
+                    raise ValueError(
+                        f"'{orig_task_name}' task was not found to evaluate '{task_name}' slice"
+                    )
+                self._copy_task_modules(orig_task_name, task_name)
 
     def forward(self, X, task_names):
         """Returns the outputs of the requested task heads in a dictionary
@@ -156,6 +190,7 @@ class MetalModel(nn.Module):
                 loss_dict[task_name] = (
                     task_loss * self.task_map[task_name].loss_multiplier
                 )
+
         return loss_dict, count_dict
 
     @torch.no_grad()
@@ -228,19 +263,10 @@ class MetalModel(nn.Module):
             task_names = payload.task_names
             target_metrics = {task_name: None for task_name in task_names}
 
-        # NOTE: For evaluating on slice payloads that have no corresponding task head
-        # If the payload's task_name is "foo_task:bar_slice", will re-map this payload
-        # to be evaluated by the original task head for "foo_task"
+        # NOTE: If evaluating on slice payloads that have no corresponding task head
+        # create that slice head and re-map this payload.
         if set(task_names) is not set(self.task_map.keys()):
-            for task_name in task_names:
-                if task_name not in self.task_map:
-                    orig_task_name = task_name.split(":")[0]
-                    if orig_task_name not in task_names:
-                        raise ValueError(
-                            f"'{orig_task_name}' task was not found to evaluate '{task_name}' slice"
-                        )
-
-                    self._shallow_copy_task_modules(orig_task_name, task_name)
+            self.add_missing_slice_heads(task_names, deepcopy=False)
 
         Ys, Ys_probs, Ys_preds = self.predict_with_gold(
             payload, task_names, return_preds=True, **kwargs
