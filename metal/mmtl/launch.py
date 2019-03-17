@@ -124,8 +124,11 @@ if __name__ == "__main__":
         print(f"Trainer config:\n{trainer_config}")
 
     # Overwrite run_dir to only use one checkpoint dir
-    if args.run_dir is None:
-        trainer_config["writer_config"]["run_dir"] = strftime("%Y_%m_%d")
+    # if args.run_dir is None:
+    #    trainer_config["writer_config"]["run_dir"] = strftime("%Y_%m_%d")
+
+    # if args.run_name is None:
+    #    trainer_config["writer_config"]["run_name"] = task_config["tasks"] + strftime("_%H_%M_%S")
 
     trainer = MultitaskTrainer(**trainer_config)
     # Force early instantiation of writer to write all three configs to dict
