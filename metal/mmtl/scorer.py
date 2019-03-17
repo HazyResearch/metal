@@ -92,7 +92,9 @@ class Scorer(object):
 
         # Identify all examples with at least one non-zero (i.e., non-abstain) label
         active = [bool(y != 0) for y in Y]
-        print(sum(active), len(active))
+        if sum(active) < len(active):
+            print(f"Evaluating {sum(active)} / {len(active)} active labels")
+
         if sum(active) != len(active):
             Y = [y for a, y in zip(active, Y) if a]
             if Y_probs:

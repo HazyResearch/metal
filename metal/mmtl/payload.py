@@ -9,8 +9,8 @@ class Payload(object):
                 a complete input for feeding into the input_module, and Ys is a list
                 containing S label sets, such that Y[0][0] is the appropriate label(s)
                 to pass into the loss head for the first example and first label set.
-        task_names: a list of the ids of the tasks that the label_sets in Y correspond to
-    (1 instanceset + 1 or more label_sets)
+        task_names: a list of the ids of the tasks that the label_sets in Y correspond
+            to (1 instanceset + 1 or more label_sets)
     """
 
     def __init__(self, name, data_loader, task_names, split):

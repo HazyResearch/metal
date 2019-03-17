@@ -74,6 +74,19 @@ class MetalModel(nn.Module):
         self.loss_hat_funcs = {task.name: task.loss_hat_func for task in tasks}
         self.output_hat_funcs = {task.name: task.output_hat_func for task in tasks}
 
+    def _shallow_copy_task_modules(self, from_task, to_task):
+        """ Maps all modules from_task --> to_task."""
+        if self.config["verbose"]:
+            print(f"Shallow copying modules from {from_task} to {to_task}")
+
+        self.task_map[to_task] = self.task_map[from_task]
+        self.input_modules[to_task] = self.input_modules[from_task]
+        self.middle_modules[to_task] = self.middle_modules[from_task]
+        self.attention_modules[to_task] = self.attention_modules[from_task]
+        self.head_modules[to_task] = self.head_modules[from_task]
+        self.loss_hat_funcs[to_task] = self.loss_hat_funcs[from_task]
+        self.output_hat_funcs[to_task] = self.output_hat_funcs[from_task]
+
     def forward(self, X, task_names):
         """Returns the outputs of the requested task heads in a dictionary
 
@@ -214,6 +227,20 @@ class MetalModel(nn.Module):
         else:
             task_names = payload.task_names
             target_metrics = {task_name: None for task_name in task_names}
+
+        # NOTE: For evaluating on slice payloads that have no corresponding task head
+        # If the payload's task_name is "foo_task:bar_slice", will re-map this payload
+        # to be evaluated by the original task head for "foo_task"
+        if set(task_names) is not set(self.task_map.keys()):
+            for task_name in task_names:
+                if task_name not in self.task_map:
+                    orig_task_name = task_name.split(":")[0]
+                    if orig_task_name not in task_names:
+                        raise ValueError(
+                            f"'{orig_task_name}' task was not found to evaluate '{task_name}' slice"
+                        )
+
+                    self._shallow_copy_task_modules(orig_task_name, task_name)
 
         Ys, Ys_probs, Ys_preds = self.predict_with_gold(
             payload, task_names, return_preds=True, **kwargs
