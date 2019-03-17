@@ -180,6 +180,16 @@ class MultitaskTrainer(object):
         # splits, so we calculate approximate count size using batch_size * num_batches
         self.task_names = [task_name for task_name in model.task_map]
         train_payloads = [p for p in payloads if p.split == "train"]
+
+        # Ensure that we have task heads for each payload
+        payload_names = []
+        for p in payloads:
+            payload_names.extend(p.task_names)
+        if set(payload_names) is not set(self.task_names):
+            if self.config["verbose"]:
+                print(f"Adding missing slice heads to train {set(payload_names)}")
+            model.add_missing_slice_heads(payload_names, deepcopy=True)
+
         self.batches_per_epoch = sum([len(p.data_loader) for p in train_payloads])
         self.examples_per_epoch = sum(
             [len(p.data_loader) * p.data_loader.batch_size for p in train_payloads]
@@ -237,6 +247,12 @@ class MultitaskTrainer(object):
                 loss_dict, count_dict = model.calculate_loss(
                     *batch, task_names=task_names
                 )
+
+                # NOTE: If there were no "active" examples, loss_dict is empty
+                # Skip additional loss-based computation at this point
+                if not loss_dict:
+                    continue
+
                 loss = sum(loss_dict.values())
                 if torch.isnan(loss):
                     msg = "Loss is NaN. Consider reducing learning rate."
