@@ -43,22 +43,30 @@ def ends_with_question_mark(dataset, idx):
     return bert_tokens[-2] == "?"
 
 
+def dash_semicolon(dataset, idx):
+    """Returns True if there is a dash or semicolon in sentence1"""
+    bert_ints = dataset.bert_tokens[idx]
+    bert_tokens = dataset.bert_tokenizer.convert_ids_to_tokens(bert_ints)
+    return "-" in bert_tokens or ";" in bert_tokens
+
+
 # Functions which map a payload and index with an indicator if that example is in slice
 # NOTE: the indexing is left to the functions so that extra fields helpful for slicing
 # but not required by the model (e.g., spacy-based features) can be stored with the
 # dataset but not necessarily passed back by __getitem__() which is called by the
 # DataLoaders.
-slice_functions = {
-    "ends_with_question_word": ends_with_question_word,
-    "ends_with_question_mark": ends_with_question_mark,
-    "is_statement_has_question": is_statement_has_question,
-}
+# No longer needed: can do same thing as below with globals()[slice_name]
+# slice_functions = {
+#     "ends_with_question_word": ends_with_question_word,
+#     "ends_with_question_mark": ends_with_question_mark,
+#     "is_statement_has_question": is_statement_has_question,
+# }
 
 
 def create_slice_labels(dataset, base_task_name, slice_name, verbose=False):
     """Returns a label set masked to include only those labels in the specified slice"""
     # TODO: break this out into more modular pieces one we have multiple slices
-    slice_fn = slice_functions[slice_name]
+    slice_fn = globals()[slice_name]
     slice_indicators = [slice_fn(dataset, idx) for idx in range(len(dataset))]
     base_labels = dataset.labels[base_task_name]
     slice_labels = [
