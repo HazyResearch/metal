@@ -170,6 +170,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
         'exception' -> raise an exception
         'report'    -> report the name of the missing key
         'ignore'    -> do nothing
+    verbose: If verbose is None, look for a value for verbose in y first, then x
 
     TODO: give example here (pull from tests)
     """
@@ -184,7 +185,12 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
                     if not isinstance(v, dict):
                         msg = f"Attempted to overwrite dict {k} with " f"non-dict: {v}"
                         raise ValueError(msg)
-                    recurse(x[k], v, misses, verbose)
+                    # If v is {}, set x[k] = {} instead of recursing on empty dict
+                    # Otherwise, recurse on the items in v
+                    if v:
+                        recurse(x[k], v, misses, verbose)
+                    else:
+                        x[k] = v
                 else:
                     if x[k] == v:
                         msg = f"Reaffirming {k}={x[k]}"

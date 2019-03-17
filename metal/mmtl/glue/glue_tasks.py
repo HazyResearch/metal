@@ -82,6 +82,7 @@ task_defaults = {
         "attention_module": None,  # None, soft currently accepted
         "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
     },
+    #
     # Auxiliary Tasks
     "auxiliary_task_dict": {  # A map of each aux. task to the payloads it applies to
         "THIRD": ALL_TASKS,
@@ -90,10 +91,9 @@ task_defaults = {
         "SPACY_POS": ALL_TASKS,
     },
     "auxiliary_loss_multiplier": 1.0,
+    "tasks": None,  # Comma-sep task list e.g. QNLI,QQP
     # Slicing
-    "slice_dict": {  # A map of the slices that apply to each task
-        "COLA": ["ends_with_question"]
-    },
+    "slice_dict": None,  # A map of the slices that apply to each task
 }
 
 
@@ -374,7 +374,12 @@ def create_tasks_and_payloads(task_names, **kwargs):
                         payload = aux_task_func(payload)
 
                 # Add slice task and label sets if applicable
-                slice_names = config["slice_dict"].get(task_name, [])
+                slice_names = (
+                    config["slice_dict"].get(task_name, [])
+                    if config["slice_dict"]
+                    else []
+                )
+
                 if slice_names:
                     dataset = payload.data_loader.dataset
                     for slice_name in slice_names:

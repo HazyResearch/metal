@@ -51,11 +51,14 @@ def eval_on_slices(model_dir, task_names, slice_names, split="dev"):
     )
 
     # initialize model with previous weights
+    pickled_model = os.path.join(model_dir, "model.pkl")
     try:
-        pickled_model = os.path.join(model_dir, "model.pkl")
         model = torch.load(pickled_model)
-    except FileNotFoundError:
-        # model.pkl not found, load weights instead
+
+    # model.pkl not found, or original file structure changed
+    except (FileNotFoundError, ModuleNotFoundError):
+        print(f"Unable to load {pickled_model}... loading weights instead.")
+        # load weights instead
         model = MetalModel(tasks, verbose=False, device=0)
         model_path = os.path.join(model_dir, "best_model.pth")
         model.load_weights(model_path)
@@ -84,10 +87,15 @@ def eval_on_slices(model_dir, task_names, slice_names, split="dev"):
             slice_uids = tagger.get_uids(slice_name)
             mask = [uid in slice_uids for uid in payload_uids]
             mask = np.array(mask, dtype=bool)
+            if np.sum(mask) == 0:
+                print(f"No examples found... skipping {slice_name}")
+                continue
+
             print(
                 f"Found {np.sum(mask)}/{len(slice_uids)} "
                 f"{slice_name} uids in {payload.name}"
             )
+
             slice_scores[task.name].update(
                 {slice_name: get_slice_metrics(task, Y, Y_probs, Y_preds, mask)}
             )

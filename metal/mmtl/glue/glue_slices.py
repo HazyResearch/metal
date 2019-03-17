@@ -3,7 +3,7 @@ import warnings
 question_words = set(["who", "what", "where", "when", "why", "how"])
 
 
-def ends_with_question(dataset, idx):
+def ends_with_question_word(dataset, idx):
     """Returns True if a question word is in the last three tokens of any sentence"""
     # HACK: For now (speedy POC), just use the BERT tokens
     # Eventually, we'd like to have access to the raw text (e.g., via the Spacy
@@ -23,6 +23,38 @@ def ends_with_question(dataset, idx):
     # return match
 
 
+def is_statement_has_question(dataset, idx):
+    """Returns True if question word exists in statement that doesn't end with ?"""
+    bert_ints = dataset.bert_tokens[idx]
+    bert_tokens = dataset.bert_tokenizer.convert_ids_to_tokens(bert_ints)
+
+    return (
+        any(t.lower() in question_words for t in bert_tokens) and bert_tokens[-2] != "?"
+    )
+
+
+def ends_with_question_mark(dataset, idx):
+    """Returns True if last token is '?" symbol"""
+    bert_ints = dataset.bert_tokens[idx]
+    bert_tokens = dataset.bert_tokenizer.convert_ids_to_tokens(bert_ints)
+
+    # last token is '[SEP]'
+    # check the second to last token for end of sentence
+    return bert_tokens[-2] == "?"
+
+
+# Functions which map a payload and index with an indicator if that example is in slice
+# NOTE: the indexing is left to the functions so that extra fields helpful for slicing
+# but not required by the model (e.g., spacy-based features) can be stored with the
+# dataset but not necessarily passed back by __getitem__() which is called by the
+# DataLoaders.
+slice_functions = {
+    "ends_with_question_word": ends_with_question_word,
+    "ends_with_question_mark": ends_with_question_mark,
+    "is_statement_has_question": is_statement_has_question,
+}
+
+
 def create_slice_labels(dataset, base_task_name, slice_name, verbose=False):
     """Returns a label set masked to include only those labels in the specified slice"""
     # TODO: break this out into more modular pieces one we have multiple slices
@@ -36,12 +68,5 @@ def create_slice_labels(dataset, base_task_name, slice_name, verbose=False):
         print(f"Found {sum(slice_indicators)} examples in slice {slice_name}.")
         if not any(slice_labels):
             warnings.warn("No examples were found to belong to ")
+
     return slice_labels
-
-
-# Functions which map a payload and index with an indicator if that example is in slice
-# NOTE: the indexing is left to the functions so that extra fields helpful for slicing
-# but not required by the model (e.g., spacy-based features) can be stored with the
-# dataset but not necessarily passed back by __getitem__() which is called by the
-# DataLoaders.
-slice_functions = {"ends_with_question": ends_with_question}

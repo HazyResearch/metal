@@ -7,6 +7,7 @@ import datetime
 import json
 import logging
 import os
+from time import strftime
 
 import numpy as np
 
@@ -51,9 +52,6 @@ if __name__ == "__main__":
 
     # Model arguments
     # TODO: parse these automatically from model dict
-    parser.add_argument(
-        "--tasks", required=True, type=str, help="Comma-sep task list e.g. QNLI,QQP"
-    )
     parser.add_argument(
         "--model_weights",
         type=str,
@@ -125,9 +123,14 @@ if __name__ == "__main__":
         print(f"Model config:\n{model_config}")
         print(f"Trainer config:\n{trainer_config}")
 
+    # Overwrite run_dir to only use one checkpoint dir
+    if args.run_dir is None:
+        trainer_config["writer_config"]["run_dir"] = strftime("%Y_%m_%d")
+
     trainer = MultitaskTrainer(**trainer_config)
     # Force early instantiation of writer to write all three configs to dict
     trainer._set_writer()
+
     # trainer_config will get written automatically right before training
     trainer.writer.write_config(model_config, "model_config")
     trainer.writer.write_config(task_config, "task_config")
