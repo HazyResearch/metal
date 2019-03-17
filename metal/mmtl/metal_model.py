@@ -169,7 +169,13 @@ class MetalModel(nn.Module):
             device = torch.device(f"cuda:{self.config['device']}")
         else:
             device = torch.device("cpu")
-        self.load_state_dict(torch.load(model_path, map_location=device)["model"])
+        try:
+            self.load_state_dict(torch.load(model_path, map_location=device)["model"])
+        except KeyError:
+            print("Your destination state dict has different keys for the update key.")
+            self.load_state_dict(
+                torch.load(model_path, map_location=device)["model"], strict=False
+            )
 
     def save_weights(self, model_path):
         """Saves weight in checkpoint directory"""
