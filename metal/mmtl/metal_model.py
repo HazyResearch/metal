@@ -184,7 +184,7 @@ class MetalModel(nn.Module):
             device = torch.device("cpu")
         try:
             self.load_state_dict(torch.load(model_path, map_location=device)["model"])
-        except KeyError:
+        except RuntimeError:
             print("Your destination state dict has different keys for the update key.")
             self.load_state_dict(
                 torch.load(model_path, map_location=device)["model"], strict=False
