@@ -578,13 +578,25 @@ class MultitaskTrainer(object):
             warnings.warn(msg)
             for task_name in self.task_names:
                 # We only make task_specific checkpoints for the glue tasks
-                if task_name not in GLUE_METRICS:
+
+                # HACK: allow checkpointing on slice tasks
+                using_slice = ":" in task_name
+                orig_task_name = task_name.split(":")[0] if using_slice else None
+
+                if (task_name not in GLUE_METRICS) and (
+                    orig_task_name not in GLUE_METRICS
+                ):
                     continue
                 checkpoint_config = copy.deepcopy(self.config["checkpoint_config"])
                 checkpoint_config["checkpoint_dir"] += f"/{task_name}"
                 checkpoint_config["checkpoint_best"] = True
+
                 checkpoint_metric = (
-                    f"{task_name}/{task_name}_valid/{GLUE_METRICS[task_name]}"
+                    (
+                        f"{task_name}/{orig_task_name}_valid/{GLUE_METRICS[orig_task_name]}"
+                    )
+                    if using_slice
+                    else (f"{task_name}/{task_name}_valid/{GLUE_METRICS[task_name]}")
                 )
                 checkpoint_config["checkpoint_metric"] = checkpoint_metric
                 checkpoint_config["checkpoint_metric_mode"] = "max"
