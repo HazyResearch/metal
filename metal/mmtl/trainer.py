@@ -185,7 +185,7 @@ class MultitaskTrainer(object):
         payload_names = []
         for p in payloads:
             payload_names.extend(p.task_names)
-        if set(payload_names) is not set(self.task_names):
+        if set(payload_names) != set(self.task_names):
             if self.config["verbose"]:
                 print(f"Adding missing slice heads to train {set(payload_names)}")
             model.add_missing_slice_heads(payload_names, deepcopy=True)

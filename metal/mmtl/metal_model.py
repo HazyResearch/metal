@@ -265,7 +265,7 @@ class MetalModel(nn.Module):
 
         # NOTE: If evaluating on slice payloads that have no corresponding task head
         # create that slice head and re-map this payload.
-        if set(task_names) is not set(self.task_map.keys()):
+        if set(task_names) != set(self.task_map.keys()):
             self.add_missing_slice_heads(task_names, deepcopy=False)
 
         Ys, Ys_probs, Ys_preds = self.predict_with_gold(
