@@ -1,6 +1,40 @@
 import warnings
 
+import spacy
+
 question_words = set(["who", "what", "where", "when", "why", "how"])
+nlp = spacy.load("en_core_web_sm")
+
+
+def more_people(dataset, idx):
+    people = 0
+    sentence = dataset.sentences[idx][0].split()
+    for pronoun in ["she", "her", "hers"]:
+        if pronoun in sentence:
+            people += 1
+            break
+    for pronoun in ["he", "him", "his"]:
+        if pronoun in sentence:
+            people += 1
+            break
+    for pronoun in ["you", "your", "yours"]:
+        if pronoun in sentence:
+            people += 1
+            break
+    for pronoun in ["I", "my", "me", "mine"]:
+        if pronoun in sentence:
+            people += 1
+            break
+    return people > 1
+
+
+def entity_secondonly(dataset, idx):
+    sent1 = dataset.sentences[idx][0]
+    sent2 = nlp(dataset.sentences[idx][1])
+    for ent in sent2.ents:
+        if ent.text not in sent1:
+            return True
+    return False
 
 
 def ends_with_question_word(dataset, idx):
