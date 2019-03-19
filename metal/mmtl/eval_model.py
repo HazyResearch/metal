@@ -186,7 +186,6 @@ if __name__ == "__main__":
         default="mv",
         help="Mode to ensemble model predictions. majority vote or average scores: ['mv', 'avg']",
     )
-    args = parser.parse_args()
     parser.add_argument(
         "--use_task_checkpoints",
         action="store_true",
