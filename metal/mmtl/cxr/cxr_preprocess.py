@@ -21,7 +21,7 @@ else:
 def tsv_path_for_dataset(dataset_name, dataset_split):
     """ Returns dataset location on disk given name and split. """
     return os.path.join(
-        os.environ["GLUEDATA"], "{}/{}.tsv".format(dataset_name, dataset_split)
+        os.environ["CXRDATA"], "{}/{}.tsv".format(dataset_name, dataset_split)
     )
 
 def get_label_fn(input_dict):
@@ -30,156 +30,23 @@ def get_label_fn(input_dict):
     return input_dict.get, reverse_dict.get
 
 
-def get_task_tsv_config(task_name, split):
-    """ Returns the tsv_config to be used in params of GLUEDataset.form_tsv for
+def get_task_tsv_config(dataset_name, split):
+    """ Returns the tsv_config to be used in params of CXRDataset.from_tsv for
     specific task and split. """
 
-    if task_name == "QNLI":
-        label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
-        return {
-            "tsv_path": tsv_path_for_dataset("QNLI", split),
-            "sent1_idx": 1,
-            "sent2_idx": 2,
-            "label_idx": 3 if split in ["train", "dev"] else -1,
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": int,
-        }
-    elif task_name == "STSB":
-        label_fn, inv_label_fn = (
-            lambda x: float(x) / 5.0,
-            lambda x: float(x) * 5.0,
-        )  # labels are continuous [0, 5]
-        return {
-            "tsv_path": tsv_path_for_dataset("STS-B", split),
-            "sent1_idx": 7,
-            "sent2_idx": 8,
-            "label_idx": 9 if split in ["train", "dev"] else -1,
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": float,
-        }
-    elif task_name == "SST2":
-        label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})  # reserve 0 for abstain
-        return {
-            "tsv_path": tsv_path_for_dataset("SST-2", split),
-            "sent1_idx": 0 if split in ["train", "dev"] else 1,
-            "sent2_idx": -1,
-            "label_idx": 1 if split in ["train", "dev"] else -1,
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": int,
-        }
-    elif task_name == "COLA":
+    if dataset_name == "CXR8":
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         return {
-            "tsv_path": tsv_path_for_dataset("CoLA", split),
-            "sent1_idx": 3 if split in ["train", "dev"] else 1,
-            "sent2_idx": -1,
-            "label_idx": 1 if split in ["train", "dev"] else -1,
-            "skip_rows": 0 if split in ["train", "dev"] else 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
+            "path_to_labels": tsv_path_for_dataset("CXR8", split),
+            "path_to_images": "/lfs/1/jdunnmon/data/nih/images/images" 
+            "transform": 2,
+            "sample": ,
+            "finding": 1,
             "label_type": int,
         }
-    elif task_name == "MNLI":
-        gold_cols = {
-            "train": 11,
-            "dev": 15,
-            "dev_mismatched": 15,
-            "dev_matched": 15,
-            "test": -1,
-            "test_mismatched": -1,
-            "test_matched": -1,
-            "diagnostic": -1,
-        }
-
-        label_fn, inv_label_fn = get_label_fn(
-            {"entailment": 1, "contradiction": 2, "neutral": 3}
-        )
-        return {
-            "tsv_path": tsv_path_for_dataset("MNLI", split),
-            "sent1_idx": 8 if split != "diagnostic" else 1,
-            "sent2_idx": 9 if split != "diagnostic" else 2,
-            "label_idx": gold_cols[split],
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": int,
-        }
-    elif task_name == "SNLI":
-        label_fn, inv_label_fn = get_label_fn(
-            {"entailment": 1, "contradiction": 2, "neutral": 3}
-        )
-        return {
-            "tsv_path": tsv_path_for_dataset("SNLI", split),
-            "sent1_idx": 6,
-            "sent2_idx": 7,
-            "label_idx": 1,
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": int,
-        }
-    elif task_name == "RTE":
-        label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
-        return {
-            "tsv_path": tsv_path_for_dataset("RTE", split),
-            "sent1_idx": 1,
-            "sent2_idx": 2,
-            "label_idx": 3 if split in ["train", "dev"] else -1,
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": int,
-        }
-    elif task_name == "WNLI":
-        label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
-        return {
-            "tsv_path": tsv_path_for_dataset("WNLI", split),
-            "sent1_idx": 1,
-            "sent2_idx": 2,
-            "label_idx": 3 if split in ["train", "dev"] else -1,
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": int,
-        }
-    elif task_name == "QQP":
-        label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
-        return {
-            "tsv_path": tsv_path_for_dataset("QQP", split),
-            "sent1_idx": 3 if split in ["train", "dev"] else 1,
-            "sent2_idx": 4 if split in ["train", "dev"] else 2,
-            "label_idx": 5 if split in ["train", "dev"] else -1,
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": int,
-        }
-    elif task_name == "MRPC":
-        label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
-        return {
-            "tsv_path": tsv_path_for_dataset("MRPC", split),
-            "sent1_idx": 3,
-            "sent2_idx": 4,
-            "label_idx": 0,
-            "skip_rows": 1,
-            "label_fn": label_fn,
-            "inv_label_fn": inv_label_fn,
-            "label_type": int,
-        }
-    else:
-        raise ValueError(f"{task_name} not found!")
-
 
 def load_tsv(
     tsv_path,
-    sent1_idx,
-    sent2_idx,
     label_idx,
     skip_rows,
     delimiter="\t",
@@ -192,8 +59,6 @@ def load_tsv(
 
     Args:
         tsv_path: location of .tsv on disk
-        sent1_idx: tsv index for sentence1 (or question)
-        sent2_idx: tsv index for sentence2
         label_idx: tsv index for label field
         skip_rows: number of rows to skip (i.e. header rows) in .tsv
         delimiter: delimiter between columns (likely '\t') for tab-separated-values

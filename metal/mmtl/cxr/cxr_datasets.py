@@ -10,26 +10,20 @@ from torch.utils.data as Dataset
 from torch.utils.data.sampler import Sampler, SubsetRandomSampler
 from tqdm import tqdm
 
-from metal.mmtl.glue.glue_preprocess import get_task_tsv_config, load_tsv
+from metal.mmtl.cxr.cxr_preprocess import get_task_config
 from metal.utils import padded_tensor, set_seed
 
 
 DATASET_CLASS_DICT = {
                 "CXR8": CXR8Dataset,
                 }
-get_cxr_dataset(
-            dataset_name,
-            split=split,
-            max_datapoints=max_datapoints,
-            generate_uids=generate_uids,
-        )
 
 
 def get_cxr_dataset(dataset_name, split, **kwargs):
     """ Create and returns specified cxr dataset based on image path."""
 
     # MODIFY THIS TO GET THE RIGHT LOCATIONS FOR EACH!!
-    config = get_task_tsv_config(dataset_name, split)
+    config = get_task_config(dataset_name, split)
     dataset_class = DATASET_CLASS_DICT[dataset_name]
 
     return dataset_class(
@@ -37,9 +31,9 @@ def get_cxr_dataset(dataset_name, split, **kwargs):
         config["path_to_labels"],
         split,
         transform=config["transform"],
-        sample=config["sample"],
+        subample=config["subsample"],
         finding=config["finding"],
-        get_filename=False, 
+        get_uid=config["get_uid"], 
         **kwargs,
     )
 
@@ -56,19 +50,18 @@ class CXR8Dataset(Dataset):
         path_to_images,
         path_to_labels,
         split,
-        transform=None,
-        sample=0,
+        transform=None, # Currently no support for this
+        subsample=0,
         finding="any",
-        get_filename=False,
+        get_uid=False,
     ):
 
         self.transform = transform
         self.path_to_images = path_to_images
-        self.path_to_labels = path_to_labe;s
-        label_file = os.path.join(self.path_to_labels, "nih_labels.csv")
-        self.df = pd.read_csv(label_file)
-        self.df = self.df[self.df["fold"] == split]
-        self.get_filename = get_filename
+        self.path_to_labels = path_to_labels
+        self.df = pd.read_csv(self.path_to_labels)
+        self.get_uid = get_uid
+        self.labels = {}
 
         # can limit to sample, useful for testing
         # if fold == "train" or fold =="val": sample=500
@@ -94,6 +87,7 @@ class CXR8Dataset(Dataset):
                     + " as not in data - please check spelling"
                 )
 
+        self.uids = self.df["Image Index"].tolist()
         self.df = self.df.set_index("Image Index")
         self.PRED_LABEL = [
             "Atelectasis",
@@ -111,29 +105,144 @@ class CXR8Dataset(Dataset):
             "Pleural_Thickening",
             "Hernia",
         ]
-    
+
+        # Adding tasks and labels
+        for cls in self.PRED_LABEL:
+            label_vec = self.df[cls.strip()].astype("int") > 0
+            self.labels[cls] = torch.Tensor(label_vec) 
+
     def __getitem__(self, idx):
 
         image = Image.open(os.path.join(self.path_to_images, self.df.index[idx]))
         image = image.convert("RGB")
 
-        label = np.zeros(len(self.PRED_LABEL), dtype=int)
-        for i in range(0, len(self.PRED_LABEL)):
-            # can leave zero if zero, else make one
-            if self.df[self.PRED_LABEL[i].strip()].iloc[idx].astype("int") > 0:
-                label[i] = self.df[self.PRED_LABEL[i].strip()].iloc[idx].astype("int")
-
-        label = torch.Tensor(label)
-
         if self.transform:
             image = self.transform(image)
 
-        if self.get_filename:
-            # This mode exists for exploring predictions as in reproduce-chexnet
-            return [image, label, self.df.index[idx]]
+        x = image
+        ys = {
+            task_name: label_set[index] for task_name, label_set in self.labels.items() 
+        }
 
+        if self.get_filename:
+            return x, ys
         else:
-            return [image, label]
+            return x, ys, uid
 
     def __len__(self):
         return len(self.df)
+
+    def get_dataloader(self, split_prop=None, split_seed=123, **kwargs):
+        """Returns a dataloader based on self (dataset). If split_prop is specified,
+        returns a split dataset assuming train -> split_prop and dev -> 1 - split_prop."""
+            
+        if split_prop:
+            assert split_prop > 0 and split_prop < 1
+            
+            # choose random indexes for train/dev
+            N = len(self)
+            full_idx = np.arange(N)
+            set_seed(split_seed)
+            np.random.shuffle(full_idx)
+            
+            # split into train/dev
+            split_div = int(split_prop * N)
+            train_idx = full_idx[:split_div]
+            dev_idx = full_idx[split_div:]
+            
+            # create data loaders
+            train_dataloader = data.DataLoader(
+                self,
+                collate_fn=self._collate_fn,
+                sampler=SubsetRandomSampler(train_idx),
+                **kwargs,
+            )
+            
+            dev_dataloader = data.DataLoader(
+                self,
+                collate_fn=self._collate_fn,
+                sampler=SubsetRandomSampler(dev_idx),
+                **kwargs,
+            )
+
+            return train_dataloader, dev_dataloader
+
+        else:
+            return data.DataLoader(self, collate_fn=self._collate_fn, **kwargs)
+
+    def _collate_fn(self, batch_list): 
+        """Collates batch of (images, labels) into padded (X, Ys) tensors
+
+        Args:
+            batch_list: a list of tuples containing (images, labels)
+        Returns:
+            X: images
+            Y: a dict of {task_name: labels} where labels[idx] are the appropriate
+                labels for that task
+        """
+        Y_lists = {task_name: [] for task_name in self.labels}
+        
+        for instance in batch_list:
+            x, ys = instance
+            image = x
+            for task_name, y in ys.items():
+                Y_lists[task_name].append(y)
+        
+        X = image
+        Ys = self._collate_labels(Y_lists)
+        return X, Ys
+
+    def _collate_labels(self, Ys): 
+        """Collate potentially multiple label_sets 
+ 
+        Args: 
+            Ys: a dict of the form {task_name: label_list}, where label_list is a 
+                list of individual labels (ints, floats, numpy, or torch) belonging to 
+                the same label_set; labels may be a scalar or a sequence. 
+        Returns: 
+            Ys: a dict of the form {task_name: labels}, with labels containing a torch 
+                Tensor (padded if necessary) of labels belonging to the same label_set 
+ 
+ 
+        Convert each Y in Ys from: 
+            list of scalars (instance labels) -> [n,] tensor 
+            list of tensors/lists/arrays (token labels) -> [n, seq_len] padded tensor 
+        """ 
+        for task_name, Y in Ys.items(): 
+            if isinstance(Y[0], int): 
+                Y = torch.tensor(Y, dtype=torch.long) 
+            elif isinstance(Y[0], np.integer): 
+                Y = torch.from_numpy(Y) 
+            elif isinstance(Y[0], float): 
+                Y = torch.tensor(Y, dtype=torch.float) 
+            elif isinstance(Y[0], np.float): 
+                Y = torch.from_numpy(Y) 
+            elif ( 
+                isinstance(Y[0], list) 
+                or isinstance(Y[0], np.ndarray) 
+                or isinstance(Y[0], torch.Tensor) 
+            ): 
+                if isinstance(Y[0][0], (int, np.integer)): 
+                    dtype = torch.long 
+                elif isinstance(Y[0][0], (float, np.float)): 
+                    # TODO: WARNING: this may not handle half-precision correctly! 
+                    dtype = torch.float 
+                else: 
+                    msg = ( 
+                        f"Unrecognized dtype of elements in label_set for task "
+                        f"{task_name}: {type(Y[0][0])}" 
+                    ) 
+                    raise Exception(msg) 
+                Y, _ = padded_tensor(Y, dtype=dtype) 
+            else: 
+                msg = ( 
+                    f"Unrecognized dtype of label_set for task {task_name}: " 
+                    f"{type(Y[0])}" 
+                ) 
+                raise Exception(msg) 
+            # Ensure that first dimension of Y is n 
+            if Y.dim() == 1: 
+                Y = Y.view(-1, 1) 
+            Ys[task_name] = Y 
+        return Ys 
+
