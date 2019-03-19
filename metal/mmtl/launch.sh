@@ -17,26 +17,26 @@ if [ $TASK = "COLA" ]; then
     LR=1e-5
     L2=0
     BATCH_SIZE=8
-    CHECKPOINT_METRIC="COLA/valid/matthews_corr"
+    CHECKPOINT_METRIC="COLA/COLA_valid/matthews_corr"
     CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "SST2" ]; then
     LR=1e-5
     L2=0.01
-    CHECKPOINT_METRIC="SST2/valid/accuracy"
+    CHECKPOINT_METRIC="SST2/SST2_valid/accuracy"
     CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "MNLI" ]; then
     LR=1e-5
     L2=0
-    CHECKPOINT_METRIC="MNLI/valid/accuracy"
+    CHECKPOINT_METRIC="MNLI/MNLI_valid/accuracy"
     CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "RTE" ]; then
     LR=5e-5
     L2=0
     SPLIT_PROP=0.9
-    CHECKPOINT_METRIC="RTE/valid/accuracy"
+    CHECKPOINT_METRIC="RTE/RTE_valid/accuracy"
     CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "WNLI" ]; then
@@ -48,7 +48,7 @@ elif [ $TASK = "WNLI" ]; then
 elif [ $TASK = "QQP" ]; then
     LR=1e-5
     L2=0.01
-    CHECKPOINT_METRIC="QQP/valid/accuracy"
+    CHECKPOINT_METRIC="QQP/QQP_valid/accuracy"
     CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "MRPC" ]; then
@@ -63,7 +63,7 @@ elif [ $TASK = "STSB" ]; then
 elif [ $TASK = "QNLI" ]; then
     LR=1e-5
     L2=0.01
-    CHECKPOINT_METRIC="QNLI/valid/accuracy"
+    CHECKPOINT_METRIC="QNLI/QNLI_valid/accuracy"
     CHECKPOINT_METRIC_MODE="max"
 
 elif [ $TASK = "ALL" ]; then
