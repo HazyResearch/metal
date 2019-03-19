@@ -50,6 +50,13 @@ if __name__ == "__main__":
         description="Train MetalModel on single or multiple tasks.", add_help=False
     )
 
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=np.random.randint(1e6),
+        help="A single seed to use for trainer, model, and task configs",
+    )
+
     # Model arguments
     # TODO: parse these automatically from model dict
     parser.add_argument(
