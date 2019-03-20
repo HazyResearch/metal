@@ -23,7 +23,7 @@ from metal.mmtl.slicing import create_slice_task
 from metal.mmtl.task import ClassificationTask, RegressionTask
 from metal.utils import recursive_merge_dicts, set_seed
 
-ALL_TASKS = [
+CHEXNET_TASKS = [
             "Atelectasis",
             "Cardiomegaly",
             "Effusion",
