@@ -265,9 +265,9 @@ def add_flags_from_config(parser, config_dict):
         return func
 
     def str2bool(string):
-        if string == "0" or string.lower == "false":
+        if string == "0" or string.lower() == "false":
             return False
-        elif string == "1" or string.lower == "true":
+        elif string == "1" or string.lower() == "true":
             return False
         else:
             raise Exception(f"Invalid value {string} for boolean flag")
