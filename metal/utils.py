@@ -264,6 +264,14 @@ def add_flags_from_config(parser, config_dict):
 
         return func
 
+    def str2bool(string):
+        if string == "0" or string.lower == "false":
+            return False
+        elif string == "1" or string.lower == "true":
+            return False
+        else:
+            raise Exception(f"Invalid value {string} for boolean flag")
+
     for param in config_dict:
         # Blacklist certain config parameters from being added as flags
         if param in ["verbose"]:
@@ -273,6 +281,8 @@ def add_flags_from_config(parser, config_dict):
         try:
             if isinstance(default, dict):
                 parser = add_flags_from_config(parser, default)
+            elif isinstance(default, bool):
+                parser.add_argument(f"--{param}", type=str2bool, default=default)
             elif isinstance(default, list):
                 if len(default) > 0:
                     # pass a list as argument
