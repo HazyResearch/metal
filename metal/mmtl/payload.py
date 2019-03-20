@@ -59,7 +59,7 @@ class Payload(object):
         if verbose:
             active = torch.any(new_labels != 0, dim=1)
             msg = (
-                f"Added label_set with {sum(active)}/{len(active)} labels for task "
+                f"Added label_set with {sum(active.long())}/{len(active)} labels for task "
                 f"{task_name} to payload {self.name}."
             )
             print(msg)

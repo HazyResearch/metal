@@ -419,7 +419,7 @@ def split_data(
 
 
 def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None):
-    """Create a right-padded [n, ?] matrix from an uneven iterable of iterables.
+    """Create a right-padded [n, ?] tensor from an uneven iterable of iterables.
     Modified from github.com/facebookresearch/ParlAI
 
     Returns (padded, lengths), where padded is the padded matrix, and lengths
@@ -447,6 +447,8 @@ def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None):
         dtype = torch.float
     elif isinstance(items[0][0], int):
         dtype = torch.long
+    elif isinstance(items[0][0], torch.Tensor):
+        dtype = items[0][0].dtype
     else:
         raise NotImplementedError
 

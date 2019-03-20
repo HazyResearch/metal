@@ -185,7 +185,6 @@ class GLUEDataset(data.Dataset):
             Ys: a dict of the form {task_name: labels}, with labels containing a torch
                 Tensor (padded if necessary) of labels belonging to the same label_set
 
-
         Convert each Y in Ys from:
             list of scalars (instance labels) -> [n,] tensor
             list of tensors/lists/arrays (token labels) -> [n, seq_len] padded tensor
@@ -193,10 +192,10 @@ class GLUEDataset(data.Dataset):
         for task_name, Y in Ys.items():
             if isinstance(Y[0], int):
                 Y = torch.tensor(Y, dtype=torch.long)
-            elif isinstance(Y[0], np.integer):
-                Y = torch.from_numpy(Y)
             elif isinstance(Y[0], float):
                 Y = torch.tensor(Y, dtype=torch.float)
+            elif isinstance(Y[0], np.integer):
+                Y = torch.from_numpy(Y)
             elif isinstance(Y[0], np.float):
                 Y = torch.from_numpy(Y)
             elif (
@@ -204,18 +203,7 @@ class GLUEDataset(data.Dataset):
                 or isinstance(Y[0], np.ndarray)
                 or isinstance(Y[0], torch.Tensor)
             ):
-                if isinstance(Y[0][0], (int, np.integer)):
-                    dtype = torch.long
-                elif isinstance(Y[0][0], (float, np.float)):
-                    # TODO: WARNING: this may not handle half-precision correctly!
-                    dtype = torch.float
-                else:
-                    msg = (
-                        f"Unrecognized dtype of elements in label_set for task "
-                        f"{task_name}: {type(Y[0][0])}"
-                    )
-                    raise Exception(msg)
-                Y, _ = padded_tensor(Y, dtype=dtype)
+                Y, _ = padded_tensor(Y)
             else:
                 msg = (
                     f"Unrecognized dtype of label_set for task {task_name}: "
