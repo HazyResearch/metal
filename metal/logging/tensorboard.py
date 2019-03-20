@@ -1,3 +1,4 @@
+import json
 import warnings
 
 import numpy as np
@@ -27,6 +28,11 @@ class TensorBoardWriter(LogWriter):
                 val = np.nan
             # /HACK
             self.tb_writer.add_scalar(name, val, i)
+
+    def write_config(self, config, *args, **kwargs):
+        config_txt = json.dumps(self._sanitize_config(config), indent=1)
+        self.tb_writer.add_text(tag="config", text_string=config_txt, global_step=0)
+        super().write_config(config, *args, **kwargs)
 
     def close(self):
         self.tb_writer.close()

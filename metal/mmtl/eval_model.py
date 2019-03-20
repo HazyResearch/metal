@@ -8,6 +8,7 @@ import zipfile
 from collections import Counter
 
 import numpy as np
+import torch
 from scipy.stats import mode
 
 from metal.mmtl.glue.glue_preprocess import get_task_tsv_config
@@ -120,7 +121,7 @@ def ensemble_preds_mv(predictions, inv_fns):
     return ensemble_preds
 
 
-def ensemble_preds_av(predictions, inv_fns):
+def ensemble_preds_avg(predictions, inv_fns):
     """Average scores, then apply inv_label_fn."""
     ensemble_preds = {}
     for (task_name, state), Y_probs in predictions.items():
@@ -134,6 +135,28 @@ def ensemble_preds_av(predictions, inv_fns):
             )
         else:
             final_scores = preds.mean(0)
+        final_preds = apply_inv_fn(final_scores, inv_fns[task_name])
+        ensemble_preds[(task_name, state)] = final_preds
+    return ensemble_preds
+
+
+def ensemble_preds_wavg(predictions, inv_fns):
+    """Average scores with weights a/t model confidences, then apply inv_label_fn."""
+    ensemble_preds = {}
+    for (task_name, state), Y_probs in predictions.items():
+        preds = np.array(Y_probs)
+        if preds.shape[0] > 1:
+            warnings.warn(f"Ensembling {preds.shape[0]} models for {task_name} task")
+        weights = torch.softmax(torch.Tensor(preds), dim=0)
+        if task_name == "STSB":
+            final_scores = np.average(preds, axis=0, weights=weights)
+        else:
+            final_scores = np.array(
+                [
+                    probs_to_preds(y_probs)
+                    for y_probs in np.average(preds, axis=0, weights=weights)
+                ]
+            )
         final_preds = apply_inv_fn(final_scores, inv_fns[task_name])
         ensemble_preds[(task_name, state)] = final_preds
     return ensemble_preds
@@ -214,12 +237,7 @@ if __name__ == "__main__":
             # TODO: find a nicer way to get task names
             # create model
             task_config["splits"] = []
-            tasks, _ = create_tasks_and_payloads(
-                task_names=os.path.basename(os.path.dirname(model_dir))
-                .split("_")[0]
-                .split("."),
-                **task_config,
-            )
+            tasks, _ = create_tasks_and_payloads(task_names, **task_config)
             model = MetalModel(tasks, verbose=False, device=args.device)
             if not args.use_task_checkpoints or len(tasks) == 1:
                 # load model weights
@@ -308,12 +326,17 @@ if __name__ == "__main__":
         if len(predictions) != 11:
             # make sure all 11 files are present before zipping
             warnings.warn(
-                f"You only specified model paths for {len(predictions)} tasks. The submission zip will be malformed."
+                f"You only specified model paths for {len(predictions)} tasks. "
+                f"The submission zip will be malformed."
             )
         if args.ensemble_mode == "mv":
             ensemble_predictions = ensemble_preds_mv(predictions, inv_fns)
+        elif args.ensemble_mode == "avg":
+            ensemble_predictions = ensemble_preds_avg(predictions, inv_fns)
+        elif args.ensemble_mode == "wavg":
+            ensemble_predictions = ensemble_preds_wavg(predictions, inv_fns)
         else:
-            ensemble_predictions = ensemble_preds_av(predictions, inv_fns)
+            raise Exception(f"Unrecognized ensemble mode: {args.ensemble_mode}")
 
         for (task_name, state), predicted_labels in ensemble_predictions.items():
             # save predictions on test set for submission

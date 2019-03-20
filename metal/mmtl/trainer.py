@@ -179,6 +179,7 @@ class MultitaskTrainer(object):
         # NOTE: Because we use SubsetSampler, one dataset may actually include two
         # splits, so we calculate approximate count size using batch_size * num_batches
         self.task_names = [task_name for task_name in model.task_map]
+        self.payload_names = [payload.name for payload in payloads]
         train_payloads = [p for p in payloads if p.split == "train"]
 
         # Ensure that we have task heads for each payload
@@ -852,7 +853,7 @@ class MultitaskTrainer(object):
                 )
                 raise Exception(msg)
 
-            task_name, split, metric = split_full_metric(checkpoint_metric)
+            task_name, payload_name, metric = split_full_metric(checkpoint_metric)
             try:
                 task = model.task_map[task_name]
             except IndexError:
@@ -860,6 +861,14 @@ class MultitaskTrainer(object):
                     f"The task for your specified checkpoint_metric "
                     f"({checkpoint_metric}) was not found in the list of "
                     f"submitted tasks: {[t for t in self.task_names]}."
+                )
+                raise Exception(msg)
+
+            if payload_name not in self.payload_names:
+                msg = (
+                    f"The payload for your specified checkpoint_metric "
+                    f"({checkpoint_metric}) was not found in the list of "
+                    f"submitted payloads: {self.payload_names}."
                 )
                 raise Exception(msg)
 
