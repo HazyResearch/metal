@@ -57,15 +57,6 @@ if __name__ == "__main__":
         help="A single seed to use for trainer, model, and task configs",
     )
 
-    # Model arguments
-    # TODO: parse these automatically from model dict
-    parser.add_argument(
-        "--model_weights",
-        type=str,
-        default=None,
-        help="Pretrained model for weight initialization",
-    )
-
     # Training arguments
     parser.add_argument(
         "--override_train_config",
@@ -116,9 +107,6 @@ if __name__ == "__main__":
 
     model_config["verbose"] = False
     model = MetalModel(tasks, **model_config)
-
-    if args.model_weights:
-        model.load_weights(args.model_weights)
 
     # add metadata to trainer_config that will be logged to disk
     trainer_config["n_paramaters"] = sum(
