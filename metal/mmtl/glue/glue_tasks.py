@@ -117,9 +117,8 @@ def create_tasks_and_payloads(task_names, **kwargs):
         elif "large" in config["bert_model"]:
             neck_dim = 1024
         input_module = bert_model
-        cls_middle_module = BertExtractCls(
-            pooler=bert_model.pooler, dropout=config["dropout"]
-        )
+        pooler = bert_model.pooler if bert_kwargs["pooler"] else None
+        cls_middle_module = BertExtractCls(pooler=pooler, dropout=config["dropout"])
     else:
         raise NotImplementedError
 

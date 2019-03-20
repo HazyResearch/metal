@@ -11,6 +11,7 @@ model_defaults = {
     "device": 0,  # gpu id (int) or -1 for cpu
     "verbose": True,
     "fp16": False,
+    "model_weights": None,  # the path to a saved checkpoint to initialize with
 }
 
 
@@ -37,6 +38,10 @@ class MetalModel(nn.Module):
         # Build network
         self._build(tasks)
         self.task_map = {task.name: task for task in tasks}
+
+        # Load weights
+        if self.config["model_weights"]:
+            self.load_weights(self.config["model_weights"])
 
         # Half precision
         if self.config["fp16"]:

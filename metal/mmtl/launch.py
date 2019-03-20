@@ -50,13 +50,11 @@ if __name__ == "__main__":
         description="Train MetalModel on single or multiple tasks.", add_help=False
     )
 
-    # Model arguments
-    # TODO: parse these automatically from model dict
     parser.add_argument(
-        "--model_weights",
-        type=str,
-        default=None,
-        help="Pretrained model for weight initialization",
+        "--seed",
+        type=int,
+        default=np.random.randint(1e6),
+        help="A single seed to use for trainer, model, and task configs",
     )
 
     # Training arguments
@@ -109,9 +107,6 @@ if __name__ == "__main__":
 
     model_config["verbose"] = False
     model = MetalModel(tasks, **model_config)
-
-    if args.model_weights:
-        model.load_weights(args.model_weights)
 
     # add metadata to trainer_config that will be logged to disk
     trainer_config["n_paramaters"] = sum(
