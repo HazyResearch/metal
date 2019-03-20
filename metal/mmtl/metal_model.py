@@ -187,7 +187,8 @@ class MetalModel(nn.Module):
             if self.config["fp16"] and Y.dtype == torch.float32:
                 out = out.half()
                 Y = Y.half()
-            if active.sum():
+            # Active has type torch.uint8; avoid overflow with long()
+            if active.long().sum():
                 task_loss = self.loss_hat_funcs[task_name](
                     out, move_to_device(Y, self.config["device"])
                 )
