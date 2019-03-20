@@ -1,6 +1,7 @@
 import warnings
 
 import spacy
+import torch
 
 question_words = set(["who", "what", "where", "when", "why", "how"])
 nlp = spacy.load("en_core_web_sm")
@@ -99,16 +100,19 @@ def dash_semicolon(dataset, idx):
 
 def create_slice_labels(dataset, base_task_name, slice_name, verbose=False):
     """Returns a label set masked to include only those labels in the specified slice"""
-    # TODO: break this out into more modular pieces one we have multiple slices
+    # TODO: break this out into more modular pieces oncee we have multiple slices
     slice_fn = globals()[slice_name]
     slice_indicators = [slice_fn(dataset, idx) for idx in range(len(dataset))]
     base_labels = dataset.labels[base_task_name]
     slice_labels = [
         label * indicator for label, indicator in zip(base_labels, slice_indicators)
     ]
+
     if verbose:
         print(f"Found {sum(slice_indicators)} examples in slice {slice_name}.")
         if not any(slice_labels):
-            warnings.warn("No examples were found to belong to ")
+            warnings.warn(f"No examples were found to belong to slice {slice_name}")
 
-    return slice_labels
+    # NOTE: we assume here that all slice labels are for sentence-level tasks only
+    Y_slice = torch.Tensor(slice_labels).view(-1, 1)
+    return Y_slice

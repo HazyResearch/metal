@@ -1,6 +1,8 @@
 import numpy as np
 from nltk.translate.bleu_score import sentence_bleu
 
+from metal.utils import padded_tensor
+
 SPACY_TAGS = {
     "SPACY_NER": [
         "NULL",
@@ -81,9 +83,10 @@ def add_third_labels(payload):
         return Y_thirds
 
     X = payload.data_loader.dataset.bert_tokens
-    Y = []
+    Y_list = []
     for x in X:
-        Y.append(mark_thirds(x))
+        Y_list.append(mark_thirds(x))
+    Y, _ = padded_tensor(Y_list)
 
     payload.add_label_set("THIRD", label_set=Y)
     return payload
@@ -107,7 +110,7 @@ def add_spacy_labels(payload, label_type, spacy_attr, null_label="NULL"):
         attr: the name of the spacy attribute to extract
         tag_name:
     """
-    Y = []
+    Y_list = []
     bert_tokenizer = payload.data_loader.dataset.bert_tokenizer
 
     for i, data in enumerate(payload.data_loader.dataset):
@@ -135,8 +138,9 @@ def add_spacy_labels(payload, label_type, spacy_attr, null_label="NULL"):
                     token_tags.append(tag)
             token_labels = [SPACY_TAGS[label_type].index(tag) + 1 for tag in token_tags]
             # print([(token, tag) for token, tag in zip(bert_tokens, token_tags)])
-        Y.append(token_labels)
+        Y_list.append(token_labels)
 
+    Y, _ = padded_tensor(Y_list)
     payload.add_label_set(label_type, label_set=Y)
     return payload
 
