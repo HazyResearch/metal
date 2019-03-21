@@ -23,9 +23,6 @@ from metal.mmtl.slicing import create_slice_task
 from metal.mmtl.task import ClassificationTask, RegressionTask
 from metal.utils import recursive_merge_dicts, set_seed
 
-NON_STANDARD_TASKS = [
-                "PNEUMOTHORAX"
-                ]
 
 task_defaults = {
     # General
@@ -56,7 +53,7 @@ task_defaults = {
         "attention_module": None,  # None, soft currently accepted
         "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
     },
-    # Auxiliary Tasks and Payloads
+    # Auxiliary Tasks and Primary Tasks
     "auxiliary_task_dict": {  # A map of each aux. task to the primary task it applies to
         "IGNORE_DRAINS": ["PNEUMOTHORAX"],
     },
@@ -105,7 +102,6 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
     tasks = []
     payloads = []
 
-
     # NEW STRUCTURE
     
     # Get payload:primary task dict
@@ -115,38 +111,17 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
         task_name = full_task_name.split(":")[1]
         task_payload_dict[payload_name].append(task_name)
 
-    # Initialize payloads with data for any primary tasks they have
-    for payload in task_payload_dict.keys():
-        datasets = create_cxr_datasets(
-                dataset_name=dataset_name,
-                splits=config["splits"],
-                subsample=config["subsample"],
-                findings=task_name,
-                verbose=True,
-                )
-
-            # Wrap datasets with DataLoader objects
-            data_loaders = create_cxr_dataloaders(
-                datasets,
-                dl_kwargs=dl_kwargs,
-                split_prop=config["split_prop"],
-                splits=config["splits"],
-                seed=config["seed"],
-            )
-
-
-    # If pooling option is True, use standard task names across
-    # datasets and pool them, otherwise use payload-specific names
-
     # If "ALL" supplied as task, only one payload per dataset;
-    # Else, create separate payloads for each task-dataset combo
+    # Else, create separate payloads for each task-dataset combo 
+    for k,v in task_payload_dict.items():
+        if "ALL" in v and len(v)>1:
+            raise ValueError("Cannot have 'ALL' task with other primary tasks")
 
-    
+    # Getting auxiliary task dict
+    auxiliary_task_dict = config["auxiliary_task_dict"]
 
-
-
-
-
+    # Get primary task:payload dict
+    payload_task_dict = invert_dict(task_payload_dict)
 
     for full_task_name in full_task_names:
         # Pull out names of auxiliary tasks to be dealt with in a second step
@@ -154,11 +129,12 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
         # its own payload
         # Right now, supply tasks as DATASET:TASK, by default if all tasks
         # in a dataset are included, it is the same as training on entire dataset
-        payload_name = full_task_name.split(":")[0]
-        task_name = full_task_name.split(":")[1]
         if config["pool_payload_tasks"]:
+            payload_name = full_task_name.split(":")[0]
+            task_name = full_task_name.split(":")[1]
             new_payload = payload_name not in [p.name for p in payloads]
         else:
+            task_name = full_task_name
             new_payload = full_task_name not in [p.name for p in payloads]
 
         # Override general dl kwargs with payload-specific kwargs
@@ -172,6 +148,7 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
                 dataset_name=dataset_name,
                 splits=config["splits"],
                 subsample=config["subsample"],
+                pooled=config["pool_payload_tasks"],
                 findings=task_name,
                 verbose=True,
                 )
@@ -261,6 +238,126 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
     return tasks, payloads
 
 
+
+
+
+
+    # Initialize payloads with data for any primary tasks they have
+    # If pooling option is True, use standard task names across
+    # datasets and pool them, otherwise use payload-specific name
+
+    for payload_name in task_payload_dict.keys():
+        datasets = create_cxr_datasets(
+            dataset_name=payload_name,
+            splits=config["splits"],
+            subsample=config["subsample"],
+            tasks=task_payload_dict[payload_name],
+            pooled=config["pool_payload_tasks"],
+            verbose=True,
+            )
+
+            # Wrap datasets with DataLoader objects
+        data_loaders = create_cxr_dataloaders(
+            datasets,
+            dl_kwargs=dl_kwargs,
+            split_prop=config["split_prop"],
+            splits=config["splits"],
+            seed=config["seed"],
+            )
+
+        # Create payloads with primary task names
+        for split, data_loader in data_loaders.items():
+            payload_name = f"{task_name}_{split}"
+            payload = Payload(payload_name, data_loader, 
+                task_payload_dict[payload_name], split)
+            payloads.append(payload)
+
+    # Getting primary task names
+    if config["pool_payload_tasks"]:
+        task_names = list(set([t.split(":")[1] for in full_task_names]))
+    else:
+        task_names = full_task_names
+    
+    # Adding primary tasks
+    for task_name in task_names:
+        # Pull out names of auxiliary tasks to be dealt with in a second step
+        # TODO: fix this logic for cases where auxiliary task for task_name has
+        # its own payload
+        # Right now, supply tasks as DATASET:TASK, by default if all tasks
+        
+        # Override general dl kwargs with payload-specific kwargs
+        dl_kwargs = copy.deepcopy(config["dl_kwargs"])
+        if task_name in task_dl_kwargs:
+            dl_kwargs.update(task_dl_kwargs[task_name])
+
+        if "PNEUMOTHORAX" in task_name:
+            scorer = Scorer(
+            standard_metrics=["accuracy"],
+            )
+            task = ClassificationTask(
+                name=task_name,
+                input_module=input_module,
+                middle_module=middle_module,
+                attention_module=get_attention_module(config, neck_dim),
+                head_module=BinaryHead(neck_dim),
+                scorer=scorer,
+            )
+        else:   
+            scorer = Scorer(
+                standard_metrics=["accuracy"],
+            )
+            task = ClassificationTask(
+                name=task_name,
+                input_module=input_module,
+                middle_module=middle_module,
+                attention_module=get_attention_module(config, neck_dim),
+                head_module=BinaryHead(neck_dim),
+                scorer=scorer,
+            )    
+
+        # AUXILIARY TASKS
+
+        # NONE YET -- MAYBE AUTOENCODING?
+
+        #else:
+        #    msg = (
+        #        f"Task name {task_name} was not recognized as a primary or "
+        #        f"auxiliary task."
+        #    )
+        #    raise Exception(msg)
+
+        tasks.append(task)
+        
+        # Add auxiliary label sets if applicable
+        
+        if [target_task in auxiliary_task_dict[ 
+        for aux_task_name, target_task in auxiliary_task_dict.items():
+            if aux_task_name in task_names and task_name in target_payloads:
+                aux_task_func = auxiliary_task_functions[aux_task_name]
+                payload = aux_task_func(payload)
+            
+        # Add slice task and label sets if applicable
+        slice_names = (
+            config["slice_dict"].get(task_name, [])
+            if config["slice_dict"]
+            else []
+        )
+            
+        if slice_names:
+            dataset = payload.data_loader.dataset
+            for slice_name in slice_names:
+                slice_task_name = f"{task_name}:{slice_name}"
+                slice_task = create_slice_task(task, slice_task_name)
+                tasks.append(slice_task)
+              
+                slice_labels = create_slice_labels(
+                    dataset, base_task_name=task_name, slice_name=slice_name
+                )
+                payload.add_label_set(slice_task_name, slice_labels)
+
+    return tasks, payloads
+
+
 def get_attention_module(config, neck_dim):
     # Get attention head
     attention_config = config["attention_config"]
@@ -324,3 +421,16 @@ def create_cxr_dataloaders(datasets, dl_kwargs, split_prop, splits, seed=123):
         for split_name in datasets:
             dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
     return dataloaders
+
+def invert_dict(d): 
+    inverse = dict() 
+    for key in d: 
+        # Go through the list that is saved in the dict:
+        for item in d[key]:
+            # Check if in the inverted dict the key exists
+            if item not in inverse: 
+                # If not create a new list
+                inverse[item] = [key] 
+            else: 
+                inverse[item].append(key) 
+    return inverse

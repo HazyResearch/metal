@@ -19,7 +19,7 @@ DATASET_CLASS_DICT = {
                 }
 
 
-def get_cxr_dataset(dataset_name, split, subsample=None, tasks="ALL", **kwargs):
+def get_cxr_dataset(dataset_name, split, subsample=None, tasks="ALL", pooled=False, **kwargs):
     """ Create and returns specified cxr dataset based on image path."""
 
     # MODIFY THIS TO GET THE RIGHT LOCATIONS FOR EACH!!
@@ -33,6 +33,7 @@ def get_cxr_dataset(dataset_name, split, subsample=None, tasks="ALL", **kwargs):
         transform=config["transform"],
         subample=config["subsample"],
         tasks=config["tasks"],
+        pooled=False,
         get_uid=config["get_uid"], 
         **kwargs,
     )
@@ -53,6 +54,7 @@ class CXR8Dataset(Dataset):
         transform=None, # Currently no support for this
         subsample=0,
         tasks="ALL",
+        pooled=False,
         get_uid=False,
     ):
 
@@ -62,6 +64,7 @@ class CXR8Dataset(Dataset):
         self.df = pd.read_csv(self.path_to_labels)
         self.get_uid = get_uid
         self.labels = {}
+        self.pooled = pooled
         finding=tasks
 
         # can limit to sample, useful for testing
@@ -76,13 +79,13 @@ class CXR8Dataset(Dataset):
                 if len(self.df[self.df[finding] == 1]) > 0:
                     self.df = self.df[self.df[finding] == 1]
                 else:
-                    print(
+                   raise ValueError(
                         "No positive cases exist for "
                         + LABEL
                         + ", returning all unfiltered cases"
                     )
             else:
-                print(
+                raise ValueError(
                     "cannot filter on finding "
                     + finding
                     + " as not in data - please check spelling"
@@ -111,7 +114,10 @@ class CXR8Dataset(Dataset):
         # a given task!
         for cls in self.PRED_LABEL:
             label_vec = self.df[cls.strip()].astype("int") > 0
-            self.labels[cls] = torch.Tensor(label_vec) 
+            if self.pooled:
+                self.labels[cls] = torch.Tensor(label_vec) 
+            else:
+                self.labels[f"CXR8:{cls}"] = torch.Tensor(label_vec)
 
     def __getitem__(self, idx):
 
