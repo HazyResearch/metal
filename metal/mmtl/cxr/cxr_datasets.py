@@ -19,11 +19,11 @@ DATASET_CLASS_DICT = {
                 }
 
 
-def get_cxr_dataset(dataset_name, split, **kwargs):
+def get_cxr_dataset(dataset_name, split, subsample=None, tasks="ALL", **kwargs):
     """ Create and returns specified cxr dataset based on image path."""
 
     # MODIFY THIS TO GET THE RIGHT LOCATIONS FOR EACH!!
-    config = get_task_config(dataset_name, split)
+    config = get_task_config(dataset_name, split, subsample, tasks)
     dataset_class = DATASET_CLASS_DICT[dataset_name]
 
     return dataset_class(
@@ -32,7 +32,7 @@ def get_cxr_dataset(dataset_name, split, **kwargs):
         split,
         transform=config["transform"],
         subample=config["subsample"],
-        finding=config["finding"],
+        tasks=config["tasks"],
         get_uid=config["get_uid"], 
         **kwargs,
     )
@@ -52,7 +52,7 @@ class CXR8Dataset(Dataset):
         split,
         transform=None, # Currently no support for this
         subsample=0,
-        finding="any",
+        tasks="ALL",
         get_uid=False,
     ):
 
@@ -62,14 +62,15 @@ class CXR8Dataset(Dataset):
         self.df = pd.read_csv(self.path_to_labels)
         self.get_uid = get_uid
         self.labels = {}
+        finding=tasks
 
         # can limit to sample, useful for testing
         # if fold == "train" or fold =="val": sample=500
-        if sample > 0 and sample < len(self.df):
+        if subsample > 0 and subsample < len(self.df):
             self.df = self.df.sample(sample)
 
         if (
-            not finding == "any"
+            not finding == "ALL"
         ):  # can filter for positive findings of the kind described; useful for evaluation
             if finding in self.df.columns:
                 if len(self.df[self.df[finding] == 1]) > 0:
@@ -90,23 +91,24 @@ class CXR8Dataset(Dataset):
         self.uids = self.df["Image Index"].tolist()
         self.df = self.df.set_index("Image Index")
         self.PRED_LABEL = [
-            "Atelectasis",
-            "Cardiomegaly",
-            "Effusion",
-            "Infiltration",
-            "Mass",
-            "Nodule",
-            "Pneumonia",
-            "Pneumothorax",
-            "Consolidation",
-            "Edema",
-            "Emphysema",
-            "Fibrosis",
-            "Pleural_Thickening",
-            "Hernia",
+            "ATELECTASIS",
+            "CARDIOMEGALY",
+            "EFFUSION",
+            "INFILTRATION",
+            "MASS",
+            "NODULE",
+            "PNEUMONIA",
+            "PNEUMOTHORAX",
+            "CONSOLIDATION",
+            "EDEMA",
+            "EMPHYSEMA",
+            "FIBROSIS",
+            "PLEURAL THICKENING",
+            "HERNIA",
         ]
 
-        # Adding tasks and labels
+        # Adding tasks and labels -- right now, we train all labels associated with
+        # a given task!
         for cls in self.PRED_LABEL:
             label_vec = self.df[cls.strip()].astype("int") > 0
             self.labels[cls] = torch.Tensor(label_vec) 

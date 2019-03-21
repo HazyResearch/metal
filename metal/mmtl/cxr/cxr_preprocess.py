@@ -30,7 +30,7 @@ def get_label_fn(input_dict):
     return input_dict.get, reverse_dict.get
 
 
-def get_task_config(dataset_name, split, subsample):
+def get_task_config(dataset_name, split, subsample, tasks):
     """ Returns the tsv_config to be used in params of CXRDataset.from_tsv for
     specific task and split. """
 
@@ -41,7 +41,7 @@ def get_task_config(dataset_name, split, subsample):
             "path_to_images": "/lfs/1/jdunnmon/data/nih/images/images" 
             "transform": None,
             "subsample": subsample,
-            "finding": "any",
+            "tasks": tasks,
             "label_type": int,
             "get_uid": False,
         }
