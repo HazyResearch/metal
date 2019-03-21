@@ -36,12 +36,6 @@ task_defaults = {
         "batch_size": 16,
         "shuffle": True,  # Used only when split_prop is None; otherwise, use Sampler
     },
-    "task_dl_kwargs": None,  # Overwrites dl kwargs e.g. {"STSB": {"batch_size": 2}}
-    # NOTE: This dropout only applies to the output of the pooler; it will not change
-    # the dropout rate of BERT (defaults to 0.1) or add dropout to other modules.
-    # The main BERT module ends with a dropout layer already, so token-based tasks
-    # that do not use BertExtractCls middle module do not need additional dropout first
-    "dropout": 0.1,
     # CNN
     "encoder_type": "DenseNet121",
     "cnn_kwargs": {
@@ -54,8 +48,9 @@ task_defaults = {
         "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
     },
     # Auxiliary Tasks and Primary Tasks
+    # EYE TRACKING LOSS IS A SLICE, NOT AN AUX!
     "auxiliary_task_dict": {  # A map of each aux. task to the primary task it applies to
-        "IGNORE_DRAINS": ["PNEUMOTHORAX"],
+        "AUTOENCODE": ["CXR8"],
     },
     "auxiliary_loss_multiplier": 1.0,
     "tasks": None,  # Comma-sep task list e.g. QNLI,QQP
@@ -81,29 +76,10 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
     input_module = cnn_model
     middle_module = None # None for now
 
-    # Create dict override dl_kwarg for specific task
-    # e.g. {"STSB": {"batch_size": 2}}
-    # TODO: CHECK THIS, MAY BE BROKEN FOR CXR
-    task_dl_kwargs = {}
-    if config["task_dl_kwargs"]:
-        task_configs_str = [
-            tuple(config.split(".")) for config in config["task_dl_kwargs"].split(",")
-        ]
-        for (task_name, kwarg_key, kwarg_val) in task_configs_str:
-            if kwarg_key == "batch_size":
-                kwarg_val = int(kwarg_val)
-            task_dl_kwargs[task_name] = {kwarg_key: kwarg_val}
-
-    #payload_names = list(set([t.split(":")[0] for t in full_task_names]))
-    #if config["pool_payload_tasks"]:
-    #    task_names = list(set([t.split(":")[1] for t in full_task_names]))
-    #else:
-    #    task_names = full_task_names     
+    # Setting up tasks and payloads
     tasks = []
     payloads = []
 
-    # NEW STRUCTURE
-    
     # Get payload:primary task dict
     task_payload_dict = defaultdict(list)
     for full_task_name in full_task_names:
@@ -113,9 +89,10 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
 
     # If "ALL" supplied as task, only one payload per dataset;
     # Else, create separate payloads for each task-dataset combo 
-    for k,v in task_payload_dict.items():
-        if "ALL" in v and len(v)>1:
-            raise ValueError("Cannot have 'ALL' task with other primary tasks")
+    # TODO: GET THIS WORKING TO REPLICATE SINGLE PASS THROUGH DATA
+    #for k,v in task_payload_dict.items():
+    #    if "ALL" in v and len(v)>1:
+    #        raise ValueError("Cannot have 'ALL' task with other primary tasks")
 
     # Getting auxiliary task dict
     auxiliary_task_dict = config["auxiliary_task_dict"]
@@ -132,17 +109,22 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
         if config["pool_payload_tasks"]:
             payload_name = full_task_name.split(":")[0]
             task_name = full_task_name.split(":")[1]
-            new_payload = payload_name not in [p.name for p in payloads]
+            if task_name not in auxiliary_task_dict.keys():
+                new_payload = f"{payload_name}_train" not in [p.name for p in payloads]
+            else: 
+                new_payload = False
         else:
+            payload_name = full_task_name
             task_name = full_task_name
-            new_payload = full_task_name not in [p.name for p in payloads]
+            if task_name.split(":")[1] not in auxiliary_task_dict.keys():
+                new_payload = f"{payload_name}_train" not in [p.name for p in payloads]
+            else:
+                new_payload = False
 
-        # Override general dl kwargs with payload-specific kwargs
+        # Getting dl_kwargs
         dl_kwargs = copy.deepcopy(config["dl_kwargs"])
-        if task_name in task_dl_kwargs:
-            dl_kwargs.update(task_dl_kwargs[task_name])
 
-        # Each primary dataset has data_loaders to load
+        # Each data source has data_loaders to load
         if new_payload:
             datasets = create_cxr_datasets(
                 dataset_name=dataset_name,
@@ -163,20 +145,8 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
             )
 
         # TODO: PUT IN OPTION TO POOL SAME TASK FOR DIFF SETS HERE?
-        if task_name not in NON_STANDARD_TASKS:   
-            scorer = Scorer(
-                standard_metrics=["accuracy"],
-            )
-            task = ClassificationTask(
-                name=full_task_name,
-                input_module=input_module,
-                middle_module=middle_module,
-                attention_module=get_attention_module(config, neck_dim),
-                head_module=BinaryHead(neck_dim),
-                scorer=scorer,
-            )    
 
-        elif "PNEUMOTHORAX" in task_name:
+        if "PNEUMOTHORAX" in task_name:
             scorer = Scorer(
             standard_metrics=["accuracy"],
             )
@@ -188,29 +158,60 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
                 head_module=BinaryHead(neck_dim),
                 scorer=scorer,
             )
-        
+        # TODO: Convolutional decoder module
+        elif "AUTOENCODE" in task_name:
+            pass
+            #scorer = Scorer(
+            #standard_metrics=["accuracy"],
+            #)
+            #task = RegressionTask(
+            #    name=task_name,
+            #    input_module=input_module,
+            #    middle_module=middle_module,
+            #    attention_module=get_attention_module(config, neck_dim),
+            #    head_module=DecoderHead(neck_dim),
+            #    scorer=scorer,
+            #    loss_hat_func=(
+            #        lambda out, Y_gold: F.mse_loss(torch.sigmoid(out), Y_gold)
+            #    ),
+            #   scorer=Scorer(custom_metric_funcs={mse: ["mse"]}),
+            #    loss_multiplier=config["auxiliary_loss_multiplier"],
+            #)
+        else:
+            scorer = Scorer(
+                standard_metrics=["accuracy"],
+            )   
+            task = ClassificationTask(
+                name=task_name,
+                input_module=input_module,
+                middle_module=middle_module,
+                attention_module=get_attention_module(config, neck_dim),
+                head_module=BinaryHead(neck_dim),
+                scorer=scorer,
+            )
+
         # AUXILIARY TASKS
 
         # NONE YET -- MAYBE AUTOENCODING?
 
-        else:
-            msg = (
-                f"Task name {task_name} was not recognized as a primary or "
-                f"auxiliary task."
-            )
-            raise Exception(msg)
+        #else:
+        #    msg = (
+        #        f"Task name {task_name} was not recognized as a primary or "
+        #        f"auxiliary task."
+        #    )
+        #    raise Exception(msg)
 
         tasks.append(task)
+
         if new_payload:
             # Create payloads (and add slices/auxiliary tasks as applicable)
             for split, data_loader in data_loaders.items():
-                payload_name = f"{task_name}_{split}"
-                payload = Payload(payload_name, data_loader, [task_name], split)
+                payload_name_split = f"{payload_name}_{split}"
+                payload = Payload(payload_name_split, data_loader, [task_name], split)
 
                 # Add auxiliary label sets if applicable
-                auxiliary_task_dict = config["auxiliary_task_dict"]
                 for aux_task_name, target_payloads in auxiliary_task_dict.items():
-                    if aux_task_name in task_names and task_name in target_payloads:
+                    if any([aux_task_name in t for t in full_task_names]) and payload_name in target_payloads:
                         aux_task_func = auxiliary_task_functions[aux_task_name]
                         payload = aux_task_func(payload)
 
