@@ -74,8 +74,7 @@ class GLUEDataset(data.Dataset):
                 is in sent1/sent2 (e.g. [[0, 0, 0, 0, 1, 1, 1], ...])
         """
         self.sentences = sentences
-        self.labels = {dataset_name: labels}
-        self.label_type = label_type
+        self.labels = {dataset_name: torch.tensor(labels, dtype=label_type).view(-1, 1)}
         self.label_fn = label_fn
         self.inv_label_fn = inv_label_fn
         self.uids = uids
@@ -284,7 +283,7 @@ class GLUEDataset(data.Dataset):
         delimiter="\t",
         label_fn=lambda x: x,
         inv_label_fn=lambda x: x,
-        label_type=int,
+        label_type=torch.long,
         # class kwargs
         max_len=-1,
         max_datapoints=-1,
