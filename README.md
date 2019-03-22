@@ -7,6 +7,7 @@
 **_v0.4.1_**
 
 **ANNOUNCEMENT** (3/20): We are thrilled to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL. 
+Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
 The code we used to accomplish this is part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
 That code is being prepared for release and will be a part of Snorkel MeTaL v0.5, coming out in April!
 Stay tuned on this and other Snorkel developments at our project landing page: [snorkel.stanford.edu](snorkel.stanford.edu).
@@ -37,6 +38,7 @@ This makes it significantly more scalable than our previous approaches.
 * _[Data Programming: Creating Large Training Sets, Quickly](https://arxiv.org/abs/1605.07723) [NeurIPS 2016]_
 
 ## Blog Posts
+* [3/22/2019] [Massive Multi-Task Learning with Snorkel MeTaL: Bringing More Supervision to Bear](https://dawn.cs.stanford.edu/2019/03/22/glue/)
 * [2/4/2019] [Emerging Topics in Multi-Task Learning Systems](https://hazyresearch.github.io/snorkel/blog/mtl_systems.html)
 
 ## Q&A
