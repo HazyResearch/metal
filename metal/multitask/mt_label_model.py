@@ -3,7 +3,8 @@ from scipy.sparse import issparse
 
 from metal.label_model import LabelModel
 from metal.label_model.lm_defaults import lm_default_config
-from metal.multitask import MTClassifier, TaskGraph
+from metal.multitask import MTClassifier
+from metal.multitask.task_graph import TaskGraph
 from metal.utils import recursive_merge_dicts
 
 
