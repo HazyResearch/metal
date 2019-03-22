@@ -1,4 +1,4 @@
 black
 flake8
-isort
+isort==4.3.15
 pre-commit
