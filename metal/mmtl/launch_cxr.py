@@ -106,7 +106,8 @@ if __name__ == "__main__":
 
     # Getting tasks
     tasks, payloads = create_tasks_and_payloads(task_names, **task_config)
-
+    
+    import ipdb; ipdb.set_trace()
     model_config["verbose"] = False
     model = MetalModel(tasks, **model_config)
 
@@ -114,7 +115,7 @@ if __name__ == "__main__":
         model.load_weights(args.model_weights)
 
     # add metadata to trainer_config that will be logged to disk
-    trainer_config["n_paramaters"] = sum(
+    trainer_config["n_parameters"] = sum(
         p.numel() for p in model.parameters() if p.requires_grad
     )
 
