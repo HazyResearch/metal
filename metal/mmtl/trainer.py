@@ -47,7 +47,7 @@ trainer_defaults = {
     "commit_hash": None,
     "ami": None,  # ami id for aws
     # Display
-    "progress_bar": False,
+    "progress_bar": True,
     # Dataloader
     # TODO: Restore the option for them to pass in raw simple data which we wrap up
     # "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True},

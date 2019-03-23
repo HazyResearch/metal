@@ -18,7 +18,6 @@ from metal.utils import add_flags_from_config, recursive_merge_dicts
 
 logging.basicConfig(level=logging.INFO)
 
-
 def get_dir_name(models_dir):
     """Gets a directory to save the model.
 

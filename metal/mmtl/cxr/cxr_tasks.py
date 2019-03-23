@@ -55,6 +55,7 @@ task_defaults = {
     "finding":"ALL",
     "seed": None,
     "dl_kwargs": {
+        "num_workers": 8,
         "batch_size": 16,
         "shuffle": True,  # Used only when split_prop is None; otherwise, use Sampler
     },
@@ -188,7 +189,7 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
             task = ClassificationTask(
                 name=task_name,
                 input_module=input_module,
-                middle_module=IdentityModule(),
+                middle_module=middle_module,
                 attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=scorer,
@@ -219,7 +220,7 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
             task = ClassificationTask(
                 name=task_name,
                 input_module=input_module,
-                middle_module=IdentityModule(),
+                middle_module=middle_module,
                 attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=scorer,

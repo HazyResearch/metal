@@ -90,9 +90,9 @@ class CXR8Dataset(Dataset):
         for cls in self.PRED_LABEL:
             label_vec = self.df[cls.upper().strip()].astype("int") > 0
             if self.pooled:
-                self.labels[cls.upper()] = torch.Tensor(label_vec) 
+                self.labels[cls.upper()] = np.array(label_vec).astype(int) 
             else:
-                self.labels[f"CXR8:{cls.upper()}"] = torch.Tensor(label_vec)
+                self.labels[f"CXR8:{cls.upper()}"] = np.array(label_vec).astype(int)
 
     def __getitem__(self, idx):
 
@@ -164,16 +164,17 @@ class CXR8Dataset(Dataset):
                 labels for that task
         """
         Y_lists = {task_name: [] for task_name in self.labels}
-        
+        X_list = []
         for instance in batch_list:
             x, ys = instance
             image = x
             for task_name, y in ys.items():
                 Y_lists[task_name].append(y)
+            X_list.append(x)
         
-        X = image
+        Xs = torch.stack(X_list)
         Ys = self._collate_labels(Y_lists)
-        return X, Ys
+        return Xs, Ys
 
     def _collate_labels(self, Ys): 
         """Collate potentially multiple label_sets 
@@ -196,8 +197,8 @@ class CXR8Dataset(Dataset):
                 Y = torch.tensor(Y, dtype=torch.long)
             elif isinstance(Y[0], torch.Tensor) and len(Y[0].size())==0:
                 Y = torch.tensor(Y, dtype=torch.float) 
-            elif isinstance(Y[0], np.integer): 
-                Y = torch.from_numpy(Y) 
+            elif isinstance(Y[0], np.integer):
+                Y = torch.from_numpy(np.array(Y)) 
             elif isinstance(Y[0], float): 
                 Y = torch.tensor(Y, dtype=torch.float) 
             elif isinstance(Y[0], np.float): 
