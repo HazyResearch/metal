@@ -142,28 +142,27 @@ class MetalModel(nn.Module):
         input = move_to_device(X, self.config["device"])
         outputs = {}
         output_dict = {}
-        import ipdb; ipdb.set_trace()
         # Commented intermediate results because was causing OOM
         for task_name in task_names:
             input_module = self.input_modules[task_name]
             #out = input_module(input)
-            #if input_module not in outputs:
-            #    outputs[input_module] = input_module(input)
+            if input_module not in outputs:
+                outputs[input_module] = input_module(input)
             middle_module = self.middle_modules[task_name]
             #out = middle_module(out)
-            #if middle_module not in outputs:
-            #    outputs[middle_module] = middle_module(outputs[input_module])
+            if middle_module not in outputs:
+                outputs[middle_module] = middle_module(outputs[input_module])
             attention_module = self.attention_modules[task_name]
             #out = attention_module(out)
-            #if attention_module not in outputs:
-            #    outputs[attention_module] = attention_module(outputs[middle_module])
+            if attention_module not in outputs:
+                outputs[attention_module] = attention_module(outputs[middle_module])
             head_module = self.head_modules[task_name]
-            #if head_module not in outputs:
-            #    outputs[head_module] = head_module(outputs[attention_module])
-            res = head_module(attention_module(middle_module(input_module(input))))
-            output_dict[task_name] = res
-        return output_dict
-        #return {t: outputs[self.head_modules[t]] for t in task_names}
+            if head_module not in outputs:
+                outputs[head_module] = head_module(outputs[attention_module])
+            #res = head_module(attention_module(middle_module(input_module(input))))
+            #output_dict[task_name] = res
+        #return output_dict
+        return {t: outputs[self.head_modules[t]] for t in task_names}
 
     def calculate_loss(self, X, Ys, task_names):
         """Returns a dict of {task_name: loss (a FloatTensor scalar)}.

@@ -9,6 +9,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# THIS LINE REQUIRED TO FIX ANC_DATA ERROR FROM PYTORCH
+# https://github.com/pytorch/pytorch/issues/973
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 #from metal.mmtl.auxiliary_tasks import SPACY_TAGS, auxiliary_task_functions
 #from metal.mmtl.chexnet.chexnet_metrics import acc_f1, matthews_corr, mse, pearson_spearman
 from metal.mmtl.cxr.cxr_slices import create_slice_labels
