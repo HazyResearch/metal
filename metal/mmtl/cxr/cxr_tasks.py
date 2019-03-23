@@ -445,6 +445,9 @@ def create_cxr_datasets(
             split = "dev"
         else:
             split = split_name
+        # Getting all examples for val and test!
+        if split_name != "train":
+            finding='ALL'
         datasets[split_name] = get_cxr_dataset(
             dataset_name,
             split,
