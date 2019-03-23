@@ -190,10 +190,12 @@ class CXR8Dataset(Dataset):
         Convert each Y in Ys from: 
             list of scalars (instance labels) -> [n,] tensor 
             list of tensors/lists/arrays (token labels) -> [n, seq_len] padded tensor 
-        """ 
+        """
         for task_name, Y in Ys.items(): 
             if isinstance(Y[0], int): 
-                Y = torch.tensor(Y, dtype=torch.long) 
+                Y = torch.tensor(Y, dtype=torch.long)
+            elif isinstance(Y[0], torch.Tensor) and len(Y[0].size())==0:
+                Y = torch.tensor(Y, dtype=torch.float) 
             elif isinstance(Y[0], np.integer): 
                 Y = torch.from_numpy(Y) 
             elif isinstance(Y[0], float): 
@@ -203,7 +205,7 @@ class CXR8Dataset(Dataset):
             elif ( 
                 isinstance(Y[0], list) 
                 or isinstance(Y[0], np.ndarray) 
-                or isinstance(Y[0], torch.Tensor) 
+                or isinstance(Y[0], torch.Tensor) and len(Y[0].size())>0
             ): 
                 if isinstance(Y[0][0], (int, np.integer)): 
                     dtype = torch.long 

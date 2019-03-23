@@ -238,10 +238,10 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
 
         tasks.append(task)
 
-        if new_payload:
-            # Create payloads (and add slices/auxiliary tasks as applicable)
-            for split, data_loader in data_loaders.items():
-                payload_name_split = f"{payload_name}_{split}"
+        # Create payloads (and add slices/auxiliary tasks as applicable)
+        for split, data_loader in data_loaders.items():
+            payload_name_split = f"{payload_name}_{split}"
+            if new_payload:
                 payload = Payload(payload_name_split, data_loader, [task_name], split)
                 # Add auxiliary label sets if applicable
                 #CXR: NOT TESTED
@@ -250,27 +250,33 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
                         aux_task_func = auxiliary_task_functions[aux_task_name]
                         payload = aux_task_func(payload)
 
-                # Add slice task and label sets if applicable
-                # CXR: not tested
-                slice_names = (
-                    config["slice_dict"].get(task_name, [])
-                    if config["slice_dict"]
-                    else []
+                payloads.append(payload)
+
+            else:
+                # If payload exists, get it
+                payload_names = [p.name for p in payloads]
+                payload = payloads[payload_names.index(payload_name_split)]
+                payload.task_names.append(task_name)
+
+            # Add slice task and label sets if applicable
+            # CXR: not tested
+            slice_names = (
+                config["slice_dict"].get(task_name, [])
+                if config["slice_dict"]
+                else []
                 )
 
-                if slice_names:
-                    dataset = payload.data_loader.dataset
-                    for slice_name in slice_names:
-                        slice_task_name = f"{task_name}:{slice_name}"
-                        slice_task = create_slice_task(task, slice_task_name)
-                        tasks.append(slice_task)
+            if slice_names:
+                dataset = payload.data_loader.dataset
+                for slice_name in slice_names:
+                    slice_task_name = f"{task_name}:{slice_name}"
+                    slice_task = create_slice_task(task, slice_task_name)
+                    tasks.append(slice_task)
 
-                        slice_labels = create_slice_labels(
-                            dataset, base_task_name=task_name, slice_name=slice_name
+                    slice_labels = create_slice_labels(
+                        dataset, base_task_name=task_name, slice_name=slice_name
                         )
-                        payload.add_label_set(slice_task_name, slice_labels)
-
-                payloads.append(payload)
+                    payload.add_label_set(slice_task_name, slice_labels)
 
     return tasks, payloads
 

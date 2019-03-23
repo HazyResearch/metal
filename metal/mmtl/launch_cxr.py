@@ -107,7 +107,8 @@ if __name__ == "__main__":
     # Getting tasks
     tasks, payloads = create_tasks_and_payloads(task_names, **task_config)
     
-    import ipdb; ipdb.set_trace()
+    # TEST ASSERT FOR TASKS = TASKS IN PAYLOADS
+    # np.array_equal(np.array([t.name for t in tasks]), np.array(payloads[0].task_names))
     model_config["verbose"] = False
     model = MetalModel(tasks, **model_config)
 
