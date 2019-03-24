@@ -91,7 +91,7 @@ trainer_defaults = {
         "task_metrics": [],
         # The list of trainer standard metrics to calculate (and log); e.g., "glue"
         # Note that glue_partial is no longer supported.
-        "trainer_metrics": ["glue"],
+        "trainer_metrics": [],
         # Run scorers over a maximum of this many examples if > 0.
         "max_valid_examples": 0,
         # The name of the split to run scoring on during training
@@ -140,7 +140,7 @@ trainer_defaults = {
     "checkpoint_cleanup": True,
     "checkpoint_config": {
         # TODO: unify checkpoint=['every', 'best', 'final']; specify one strategy
-        "checkpoint_every": 0,  # Save a model checkpoint every this many log_units
+        "checkpoint_every": 0.25,  # Save a model checkpoint every this many log_units
         # If checkpoint_best, also save the "best" model according to some metric
         # The "best" model will have the ['max', 'min'] value of checkpoint_metric
         # This metric must be produced by one of the task Scorer objects so it will be
