@@ -45,7 +45,7 @@ class CXR8Dataset(Dataset):
         # can limit to sample, useful for testing
         # if fold == "train" or fold =="val": sample=500
         if subsample > 0 and subsample < len(self.df):
-            self.df = self.df.sample(sample)
+            self.df = self.df.sample(subsample)
 
         if (
             not finding == "ALL"

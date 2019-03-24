@@ -13,6 +13,9 @@ import torch.nn.functional as F
 # https://github.com/pytorch/pytorch/issues/973
 torch.multiprocessing.set_sharing_strategy('file_system')
 
+# Restoring default
+#torch.multiprocessing.set_sharing_strategy('file_descriptor')
+
 #from metal.mmtl.auxiliary_tasks import SPACY_TAGS, auxiliary_task_functions
 #from metal.mmtl.chexnet.chexnet_metrics import acc_f1, matthews_corr, mse, pearson_spearman
 from metal.mmtl.cxr.cxr_slices import create_slice_labels
