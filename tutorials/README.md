@@ -1,6 +1,6 @@
 # Snorkel MeTaL Tutorials
 
-We provide a few tutorials to get you started with Snorkel MetaL.
+We provide a few tutorials to get you started with Snorkel MeTaL.
 We recommend starting with the Basics Tutorial. 
 The others can be completed in any order.
 
@@ -12,14 +12,6 @@ Learn how to use the multi-task versions of our models to utilize supervision so
 
 ### CIFAR 10 Example
 See an example of how to easily run the standard machine learning task of classifying the CIFAR 10 image dataset using Snorkel MeTaL; building upon existing datasets like this can be a useful gateway to exploring multi-task learning in a well-known setting.
-
-### Model Tuning
-[Coming Soon]  
-Try out our built-in model tuners (grid/random search, or Hyperband) to perform hyperparameter search over many potential model configurations.
-
-### Synthetic
-[Coming Soon]  
-Use our synthetic data generators to create training sets with various properties (e.g., class balance, label density, source accuracies, correlated sources, related tasks, etc.) and answer questions about how you may be able to improve performance on your own applications.
 
 
 ## Advanced Tutorials

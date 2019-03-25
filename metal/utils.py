@@ -53,7 +53,8 @@ def pred_to_prob(Y_h, k):
             label for item i and label j
     """
     Y_h = Y_h.clone()
-    Y_h = Y_h.squeeze()
+    if Y_h.dim() > 1:
+        Y_h = Y_h.squeeze()
     assert Y_h.dim() == 1
     assert (Y_h >= 1).all()
     assert (Y_h <= k).all()

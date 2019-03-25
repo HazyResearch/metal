@@ -136,4 +136,4 @@ class ClassBalanceModel(nn.Module):
         vals, counts = np.unique(cps_na.argmax(axis=2), axis=0, return_counts=True)
         col_order = vals[counts.argmax()]
         self.class_balance = p_y[col_order]
-        self.cond_probs = cps[col_order]
+        self.cond_probs = cps[:, :, col_order]

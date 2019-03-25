@@ -1,6 +1,6 @@
 Author: Braden Hancock (github: bhancock8)  
 Last Updated: 11/20/18  
-MeTaL Version: 0.4.0 
+MeTaL Version: 0.4.1 
 
 # The MeTaL Commandments
 - [The MeTaL Commandments](#the-metal-commandments)

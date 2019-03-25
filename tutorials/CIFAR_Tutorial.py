@@ -151,7 +151,7 @@ def train_model():
         [encode_dim, len(classes)],
         input_module=model,
         seed=123,
-        use_cuda=cuda,
+        device="cuda" if cuda else "cpu",
         skip_head=True,
         input_relu=False,
         input_batchnorm=False,
@@ -166,7 +166,7 @@ def train_model():
         l2=args.weight_decay,
         lr=args.lr,
         n_epochs=args.epochs,
-        print_every=1,
+        log_train_every=1,
         validation_metric="accuracy",
     )
 

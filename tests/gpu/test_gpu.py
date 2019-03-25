@@ -27,7 +27,7 @@ class GPUTest(unittest.TestCase):
         )
 
         label_model = LabelModel(k=2, seed=123)
-        label_model.train_model(Ls[0], Y_dev=Ys[1], n_epochs=500, print_every=25)
+        label_model.train_model(Ls[0], Y_dev=Ys[1], n_epochs=500, log_train_every=25)
         Y_train_ps = label_model.predict_proba(Ls[0])
 
         # Creating a really large end model to use lots of memory
@@ -43,7 +43,7 @@ class GPUTest(unittest.TestCase):
             l2=0.1,
             batch_size=256,
             n_epochs=3,
-            print_every=1,
+            log_train_every=1,
             validation_metric="f1",
         )
 
