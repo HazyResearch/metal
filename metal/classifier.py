@@ -29,9 +29,6 @@ else:
     else:
         from tqdm import tqdm
 
-global warnings_given
-warnings_given = set([])
-
 
 class Classifier(nn.Module):
     """Simple abstract base class for a probabilistic classifier.
@@ -699,20 +696,6 @@ class Classifier(nn.Module):
             true_val = getattr(self, name)
             if val != true_val:
                 raise Exception(f"{name} = {val}, but should be {true_val}.")
-
-    def warn_once(self, msg, msg_name=None):
-        """Prints a warning statement just once
-
-        Args:
-            msg: The warning message
-            msg_name: [optional] The name of the warning. If None, the msg_name
-                will be the msg itself.
-        """
-        assert isinstance(msg, str)
-        msg_name = msg_name if msg_name else msg
-        if msg_name not in warnings_given:
-            warnings.warn(msg)
-        warnings_given.add(msg_name)
 
     @staticmethod
     def _stack_batches(X):

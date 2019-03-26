@@ -1,6 +1,7 @@
 import argparse
 import copy
 import random
+import warnings
 from collections import defaultdict
 
 import numpy as np
@@ -450,6 +451,25 @@ def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None):
             output[i, :length] = item
 
     return output
+
+
+global warnings_given
+warnings_given = set([])
+
+
+def warn_once(self, msg, msg_name=None):
+    """Prints a warning statement just once
+
+    Args:
+        msg: The warning message
+        msg_name: [optional] The name of the warning. If None, the msg_name
+            will be the msg itself.
+    """
+    assert isinstance(msg, str)
+    msg_name = msg_name if msg_name else msg
+    if msg_name not in warnings_given:
+        warnings.warn(msg)
+    warnings_given.add(msg_name)
 
 
 # DEPRECATION: This is replaced by move_to_device
