@@ -26,7 +26,8 @@ from metal.mmtl.modules import (
 from metal.mmtl.payload import Payload
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.slicing import create_slice_task
-from metal.mmtl.task import ClassificationTask, RegressionTask, TokenClassificationTask
+from metal.mmtl.task import ClassificationTask, RegressionTask
+from metal.mmtl.token_task import TokenClassificationTask
 from metal.utils import recursive_merge_dicts, set_seed
 
 ALL_TASKS = [
