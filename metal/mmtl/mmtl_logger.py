@@ -98,14 +98,8 @@ class Logger(object):
     def print_to_screen(self, metrics_dict):
         """Print all metrics in metrics_dict to screen"""
         score_strings_by_task = defaultdict(list)
-        for full_name, value in metrics_dict.items():
-            if len(full_name.split("/")) == 4:
-                task_name, payload_name, label_name, metric_name = full_name.split("/")
-            else:
-                msg = f"Metric should have form task/payload/metric, not: {full_name}"
-                raise Exception(msg)
-
-            metric_name = f"{payload_name}/{label_name}/{metric_name}"
+        for full_metric_name, value in metrics_dict.items():
+            task_name, metric_name = full_metric_name.split("/", maxsplit=1)
             if isinstance(value, float):
                 score_strings_by_task[task_name].append(f"{metric_name}={value:0.2e}")
             else:

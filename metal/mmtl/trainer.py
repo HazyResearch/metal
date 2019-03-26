@@ -272,6 +272,9 @@ class MultitaskTrainer(object):
 
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(model, payloads, batch_size)
+                # Confirm metrics being produced are in proper format
+                if epoch == 0 and batch_num == 0:
+                    self._validate_metrics_dict(metrics_dict)
 
                 # Apply learning rate scheduler
                 self._update_lr_scheduler(model, batch_id)
@@ -361,6 +364,8 @@ class MultitaskTrainer(object):
             torch.save(model, full_model_path, pickle_module=dill)
             print(f"Full model saved at {full_model_path}")
 
+        return metrics_dict
+
     def _execute_logging(self, model, payloads, batch_size, force_log=False):
         model.eval()
         metrics_dict = {}
@@ -386,6 +391,7 @@ class MultitaskTrainer(object):
 
         self.metrics_hist.update(metrics_dict)
         model.train()
+
         return metrics_dict
 
     def aggregate_losses(self):
@@ -864,6 +870,15 @@ class MultitaskTrainer(object):
                 "task_metrics is not empty"
             )
             raise Exception(msg)
+
+    def _validate_metrics_dict(self, metrics_dict):
+        for full_name in metrics_dict:
+            if len(full_name.split("/")) != 4:
+                msg = (
+                    f"Metric should have form task/payload/label_name/metric, not: "
+                    f"{full_name}"
+                )
+                raise Exception(msg)
 
     def _check_metrics(self):
         assert isinstance(self.config["metrics_config"]["task_metrics"], list)
