@@ -420,22 +420,17 @@ def split_data(
 
 
 def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None):
-    """Create a right-padded [n, ?] tensor from an uneven iterable of iterables.
+    """Create a padded [n, ?] Tensor from a potentially uneven iterable of Tensors.
     Modified from github.com/facebookresearch/ParlAI
 
-    Returns (padded, lengths), where padded is the padded matrix, and lengths
-    is a list containing the unpadded lengths of each row.
+    Args:
+        items: (list) the items to merge and pad
+        pad_idx: (int) the value to use for padding
+        left_padded: (bool) if True, pad on the left instead of the right
+        max_len: (int) if not None, the maximum allowable item length
 
-    Matrix is right-padded (filled to the right) by default, but can be
-    left padded if left_padded=True.
-
-    :param list[iter[int]] items: List of items
-    :param int pad_idx: the value to use for padding
-    :param bool left_padded: if True, pad on the left instead of the right
-    :param int max_len: if None, the max length is the maximum allowable item length
-
-    :returns: (padded, lengths) tuple
-    :rtype: (Tensor[int64], list[int])
+    Returns:
+        padded_tensor: (Tensor) the merged and padded tensor of items
     """
     # number of items
     n = len(items)
@@ -443,21 +438,10 @@ def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None):
     lens = [len(item) for item in items]
     # max seq_len dimension
     max_seq_len = max(lens) if max_len is None else max_len
-    # infer dtype
-    if isinstance(items[0][0], float):
-        dtype = torch.float
-    elif isinstance(items[0][0], int):
-        dtype = torch.long
-    elif isinstance(items[0][0], torch.Tensor):
-        dtype = items[0][0].dtype
-    else:
-        raise NotImplementedError
 
-    output = torch.full((n, max_seq_len), pad_idx, dtype=dtype)
+    output = items[0].new_full((n, max_seq_len), pad_idx)
 
     for i, (item, length) in enumerate(zip(items, lens)):
-        if not isinstance(item, torch.Tensor):
-            item = torch.tensor(item, dtype=dtype)
         if left_padded:
             # place at end
             output[i, max_seq_len - length :] = item
@@ -465,7 +449,7 @@ def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None):
             # place at beginning
             output[i, :length] = item
 
-    return output, lens
+    return output
 
 
 # DEPRECATION: This is replaced by move_to_device

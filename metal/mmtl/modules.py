@@ -5,6 +5,23 @@ import torch.nn as nn
 from pytorch_pretrained_bert.modeling import BertModel
 
 
+class MetalModule(nn.Module):
+    """An abstract class of a module that accepts and returns a dict"""
+
+    def __init__(self):
+        raise NotImplementedError
+
+
+class MetalModuleWrapper(nn.Module):
+    def __init__(self, module):
+        super().__init__()
+        self.module = module
+
+    def forward(self, X):
+        X["data"] = self.module(X["data"])
+        return X
+
+
 class BertRaw(nn.Module):
     """The Huggingface BertModel that passes on attention and drop extra linear layer
 

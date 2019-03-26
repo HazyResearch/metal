@@ -17,11 +17,7 @@ from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
 from metal.logging.utils import split_full_metric
 from metal.mmtl.glue.glue_metrics import GLUE_METRICS, glue_score
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
-from metal.mmtl.task_scheduler import (
-    ProportionalScheduler,
-    StagedScheduler,
-    SuperStagedScheduler,
-)
+from metal.mmtl.task_scheduler import ProportionalScheduler
 from metal.utils import recursive_merge_dicts, recursive_transform, set_seed
 
 # Import tqdm_notebook if in Jupyter notebook
@@ -91,7 +87,7 @@ trainer_defaults = {
         "task_metrics": [],
         # The list of trainer standard metrics to calculate (and log); e.g., "glue"
         # Note that glue_partial is no longer supported.
-        "trainer_metrics": ["glue"],
+        "trainer_metrics": [],
         # Run scorers over a maximum of this many examples if > 0.
         "max_valid_examples": 0,
         # The name of the split to run scoring on during training
@@ -147,7 +143,7 @@ trainer_defaults = {
         # available for lookup; assumes valid split unless appended with "train/"
         "checkpoint_best": False,
         # "checkpoint_final": False,  # Save a model checkpoint at the end of training
-        "checkpoint_metric": "model/train/loss",
+        "checkpoint_metric": "model/train/all/loss",
         "checkpoint_metric_mode": "min",
         # If None, checkpoint_dir defaults to the log_dir/run_dir/run_name/checkpoints
         # Note that using this default path is strongly recommended.
@@ -175,22 +171,12 @@ class MultitaskTrainer(object):
         # and eventually write to disk.
         self.config = recursive_merge_dicts(self.config, kwargs, misses="insert")
 
-        # Calculate epoch statistics
-        # NOTE: Because we use SubsetSampler, one dataset may actually include two
-        # splits, so we calculate approximate count size using batch_size * num_batches
         self.task_names = [task_name for task_name in model.task_map]
         self.payload_names = [payload.name for payload in payloads]
         train_payloads = [p for p in payloads if p.split == "train"]
 
-        # Ensure that we have task heads for each payload
-        payload_names = []
-        for p in payloads:
-            payload_names.extend(p.task_names)
-        if set(payload_names) != set(self.task_names):
-            if self.config["verbose"]:
-                print(f"Adding missing slice heads to train {set(payload_names)}")
-            model.add_missing_slice_heads(payload_names, deepcopy=True)
-
+        # Calculate epoch statistics
+        # NOTE: We calculate approximate count size using batch_size * num_batches
         self.batches_per_epoch = sum([len(p.data_loader) for p in train_payloads])
         self.examples_per_epoch = sum(
             [len(p.data_loader) * p.data_loader.batch_size for p in train_payloads]
@@ -231,7 +217,7 @@ class MultitaskTrainer(object):
                 total=self.batches_per_epoch,
                 disable=(not progress_bar),
             )
-            for batch_num, (batch, task_names) in t:
+            for batch_num, (batch, payload_name, labels_to_tasks) in t:
                 # NOTE: actual batch_size may not equal config's target batch_size,
                 # for example due to orphan batches. We base batch size off of Y instead
                 # of X because we know Y will contain tensors, whereas X can be of any
@@ -246,7 +232,7 @@ class MultitaskTrainer(object):
                 # Forward pass to calculate the average loss per example by task
                 # Counts stores the number of examples in each batch with labels by task
                 loss_dict, count_dict = model.calculate_loss(
-                    *batch, task_names=task_names
+                    *batch, payload_name, labels_to_tasks
                 )
 
                 # NOTE: If there were no "active" examples, loss_dict is empty
@@ -277,12 +263,12 @@ class MultitaskTrainer(object):
                 self.optimizer.step()
 
                 # Update loss
-                for task_name in task_names:
-                    if count_dict[task_name]:
-                        self.running_losses[task_name] += (
-                            loss_dict[task_name].item() * count_dict[task_name]
+                for loss_name in loss_dict:
+                    if count_dict[loss_name]:
+                        self.running_losses[loss_name] += (
+                            loss_dict[loss_name].item() * count_dict[loss_name]
                         )
-                        self.running_examples[task_name] += count_dict[task_name]
+                        self.running_examples[loss_name] += count_dict[loss_name]
 
                 # Calculate metrics, log, and checkpoint as necessary
                 metrics_dict = self._execute_logging(model, payloads, batch_size)
@@ -292,7 +278,7 @@ class MultitaskTrainer(object):
 
                 # tqdm output
                 if len(model.task_map) == 1:
-                    t.set_postfix(loss=metrics_dict["model/train/loss"])
+                    t.set_postfix(loss=metrics_dict["model/train/all/loss"])
                 else:
                     losses = {}
                     for key, val in metrics_dict.items():
@@ -410,23 +396,23 @@ class MultitaskTrainer(object):
         If the loss for a certain task has never been reported, report it as None.
         """
         metrics_dict = {}
-        for task_name in self.task_names:
-            if self.running_examples[task_name]:
-                loss = self.running_losses[task_name] / self.running_examples[task_name]
-            elif self.metrics_hist.get(f"{task_name}/train/loss"):
-                loss = self.metrics_hist[f"{task_name}/train/loss"]
+        for loss_name in self.running_losses:
+            if self.running_examples[loss_name]:
+                loss = self.running_losses[loss_name] / self.running_examples[loss_name]
+            elif self.metrics_hist.get(loss_name):
+                loss = self.metrics_hist[loss_name]
             else:
                 loss = None
-            metrics_dict[f"{task_name}/train/loss"] = loss
+            metrics_dict[loss_name] = loss
         # Report micro average of losses
         total_loss = sum(self.running_losses.values())
         total_examples = sum(self.running_examples.values())
         if total_examples > 0:
-            metrics_dict["model/train/loss"] = total_loss / total_examples
+            metrics_dict["model/train/all/loss"] = total_loss / total_examples
         # Log learning rate
         if self.config["logger_config"]["log_lr"]:
             # For now just report one global lr; eventually support lr groups
-            metrics_dict[f"model/train/lr"] = self.optimizer.param_groups[0]["lr"]
+            metrics_dict[f"model/train/all/lr"] = self.optimizer.param_groups[0]["lr"]
         return metrics_dict
 
     def calculate_metrics(self, model, payloads, split=None):
@@ -450,25 +436,26 @@ class MultitaskTrainer(object):
         # in calculate_task_metrics. We do this because we need access to the total
         # loss and examples counts; we can't just average the task-specific losses
         # equally after the fact.
-        trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
-        target_loss_metrics = [
-            metric
-            for metric in (task_metrics + trainer_metrics)
-            if "/loss" in metric and "/train/" not in metric
-        ]
-        # Calculate loss for non-train splits
-        if target_loss_metrics:
-            if split is None:
-                splits = set(p.split for p in payloads) - set(["train"])
-            else:
-                splits = [split]
-            for loss_split in splits:
-                loss_dict = self._calculate_valid_losses(
-                    model, payloads, loss_split, max_examples=max_examples
-                )
-                for loss_name, loss_value in loss_dict.items():
-                    if loss_name in target_loss_metrics:
-                        metrics_dict[loss_name] = loss_value
+        # TODO: Restore ability to calculate loss on other splits
+        # trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
+        # target_loss_metrics = [
+        #     metric
+        #     for metric in (task_metrics + trainer_metrics)
+        #     if "/loss" in metric and "/train/" not in metric
+        # ]
+        # # Calculate loss for non-train splits
+        # if target_loss_metrics:
+        #     if split is None:
+        #         splits = set(p.split for p in payloads) - set(["train"])
+        #     else:
+        #         splits = [split]
+        #     for loss_split in splits:
+        #         loss_dict = self._calculate_valid_losses(
+        #             model, payloads, loss_split, max_examples=max_examples
+        #         )
+        #         for loss_name, loss_value in loss_dict.items():
+        #             if loss_name in target_loss_metrics:
+        #                 metrics_dict[loss_name] = loss_value
 
         # Calculate metrics from Scorers
         for payload in payloads:
@@ -481,17 +468,17 @@ class MultitaskTrainer(object):
         return metrics_dict
 
     def calculate_trainer_metrics(self, model, payloads, split):
-        trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
+        # trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
         metrics_dict = {}
-        # HACK: glue should not be hardcoded
-        if "glue" in trainer_metrics:
-            if len(model.task_map) < 9:
-                msg = "You requested glue score but have fewer than 9 tasks. Be aware."
-                warnings.warn(msg)
-            metric = "glue"
-            metrics_dict[f"model/{split}/{metric}"] = glue_score(
-                self.metrics_hist, split
-            )
+        # TODO: Move glue calculation to be passed in for glue application specifically
+        # if "glue" in trainer_metrics:
+        #     if len(model.task_map) < 9:
+        #         msg = "You requested glue score but have fewer than 9 tasks. Be aware."
+        #         warnings.warn(msg)
+        #     metric = "glue"
+        #     metrics_dict[f"model/{split}/{metric}"] = glue_score(
+        #         self.metrics_hist, split
+        #     )
         return metrics_dict
 
     def _checkpoint(self, model, metrics_dict):
@@ -816,18 +803,6 @@ class MultitaskTrainer(object):
     def _set_task_scheduler(self, model, payloads):
         if self.config["task_scheduler"] == "proportional":
             self.task_scheduler = ProportionalScheduler(model, payloads, "train")
-        elif self.config["task_scheduler"] == "staged":
-            self.task_scheduler = StagedScheduler(model, payloads, "train")
-        elif self.config["task_scheduler"] == "superstaged":
-            if self.config["lr_scheduler"] is not None:
-                msg = (
-                    "When using task_scheduler=='superstaged', lr_scheduler should be "
-                    "None"
-                )
-                warnings.warn(msg)
-            self.task_scheduler = SuperStagedScheduler(
-                model, payloads, self.config["n_epochs"], "train"
-            )
         else:
             raise NotImplementedError
 
@@ -938,7 +913,7 @@ class MultitaskTrainer(object):
                 )
             else:
                 metrics_dict[full_name] = np.nan
-        metrics_dict[f"model/{split}/loss"] = sum(task_losses.values()) / sum(
+        metrics_dict[f"model/{split}/all/loss"] = sum(task_losses.values()) / sum(
             task_examples.values()
         )
         return metrics_dict

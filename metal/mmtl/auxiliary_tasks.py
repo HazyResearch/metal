@@ -88,7 +88,7 @@ def add_third_labels(payload):
         Y_list.append(mark_thirds(x))
     Y, _ = padded_tensor(Y_list)
 
-    payload.add_label_set("THIRD", label_set=Y)
+    payload.add_label_set("THIRD", label_list=Y)
     return payload
 
 
@@ -141,7 +141,7 @@ def add_spacy_labels(payload, label_name, spacy_attr, null_label="NULL"):
         Y_list.append(token_labels)
 
     Y, _ = padded_tensor(Y_list)
-    payload.add_label_set(label_name, label_set=Y)
+    payload.add_label_set(label_name, label_list=Y)
     return payload
 
 

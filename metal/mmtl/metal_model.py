@@ -1,4 +1,6 @@
 import copy
+import warnings
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -50,9 +52,13 @@ class MetalModel(nn.Module):
 
         # Move model to device now, then move data to device in forward() or calculate_loss()
         if self.config["device"] >= 0:
-            if self.config["verbose"]:
-                print("Using GPU...")
-            self.to(torch.device(f"cuda:{self.config['device']}"))
+            if torch.cuda.is_available():
+                if self.config["verbose"]:
+                    print("Using GPU...")
+                self.to(torch.device(f"cuda:{self.config['device']}"))
+            else:
+                if self.config["verbose"]:
+                    print("No cuda device available. Using cpu instead.")
 
         # Show network
         if self.config["verbose"]:
@@ -111,52 +117,66 @@ class MetalModel(nn.Module):
                 outputs[head_module] = head_module(outputs[attention_module])
         return {t: outputs[self.head_modules[t]] for t in task_names}
 
-    def calculate_loss(self, X, Ys, task_names):
+    def calculate_loss(self, X, Ys, payload_name, labels_to_tasks):
         """Returns a dict of {task_name: loss (a FloatTensor scalar)}.
 
         Args:
             X: an appropriate input for forward(), either a Tensor or tuple
             Ys: a dict of {task_name: labels} where labels is [n, ?]
-            task_names: a list of the names of the tasks to compute loss for
+            labels_to_tasks: a dict of {label_name: task_name} indicating which task
+                head to use to calculate the loss for each label_set.
         """
+        task_names = set(labels_to_tasks.values())
         outputs = self.forward(X, task_names)
         loss_dict = {}  # Stores the loss by task
         count_dict = {}  # Stores the number of active examples by task
-        for task_name in task_names:
-            Y = Ys[task_name]
+
+        for label_name, task_name in labels_to_tasks.items():
+            loss_name = f"{task_name}/{payload_name}/{label_name}/loss"
+            Y = Ys[label_name]
             out = outputs[task_name]
             # Identify which instances have at least one non-zero target labels
             active = torch.any(Y.detach() != 0, dim=1)
-            count_dict[task_name] = active.sum().item()
+            count_dict[loss_name] = active.sum().item()
+
             # If there are inactive instances, slice them out to save computation
+            # and ignore their contribution to the loss
             if 0 in active:
                 Y = Y[active]
-                # NOTE: This makes an assumption we should list elsewhere (and confirm
-                # with helpful error messages) that if X has multiple fields, they'll
-                # be arranged in a tuple where each component has batch_size first dim.
                 if isinstance(out, torch.Tensor):
                     out = out[active]
-                elif isinstance(out, tuple):
-                    out = move_to_device(tuple(x[active] for x in out))
-            # If no examples in this batch have labels for this task, skip loss calc
+                # If the output of the head has multiple fields, slice them all
+                elif isinstance(out, dict):
+                    out = move_to_device({k: v[active] for k, v in out.items()})
+
+            # Convert to half precision last thing if applicable
             if self.config["fp16"] and Y.dtype == torch.float32:
                 out = out.half()
                 Y = Y.half()
+
+            # If no examples in this batch have labels for this task, skip loss calc
             # Active has type torch.uint8; avoid overflow with long()
             if active.long().sum():
-                task_loss = self.loss_hat_funcs[task_name](
+                label_loss = self.loss_hat_funcs[task_name](
                     out, move_to_device(Y, self.config["device"])
                 )
-                assert isinstance(task_loss.item(), float)
-                loss_dict[task_name] = (
-                    task_loss * self.task_map[task_name].loss_multiplier
+                assert isinstance(label_loss.item(), float)
+                loss_dict[loss_name] = (
+                    label_loss * self.task_map[task_name].loss_multiplier
                 )
 
         return loss_dict, count_dict
 
     @torch.no_grad()
     def calculate_probs(self, X, task_names):
-        """Returns a dict of {task_name: probs} where probs is [n]-length list}.
+        """Returns a dict of {task_name: probs}
+
+        Args:
+            X: instances to feed through the network
+            task_names: the names of the tasks for which to calculate outputs
+        Returns:
+            {task_name: probs}: probs is the output of the output_hat for the given
+                task_head
 
         The type of each entry in probs depends on the task type:
             instance-based tasks: each entry in probs is a [k]-len array
@@ -198,7 +218,7 @@ class MetalModel(nn.Module):
             payload: a Payload to score
             metrics: a list of full metric names, a single full metric name, or []:
                 list: a list of full metric names supported by the tasks' Scorers.
-                    (full metric names are of the form task/payload/metric)
+                    (full metric names are of the form task/payload/labelset/metric)
                     Only these metrics will be calculated and returned.
                 []: defaults to all supported metrics for the given payload's Tasks
                 str: a single full metric name
@@ -215,36 +235,42 @@ class MetalModel(nn.Module):
         # If no specific metrics were requested, calculate all available metrics
         if metrics:
             metrics_list = metrics if isinstance(metrics, list) else [metrics]
-            assert all(len(metric.split("/")) == 2 for metric in metrics_list)
-            task_names = set([metric.split("/")[0] for metric in metrics_list])
-            target_metrics = {}
-            for task_name in task_names:
-                target_metrics[task_name] = [m for m in metrics if task_name in m]
+            assert all(len(metric.split("/")) == 4 for metric in metrics_list)
+            target_metrics = defaultdict(list)
+            target_tasks = []
+            target_labels = []
+            for full_metric_name in metrics:
+                task_name, payload_name, label_name, metric_name = full_metric_name.split(
+                    "/"
+                )
+                target_tasks.append(task_name)
+                target_labels.append(label_name)
+                target_metrics[label_name].append(metric_name)
         else:
-            task_names = payload.task_names
-            target_metrics = {task_name: None for task_name in task_names}
-
-        # NOTE: If evaluating on slice payloads that have no corresponding task head
-        # create that slice head and re-map this payload.
-        if set(task_names) != set(self.task_map.keys()):
-            self.add_missing_slice_heads(task_names, deepcopy=False)
+            target_tasks = set(payload.labels_to_tasks.values())
+            target_labels = set(payload.labels_to_tasks.keys())
+            target_metrics = {
+                label_name: None for label_name in payload.labels_to_tasks
+            }
 
         Ys, Ys_probs, Ys_preds = self.predict_with_gold(
-            payload, task_names, return_preds=True, **kwargs
+            payload, target_tasks, target_labels, return_preds=True, **kwargs
         )
 
         metrics_dict = {}
-        for task_name in task_names:
+        for label_name, task_name in payload.labels_to_tasks.items():
             scorer = self.task_map[task_name].scorer
             task_metrics_dict = scorer.score(
-                Ys[task_name],
+                Ys[label_name],
                 Ys_probs[task_name],
                 Ys_preds[task_name],
-                target_metrics=target_metrics[task_name],
+                target_metrics=target_metrics[label_name],
             )
             # Expand short metric names into full metric names
-            for metric, score in task_metrics_dict.items():
-                full_metric_name = f"{task_name}/{payload.name}/{metric}"
+            for metric_name, score in task_metrics_dict.items():
+                full_metric_name = (
+                    f"{task_name}/{payload.name}/{label_name}/{metric_name}"
+                )
                 metrics_dict[full_metric_name] = score
 
         # If a single metric was given as a string (not list), return a float
@@ -256,55 +282,58 @@ class MetalModel(nn.Module):
 
     @torch.no_grad()
     def predict_with_gold(
-        self, payload, task_names=None, return_preds=False, max_examples=0, **kwargs
+        self,
+        payload,
+        target_tasks=None,
+        target_labels=None,
+        return_preds=False,
+        max_examples=0,
+        **kwargs,
     ):
-        """Extracts (Y) or calculates (Y_prods, Y_preds) for the given payload and tasks
+        """Extracts Y and calculates Y_prods, Y_preds for the given payload and tasks
 
         To get just the probabilities or predictions for a single task, consider using
         predict() or predict_probs().
 
         Args:
             payload: the Payload to make predictions for
-            task_names: if not None, predict probs only for the specified tasks;
-                otherwise, predict probs for all tasks present in the payload
+            target_tasks: if not None, predict probs only for the specified tasks;
+                otherwise, predict probs for all tasks with corresponding label_sets
+                in the payload
+            target_labels: if not None, return labels for only the specified label_sets;
+                otherwise, return all label_sets
             return_preds: if True, also include preds in return values
             max_examples: if > 0, predict for a maximum of this many examples
 
+        # TODO: consider returning Ys as tensors instead of lists (padded if necessary)
         Returns:
-            Ys: a {task_name: Y} dict where Y is an [n] list of labels (often ints)
+            Ys: a {label_name: Y} dict where Y is an [n] list of labels (often ints)
             Ys_probs: a {task_name: Y_probs} dict where Y_probs is a [n] list of
                 probabilities
             Ys_preds: a {task_name: Y_preds} dict where Y_preds is a [n] list of
                 predictions
         """
-        if task_names:
-            for task_name in task_names:
-                if task_name not in payload.task_names:
-                    msg = (
-                        f"Could not find the specified task_name {task_name} in "
-                        f"payload {payload}"
-                    )
-                    raise Exception(msg)
-        else:
-            task_names = payload.task_names
+        validate_targets(payload, target_tasks, target_labels)
+        if target_tasks is None:
+            target_tasks = set(payload.labels_to_tasks.values())
 
-        Ys = {task_name: [] for task_name in task_names}
-        Ys_probs = {task_name: [] for task_name in task_names}
+        Ys = defaultdict(list)
+        Ys_probs = defaultdict(list)
 
         total = 0
-        for batch_num, batch in enumerate(payload.data_loader):
-            Xb = batch[0]
-            Yb = batch[1]
-            Yb_probs = self.calculate_probs(Xb, task_names)
-            for task_name in task_names:
-                Ys[task_name].extend(Yb[task_name].cpu().numpy())
-                Ys_probs[task_name].extend(Yb_probs[task_name])
+        for batch_num, (Xb, Yb) in enumerate(payload.data_loader):
+            Yb_probs = self.calculate_probs(Xb, target_tasks)
+            for task_name, yb_probs in Yb_probs.items():
+                Ys_probs[task_name].extend(yb_probs)
+            for label_name, yb in Yb.items():
+                if label_name in target_labels or target_labels is None:
+                    Ys[label_name].extend(yb.cpu().numpy())
             total += len(Xb)
             if max_examples > 0 and total >= max_examples:
                 break
 
         if max_examples:
-            Ys = {task_name: Y[:max_examples] for task_name, Y in Ys.items()}
+            Ys = {label_name: Y[:max_examples] for label_name, Y in Ys.items()}
             Ys_probs = {
                 task_name: Y_probs[:max_examples]
                 for task_name, Y_probs in Ys_probs.items()
@@ -332,15 +361,6 @@ class MetalModel(nn.Module):
             Y_probs: an [n] list of probabilities
         """
         self.eval()
-        if task_name is None and payload.name in payload.task_names:
-            task_name = payload.name
-        else:
-            msg = (
-                f"Argument task_name must be in payload.task_names "
-                f"({payload.task_names})"
-            )
-            raise Exception(msg)
-
         _, Ys_probs = self.predict_with_gold(payload, task_name, **kwargs)
         return Ys_probs[task_name]
 
@@ -357,15 +377,6 @@ class MetalModel(nn.Module):
             Y_preds: an [n] list of predictions
         """
         self.eval()
-        if task_name is None and payload.name in payload.task_names:
-            task_name = payload.name
-        else:
-            msg = (
-                f"Argument task_name must be in payload.task_names "
-                f"({payload.task_names})"
-            )
-            raise Exception(msg)
-
         _, Ys_probs, Ys_preds = self.predict_with_gold(
             payload, task_name, return_preds=True, **kwargs
         )
@@ -376,51 +387,25 @@ class MetalModel(nn.Module):
         else:
             return Y_preds
 
-    # ---------------------------------- SLICING ------------------------------------
-    def _copy_task_modules(self, from_task, to_task, deepcopy=False):
-        """ Maps all modules from_task --> to_task."""
-        if self.config["verbose"]:
-            print(f"Shallow copying modules from {from_task} to {to_task}")
 
-        if deepcopy:
-            self.task_map[to_task] = copy.deepcopy(self.task_map[from_task])
-            self.input_modules[to_task] = copy.deepcopy(self.input_modules[from_task])
-            self.middle_modules[to_task] = copy.deepcopy(self.middle_modules[from_task])
-            self.attention_modules[to_task] = copy.deepcopy(
-                self.attention_modules[from_task]
-            )
-            self.head_modules[to_task] = copy.deepcopy(self.head_modules[from_task])
-            self.loss_hat_funcs[to_task] = copy.deepcopy(self.loss_hat_funcs[from_task])
-            self.output_hat_funcs[to_task] = copy.deepcopy(
-                self.output_hat_funcs[from_task]
-            )
-        else:
-            self.task_map[to_task] = self.task_map[from_task]
-            self.input_modules[to_task] = self.input_modules[from_task]
-            self.middle_modules[to_task] = self.middle_modules[from_task]
-            self.attention_modules[to_task] = self.attention_modules[from_task]
-            self.head_modules[to_task] = self.head_modules[from_task]
-            self.loss_hat_funcs[to_task] = self.loss_hat_funcs[from_task]
-            self.output_hat_funcs[to_task] = self.output_hat_funcs[from_task]
+def validate_targets(payload, target_tasks, target_labels):
+    if target_tasks:
+        for task_name in target_tasks:
+            if task_name not in set(payload.labels_to_tasks.values()):
+                msg = (
+                    f"Could not find the specified task_name {task_name} in "
+                    f"payload {payload}."
+                )
+                raise Exception(msg)
 
-    def add_missing_slice_heads(self, all_tasks, deepcopy):
-        """Given a set of all tasks (likely defined by model payloads), add additional
-        task heads that are copies (deep or shallow) of the original tasks.
-
-        For example, "COLA:question" might be a labelset, but the model might be missing
-        the corresponding task head. Call this function to make a copy of the (pretrained)
-        "COLA" task head with the key "COLA:question"
-        """
-
-        for task_name in all_tasks:
-            if task_name not in self.task_map:
-                # NOTE: assume that all slice tasks are structured "{foo_task}:{bar_slice}"
-                orig_task_name = task_name.split(":")[0]
-                if orig_task_name not in all_tasks:
-                    raise ValueError(
-                        f"'{orig_task_name}' task was not found to evaluate '{task_name}' slice"
-                    )
-                self._copy_task_modules(orig_task_name, task_name)
+    if target_labels:
+        for label_name in target_labels:
+            if label_name not in payload.labels_to_tasks:
+                msg = (
+                    f"Could not find the specified label_set {label_name} in "
+                    f"payload {payload}."
+                )
+                raise Exception(msg)
 
 
 def probs_to_preds(probs):

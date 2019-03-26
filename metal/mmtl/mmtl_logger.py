@@ -99,17 +99,17 @@ class Logger(object):
         """Print all metrics in metrics_dict to screen"""
         score_strings_by_task = defaultdict(list)
         for full_name, value in metrics_dict.items():
-            if full_name.count("/") == 2:
-                task, payload, metric = full_name.split("/")
+            if len(full_name.split("/")) == 4:
+                task_name, payload_name, label_name, metric_name = full_name.split("/")
             else:
                 msg = f"Metric should have form task/payload/metric, not: {full_name}"
                 raise Exception(msg)
 
-            metric_name = f"{payload}/{metric}"
+            metric_name = f"{payload_name}/{label_name}/{metric_name}"
             if isinstance(value, float):
-                score_strings_by_task[task].append(f"{metric_name}={value:0.2e}")
+                score_strings_by_task[task_name].append(f"{metric_name}={value:0.2e}")
             else:
-                score_strings_by_task[task].append(f"{metric_name}={value}")
+                score_strings_by_task[task_name].append(f"{metric_name}={value}")
 
         if self.log_unit == "epochs":
             if int(self.unit_total) == self.unit_total:
