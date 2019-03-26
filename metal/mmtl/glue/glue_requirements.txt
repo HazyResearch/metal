@@ -1,1 +1,4 @@
 pyorch_pretrained_bert
+ntlk
+dill
+spacy
