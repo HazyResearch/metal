@@ -74,7 +74,8 @@ class GLUEDataset(data.Dataset):
                 is in sent1/sent2 (e.g. [[0, 0, 0, 0, 1, 1, 1], ...])
         """
         self.sentences = sentences
-        self.labels = {dataset_name: torch.tensor(labels, dtype=label_type).view(-1, 1)}
+        label_name = f"{dataset_name}_gold"
+        self.labels = {label_name: torch.tensor(labels, dtype=label_type).view(-1, 1)}
         self.label_fn = label_fn
         self.inv_label_fn = inv_label_fn
         self.uids = uids
@@ -96,9 +97,10 @@ class GLUEDataset(data.Dataset):
         Note that the attention mask for each batch is added in the collate function,
         once the max_seq_len for that batch is known.
         """
-        x = (self.bert_tokens[index], self.bert_segments[index])
+        x = {"data": self.bert_tokens[index], "segments": self.bert_segments[index]}
         ys = {
-            task_name: label_set[index] for task_name, label_set in self.labels.items()
+            label_name: label_set[index]
+            for label_name, label_set in self.labels.items()
         }
         return x, ys
 
@@ -150,26 +152,29 @@ class GLUEDataset(data.Dataset):
             batch_list: a list of tuples containing ((tokens, segments), labels)
         Returns:
             X: instances for BERT: (tok_matrix, seg_matrix, mask_matrix)
-            Y: a dict of {task_name: labels} where labels[idx] are the appropriate
+            Y: a dict of {label_name: labels} where labels[idx] are the appropriate
                 labels for that task
         """
         tokens_list = []
         segments_list = []
-        Y_lists = {task_name: [] for task_name in self.labels}
+        Y_lists = {label_name: [] for label_name in self.labels}
 
         for instance in batch_list:
             x, ys = instance
-            (bert_tokens, bert_segments) = x
-            tokens_list.append(bert_tokens)
-            segments_list.append(bert_segments)
-            for task_name, y in ys.items():
-                Y_lists[task_name].append(y)
-        tokens_tensor, _ = padded_tensor(tokens_list)
-        segments_tensor, _ = padded_tensor(segments_list)
+            tokens_list.append(x["data"])
+            segments_list.append(x["segments"])
+            for label_name, y in ys.items():
+                Y_lists[label_name].append(y)
+        tokens_tensor = padded_tensor(tokens_list)
+        segments_tensor = padded_tensor(segments_list)
         masks_tensor = torch.gt(tokens_tensor.data, 0)
         assert tokens_tensor.shape == segments_tensor.shape
 
-        X = (tokens_tensor.long(), segments_tensor.long(), masks_tensor.long())
+        X = {
+            "data": tokens_tensor.long(),
+            "segments": segments_tensor.long(),
+            "masks": masks_tensor.long(),
+        }
         Ys = self._collate_labels(Y_lists)
         return X, Ys
 
@@ -188,7 +193,7 @@ class GLUEDataset(data.Dataset):
             list of scalars (instance labels) -> [n,] tensor
             list of tensors/lists/arrays (token labels) -> [n, seq_len] padded tensor
         """
-        for task_name, Y in Ys.items():
+        for label_name, Y in Ys.items():
             if isinstance(Y[0], int):
                 Y = torch.tensor(Y, dtype=torch.long)
             elif isinstance(Y[0], float):
@@ -202,17 +207,14 @@ class GLUEDataset(data.Dataset):
                 or isinstance(Y[0], np.ndarray)
                 or isinstance(Y[0], torch.Tensor)
             ):
-                Y, _ = padded_tensor(Y)
+                Y = padded_tensor(Y)
             else:
-                msg = (
-                    f"Unrecognized dtype of label_set for task {task_name}: "
-                    f"{type(Y[0])}"
-                )
+                msg = f"Unrecognized dtype of label_set {label_name}: " f"{type(Y[0])}"
                 raise Exception(msg)
             # Ensure that first dimension of Y is n
             if Y.dim() == 1:
                 Y = Y.view(-1, 1)
-            Ys[task_name] = Y
+            Ys[label_name] = Y
         return Ys
 
     def tokenize_bert(self, bert_vocab, max_len):
@@ -256,8 +258,8 @@ class GLUEDataset(data.Dataset):
             token_ids = tokenizer.convert_tokens_to_ids(sent1_tokens + sent2_tokens)
             segments = [0] * len(sent1_tokens) + [1] * len(sent2_tokens)
 
-            bert_tokens.append(token_ids)
-            bert_segments.append(segments)
+            bert_tokens.append(torch.LongTensor(token_ids))
+            bert_segments.append(torch.LongTensor(segments))
 
         return tokenizer, bert_tokens, bert_segments
 

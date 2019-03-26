@@ -2,7 +2,7 @@ import unittest
 
 from nose.tools import nottest
 
-from metal.mmtl.glue.glue_tasks import create_tasks_and_payloads
+from metal.mmtl.glue.glue_tasks import create_glue_tasks_payloads
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.trainer import MultitaskTrainer
 
@@ -22,7 +22,7 @@ class MMTLTest(unittest.TestCase):
             "STSB",
             "QNLI",
         ]
-        tasks, payloads = create_tasks_and_payloads(
+        tasks, payloads = create_glue_tasks_payloads(
             task_names, max_datapoints=100, max_len=200, dl_kwargs={"batch_size": 8}
         )
         cls.tasks = tasks

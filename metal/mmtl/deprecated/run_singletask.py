@@ -1,6 +1,6 @@
 import os
 
-from metal.mmtl.glue.glue_tasks import create_tasks_and_payloads
+from metal.mmtl.glue.glue_tasks import create_glue_tasks_payloads
 from metal.mmtl.metal_model import MetalModel
 from metal.mmtl.trainer import MultitaskTrainer
 
@@ -17,7 +17,7 @@ writer_dict = {
     },
 }
 
-tasks, payloads = create_tasks_and_payloads(
+tasks, payloads = create_glue_tasks_payloads(
     [
         task_name,
         # "COLA",

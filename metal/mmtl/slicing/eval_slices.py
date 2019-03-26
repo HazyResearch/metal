@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from metal.mmtl.debugging.tagger import Tagger
-from metal.mmtl.glue.glue_tasks import create_tasks_and_payloads
+from metal.mmtl.glue.glue_tasks import create_glue_tasks_payloads
 from metal.mmtl.metal_model import MetalModel
 
 
@@ -40,7 +40,7 @@ def eval_on_slices(model_dir, task_names, slice_names, split="dev"):
     max_len = task_config["max_len"]
 
     dl_kwargs = {"shuffle": False}
-    tasks, payloads = create_tasks_and_payloads(
+    tasks, payloads = create_glue_tasks_payloads(
         task_names=task_names,
         bert_model=bert_model,
         max_len=max_len,

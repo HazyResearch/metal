@@ -15,7 +15,7 @@ from metal.mmtl.glue.glue_preprocess import get_task_tsv_config
 from metal.mmtl.glue.glue_tasks import (
     create_glue_dataloaders,
     create_glue_datasets,
-    create_tasks_and_payloads,
+    create_glue_tasks_payloads,
 )
 from metal.mmtl.metal_model import MetalModel, probs_to_preds
 from metal.mmtl.payload import Payload
@@ -237,7 +237,7 @@ if __name__ == "__main__":
             # TODO: find a nicer way to get task names
             # create model
             task_config["splits"] = []
-            tasks, _ = create_tasks_and_payloads(task_names, **task_config)
+            tasks, _ = create_glue_tasks_payloads(task_names, **task_config)
             model = MetalModel(tasks, verbose=False, device=args.device)
             if not args.use_task_checkpoints or len(tasks) == 1:
                 # load model weights

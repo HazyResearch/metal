@@ -92,9 +92,6 @@ class MmtlTest(unittest.TestCase):
         for metric, score in metrics_dict.items():
             self.assertGreater(score, 0.9)
 
-    # def test_mmtl(self):
-    # for metric, score in
-
 
 if __name__ == "__main__":
     unittest.main()

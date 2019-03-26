@@ -13,16 +13,15 @@ from metal.end_model import IdentityModule
 from metal.mmtl.glue.glue_auxiliary_tasks import SPACY_TAGS, auxiliary_task_functions
 from metal.mmtl.glue.glue_datasets import get_glue_dataset
 from metal.mmtl.glue.glue_metrics import acc_f1, matthews_corr, mse, pearson_spearman
-from metal.mmtl.glue.glue_slices import create_slice_labels
-from metal.mmtl.modules import (
+from metal.mmtl.glue.glue_modules import (
     BertExtractCls,
     BertRaw,
     BertTokenClassificationHead,
     BinaryHead,
     MulticlassHead,
     RegressionHead,
-    SoftAttentionModule,
 )
+from metal.mmtl.glue.glue_slices import create_slice_labels
 from metal.mmtl.payload import Payload
 from metal.mmtl.scorer import Scorer
 from metal.mmtl.slicing.slicing import create_slice_task
@@ -79,10 +78,6 @@ task_defaults = {
         "bidirectional": True,
         "lstm_num_layers": 1,
     },
-    "attention_config": {
-        "attention_module": None,  # None, soft currently accepted
-        "nonlinearity": "tanh",  # tanh, sigmoid currently accepted
-    },
     #
     # Auxiliary Tasks
     "auxiliary_task_dict": {  # A map of each aux. task to the payloads it applies to
@@ -98,7 +93,7 @@ task_defaults = {
 }
 
 
-def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
+def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
     assert len(task_names) > 0
 
     config = recursive_merge_dicts(task_defaults, kwargs)
@@ -198,7 +193,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=scorer,
             )
@@ -208,7 +202,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
             )
 
@@ -217,7 +210,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=MulticlassHead(neck_dim, 3),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -227,7 +219,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=MulticlassHead(neck_dim, 3),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -237,7 +228,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -247,7 +237,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -257,7 +246,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(
                     custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}
@@ -269,7 +257,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(
                     custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}
@@ -292,7 +279,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=RegressionHead(neck_dim),
                 scorer=scorer,
             )
@@ -302,7 +288,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -324,7 +309,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
-                attention_module=get_attention_module(config, neck_dim),
                 head_module=RegressionHead(neck_dim),
                 output_hat_func=torch.sigmoid,
                 loss_hat_func=(
@@ -364,7 +348,8 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
             # Create payloads (and add slices/auxiliary tasks as applicable)
             for split, data_loader in data_loaders.items():
                 payload_name = f"{task_name}_{split}"
-                payload = Payload(payload_name, data_loader, [task_name], split)
+                labels_to_tasks = {f"{task_name}_gold": task_name}
+                payload = Payload(payload_name, data_loader, labels_to_tasks, split)
 
                 # Add auxiliary label sets if applicable
                 auxiliary_task_dict = config["auxiliary_task_dict"]
@@ -395,26 +380,6 @@ def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
                 payloads.append(payload)
 
     return tasks, payloads
-
-
-def get_attention_module(config, neck_dim):
-    # Get attention head
-    attention_config = config["attention_config"]
-    if attention_config["attention_module"] is None:
-        attention_module = IdentityModule()
-    elif attention_config["attention_module"] == "soft":
-        nonlinearity = attention_config["nonlinearity"]
-        if nonlinearity == "tanh":
-            nl_fun = nn.Tanh()
-        elif nonlinearity == "sigmoid":
-            nl_fun = nn.Sigmoid()
-        else:
-            raise ValueError("Unrecognized attention nonlinearity")
-        attention_module = SoftAttentionModule(neck_dim, nonlinearity=nl_fun)
-    else:
-        raise ValueError("Unrecognized attention layer")
-
-    return attention_module
 
 
 def load_glue_datasets(
