@@ -85,9 +85,9 @@ trainer_defaults = {
         # The list of task metrics (task/split/metric) to calculate (and log);
         # if empty, calculate all metrics supported by all tasks' Scorers.
         "task_metrics": [],
-        # The list of trainer standard metrics to calculate (and log); e.g., "glue"
-        # Note that glue_partial is no longer supported.
-        "trainer_metrics": [],
+        # A list of functions that operate on a metrics_dict and return a dict with
+        # additional metrics (e.g., aggregated metrics)
+        "aggregate_metric_fns": [],
         # Run scorers over a maximum of this many examples if > 0.
         "max_valid_examples": 0,
         # The name of the split to run scoring on during training
@@ -427,7 +427,7 @@ class MultitaskTrainer(object):
         # recently calculated numbers (e.g., glue score aggregates task scores)
         metrics_dict.update(self.calculate_task_metrics(model, payloads, split))
         self.metrics_hist.update(metrics_dict)
-        metrics_dict.update(self.calculate_trainer_metrics(model, payloads, split))
+        metrics_dict.update(self.calculate_aggregate_metrics())
         self.metrics_hist.update(metrics_dict)
         return metrics_dict
 
@@ -435,33 +435,9 @@ class MultitaskTrainer(object):
         metrics_dict = {}
         max_examples = self.config["metrics_config"]["max_valid_examples"]
         task_metrics = self.config["metrics_config"]["task_metrics"]
+
         # Losses are handled specially; we drop them from task_metrics
         target_metrics = [metric for metric in task_metrics if "/loss" not in metric]
-
-        # NOTE: We currently break our own rule and calculate model-wide overall loss
-        # in calculate_task_metrics. We do this because we need access to the total
-        # loss and examples counts; we can't just average the task-specific losses
-        # equally after the fact.
-        # TODO: Restore ability to calculate loss on other splits
-        # trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
-        # target_loss_metrics = [
-        #     metric
-        #     for metric in (task_metrics + trainer_metrics)
-        #     if "/loss" in metric and "/train/" not in metric
-        # ]
-        # # Calculate loss for non-train splits
-        # if target_loss_metrics:
-        #     if split is None:
-        #         splits = set(p.split for p in payloads) - set(["train"])
-        #     else:
-        #         splits = [split]
-        #     for loss_split in splits:
-        #         loss_dict = self._calculate_valid_losses(
-        #             model, payloads, loss_split, max_examples=max_examples
-        #         )
-        #         for loss_name, loss_value in loss_dict.items():
-        #             if loss_name in target_loss_metrics:
-        #                 metrics_dict[loss_name] = loss_value
 
         # Calculate metrics from Scorers
         for payload in payloads:
@@ -473,19 +449,12 @@ class MultitaskTrainer(object):
             metrics_dict.update(payload_metrics_dict)
         return metrics_dict
 
-    def calculate_trainer_metrics(self, model, payloads, split):
-        # trainer_metrics = self.config["metrics_config"]["trainer_metrics"]
-        metrics_dict = {}
-        # TODO: Move glue calculation to be passed in for glue application specifically
-        # if "glue" in trainer_metrics:
-        #     if len(model.task_map) < 9:
-        #         msg = "You requested glue score but have fewer than 9 tasks. Be aware."
-        #         warnings.warn(msg)
-        #     metric = "glue"
-        #     metrics_dict[f"model/{split}/{metric}"] = glue_score(
-        #         self.metrics_hist, split
-        #     )
-        return metrics_dict
+    def calculate_aggregate_metrics(self):
+        aggregate_metric_fns = self.config["metrics_config"]["aggregate_metric_fns"]
+        aggregate_metrics = {}
+        for metric_fn in aggregate_metric_fns:
+            aggregate_metrics.update(metric_fn(self.metrics_hist))
+        return aggregate_metrics
 
     def _checkpoint(self, model, metrics_dict):
         if self.checkpointer is None:
@@ -817,10 +786,11 @@ class MultitaskTrainer(object):
         checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
         if checkpoint_metric.startswith("model"):
             metric_name = checkpoint_metric.split("/")[-1]
-            if (
-                metric_name != "loss"
-                and metric_name not in self.config["metrics_config"]["trainer_metrics"]
-            ):
+            aggregate_metric_fns = self.config["metrics_config"]["aggregate_metric_fns"]
+            aggregate_metric_names = [
+                getattr(metric_fn, "__name__") for metric_fn in aggregate_metric_fns
+            ]
+            if metric_name != "loss" and metric_name not in aggregate_metric_names:
                 msg = (
                     f"The checkpoint_metric you specified ('{checkpoint_metric}') is "
                     f"not currently supported."
@@ -882,53 +852,4 @@ class MultitaskTrainer(object):
 
     def _check_metrics(self):
         assert isinstance(self.config["metrics_config"]["task_metrics"], list)
-        assert isinstance(self.config["metrics_config"]["trainer_metrics"], list)
-
-    @torch.no_grad()
-    def _calculate_valid_losses(self, model, payloads, split, max_examples=0):
-        """Calculate the loss for the valid split"""
-        # Error checking
-        assert split != "train"
-        if split is None:
-            msg = (
-                "MeTaL does not currently support calculating the loss for "
-                "multiple non-train splits"
-            )
-            raise NotImplementedError(msg)
-        elif split == "test":
-            msg = "MeTaL does not support calculating loss on the test set."
-            warnings.warn(msg)
-            return {}
-        # Calculate task-specific losses
-        task_losses = defaultdict(float)
-        task_examples = defaultdict(float)
-        total_examples = 0
-        # WARNING: For calculating valid loss, we simply use a proportional scheduler.
-        # Note that if max_examples > 0, some tasks may be underrepresented in the first
-        # max_examples examples.
-        task_scheduler = ProportionalScheduler(model, payloads, split)
-        for batch, task_names in task_scheduler.get_batches(payloads, split):
-            _, Ys = batch
-            batch_size = len(next(iter(Ys.values())))
-            loss_dict, count_dict = model.calculate_loss(*batch, task_names=task_names)
-            for task_name, loss in loss_dict.items():
-                if count_dict[task_name]:
-                    task_losses[task_name] += loss.item() * count_dict[task_name]
-                    task_examples[task_name] += count_dict[task_name]
-            total_examples += batch_size
-            if max_examples > 0 and total_examples >= max_examples:
-                break
-        # Aggregate losses and store in dictionary
-        metrics_dict = {}
-        for task_name in self.task_names:
-            full_name = f"{task_name}/{split}/loss"
-            if task_examples[task_name] > 0:
-                metrics_dict[full_name] = (
-                    task_losses[task_name] / task_examples[task_name]
-                )
-            else:
-                metrics_dict[full_name] = np.nan
-        metrics_dict[f"model/{split}/all/loss"] = sum(task_losses.values()) / sum(
-            task_examples.values()
-        )
-        return metrics_dict
+        assert isinstance(self.config["metrics_config"]["aggregate_metric_fns"], list)

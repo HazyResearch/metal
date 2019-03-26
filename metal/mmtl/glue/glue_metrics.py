@@ -80,10 +80,11 @@ GLUE_METRICS = {
 def glue_score(metrics_dict={}, split="valid"):
     """Computes the glue_score (mean of individual task metrics) from a metrics_dict"""
     target_metrics = [
-        f"{task}/{task}_valid/{metric}" for task, metric in GLUE_METRICS.items()
+        f"{task}/{task}_{split}/{task}_gold/{metric}"
+        for task, metric in GLUE_METRICS.items()
     ]
     scores = []
     for metric in target_metrics:
         if metric in metrics_dict:
             scores.append(metrics_dict[metric])
-    return np.mean(scores)
+    return {f"model/{split}/gold/glue_score": np.mean(scores)}
