@@ -89,6 +89,8 @@ class CXR8Dataset(Dataset):
         # a given task!
         for cls in self.PRED_LABEL:
             label_vec = self.df[cls.upper().strip()].astype("int") > 0
+            # Converting to metal format: 0 abstain, 2 negative
+            label_vec[label_vec==0] = 2
             if self.pooled:
                 self.labels[cls.upper()] = np.array(label_vec).astype(int) 
             else:
@@ -256,7 +258,7 @@ def get_cxr_dataset(dataset_name, split, subsample=None, finding="ALL", pooled=F
         subsample=config["subsample"], 
         finding=config["finding"], 
         pooled=False, 
-        get_uid=config["get_uid"], 
+        get_uid=config["get_uid"],
         **kwargs, 
     ) 
 
