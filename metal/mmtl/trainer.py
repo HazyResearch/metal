@@ -783,7 +783,8 @@ class MultitaskTrainer(object):
 
     def _validate_checkpoint_metric(self, model):
         # Confirm that checkpoint_metric is a metric that will be available
-        checkpoint_metric = self.config["checkpoint_config"]["checkpoint_metric"]
+        checkpoint_config = self.config["checkpoint_config"]
+        checkpoint_metric = checkpoint_config["checkpoint_metric"]
         if checkpoint_metric.startswith("model"):
             metric_name = checkpoint_metric.split("/")[-1]
             aggregate_metric_fns = self.config["metrics_config"]["aggregate_metric_fns"]
