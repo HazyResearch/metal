@@ -141,28 +141,21 @@ class MetalModel(nn.Module):
         """
         input = move_to_device(X, self.config["device"])
         outputs = {}
-        output_dict = {}
-        # Commented intermediate results because was causing OOM
         for task_name in task_names:
-            input_module = self.input_modules[task_name]
-            #out = input_module(input)
+            # Extra .module because of DataParallel wrapper!
+            input_module = self.input_modules[task_name].module
             if input_module not in outputs:
                 outputs[input_module] = input_module(input)
-            middle_module = self.middle_modules[task_name]
-            #out = middle_module(out)
+            middle_module = self.middle_modules[task_name].module
             if middle_module not in outputs:
                 outputs[middle_module] = middle_module(outputs[input_module])
-            attention_module = self.attention_modules[task_name]
-            #out = attention_module(out)
+            attention_module = self.attention_modules[task_name].module
             if attention_module not in outputs:
                 outputs[attention_module] = attention_module(outputs[middle_module])
-            head_module = self.head_modules[task_name]
+            head_module = self.head_modules[task_name].module
             if head_module not in outputs:
                 outputs[head_module] = head_module(outputs[attention_module])
-            #res = head_module(attention_module(middle_module(input_module(input))))
-            #output_dict[task_name] = res
-        #return output_dict
-        return {t: outputs[self.head_modules[t]] for t in task_names}
+        return {t: outputs[self.head_modules[t].module] for t in task_names}
 
     def calculate_loss(self, X, Ys, task_names):
         """Returns a dict of {task_name: loss (a FloatTensor scalar)}.

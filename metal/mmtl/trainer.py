@@ -112,7 +112,7 @@ trainer_defaults = {
     "logger_config": {
         "log_unit": "epochs",  # ['seconds', 'examples', 'batches', 'epochs']
         # Report loss every this many log_units
-        "log_every": 1.0,
+        "log_every": 0.2,
         # Calculate and report metrics every this many log_units:
         #   -1: default to log_every
         #   0: do not calculate or log metrics
