@@ -191,7 +191,7 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
 
         if "PNEUMOTHORAX" in task_name:
             scorer = Scorer(
-            standard_metrics=["f1"],
+            standard_metrics=["f1","roc-auc"],
             )
             task = ClassificationTask(
                 name=task_name,
@@ -222,7 +222,7 @@ def create_tasks_and_payloads(full_task_names, **kwargs):
             #)
         else:
             scorer = Scorer(
-                standard_metrics=["f1"],
+                standard_metrics=["f1", "roc-auc"],
             )   
             task = ClassificationTask(
                 name=task_name,

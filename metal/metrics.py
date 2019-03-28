@@ -155,6 +155,7 @@ def roc_auc_score(gold, probs, ignore_in_gold=[], ignore_in_pred=[]):
         roc_auc_score: The (float) roc_auc score
     """
     gold = arraylike_to_numpy(gold)
+    probs = np.array(probs)
 
     # Filter out the ignore_in_gold (but not ignore_in_pred)
     # Note the current sub-functions (below) do not handle this...
