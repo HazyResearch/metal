@@ -803,8 +803,17 @@ class MultitaskTrainer(object):
                 checkpoint_config = self.config["checkpoint_config"]
                 metric_name = checkpoint_config["checkpoint_metric"]
                 score = self.metrics_hist.get(metric_name, None)
-                if score is not None:
+                # HACK: We enforce min_lr right now by just overwriting
+                min_lr = lr_scheduler_config["min_lr"]
+                if min_lr and optimizer_to_use.param_groups[0]["lr"] < min_lr:
+                    optimizer_to_use.param_groups[0]["lr"] = min_lr
+                # Only updating every epoch!
+                if score is not None and not (step % (self.batches_per_epoch-1)):
+                    lr = optimizer_to_use.param_groups[0]["lr"]
                     self.lr_scheduler.step(score)
+                    lr_new = optimizer_to_use.param_groups[0]["lr"]
+                    if lr != lr_new:
+                        print(f'Updated lr from {lr} to {lr_new}')
             # Iteration-based scheduler(s)
             else:
                 self.lr_scheduler.step()
