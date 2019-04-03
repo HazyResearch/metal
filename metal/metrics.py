@@ -167,7 +167,11 @@ def roc_auc_score(gold, probs, ignore_in_gold=[], ignore_in_pred=[]):
 
     # Convert gold to one-hot indicator format, using the k inferred from probs
     gold_s = pred_to_prob(torch.from_numpy(gold), k=probs.shape[1]).numpy()
-    return skm.roc_auc_score(gold_s, probs)
+    if len(np.unique(probs)) != 1:
+        return skm.roc_auc_score(gold_s, probs)
+    else:
+        print("Warning: roc_auc_score returned 0; only one class in predictions")
+        return 0
 
 
 def _drop_ignored(gold, pred, ignore_in_gold, ignore_in_pred):

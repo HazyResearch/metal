@@ -98,7 +98,7 @@ trainer_defaults = {
         # To score over multiple splits, set valid_split=None and use task_metrics
         "valid_split": "valid",
         # The name of the split to run final evaluation on after training
-        "test_split": None,  # If None, calculate final metrics over all splits
+        "test_split": "test",  # If None, calculate final metrics over all non-train splits
         # If non-None, only calculate and report these metrics every `score_every`
         # units (this can include the names of built-in and user-defined metrics);
         # otherwise, include all metrics returned by task Scorers.
