@@ -11,7 +11,7 @@ dependencies:  # New core deps should also be added to setup.py for pip
   - scipy
   - tornado<6  # tornado v6 introduced a breaking depedency
   - pip:
-    - tensorboardX
+    - tensorboardX==1.4
   - tqdm  # Packages below this line are optional (testing, notebooks, etc.)
   - matplotlib=3
   - nose

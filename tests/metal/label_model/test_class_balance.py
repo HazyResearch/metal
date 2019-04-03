@@ -69,12 +69,13 @@ class ClassBalanceModelTest(unittest.TestCase):
                 L[i, j] = np.random.choice(range(lf_0, k + 1), p=C[j, :, y - 1])
         return L
 
-    def _test_model(self, model, p_Y, O=None, L=None, tol=1e-3, verbose=True):
+    def _test_model(self, model, p_Y, C, O=None, L=None, tol=1e-3, verbose=True):
         model.train_model(O=O, L=L)
         if verbose:
             print(f"True class balance: {p_Y}")
             print(f"Estimated class balance: {model.class_balance}")
         self.assertLess(np.mean(np.abs(p_Y - model.class_balance)), tol)
+        self.assertLess(np.mean(np.abs(C - model.cond_probs)), tol)
 
     def _test_class_balance_estimation(self, k, m, abstains=False, verbose=True):
         model = ClassBalanceModel(k, abstains=abstains)
@@ -88,7 +89,7 @@ class ClassBalanceModelTest(unittest.TestCase):
         O[1 - mask] = 0
 
         # Test recovery of the class balance
-        self._test_model(model, p_Y, O=O)
+        self._test_model(model, p_Y, C, O=O)
 
     def _test_class_balance_estimation_noisy(
         self, k, m, n, abstains=False, verbose=True
@@ -101,7 +102,7 @@ class ClassBalanceModelTest(unittest.TestCase):
         L = self._generate_L(p_Y, C, n, abstains=abstains)
 
         # Test recovery of the class balance
-        self._test_model(model, p_Y, L=L, tol=1e-2)
+        self._test_model(model, p_Y, C, L=L, tol=1e-2)
 
     def test_class_balance_estimation_2(self):
         self._set_seed(123)

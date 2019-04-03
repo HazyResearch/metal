@@ -97,7 +97,7 @@ task_defaults = {
 }
 
 
-def create_tasks_and_payloads(task_names, **kwargs):
+def create_tasks_and_payloads(task_names, skip_payloads=False, **kwargs):
     assert len(task_names) > 0
 
     config = recursive_merge_dicts(task_defaults, kwargs)
@@ -157,7 +157,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
             dl_kwargs.update(task_dl_kwargs[task_name])
 
         # Each primary task has data_loaders to load
-        if has_payload:
+        if has_payload and not skip_payloads:
             if config["preprocessed"]:
                 datasets = load_glue_datasets(
                     dataset_name=task_name,
@@ -359,7 +359,7 @@ def create_tasks_and_payloads(task_names, **kwargs):
             raise Exception(msg)
 
         tasks.append(task)
-        if has_payload:
+        if has_payload and not skip_payloads:
             # Create payloads (and add slices/auxiliary tasks as applicable)
             for split, data_loader in data_loaders.items():
                 payload_name = f"{task_name}_{split}"

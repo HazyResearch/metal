@@ -1,6 +1,7 @@
 import warnings
 
 import spacy
+import torch
 
 question_words = set(["who", "what", "where", "when", "why", "how"])
 nlp = spacy.load("en_core_web_sm")
@@ -108,16 +109,19 @@ def contraction(dataset, idx):
 
 def create_slice_labels(dataset, base_task_name, slice_name, verbose=False):
     """Returns a label set masked to include only those labels in the specified slice"""
-    # TODO: break this out into more modular pieces one we have multiple slices
+    # TODO: break this out into more modular pieces oncee we have multiple slices
     slice_fn = globals()[slice_name]
-    slice_indicators = [slice_fn(dataset, idx) for idx in range(len(dataset))]
-    base_labels = dataset.labels[base_task_name]
-    slice_labels = [
-        label * indicator for label, indicator in zip(base_labels, slice_indicators)
-    ]
-    if verbose:
-        print(f"Found {sum(slice_indicators)} examples in slice {slice_name}.")
-        if not any(slice_labels):
-            warnings.warn("No examples were found to belong to ")
+    slice_indicators = torch.tensor(
+        [slice_fn(dataset, idx) for idx in range(len(dataset))], dtype=torch.uint8
+    ).view(-1, 1)
+    Y_base = dataset.labels[base_task_name]
+    Y_slice = Y_base.clone().masked_fill_(slice_indicators == 0, 0)
 
-    return slice_labels
+    if verbose:
+        if not any(Y_slice):
+            warnings.warn(f"No examples were found to belong to slice {slice_name}")
+        else:
+            print(f"Found {sum(slice_indicators)} examples in slice {slice_name}.")
+
+    # NOTE: we assume here that all slice labels are for sentence-level tasks only
+    return Y_slice

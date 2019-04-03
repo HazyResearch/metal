@@ -40,6 +40,9 @@ install:
   - make dev
   - make check
 
+  # Report final environment
+  - conda list
+
 script:
   - nosetests
   - runipy tutorials/Basics.ipynb
