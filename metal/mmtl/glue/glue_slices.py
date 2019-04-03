@@ -81,7 +81,16 @@ def dash_semicolon(dataset, idx):
     """Returns True if there is a dash or semicolon in sentence1"""
     bert_ints = dataset.bert_tokens[idx]
     bert_tokens = dataset.bert_tokenizer.convert_ids_to_tokens(bert_ints)
+    # sent1 = dataset.sentences[idx][0]
     return "-" in bert_tokens or ";" in bert_tokens
+
+
+def contraction(dataset, idx):
+    """Returns True if there is a dash or semicolon in sentence1"""
+    # bert_ints = dataset.bert_tokens[idx]
+    # bert_tokens = dataset.bert_tokenizer.convert_ids_to_tokens(bert_ints)
+    sent1 = dataset.sentences[idx][0]
+    return "'" in sent1
 
 
 # Functions which map a payload and index with an indicator if that example is in slice
