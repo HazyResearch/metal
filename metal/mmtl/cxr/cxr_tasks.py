@@ -479,8 +479,8 @@ def create_cxr_dataloaders(datasets, dl_kwargs, split_prop, splits, seed=123):
     else:
         for split_name in datasets:
             dl_kwargs = dl_kwargs
-            if split_name == 'test':
-                dl_kwargs['num_workers'] = 0
+           # if split_name == 'test':
+           #     dl_kwargs['num_workers'] = 0
             dataloaders[split_name] = datasets[split_name].get_dataloader(**dl_kwargs)
     return dataloaders
 
