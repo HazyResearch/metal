@@ -10,7 +10,7 @@
 Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
 The code we used to accomplish this is part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
 That code is being prepared for release and will be a part of Snorkel MeTaL v0.5, coming out in April!
-Stay tuned on this and other Snorkel developments at our project landing page: [snorkel.stanford.edu](snorkel.stanford.edu).
+Stay tuned on this and other Snorkel developments at our project landing page: [snorkel.stanford.edu](http://snorkel.stanford.edu).
 
 ## Getting Started
 * Quickly [set up](#setup) your environment
