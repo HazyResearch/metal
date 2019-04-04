@@ -59,10 +59,10 @@ def create_command_dict(args, config_path, launch_args):
         "mkdir logs;"
         " ( screen -dm tensorboard --logdir logs );"
     )
-    # COMMAND = "python metal/mmtl/launch.py --tasks QNLI --n_epochs 2 --log_every 0.25 --score_every 0.25 --max_len 256 --batch_size 8 --checkpoint_dir ./checkpoint --checkpoint_metric QNLI/valid/accuracy --checkpoint_metric_mode max --max_datapoints 32 --override_train_config ../config"
-    # COMMAND = " ( python metal/mmtl/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 4 --n_epochs 3 --max_datapoints 32 --override_train_config ../config  2>&1 | tee output ) "
+    # COMMAND = "python metal/mmtl/glue/launch.py --tasks QNLI --n_epochs 2 --log_every 0.25 --score_every 0.25 --max_len 256 --batch_size 8 --checkpoint_dir ./checkpoint --checkpoint_metric QNLI/valid/accuracy --checkpoint_metric_mode max --max_datapoints 32 --override_train_config ../config"
+    # COMMAND = " ( python metal/mmtl/glue/launch.py --tasks COLA,SST2,MNLI,RTE,WNLI,QQP,MRPC,STSB,QNLI --checkpoint_dir ./checkpoint --batch_size 4 --n_epochs 3 --max_datapoints 32 --override_train_config ../config  2>&1 | tee output ) "
 
-    COMMAND = "python metal/mmtl/launch.py"
+    COMMAND = "python metal/mmtl/glue/launch.py"
     for ky in launch_args.keys():
         COMMAND += f" --{ky} {launch_args[ky]}"
 
