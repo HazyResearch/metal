@@ -3,7 +3,6 @@ python launch.py \
     --device 0 \
     --bert_model bert-base-uncased \
     --max_len 200 \
-    --warmup_steps 0 \
     --warmup_unit "epochs" \
     --lr_scheduler "linear" \
     --min_lr 0 \
@@ -13,10 +12,11 @@ python launch.py \
     --checkpoint_metric_mode max \
     --checkpoint_best True \
     --progress_bar 1 \
-    --lr 5e-5 \
-    --l2 1e-4 \
-    --batch_size 16 \
-    --tasks QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA \
+    --lr 5e-3 \
+    --l2 0 \
+    --batch_size 32 \
+    --tasks SST2 \
     --split_prop None \
-    --n_epochs 2 \
-    --max_datapoints 1000 \
+    --n_epochs 10 \
+    --max_datapoints -1 \
+    --reinit_bert True \

@@ -68,6 +68,7 @@ task_defaults = {
     "bert_model": "bert-base-uncased",  # Required for all encoders for BertTokenizer
     "bert_kwargs": {
         "freeze_bert": False,
+        "reinit_bert": False,
         "pooler": True,  # If True, include the [768, 768] linear on top of [CLS] token
     },
     # LSTM

@@ -2,7 +2,7 @@
 
 search_space = {
     # hyperparams
-    "lr": [5e-5],
+    "lr": [5e-5, 5e-5, 5e-5, 5e-5, 5e-5],
     "lr_scheduler": ["linear"],
     # "gamma": [0.999]
 }
@@ -27,8 +27,8 @@ launch_args = {
     # Training settings
     # "lr_scheduler": "linear",
     "lr": 5e-5,
-    "n_epochs": 5,
-    "l2": 1e-4,
+    "n_epochs": 10,
+    "l2": 0,
     "batch_size": 32,
     "max_datapoints": -1,
     # Writer arguments

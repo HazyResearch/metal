@@ -5,6 +5,7 @@ search_space = {
     "l2": [0, 0, 0, 0, 0],
     "lr": [5e-5],
     "tasks": ["SST2"],
+    "n_epochs": [3],
 }
 
 launch_args = {

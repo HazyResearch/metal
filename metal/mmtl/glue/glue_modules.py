@@ -16,7 +16,12 @@ class BertRaw(MetalModule):
     """
 
     def __init__(
-        self, bert_model_name, freeze_bert=False, pooler=True, cache_dir="./cache/"
+        self,
+        bert_model_name,
+        freeze_bert=False,
+        reinit_bert=False,
+        pooler=True,
+        cache_dir="./cache/",
     ):
         super().__init__()
         if not os.path.exists(cache_dir):
@@ -30,7 +35,8 @@ class BertRaw(MetalModule):
             for param in self.parameters():
                 param.requires_grad = False
         # Don't re-initialize
-        # bert_model.apply(bert_model.init_bert_weights)
+        if reinit_bert:
+            bert_model.apply(bert_model.init_bert_weights)
 
     def forward(self, X, output_all_encoded_layers=False):
         tokens = X["data"]
