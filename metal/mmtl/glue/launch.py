@@ -73,9 +73,7 @@ if __name__ == "__main__":
     parser = add_flags_from_config(parser, model_defaults)
     parser = add_flags_from_config(parser, task_defaults)
     args = parser.parse_args()
-    import pdb
 
-    pdb.set_trace()
     # Extract flags into their respective config files
     trainer_config = recursive_merge_dicts(
         trainer_defaults, vars(args), misses="ignore"
