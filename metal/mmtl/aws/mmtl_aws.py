@@ -52,7 +52,15 @@ from metal.mmtl.aws import grid_search_mmtl
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--mode",
-    choices=["list", "launch", "launch_and_run", "run", "shutdown", "shutdown_all"],
+    choices=[
+        "list",
+        "launch",
+        "launch_and_run",
+        "run",
+        "shutdown",
+        "shutdown_all",
+        "run_and_shutdown",
+    ],
 )
 parser.add_argument("--aws_access_key_id", required=True)
 parser.add_argument("--aws_secret_access_key", required=True)
@@ -392,6 +400,9 @@ if __name__ == "__main__":
     if args.mode == "run":
         run(args, launch_args, search_space)
     if args.mode == "shutdown":
+        shutdown(args)
+    if args.mode == "run_and_shutdown":
+        run(args, launch_args, search_space)
         shutdown(args)
     if args.mode == "shutdown_all":
         shutdown_all_by_user(args)
