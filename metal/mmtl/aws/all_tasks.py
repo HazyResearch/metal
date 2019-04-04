@@ -10,9 +10,9 @@ search_space = {
 launch_args = {
     # Device args
     "device": 0,
-    "fp16": 1,
+    # "fp16": 1,
     # Model specification
-    "bert_model": "bert-large-cased",
+    "bert_model": "bert-base-uncased",
     # "bert_output_dim": 1024,
     # Dataloader specification
     "max_len": 200,
@@ -29,7 +29,7 @@ launch_args = {
     "lr": 5e-5,
     "n_epochs": 2,
     "l2": 1e-4,
-    "batch_size": 64,
+    "batch_size": 32,
     "max_datapoints": 1000,
     # Writer arguments
     "writer": "tensorboard",
