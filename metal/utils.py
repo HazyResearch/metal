@@ -270,7 +270,7 @@ def add_flags_from_config(parser, config_dict):
         if string == "0" or string.lower() == "false":
             return False
         elif string == "1" or string.lower() == "true":
-            return False
+            return True
         else:
             raise Exception(f"Invalid value {string} for boolean flag")
 
@@ -278,7 +278,6 @@ def add_flags_from_config(parser, config_dict):
         # Blacklist certain config parameters from being added as flags
         if param in ["verbose"]:
             continue
-
         default = config_dict[param]
         try:
             if isinstance(default, dict):
