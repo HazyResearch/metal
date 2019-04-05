@@ -41,10 +41,10 @@ class ProportionalScheduler(PayloadScheduler):
 
 
 class StagedScheduler(PayloadScheduler):
-    """Returns batches from an increasing number of tasks over the epoch
+    """Returns batches from an increasing number of payloads over the epoch
 
-    Start by training only on the task with the largest number of batches.
-    Gradually increase the tasks being trained on so that the final batches are
+    Start by training only on the payload with the largest number of batches.
+    Gradually increase the payloads being trained on so that the final batches are
     sampling equally from all tasks.
 
     For example, if X is the largest task, start by training only on batches of X, then

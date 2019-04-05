@@ -47,7 +47,7 @@ trainer_defaults = {
     "commit_hash": None,
     "ami": None,  # ami id for aws
     # Display
-    "progress_bar": True,
+    "progress_bar": False,
     # Dataloader
     # TODO: Restore the option for them to pass in raw simple data which we wrap up
     # "data_loader_config": {"batch_size": 32, "num_workers": 1, "shuffle": True},
@@ -91,7 +91,7 @@ trainer_defaults = {
         "task_metrics": [],
         # The list of trainer standard metrics to calculate (and log); e.g., "glue"
         # Note that glue_partial is no longer supported.
-        "trainer_metrics": [],
+        "trainer_metrics": ["model/valid/loss"],
         # Run scorers over a maximum of this many examples if > 0.
         "max_valid_examples": 0,
         # The name of the split to run scoring on during training
@@ -147,7 +147,7 @@ trainer_defaults = {
         # available for lookup; assumes valid split unless appended with "train/"
         "checkpoint_best": False,
         # "checkpoint_final": False,  # Save a model checkpoint at the end of training
-        "checkpoint_metric": "model/train/loss",
+        "checkpoint_metric": "model/valid/loss",
         "checkpoint_metric_mode": "min",
         # If None, checkpoint_dir defaults to the log_dir/run_dir/run_name/checkpoints
         # Note that using this default path is strongly recommended.
