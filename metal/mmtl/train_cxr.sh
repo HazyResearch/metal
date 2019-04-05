@@ -1,0 +1,1 @@
+python launch_cxr.py --tasks CXR8:ALL --batch_size 16 --n_epochs 25 --lr 0.0001 --l2 0.0001 --lr_scheduler reduce_on_plateau --run_name full_run_fixed --patience 1 --factor 0.1 --pretrained 1 --drop_rate 0.1 
