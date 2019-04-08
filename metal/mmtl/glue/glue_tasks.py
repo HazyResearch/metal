@@ -20,6 +20,7 @@ from metal.mmtl.glue.glue_modules import (
     BinaryHead,
     MulticlassHead,
     RegressionHead,
+    SoftAttentionModule,
 )
 from metal.mmtl.glue.glue_slices import create_slice_labels
 from metal.mmtl.payload import Payload
@@ -47,6 +48,7 @@ SPACY_TASKS = ["SPACY_NER", "SPACY_POS"]
 
 task_defaults = {
     # General
+    "attention": True,
     "split_prop": None,
     "splits": ["train", "valid", "test"],
     "max_len": 200,
@@ -134,6 +136,12 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
     tasks = []
     payloads = []
     for task_name in task_names:
+        # If a flag is specified for attention, use it, otherwise use identity module
+        if config["attention"]:
+            attention_module = SoftAttentionModule(neck_dim)
+        else:
+            attention_module = IdentityModule()
+
         # Pull out names of auxiliary tasks to be dealt with in a second step
         # TODO: fix this logic for cases where auxiliary task for task_name has
         # its own payload
@@ -194,6 +202,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=BinaryHead(neck_dim),
                 scorer=scorer,
             )
@@ -203,6 +212,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=BinaryHead(neck_dim),
             )
 
@@ -211,6 +221,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=MulticlassHead(neck_dim, 3),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -220,6 +231,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=MulticlassHead(neck_dim, 3),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -229,6 +241,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -238,6 +251,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -247,6 +261,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(
                     custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}
@@ -258,6 +273,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(
                     custom_metric_funcs={acc_f1: ["accuracy", "f1", "acc_f1"]}
@@ -280,6 +296,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=RegressionHead(neck_dim),
                 scorer=scorer,
             )
@@ -289,6 +306,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=BinaryHead(neck_dim),
                 scorer=Scorer(standard_metrics=["accuracy"]),
             )
@@ -301,6 +319,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
             task = TokenClassificationTask(
                 name="THIRD",
                 input_module=input_module,
+                attention_module=attention_module,
                 head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
                 loss_multiplier=config["auxiliary_loss_multiplier"],
             )
@@ -310,6 +329,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
                 name=task_name,
                 input_module=input_module,
                 middle_module=cls_middle_module,
+                attention_module=attention_module,
                 head_module=RegressionHead(neck_dim),
                 output_hat_func=torch.sigmoid,
                 loss_hat_func=(
@@ -324,6 +344,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
             task = TokenClassificationTask(
                 name=task_name,
                 input_module=input_module,
+                attention_module=attention_module,
                 head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
                 loss_multiplier=config["auxiliary_loss_multiplier"],
             )
@@ -333,6 +354,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
             task = TokenClassificationTask(
                 name=task_name,
                 input_module=input_module,
+                attention_module=attention_module,
                 head_module=BertTokenClassificationHead(neck_dim, OUT_DIM),
                 loss_multiplier=config["auxiliary_loss_multiplier"],
             )

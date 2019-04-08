@@ -19,10 +19,10 @@ python launch.py \
     --progress_bar 1 \
     --lr 5e-5 \
     --l2 0 \
-    --batch_size 32 \
-    --tasks STSB \
+    --batch_size 16 \
+    --tasks STSB,COLA,SST2 \
     --split_prop None \
     --n_epochs 3 \
-    --max_datapoints 1000 \
-    --model_weights /dfs/scratch0/mccreery/repos/metal/metal/mmtl/aws/output/2019_04_04_15_29_09/1/logdir/2019_04_05/QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA_19_58_22/best_model.pth
+    --max_datapoints 10000 \
+#   --model_weights /dfs/scratch0/mccreery/repos/metal/metal/mmtl/aws/output/2019_04_04_15_29_09/1/logdir/2019_04_05/QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA_19_58_22/best_model.pth
 # done
