@@ -152,7 +152,7 @@ class MetalModel(nn.Module):
 
             # Convert to half precision last thing if applicable
             if self.config["fp16"] and Y.dtype == torch.float32:
-                # out['data'] = out['data'].half()
+                out["data"] = out["data"].half()
                 Y = Y.half()
 
             # If no examples in this batch have labels for this task, skip loss calc
