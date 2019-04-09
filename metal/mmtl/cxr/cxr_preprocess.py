@@ -46,18 +46,18 @@ def transform_for_dataset(dataset_name, dataset_split):
             "train": transforms.Compose(
                 [   
                     transforms.RandomHorizontalFlip(),
-                    transforms.Scale(224),
+                    transforms.Scale(1024),
                     # because scale doesn't always give 224 x 224, this ensures 224 x
                     # 224
-                    transforms.CenterCrop(224),
+                    transforms.CenterCrop(1024),
                     transforms.ToTensor(),
                     transforms.Normalize(mean, std),
                 ]
             ),
             "val": transforms.Compose(
                 [   
-                    transforms.Scale(224),
-                    transforms.CenterCrop(224),
+                    transforms.Scale(1024),
+                    transforms.CenterCrop(1024),
                     transforms.ToTensor(),
                     transforms.Normalize(mean, std),
                 ]
@@ -74,7 +74,7 @@ def get_task_config(dataset_name, split, subsample, finding):
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
         return {
             "path_to_labels": tsv_path_for_dataset("CXR8", split),
-            "path_to_images": "/lfs/1/jdunnmon/data/nih/images/images", 
+            "path_to_images": "/data/datasets/nih/images/images", 
             "transform": transform_for_dataset("CXR8", split),
             "subsample": subsample,
             "finding": finding,

@@ -76,9 +76,9 @@ trainer_defaults = {
     "lr_scheduler_config": {
         # Linearly increase lr up to "lr" over this many warmup_units
         "warmup_steps": 0.0,
-        "warmup_unit": "batches",  # ["epochs", "batches"]
+        "warmup_unit": "epochs",  # ["epochs", "batches"]
         # The minimum lr that will ever be used after warmup.
-        "min_lr": 0.0,
+        "min_lr": 1e-6,
         # Scheduler - exponential
         "exponential_config": {"gamma": 0.999},  # decay rate
         # Scheduler - reduce_on_plateau
