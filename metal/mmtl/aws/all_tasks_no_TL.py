@@ -2,7 +2,7 @@
 
 search_space = {
     # hyperparams
-    "lr": [5e-5, 5e-5],
+    "lr": [5e-5, 5e-5, 5e-5, 5e-5, 5e-5],
     "lr_scheduler": ["linear"],
     # "gamma": [0.999]
 }
@@ -13,6 +13,7 @@ launch_args = {
     # "fp16": 1,
     # Model specification
     "bert_model": "bert-base-uncased",
+    "reinit_bert": 1,
     # Dataloader specification
     "max_len": 200,
     # Checkpointing and logging
@@ -22,11 +23,9 @@ launch_args = {
     "checkpoint_metric_mode": "max",
     "checkpoint_clean": 1,
     "checkpoint_best": 1,
-    "checkpoint_tasks": 1,
     "progress_bar": 1,
     # Training settings
     # "lr_scheduler": "linear",
-    "attention": 1,
     "lr": 5e-5,
     "n_epochs": 10,
     "l2": 0,

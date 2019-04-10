@@ -2,7 +2,7 @@
 
 search_space = {
     # hyperparams
-    "l2": [1e-2, 1e-2, 1e-2, 1e-2, 1e-2],
+    "l2": [0, 0, 0, 0, 0],
     "lr": [1e-5],
     "tasks": ["QNLI"],
 }

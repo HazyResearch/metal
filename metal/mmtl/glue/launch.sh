@@ -1,11 +1,11 @@
 # launches single task or multitask models of MetalModel with favorable GLUE parameters
-# declare -a arr=("COLA" "SST2" "STSB" "MNLI" "MRPC" "QNLI" "QQP" "RTE")
+declare -a arr=("COLA" "SST2" "RTE" "MRPC" "MNLI" "QNLI" "QQP")
 
-# for task in "${arr[@]}"
-# do
+for task in "${arr[@]}"
+do
 python launch.py \
     --device 0 \
-    --fp16 1 \
+    --fp16 0 \
     --bert_model bert-base-uncased \
     --max_len 200 \
     --warmup_unit "epochs" \
@@ -17,12 +17,13 @@ python launch.py \
     --checkpoint_metric_mode max \
     --checkpoint_best True \
     --progress_bar 1 \
+    --attention 1 \
     --lr 5e-5 \
     --l2 0 \
     --batch_size 16 \
-    --tasks STSB,COLA,SST2 \
+    --tasks $task \
     --split_prop None \
-    --n_epochs 3 \
-    --max_datapoints 10000 \
-#   --model_weights /dfs/scratch0/mccreery/repos/metal/metal/mmtl/aws/output/2019_04_04_15_29_09/1/logdir/2019_04_05/QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA_19_58_22/best_model.pth
-# done
+    --n_epochs 5 \
+    --max_datapoints -1 \
+    --model_weights /dfs/scratch0/mccreery/repos/metal/metal/mmtl/aws/output/2019_04_08_17_04_03/0/logdir/2019_04_09/QNLI,STSB,MRPC,QQP,WNLI,RTE,MNLI,SST2,COLA_00_21_20/best_model.pth
+done

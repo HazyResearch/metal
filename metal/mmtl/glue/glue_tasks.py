@@ -138,6 +138,7 @@ def create_glue_tasks_payloads(task_names, skip_payloads=False, **kwargs):
     for task_name in task_names:
         # If a flag is specified for attention, use it, otherwise use identity module
         if config["attention"]:
+            print("Using soft attention head")
             attention_module = SoftAttentionModule(neck_dim)
         else:
             attention_module = IdentityModule()

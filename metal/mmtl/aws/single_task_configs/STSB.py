@@ -2,7 +2,7 @@
 
 search_space = {
     # hyperparams
-    "l2": [0, 0, 0, 0, 0],
+    "l2": [0],
     "lr": [1e-5],
     "tasks": ["STSB"],
 }
@@ -10,7 +10,7 @@ search_space = {
 launch_args = {
     # Device args
     "device": 0,
-    # "fp16": 1,
+    "fp16": 1,
     # Model specification
     "bert_model": "bert-base-uncased",
     # Dataloader specification
@@ -25,7 +25,7 @@ launch_args = {
     "progress_bar": 1,
     # Training settings
     "lr_scheduler": "linear",
-    "n_epochs": 10,
+    "n_epochs": 5,
     "batch_size": 32,
     "max_datapoints": -1,
     # Writer arguments

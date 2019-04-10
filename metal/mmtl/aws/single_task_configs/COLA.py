@@ -10,7 +10,7 @@ search_space = {
 launch_args = {
     # Device args
     "device": 0,
-    # "fp16": 1,
+    "fp16": 1,
     # Model specification
     "bert_model": "bert-base-uncased",
     # Dataloader specification
@@ -27,7 +27,7 @@ launch_args = {
     "lr_scheduler": "linear",
     "n_epochs": 10,
     "batch_size": 32,
-    "max_datapoints": -1,
+    "max_datapoints": 1000,
     # Writer arguments
     "writer": "tensorboard",
     # "run_dir": "test_run",
