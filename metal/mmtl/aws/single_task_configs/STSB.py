@@ -24,6 +24,7 @@ launch_args = {
     "checkpoint_best": 1,
     "progress_bar": 1,
     # Training settings
+    "attention": 1,
     "lr_scheduler": "linear",
     "n_epochs": 5,
     "batch_size": 32,
