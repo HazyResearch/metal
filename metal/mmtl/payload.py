@@ -1,3 +1,6 @@
+import torch
+
+
 class Payload(object):
     """A bundle of data_loaders...
 
@@ -31,28 +34,35 @@ class Payload(object):
         Args:
             task_name: the name of the Task to which the label_set belongs.
             label_fn: a function which maps a dataset item to a label
+                labels will be combined using torch.stack(labels, dim=0)
             label_set: a list of labels in the correct order
 
         Note that either label_fn or label_set should be provided, but not both.
         """
 
         if label_fn is not None:
-            assert callable(label_fn)
             assert label_set is None
-            labels_new = [label_fn(x) for x in self.data_loader.dataset]
+            assert callable(label_fn)
+            new_labels = torch.stack(
+                [label_fn(x) for x in self.data_loader.dataset], dim=0
+            )
         elif label_set is not None:
-            assert isinstance(label_set, list)
             assert label_fn is None
-            labels_new = label_set
+            assert isinstance(label_set, torch.Tensor)
+            new_labels = label_set
         else:
             raise ValueError("Incorrect label object type -- supply list or function")
 
-        self.data_loader.dataset.labels[task_name] = labels_new
+        if new_labels.dim() < 2:
+            raise Exception("New label_set must have at least two dimensions: [n, ?]")
+
+        self.data_loader.dataset.labels[task_name] = new_labels
         self.task_names.append(task_name)
 
         if verbose:
+            active = torch.any(new_labels != 0, dim=1)
             msg = (
-                f"Added label_set with {len(labels_new)} labels for task "
+                f"Added label_set with {sum(active.long())}/{len(active)} labels for task "
                 f"{task_name} to payload {self.name}."
             )
             print(msg)

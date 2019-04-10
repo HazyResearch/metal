@@ -27,7 +27,6 @@ lm_default_config = {
         "lr_scheduler": None,
         # Train loop
         "n_epochs": 100,
-        "print_every": 10,
         "progress_bar": False,
         # Logger (see metal/logging/writer.py for descriptions)
         "logger": True,

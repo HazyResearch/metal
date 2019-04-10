@@ -2,6 +2,8 @@ import codecs
 import os
 import pathlib
 
+import torch
+
 # Import tqdm_notebook if in Jupyter notebook
 try:
     from IPython import get_ipython
@@ -55,7 +57,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     elif task_name == "STSB":
         label_fn, inv_label_fn = (
@@ -70,7 +72,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": float,
+            "label_type": torch.float,
         }
     elif task_name == "SST2":
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})  # reserve 0 for abstain
@@ -82,7 +84,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     elif task_name == "COLA":
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
@@ -94,7 +96,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 0 if split in ["train", "dev"] else 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     elif task_name == "MNLI":
         gold_cols = {
@@ -119,7 +121,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     elif task_name == "SNLI":
         label_fn, inv_label_fn = get_label_fn(
@@ -133,7 +135,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     elif task_name == "RTE":
         label_fn, inv_label_fn = get_label_fn({"entailment": 1, "not_entailment": 2})
@@ -145,7 +147,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     elif task_name == "WNLI":
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
@@ -157,7 +159,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     elif task_name == "QQP":
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
@@ -169,7 +171,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     elif task_name == "MRPC":
         label_fn, inv_label_fn = get_label_fn({"1": 1, "0": 2})
@@ -181,7 +183,7 @@ def get_task_tsv_config(task_name, split):
             "skip_rows": 1,
             "label_fn": label_fn,
             "inv_label_fn": inv_label_fn,
-            "label_type": int,
+            "label_type": torch.long,
         }
     else:
         raise ValueError(f"{task_name} not found!")

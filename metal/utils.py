@@ -53,7 +53,8 @@ def pred_to_prob(Y_h, k):
             label for item i and label j
     """
     Y_h = Y_h.clone()
-    Y_h = Y_h.squeeze()
+    if Y_h.dim() > 1:
+        Y_h = Y_h.squeeze()
     assert Y_h.dim() == 1
     assert (Y_h >= 1).all()
     assert (Y_h <= k).all()
@@ -264,6 +265,14 @@ def add_flags_from_config(parser, config_dict):
 
         return func
 
+    def str2bool(string):
+        if string == "0" or string.lower() == "false":
+            return False
+        elif string == "1" or string.lower() == "true":
+            return False
+        else:
+            raise Exception(f"Invalid value {string} for boolean flag")
+
     for param in config_dict:
         # Blacklist certain config parameters from being added as flags
         if param in ["verbose"]:
@@ -273,6 +282,8 @@ def add_flags_from_config(parser, config_dict):
         try:
             if isinstance(default, dict):
                 parser = add_flags_from_config(parser, default)
+            elif isinstance(default, bool):
+                parser.add_argument(f"--{param}", type=str2bool, default=default)
             elif isinstance(default, list):
                 if len(default) > 0:
                     # pass a list as argument
@@ -408,23 +419,20 @@ def split_data(
             return outputs
 
 
-def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None, dtype=torch.long):
-    """Create a right-padded matrix from an uneven iterable of iterables.
+def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None):
+    """Create a right-padded [n, ?] tensor from an uneven iterable of iterables.
     Modified from github.com/facebookresearch/ParlAI
 
     Returns (padded, lengths), where padded is the padded matrix, and lengths
-    is a list containing the lengths of each row.
+    is a list containing the unpadded lengths of each row.
 
     Matrix is right-padded (filled to the right) by default, but can be
-    left padded if the flag is set to True.
-
-    Matrix can also be placed on cuda automatically.
+    left padded if left_padded=True.
 
     :param list[iter[int]] items: List of items
-    :param bool sort: If True, orders by the length
     :param int pad_idx: the value to use for padding
-    :param bool left_padded:
-    :param int max_len: if None, the max length is the maximum item length
+    :param bool left_padded: if True, pad on the left instead of the right
+    :param int max_len: if None, the max length is the maximum allowable item length
 
     :returns: (padded, lengths) tuple
     :rtype: (Tensor[int64], list[int])
@@ -433,24 +441,26 @@ def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None, dtype=torch
     n = len(items)
     # length of each item
     lens = [len(item) for item in items]
-    # max in time dimension
-    t = max(lens) if max_len is None else max_len
+    # max seq_len dimension
+    max_seq_len = max(lens) if max_len is None else max_len
+    # infer dtype
+    if isinstance(items[0][0], float):
+        dtype = torch.float
+    elif isinstance(items[0][0], int):
+        dtype = torch.long
+    elif isinstance(items[0][0], torch.Tensor):
+        dtype = items[0][0].dtype
+    else:
+        raise NotImplementedError
 
-    # if input tensors are empty, we should expand to nulls
-    t = max(t, 1)
-
-    output = torch.full((n, t), pad_idx, dtype=dtype)
+    output = torch.full((n, max_seq_len), pad_idx, dtype=dtype)
 
     for i, (item, length) in enumerate(zip(items, lens)):
-        if length == 0:
-            # skip empty items
-            continue
         if not isinstance(item, torch.Tensor):
-            # put non-tensors into a tensor
-            item = torch.Tensor(item)
+            item = torch.tensor(item, dtype=dtype)
         if left_padded:
             # place at end
-            output[i, t - length :] = item
+            output[i, max_seq_len - length :] = item
         else:
             # place at beginning
             output[i, :length] = item

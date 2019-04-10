@@ -61,16 +61,17 @@ class BertExtractCls(nn.Module):
     def __init__(self, pooler=None, dropout=0.1):
         super().__init__()
         self.pooler = pooler
-        self.dropout = nn.Dropout(dropout)
+        if pooler is not None:
+            self.dropout = nn.Dropout(dropout)
 
     def forward(self, X):
         sequence_output, attention_mask = X
-        if self.pooler:
+        if self.pooler is None:
+            return sequence_output[:, 0]
+        else:
             # self.pooler pulls out the [CLS] token, applies square linear, then tanh
             output = self.pooler(sequence_output)
             return self.dropout(output)
-        else:
-            return sequence_output[:, 0]
 
 
 class BertTokenClassificationHead(nn.Module):

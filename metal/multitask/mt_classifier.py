@@ -2,7 +2,7 @@ import numpy as np
 
 from metal.classifier import Classifier
 from metal.metrics import metric_score
-from metal.multitask import MultiXYDataset, MultiYDataset
+from metal.multitask.utils import MultiXYDataset, MultiYDataset
 
 
 class MTClassifier(Classifier):

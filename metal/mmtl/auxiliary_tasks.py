@@ -1,6 +1,8 @@
 import numpy as np
 from nltk.translate.bleu_score import sentence_bleu
 
+from metal.utils import padded_tensor
+
 SPACY_TAGS = {
     "SPACY_NER": [
         "NULL",
@@ -81,24 +83,25 @@ def add_third_labels(payload):
         return Y_thirds
 
     X = payload.data_loader.dataset.bert_tokens
-    Y = []
+    Y_list = []
     for x in X:
-        Y.append(mark_thirds(x))
+        Y_list.append(mark_thirds(x))
+    Y, _ = padded_tensor(Y_list)
 
     payload.add_label_set("THIRD", label_set=Y)
     return payload
 
 
 def add_spacy_pos_labels(payload):
-    return add_spacy_labels(payload, label_type="SPACY_POS", spacy_attr="pos_")
+    return add_spacy_labels(payload, label_name="SPACY_POS", spacy_attr="pos_")
 
 
 def add_spacy_ner_labels(payload):
-    return add_spacy_labels(payload, label_type="SPACY_NER", spacy_attr="ent_type_")
+    return add_spacy_labels(payload, label_name="SPACY_NER", spacy_attr="ent_type_")
 
 
 # Add token-based tags from Spacy
-def add_spacy_labels(payload, label_type, spacy_attr, null_label="NULL"):
+def add_spacy_labels(payload, label_name, spacy_attr, null_label="NULL"):
     """
     Adds a spacy POS label_set, mapping through the different tokenizations
 
@@ -107,7 +110,7 @@ def add_spacy_labels(payload, label_type, spacy_attr, null_label="NULL"):
         attr: the name of the spacy attribute to extract
         tag_name:
     """
-    Y = []
+    Y_list = []
     bert_tokenizer = payload.data_loader.dataset.bert_tokenizer
 
     for i, data in enumerate(payload.data_loader.dataset):
@@ -133,11 +136,12 @@ def add_spacy_labels(payload, label_type, spacy_attr, null_label="NULL"):
                     if not tag:  # 'not' covers default None and "" (ner)
                         tag = null_label
                     token_tags.append(tag)
-            token_labels = [SPACY_TAGS[label_type].index(tag) + 1 for tag in token_tags]
+            token_labels = [SPACY_TAGS[label_name].index(tag) + 1 for tag in token_tags]
             # print([(token, tag) for token, tag in zip(bert_tokens, token_tags)])
-        Y.append(token_labels)
+        Y_list.append(token_labels)
 
-    payload.add_label_set(label_type, label_set=Y)
+    Y, _ = padded_tensor(Y_list)
+    payload.add_label_set(label_name, label_set=Y)
     return payload
 
 

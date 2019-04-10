@@ -6,7 +6,8 @@ import torch.nn as nn
 
 from metal.end_model.identity_module import IdentityModule
 from metal.metrics import METRICS
-from metal.multitask import MTEndModel, TaskGraph, TaskHierarchy
+from metal.multitask import MTEndModel
+from metal.multitask.task_graph import TaskGraph, TaskHierarchy
 
 
 class MTEndModelTest(unittest.TestCase):

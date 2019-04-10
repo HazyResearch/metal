@@ -11,6 +11,7 @@ model_defaults = {
     "device": 0,  # gpu id (int) or -1 for cpu
     "verbose": True,
     "fp16": False,
+    "model_weights": None,  # the path to a saved checkpoint to initialize with
 }
 
 
@@ -37,6 +38,10 @@ class MetalModel(nn.Module):
         # Build network
         self._build(tasks)
         self.task_map = {task.name: task for task in tasks}
+
+        # Load weights
+        if self.config["model_weights"]:
+            self.load_weights(self.config["model_weights"])
 
         # Half precision
         if self.config["fp16"]:
@@ -75,51 +80,6 @@ class MetalModel(nn.Module):
 
         self.loss_hat_funcs = {task.name: task.loss_hat_func for task in tasks}
         self.output_hat_funcs = {task.name: task.output_hat_func for task in tasks}
-
-    def _copy_task_modules(self, from_task, to_task, deepcopy=False):
-        """ Maps all modules from_task --> to_task."""
-        if self.config["verbose"]:
-            print(f"Shallow copying modules from {from_task} to {to_task}")
-
-        if deepcopy:
-            self.task_map[to_task] = copy.deepcopy(self.task_map[from_task])
-            self.input_modules[to_task] = copy.deepcopy(self.input_modules[from_task])
-            self.middle_modules[to_task] = copy.deepcopy(self.middle_modules[from_task])
-            self.attention_modules[to_task] = copy.deepcopy(
-                self.attention_modules[from_task]
-            )
-            self.head_modules[to_task] = copy.deepcopy(self.head_modules[from_task])
-            self.loss_hat_funcs[to_task] = copy.deepcopy(self.loss_hat_funcs[from_task])
-            self.output_hat_funcs[to_task] = copy.deepcopy(
-                self.output_hat_funcs[from_task]
-            )
-        else:
-            self.task_map[to_task] = self.task_map[from_task]
-            self.input_modules[to_task] = self.input_modules[from_task]
-            self.middle_modules[to_task] = self.middle_modules[from_task]
-            self.attention_modules[to_task] = self.attention_modules[from_task]
-            self.head_modules[to_task] = self.head_modules[from_task]
-            self.loss_hat_funcs[to_task] = self.loss_hat_funcs[from_task]
-            self.output_hat_funcs[to_task] = self.output_hat_funcs[from_task]
-
-    def add_missing_slice_heads(self, all_tasks, deepcopy):
-        """Given a set of all tasks (likely defined by model payloads), add additional
-        task heads that are copies (deep or shallow) of the original tasks.
-
-        For example, "COLA:question" might be a labelset, but the model might be missing
-        the corresponding task head. Call this function to make a copy of the (pretrained)
-        "COLA" task head with the key "COLA:question"
-        """
-
-        for task_name in all_tasks:
-            if task_name not in self.task_map:
-                # NOTE: assume that all slice tasks are structured "{foo_task}:{bar_slice}"
-                orig_task_name = task_name.split(":")[0]
-                if orig_task_name not in all_tasks:
-                    raise ValueError(
-                        f"'{orig_task_name}' task was not found to evaluate '{task_name}' slice"
-                    )
-                self._copy_task_modules(orig_task_name, task_name)
 
     def forward(self, X, task_names):
         """Returns the outputs of the requested task heads in a dictionary
@@ -182,7 +142,8 @@ class MetalModel(nn.Module):
             if self.config["fp16"] and Y.dtype == torch.float32:
                 out = out.half()
                 Y = Y.half()
-            if active.sum():
+            # Active has type torch.uint8; avoid overflow with long()
+            if active.long().sum():
                 task_loss = self.loss_hat_funcs[task_name](
                     out, move_to_device(Y, self.config["device"])
                 )
@@ -414,6 +375,52 @@ class MetalModel(nn.Module):
             return Y_preds, Y_probs
         else:
             return Y_preds
+
+    # ---------------------------------- SLICING ------------------------------------
+    def _copy_task_modules(self, from_task, to_task, deepcopy=False):
+        """ Maps all modules from_task --> to_task."""
+        if self.config["verbose"]:
+            print(f"Shallow copying modules from {from_task} to {to_task}")
+
+        if deepcopy:
+            self.task_map[to_task] = copy.deepcopy(self.task_map[from_task])
+            self.input_modules[to_task] = copy.deepcopy(self.input_modules[from_task])
+            self.middle_modules[to_task] = copy.deepcopy(self.middle_modules[from_task])
+            self.attention_modules[to_task] = copy.deepcopy(
+                self.attention_modules[from_task]
+            )
+            self.head_modules[to_task] = copy.deepcopy(self.head_modules[from_task])
+            self.loss_hat_funcs[to_task] = copy.deepcopy(self.loss_hat_funcs[from_task])
+            self.output_hat_funcs[to_task] = copy.deepcopy(
+                self.output_hat_funcs[from_task]
+            )
+        else:
+            self.task_map[to_task] = self.task_map[from_task]
+            self.input_modules[to_task] = self.input_modules[from_task]
+            self.middle_modules[to_task] = self.middle_modules[from_task]
+            self.attention_modules[to_task] = self.attention_modules[from_task]
+            self.head_modules[to_task] = self.head_modules[from_task]
+            self.loss_hat_funcs[to_task] = self.loss_hat_funcs[from_task]
+            self.output_hat_funcs[to_task] = self.output_hat_funcs[from_task]
+
+    def add_missing_slice_heads(self, all_tasks, deepcopy):
+        """Given a set of all tasks (likely defined by model payloads), add additional
+        task heads that are copies (deep or shallow) of the original tasks.
+
+        For example, "COLA:question" might be a labelset, but the model might be missing
+        the corresponding task head. Call this function to make a copy of the (pretrained)
+        "COLA" task head with the key "COLA:question"
+        """
+
+        for task_name in all_tasks:
+            if task_name not in self.task_map:
+                # NOTE: assume that all slice tasks are structured "{foo_task}:{bar_slice}"
+                orig_task_name = task_name.split(":")[0]
+                if orig_task_name not in all_tasks:
+                    raise ValueError(
+                        f"'{orig_task_name}' task was not found to evaluate '{task_name}' slice"
+                    )
+                self._copy_task_modules(orig_task_name, task_name)
 
 
 def probs_to_preds(probs):
