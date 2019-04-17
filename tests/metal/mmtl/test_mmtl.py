@@ -19,7 +19,7 @@ def create_tasks(T):
     tasks = []
     for t in range(T):
         task_name = f"task{t}"
-        input_module = nn.Linear(2, 8)
+        input_module = nn.Sequential(nn.Linear(2, 8), nn.ReLU())
         head_module = nn.Linear(8, 2)
         task = ClassificationTask(
             name=task_name, input_module=input_module, head_module=head_module
