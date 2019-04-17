@@ -1,5 +1,3 @@
-import copy
-import warnings
 from collections import defaultdict
 
 import numpy as np
@@ -102,20 +100,30 @@ class MetalModel(nn.Module):
         """
         input = move_to_device(X, self.config["device"])
         outputs = {}
+        # TODO: Replace this naive caching scheme with a more intelligent and feature-
+        # complete approach where arbitrary DAGs of modules are specified and we only
+        # cache things that will be reused by another task
         for task_name in task_names:
-            # Extra .module because of DataParallel wrapper!
+            # Extra .module call is to get past DataParallel wrapper
             input_module = self.input_modules[task_name].module
             if input_module not in outputs:
-                outputs[input_module] = input_module(input)
+                output = input_module(input)
+                outputs[input_module] = output
+
             middle_module = self.middle_modules[task_name].module
             if middle_module not in outputs:
-                outputs[middle_module] = middle_module(outputs[input_module])
+                output = middle_module(outputs[input_module])
+                outputs[middle_module] = output
+
             attention_module = self.attention_modules[task_name].module
             if attention_module not in outputs:
-                outputs[attention_module] = attention_module(outputs[middle_module])
+                output = attention_module(outputs[middle_module])
+                outputs[attention_module] = output
+
             head_module = self.head_modules[task_name].module
             if head_module not in outputs:
-                outputs[head_module] = head_module(outputs[attention_module])
+                output = head_module(outputs[attention_module])
+                outputs[head_module] = output
         return {t: outputs[self.head_modules[t].module] for t in task_names}
 
     def calculate_loss(self, X, Ys, payload_name, labels_to_tasks):
@@ -134,7 +142,10 @@ class MetalModel(nn.Module):
 
         for label_name, task_name in labels_to_tasks.items():
             loss_name = f"{task_name}/{payload_name}/{label_name}/loss"
+
             Y = Ys[label_name]
+            assert isinstance(Y, torch.Tensor)
+
             out = outputs[task_name]
             # Identify which instances have at least one non-zero target labels
             active = torch.any(Y.detach() != 0, dim=1)
@@ -257,7 +268,6 @@ class MetalModel(nn.Module):
         Ys, Ys_probs, Ys_preds = self.predict_with_gold(
             payload, target_tasks, target_labels, return_preds=True, **kwargs
         )
-
         metrics_dict = {}
         for label_name, task_name in payload.labels_to_tasks.items():
             scorer = self.task_map[task_name].scorer
@@ -273,7 +283,6 @@ class MetalModel(nn.Module):
                     f"{task_name}/{payload.name}/{label_name}/{metric_name}"
                 )
                 metrics_dict[full_metric_name] = score
-
         # If a single metric was given as a string (not list), return a float
         if return_unwrapped:
             metric, score = metrics_dict.popitem()
@@ -317,6 +326,8 @@ class MetalModel(nn.Module):
         validate_targets(payload, target_tasks, target_labels)
         if target_tasks is None:
             target_tasks = set(payload.labels_to_tasks.values())
+        elif isinstance(target_tasks, str):
+            target_tasks = [target_tasks]
 
         Ys = defaultdict(list)
         Ys_probs = defaultdict(list)
@@ -327,7 +338,7 @@ class MetalModel(nn.Module):
             for task_name, yb_probs in Yb_probs.items():
                 Ys_probs[task_name].extend(yb_probs)
             for label_name, yb in Yb.items():
-                if label_name in target_labels or target_labels is None:
+                if target_labels is None or label_name in target_labels:
                     Ys[label_name].extend(yb.cpu().numpy())
             total += len(Xb)
             if max_examples > 0 and total >= max_examples:
@@ -356,13 +367,27 @@ class MetalModel(nn.Module):
 
         Args:
             payload: a Payload
-            task_name: the task to calculate probabilities for; defaults to the name of
-                the payload if none
+            task_name: the task to calculate probabilities for
+                If task_name is None and the payload includes labels for only one task,
+                return predictions for that task. If task_name is None and the payload
+                includes labels for more than one task, raise an exception.
         Returns:
             Y_probs: an [n] list of probabilities
         """
         self.eval()
-        _, Ys_probs = self.predict_with_gold(payload, task_name, **kwargs)
+
+        if task_name is None:
+            if len(payload.labels_to_tasks) > 1:
+                msg = (
+                    "The payload you provided contains labels for more than one "
+                    "task, so task_name cannot be None."
+                )
+                raise Exception(msg)
+            else:
+                task_name = next(iter(payload.labels_to_tasks.values()))
+
+        target_tasks = [task_name]
+        _, Ys_probs = self.predict_with_gold(payload, target_tasks, **kwargs)
         return Ys_probs[task_name]
 
     @torch.no_grad()
@@ -371,15 +396,30 @@ class MetalModel(nn.Module):
 
         Args:
             payload: a Payload
-            task_name: the task to calculate probabilities for; defaults to the name of
-                the payload if none
+            task_name: the task to calculate predictions for
+                If task_name is None and the payload includes labels for only one task,
+                return predictions for that task. If task_name is None and the payload
+                includes labels for more than one task, raise an exception.
+
         Returns:
             Y_probs: an [n] list of probabilities
             Y_preds: an [n] list of predictions
         """
         self.eval()
+
+        if task_name is None:
+            if len(payload.labels_to_tasks) > 1:
+                msg = (
+                    "The payload you provided contains labels for more than one "
+                    "task, so task_name cannot be None."
+                )
+                raise Exception(msg)
+            else:
+                task_name = next(iter(payload.labels_to_tasks.values()))
+
+        target_tasks = [task_name]
         _, Ys_probs, Ys_preds = self.predict_with_gold(
-            payload, task_name, return_preds=True, **kwargs
+            payload, target_tasks, return_preds=True, **kwargs
         )
         Y_probs = Ys_probs[task_name]
         Y_preds = Ys_preds[task_name]

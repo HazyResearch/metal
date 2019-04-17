@@ -14,5 +14,8 @@ class MetalModuleWrapper(nn.Module):
         self.module = module
 
     def forward(self, X):
-        X["data"] = self.module(X["data"])
+        # The object that is passed out must be different from the object that gets
+        # passed in so that cached outputs from intermediate modules aren't mutated
+        X_out = {k: v for k, v in X.items()}
+        X_out["data"] = self.module(X["data"])
         return X
