@@ -77,7 +77,7 @@ end_model = EndModel([1000,10,2])
 end_model.train_model(train_data=(X_train, Y_train_probs), valid_data=(X_dev, Y_dev))
 
 # Evaluate performance
-score = end_model.score(X_test, Y_test)
+score = end_model.score(data=(X_test, Y_test), metric="accuracy")
 ```
 
 **_Note for Snorkel users: Snorkel MeTaL, even in the single-task case, learns a slightly different label model than Snorkel does (e.g. here we learn class-conditional accuracies for each LF, etc.)---so expect slightly different (hopefully better!) results._**
