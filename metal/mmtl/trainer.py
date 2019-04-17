@@ -1,6 +1,5 @@
 import copy
 import os
-import random
 import warnings
 from collections import defaultdict
 from pprint import pprint
@@ -11,12 +10,10 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
-from torch.nn.utils import clip_grad_norm_
 
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
-from metal.logging.utils import split_full_metric
 from metal.mmtl.glue.glue_metrics import GLUE_METRICS, glue_score
-from metal.mmtl.mmtl_logger import Logger  # NOTE: we load special MTL logger
+from metal.mmtl.mmtl_logger import Logger  # NOTE: we use special MMTL logger
 from metal.mmtl.task_scheduler import ProportionalScheduler
 from metal.utils import recursive_merge_dicts, recursive_transform, set_seed
 
@@ -98,8 +95,6 @@ trainer_defaults = {
         # If non-None, only calculate and report these metrics every `score_every`
         # units (this can include the names of built-in and user-defined metrics);
         # otherwise, include all metrics returned by task Scorers.
-        # TODO: "metrics_filter": None,
-        # TODO: "score_limit": None,  # Evaluate scorer on only this many examples
     },
     # Task Scheduler
     "task_scheduler": "proportional",  # ["proportional", "staged"]
@@ -174,6 +169,9 @@ class MultitaskTrainer(object):
         self.task_names = [task_name for task_name in model.task_map]
         self.payload_names = [payload.name for payload in payloads]
         train_payloads = [p for p in payloads if p.split == "train"]
+        if not train_payloads:
+            msg = "At least one payload must have property payload.split=='train'"
+            raise Exception(msg)
 
         # Calculate epoch statistics
         # NOTE: We calculate approximate count size using batch_size * num_batches
@@ -798,17 +796,17 @@ class MultitaskTrainer(object):
                 )
                 raise Exception(msg)
         else:
-            if checkpoint_metric.count("/") != 2:
+            if checkpoint_metric.count("/") != 3:
                 msg = (
                     f"checkpoint_metric must have a full metric name "
-                    f"(task/split/metric); you submitted: {checkpoint_metric}"
+                    f"(task/payload/split/metric); you submitted: {checkpoint_metric}"
                 )
                 raise Exception(msg)
 
-            task_name, payload_name, metric = split_full_metric(checkpoint_metric)
+            task_name, payload_name, label_name, metric = checkpoint_metric.split("/")
             try:
                 task = model.task_map[task_name]
-            except IndexError:
+            except KeyError:
                 msg = (
                     f"The task for your specified checkpoint_metric "
                     f"({checkpoint_metric}) was not found in the list of "

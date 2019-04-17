@@ -61,7 +61,12 @@ class Task(ABC):
 
 
 class ClassificationTask(Task):
-    """A classification task for use in an MMTL MetalModel"""
+    """A classification task for use in an MMTL MetalModel
+
+    loss_hat_func converts labels into 1D tensor and then offsets subtracts 1 to account
+        for the fact that our labels are categorical (e.g., {1,2}) but the method
+        F.cross_entropy() expects 0-indexed labels.
+    """
 
     def __init__(
         self,
