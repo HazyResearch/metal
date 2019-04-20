@@ -182,8 +182,8 @@ class MultitaskTrainer(object):
         if self.config["verbose"]:
             print(f"Beginning train loop.")
             print(
-                f"Expecting a total of approximately {self.examples_per_epoch} "
-                f"examples and {self.batches_per_epoch} batches per epoch from "
+                f"Expecting approximately {self.examples_per_epoch} examples total "
+                f"and {self.batches_per_epoch} batches per epoch from "
                 f"{len(train_payloads)} payload(s) in the train split."
             )
 
