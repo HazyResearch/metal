@@ -124,7 +124,7 @@ def convert_labels(Y, source, target):
         assert Y.dtype == np.int64
     elif isinstance(Y, torch.Tensor):
         Y = Y.clone()
-        assert isinstance(Y, torch.long)
+        assert isinstance(Y, torch.LongTensor)
     else:
         raise ValueError("Unrecognized label data type.")
     negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}
