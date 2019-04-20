@@ -125,7 +125,7 @@ class MetalModel(nn.Module):
             X: an appropriate input for forward(), either a Tensor or tuple
             Ys: a dict of {task_name: labels} where labels is [n, ?]
             labels_to_tasks: a dict of {label_name: task_name} indicating which task
-                head to use to calculate the loss for each label_set.
+                head to use to calculate the loss for each labelset.
         """
         task_names = set(labels_to_tasks.values())
         outputs = self.forward(X, task_names)
@@ -300,10 +300,10 @@ class MetalModel(nn.Module):
         Args:
             payload: the Payload to make predictions for
             target_tasks: if not None, predict probs only for the specified tasks;
-                otherwise, predict probs for all tasks with corresponding label_sets
+                otherwise, predict probs for all tasks with corresponding labelsets
                 in the payload
-            target_labels: if not None, return labels for only the specified label_sets;
-                otherwise, return all label_sets
+            target_labels: if not None, return labels for only the specified labelsets;
+                otherwise, return all labelsets
             return_preds: if True, also include preds in return values
             max_examples: if > 0, predict for a maximum of this many examples
 
@@ -435,7 +435,7 @@ def validate_targets(payload, target_tasks, target_labels):
         for label_name in target_labels:
             if label_name not in payload.labels_to_tasks:
                 msg = (
-                    f"Could not find the specified label_set {label_name} in "
+                    f"Could not find the specified labelset {label_name} in "
                     f"payload {payload}."
                 )
                 raise Exception(msg)

@@ -53,7 +53,7 @@ SPACY_TAGS = {
 # Function to add BLEU labels
 def add_bleu_labels(payload):
     """
-    Adds 1-gram bleu score label_set for sentence similarity tasks
+    Adds 1-gram bleu score labelset for sentence similarity tasks
     """
     raise NotImplementedError("Update the signature of label_fn")
     # def get_bleu_label(it):
@@ -67,7 +67,7 @@ def add_bleu_labels(payload):
     #     bleu_score = sentence_bleu(sent1, sent2, weights=(1, 0, 0, 0))
     #     return float(bleu_score)
 
-    # return payload.add_label_set("BLEU", label_fn=get_bleu_label)
+    # return payload.add_labelset("BLEU", label_fn=get_bleu_label)
 
 
 # Function add THIRD labels
@@ -88,7 +88,7 @@ def add_third_labels(payload):
         Y_list.append(mark_thirds(x))
     Y = padded_tensor(Y_list)
 
-    payload.add_label_set("THIRD", label_list=Y)
+    payload.add_labelset("THIRD", label_list=Y)
     return payload
 
 
@@ -103,7 +103,7 @@ def add_spacy_ner_labels(payload):
 # Add token-based tags from Spacy
 def add_spacy_labels(payload, label_name, spacy_attr, null_label="NULL"):
     """
-    Adds a spacy POS label_set, mapping through the different tokenizations
+    Adds a spacy POS labelset, mapping through the different tokenizations
 
     Args:
         payload
@@ -141,7 +141,7 @@ def add_spacy_labels(payload, label_name, spacy_attr, null_label="NULL"):
         Y_list.append(token_labels)
 
     Y = padded_tensor(Y_list)
-    payload.add_label_set(label_name, label_list=Y)
+    payload.add_labelset(label_name, label_list=Y)
     return payload
 
 

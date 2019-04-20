@@ -45,14 +45,14 @@ class Payload(object):
         labels_to_tasks = {"labels": task_name}
         return Payload(name, data_loader, labels_to_tasks, split)
 
-    def add_label_set(
+    def add_labelset(
         self, task_name, label_name, label_list=None, label_fn=None, verbose=True
     ):
-        """Adds a new label_set to an existing payload
+        """Adds a new labelset to an existing payload
 
         Args:
-            task_name: the name of the Task to which the label_set belongs
-            label_name: the name of the label_set being added
+            task_name: the name of the Task to which the labelset belongs
+            label_name: the name of the labelset being added
             label_fn: a function which maps a dataset item to a label
                 labels will be combined using torch.stack(labels, dim=0)
             label_list: a list of labels in the correct order
@@ -74,7 +74,7 @@ class Payload(object):
             raise ValueError("Incorrect label object type -- supply list or function")
 
         if new_labels.dim() < 2:
-            raise Exception("New label_set must have at least two dimensions: [n, ?]")
+            raise Exception("New labelset must have at least two dimensions: [n, ?]")
 
         self.data_loader.dataset.labels[task_name] = new_labels
         self.labels_to_tasks[label_name] = task_name
@@ -82,17 +82,17 @@ class Payload(object):
         if verbose:
             active = torch.any(new_labels != 0, dim=1)
             msg = (
-                f"Added label_set with {sum(active.long())}/{len(active)} labels for "
+                f"Added labelset with {sum(active.long())}/{len(active)} labels for "
                 f"task {task_name} to payload {self.name}."
             )
             print(msg)
 
-    def remove_label_set(self, label_name, verbose=True):
+    def remove_labelset(self, label_name, verbose=True):
         self.data_loader.dataset.labels.pop(label_name)
         task_name = self.labels_to_tasks[label_name]
         del self.labels_to_tasks[label_name]
 
         if verbose:
             print(
-                f"Removed label_set {label_name} for task {task_name} from payload {self.name}."
+                f"Removed labelset {label_name} for task {task_name} from payload {self.name}."
             )

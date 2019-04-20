@@ -99,8 +99,7 @@ class GLUEDataset(data.Dataset):
         """
         x = {"data": self.bert_tokens[index], "segments": self.bert_segments[index]}
         ys = {
-            label_name: label_set[index]
-            for label_name, label_set in self.labels.items()
+            label_name: labelset[index] for label_name, labelset in self.labels.items()
         }
         return x, ys
 
@@ -179,15 +178,15 @@ class GLUEDataset(data.Dataset):
         return X, Ys
 
     def _collate_labels(self, Ys):
-        """Collate potentially multiple label_sets
+        """Collate potentially multiple labelsets
 
         Args:
             Ys: a dict of the form {task_name: label_list}, where label_list is a
                 list of individual labels (ints, floats, numpy, or torch) belonging to
-                the same label_set; labels may be a scalar or a sequence.
+                the same labelset; labels may be a scalar or a sequence.
         Returns:
             Ys: a dict of the form {task_name: labels}, with labels containing a torch
-                Tensor (padded if necessary) of labels belonging to the same label_set
+                Tensor (padded if necessary) of labels belonging to the same labelset
 
         Convert each Y in Ys from:
             list of scalars (instance labels) -> [n,] tensor
@@ -209,7 +208,7 @@ class GLUEDataset(data.Dataset):
             ):
                 Y = padded_tensor(Y)
             else:
-                msg = f"Unrecognized dtype of label_set {label_name}: " f"{type(Y[0])}"
+                msg = f"Unrecognized dtype of labelset {label_name}: " f"{type(Y[0])}"
                 raise Exception(msg)
             # Ensure that first dimension of Y is n
             if Y.dim() == 1:
