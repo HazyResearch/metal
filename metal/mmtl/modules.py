@@ -18,4 +18,4 @@ class MetalModuleWrapper(nn.Module):
         # passed in so that cached outputs from intermediate modules aren't mutated
         X_out = {k: v for k, v in X.items()}
         X_out["data"] = self.module(X["data"])
-        return X
+        return X_out
