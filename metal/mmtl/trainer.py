@@ -12,7 +12,6 @@ import torch.optim as optim
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
 from metal.logging import Checkpointer, LogWriter, TensorBoardWriter
-from metal.mmtl.glue.glue_metrics import GLUE_METRICS, glue_score
 from metal.mmtl.mmtl_logger import Logger  # NOTE: we use special MMTL logger
 from metal.mmtl.task_scheduler import ProportionalScheduler
 from metal.utils import recursive_merge_dicts, recursive_transform, set_seed
@@ -123,9 +122,6 @@ trainer_defaults = {
     },
     # Checkpointer (see metal/logging/checkpointer.py for descriptions)
     "checkpoint": True,  # If True, checkpoint models when certain conditions are met
-    # EXPERIMENTAL: If True, save a separate set of checkpoints (assuming strategy of
-    # checkpoint_best) for each task
-    "checkpoint_tasks": False,
     # If true, checkpoint directory will be cleaned after training (if checkpoint_best
     # is True, the best model will first be copied to the log_dir/run_dir/run_name/)
     "checkpoint_cleanup": True,
@@ -314,33 +310,6 @@ class MultitaskTrainer(object):
         if self.config["verbose"]:
             pprint(metrics_dict)
 
-        # EXPERIMENTAL:
-        # Recalculate scores using task-specific checkpoints
-        if self.config["checkpoint_tasks"]:
-            metrics_dict = copy.deepcopy(metrics_dict)
-            test_split = self.config["metrics_config"]["test_split"]
-            for task_name, checkpointer in zip(model.task_map, self.task_checkpointers):
-                checkpointer.load_best_model(model=model)
-                checkpoint_metric = checkpointer.checkpoint_metric
-                for payload in payloads:
-                    if (
-                        payload.split == test_split
-                        and payload.name in checkpoint_metric
-                    ):
-                        # Calculate all supported metrics for given task with loaded checkpoint
-                        metrics_dict_task = model.score(payload, [checkpoint_metric])
-                        metrics_dict.update(metrics_dict_task)
-                        if self.writer:
-                            path_to_best = os.path.join(
-                                checkpointer.checkpoint_dir, "best_model.pth"
-                            )
-                            path_to_logs = os.path.join(
-                                self.writer.log_subdir, f"{task_name}_best_model.pth"
-                            )
-                            copy2(path_to_best, path_to_logs)
-            print("Final scores using task-specific checkpoints:")
-            pprint(metrics_dict)
-
         # Clean up checkpoints
         if self.checkpointer and self.config["checkpoint_cleanup"]:
             print("Cleaning checkpoints")
@@ -421,8 +390,8 @@ class MultitaskTrainer(object):
 
     def calculate_metrics(self, model, payloads, split=None):
         metrics_dict = {}
-        # Update metrics_hist after task_metrics so trainer_metrics have access to most
-        # recently calculated numbers (e.g., glue score aggregates task scores)
+        # Update metrics_hist after task_metrics so aggregates metrics have access to
+        # most recently calculated numbers
         metrics_dict.update(self.calculate_task_metrics(model, payloads, split))
         self.metrics_hist.update(metrics_dict)
         metrics_dict.update(self.calculate_aggregate_metrics())
@@ -461,12 +430,6 @@ class MultitaskTrainer(object):
         self.checkpointer.checkpoint(
             metrics_dict, iteration, model, self.optimizer, self.lr_scheduler
         )
-        # EXPERIMENTAL:
-        if self.config["checkpoint_tasks"]:
-            for checkpointer in self.task_checkpointers:
-                checkpointer.checkpoint(
-                    metrics_dict, iteration, model, self.optimizer, self.lr_scheduler
-                )
 
     def _reset_losses(self):
         self.running_losses = defaultdict(float)
@@ -525,46 +488,6 @@ class MultitaskTrainer(object):
             )
         else:
             self.checkpointer = None
-
-        # EXPERIMENTAL: Optionally add task-specific checkpointers
-        # HACK: This is hard-coded in a way specific to Glue!
-        self.task_checkpointers = []
-        if self.config["checkpoint_tasks"]:
-            msg = (
-                "checkpoint_tasks setting does not have the same thorough error "
-                "checking that the normal checkpoint operation has, so you may "
-                "accidentally be trying to checkpoint metrics that aren't going to be "
-                "found in the metrics_dict if you're not careful."
-            )
-            warnings.warn(msg)
-            for task_name in self.task_names:
-                # We only make task_specific checkpoints for the glue tasks
-
-                # HACK: allow checkpointing on slice tasks
-                using_slice = ":" in task_name
-                orig_task_name = task_name.split(":")[0] if using_slice else None
-
-                if (task_name not in GLUE_METRICS) and (
-                    orig_task_name not in GLUE_METRICS
-                ):
-                    continue
-                checkpoint_config = copy.deepcopy(self.config["checkpoint_config"])
-                checkpoint_config["checkpoint_dir"] += f"/{task_name}"
-                checkpoint_config["checkpoint_best"] = True
-
-                checkpoint_metric = (
-                    (
-                        f"{task_name}/{orig_task_name}_valid/{GLUE_METRICS[orig_task_name]}"
-                    )
-                    if using_slice
-                    else (f"{task_name}/{task_name}_valid/{GLUE_METRICS[task_name]}")
-                )
-                checkpoint_config["checkpoint_metric"] = checkpoint_metric
-                checkpoint_config["checkpoint_metric_mode"] = "max"
-                task_checkpointer = Checkpointer(
-                    checkpoint_config, verbose=self.config["verbose"]
-                )
-                self.task_checkpointers.append(task_checkpointer)
 
     def _set_optimizer(self, model):
         optimizer_config = self.config["optimizer_config"]
