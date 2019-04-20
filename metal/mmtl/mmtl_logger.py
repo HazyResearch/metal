@@ -113,11 +113,11 @@ class Logger(object):
         else:
             epochs = self.batch_total / self.batches_per_epoch
             header = f" ({epochs:0.2f} epo)"
-        string = f"[{header}]:"
+        string = f"[{header}]:\n"
 
         for task, score_strings in score_strings_by_task.items():
             concatenated_scores = f"{', '.join(score_strings)}"
-            string += f" {task}:[{concatenated_scores}]"
+            string += f"  {task}:[{concatenated_scores}]"
             string += "\n"  # Print each task on a new line
         print(string[:-1])  # Don't include final newline
 

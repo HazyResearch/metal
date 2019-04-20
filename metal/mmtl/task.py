@@ -15,7 +15,6 @@ class Task(ABC):
             TODO: replace this with a more fully-featured path through the network
         input_module: (nn.Module) The input module
         middle_module: (nn.Module) A middle module
-        attention_module: (nn.Module) An attention module right before the task head
         head_module: (nn.Module) The task head module
         output_hat_func: A function of the form f(forward(X)) -> output (e.g. probs)
         loss_hat_func: A function of the form f(forward(X), Y) -> loss (scalar Tensor)
@@ -31,7 +30,6 @@ class Task(ABC):
         name,
         input_module,
         middle_module,
-        attention_module,
         head_module,
         output_hat_func,
         loss_hat_func,
@@ -41,7 +39,6 @@ class Task(ABC):
         self.name = name
         self.input_module = self._wrap_module(input_module)
         self.middle_module = self._wrap_module(middle_module)
-        self.attention_module = self._wrap_module(attention_module)
         self.head_module = self._wrap_module(head_module)
         self.output_hat_func = output_hat_func
         self.loss_hat_func = loss_hat_func
@@ -73,7 +70,6 @@ class ClassificationTask(Task):
         name,
         input_module=IdentityModule(),
         middle_module=IdentityModule(),
-        attention_module=IdentityModule(),
         head_module=IdentityModule(),
         output_hat_func=(lambda X: F.softmax(X["data"], dim=1)),
         loss_hat_func=(lambda X, Y: F.cross_entropy(X["data"], Y.view(-1) - 1)),
@@ -85,7 +81,6 @@ class ClassificationTask(Task):
             name,
             input_module,
             middle_module,
-            attention_module,
             head_module,
             output_hat_func,
             loss_hat_func,
@@ -102,7 +97,6 @@ class RegressionTask(Task):
         name,
         input_module=IdentityModule(),
         middle_module=IdentityModule(),
-        attention_module=IdentityModule(),
         head_module=IdentityModule(),
         output_hat_func=(lambda X: X["data"]),
         # Note: no sigmoid (target labels can be in any range)
@@ -115,7 +109,6 @@ class RegressionTask(Task):
             name,
             input_module,
             middle_module,
-            attention_module,
             head_module,
             output_hat_func,
             loss_hat_func,

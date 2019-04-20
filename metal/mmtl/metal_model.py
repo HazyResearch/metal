@@ -75,9 +75,6 @@ class MetalModel(nn.Module):
         self.middle_modules = nn.ModuleDict(
             {task.name: nn.DataParallel(task.middle_module) for task in tasks}
         )
-        self.attention_modules = nn.ModuleDict(
-            {task.name: nn.DataParallel(task.attention_module) for task in tasks}
-        )
         self.head_modules = nn.ModuleDict(
             {task.name: nn.DataParallel(task.head_module) for task in tasks}
         )
@@ -115,14 +112,9 @@ class MetalModel(nn.Module):
                 output = middle_module(outputs[input_module])
                 outputs[middle_module] = output
 
-            attention_module = self.attention_modules[task_name].module
-            if attention_module not in outputs:
-                output = attention_module(outputs[middle_module])
-                outputs[attention_module] = output
-
             head_module = self.head_modules[task_name].module
             if head_module not in outputs:
-                output = head_module(outputs[attention_module])
+                output = head_module(outputs[middle_module])
                 outputs[head_module] = output
         return {t: outputs[self.head_modules[t].module] for t in task_names}
 
