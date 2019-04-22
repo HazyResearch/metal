@@ -1,2 +1,0 @@
-CoLA/dev.tsv:1001
-QQP/dev.tsv:1582
