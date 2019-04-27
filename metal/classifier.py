@@ -268,7 +268,8 @@ class Classifier(nn.Module):
         self.eval()
 
         # Restore best model if applicable
-        if self.checkpointer:
+        # if self.checkpointer:
+        if False:
             self.checkpointer.load_best_model(model=self)
 
         # Write log if applicable

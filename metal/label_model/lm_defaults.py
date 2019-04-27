@@ -5,6 +5,7 @@ lm_default_config = {
     "show_plots": True,
     # Device (default GPU)
     "device": "cpu",
+    "class_balance": (0.5, 0.5),
     # TRAIN
     "train_config": {
         # Dataloader

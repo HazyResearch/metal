@@ -400,6 +400,7 @@ class LabelModel(Classifier):
 
         # Note that the LabelModel class implements its own (centered) L2 reg.
         l2 = train_config.get("l2", 0)
+        class_balance = train_config.get("class_balance", class_balance)
 
         self._set_class_balance(class_balance, Y_dev)
         self._set_constants(L_train)

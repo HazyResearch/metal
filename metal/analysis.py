@@ -131,6 +131,34 @@ def lf_empirical_accuracies(L, Y):
     return 0.5 * (X.sum(axis=0) / (L != 0).sum(axis=0) + 1)
 
 
+def lf_precisions(L, Y):
+    Y = arraylike_to_numpy(Y)
+    L = L.toarray()
+        
+    tps = (np.where(L == 1, 1, 0) * np.where(np.vstack([Y] * L.shape[1]).T == 1, 1, 0)).sum(axis=0)
+    fps = (np.where(L == 1, 1, 0) * np.where(np.vstack([Y] * L.shape[1]).T != 1, 1, 0)).sum(axis=0)
+    fns = (np.where(L == 2, 1, 0) * np.where(np.vstack([Y] * L.shape[1]).T == 1, 1, 0)).sum(axis=0)
+
+    return tps / (tps + fps)
+
+
+def lf_recalls(L, Y):
+    Y = arraylike_to_numpy(Y)
+    L = L.toarray()
+        
+    tps = (np.where(L == 1, 1, 0) * np.where(np.vstack([Y] * L.shape[1]).T == 1, 1, 0)).sum(axis=0)
+    fps = (np.where(L == 1, 1, 0) * np.where(np.vstack([Y] * L.shape[1]).T != 1, 1, 0)).sum(axis=0)
+    fns = (np.where(L == 2, 1, 0) * np.where(np.vstack([Y] * L.shape[1]).T == 1, 1, 0)).sum(axis=0)
+
+    return tps / (tps + fns)
+
+
+def lf_f1s(L, Y):
+    pre = lf_precisions(L, Y)
+    rec = lf_recalls(L, Y)
+    return 2 * pre * rec / (pre + rec)
+
+
 def lf_summary(L, Y=None, lf_names=None, est_accs=None):
     """Returns a pandas DataFrame with the various per-LF statistics.
 
@@ -157,7 +185,8 @@ def lf_summary(L, Y=None, lf_names=None, est_accs=None):
     d["Conflicts"] = Series(data=lf_conflicts(L), index=lf_names)
 
     if Y is not None:
-        col_names.extend(["Correct", "Incorrect", "Emp. Acc."])
+        col_names.extend(["Correct", "Incorrect", "Emp. Acc.", "Precision",
+            "Recall", "F1"])
         confusions = [
             confusion_matrix(Y, L[:, i], pretty_print=False) for i in range(m)
         ]
@@ -166,9 +195,15 @@ def lf_summary(L, Y=None, lf_names=None, est_accs=None):
             conf.sum() - correct for conf, correct in zip(confusions, corrects)
         ]
         accs = lf_empirical_accuracies(L, Y)
+        precisions = lf_precisions(L, Y)
+        recalls = lf_recalls(L, Y)
+        f1s = lf_f1s(L, Y)
         d["Correct"] = Series(data=corrects, index=lf_names)
         d["Incorrect"] = Series(data=incorrects, index=lf_names)
         d["Emp. Acc."] = Series(data=accs, index=lf_names)
+        d["Precision"] = Series(data=precisions, index=lf_names)
+        d["Recall"] = Series(data=recalls, index=lf_names)
+        d["F1"] = Series(data=f1s, index=lf_names)
 
     if est_accs is not None:
         col_names.append("Learned Acc.")
