@@ -1,0 +1,35 @@
+{
+	"RTE": [
+		"/dfs/scratch0/chami/metal/logs/2019_03_17/RTE_23_22_34/",
+		"/dfs/scratch0/chami/metal/logs/2019_03_17/RTE_23_31_05/"
+	], 
+	"QNLI": [
+		"/dfs/scratch0/chami/metal/metal/mmtl/aws/output/2019_03_17_20_37_34/3/logdir/qnli_cased_ft/QNLI_05_36_54/",
+		"/dfs/scratch0/chami/metal/metal/mmtl/aws/output/2019_03_17_20_36_05/2/logdir/qnli_cased_ft/QNLI_05_31_35/"
+	],
+	"MRPC": [
+		"/dfs/scratch0/chami/metal/logs/2019_03_17/MRPC_19_09_46/",
+		"/dfs/scratch0/chami/metal/logs/2019_03_17/MRPC_19_10_58/"
+	], 
+	"SST2": [
+		"/dfs/scratch0/chami/metal/logs/2019_03_18/SST2_00_54_20/",
+		"/dfs/scratch0/chami/metal/logs/2019_03_18/SST2_01_50_40/"
+	],
+	"MNLI": [
+		"/dfs/scratch0/chami/metal/metal/mmtl/aws/output/2019_03_18_00_36_06/0/logdir/mnli_cased_ft/MNLI_07_59_24/",
+		"/dfs/scratch0/chami/metal/metal/mmtl/aws/output/2019_03_17_20_15_33/0/logdir/mnli_cased_ft/MNLI_03_39_00/"
+	],
+	"QQP": [
+		"/dfs/scratch0/chami/metal/logs/bert_large_mtl/cased/",
+		"/dfs/scratch0/chami/metal/logs/bert_large_mtl/uncased/"
+	],
+	"STSB": [
+		"/dfs/scratch0/chami/metal/logs/2019_03_18/STSB_01_15_51/",
+	        "/dfs/scratch0/chami/metal/logs/2019_03_18/STSB_01_19_21/"
+	],
+	"COLA": [
+		"/dfs/scratch0/mccreery/mmtl/logs/ST_bertlarge/COLA/logdir/2019_02_25/COLA_21_56_02/",
+		"/dfs/scratch0/mccreery/mmtl/logs/ST_bertlarge/COLA_cased/2/logdir/2019_03_05/COLA_00_50_04"
+	]
+}
+

@@ -11,9 +11,9 @@ search_space = {
 launch_args = {
     # Device args
     "device": 0,
-    # "fp16": 1,
+    "fp16": 1,
     # Model specification
-    # "bert_model": "bert-large-cased",
+    "bert_model": "bert-large-cased",
     # "bert_output_dim": 1024,
     # Dataloader specification
     "max_len": 200,
