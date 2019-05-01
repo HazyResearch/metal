@@ -26,12 +26,7 @@ class LogWriter(object):
     """
 
     def __init__(
-        self,
-        log_dir="logs",
-        run_dir=None,
-        run_name=None,
-        writer_metrics=None,
-        include_config=True,
+        self, log_dir=None, run_dir=None, run_name=None, writer_metrics=[], verbose=True
     ):
         start_date = strftime("%Y_%m_%d")
         start_time = strftime("%H_%M_%S")
@@ -47,12 +42,9 @@ class LogWriter(object):
         if not os.path.exists(self.log_subdir):
             os.makedirs(self.log_subdir)
 
-        # Set JSON log path
-        self.log_path = os.path.join(self.log_subdir, f"{run_name}.json")
-
         # Save other settings
         self.writer_metrics = writer_metrics
-        self.include_config = include_config
+        self.verbose = verbose
 
         # Initialize log
         # Note we have a separate section for during-run metrics
@@ -65,7 +57,51 @@ class LogWriter(object):
             "run_log": defaultdict(list),
         }
 
-    def add_config(self, config):
+    def add_scalar(self, name, val, i):
+        # Note: Does not handle deduplication of (name, val) entries w same i
+        if not self.writer_metrics or name in self.write_metrics:
+            if val is not None:
+                val = float(val)
+            self.log_dict["run_log"][name].append((i, val))
+            return True
+        else:
+            return False
+
+    def write(self, config=None, metrics=None):
+        self.write_run_log()
+        if config is not None:
+            self.write_config(config)
+        if metrics is not None:
+            self.write_metrics(metrics)
+
+    def write_log(self):
+        """Dump log output to file"""
+        log_path = os.path.join(self.log_subdir, "log.json")
+        if self.verbose:
+            print(f"Writing log to {log_path}")
+        with open(log_path, "w") as f:
+            json.dump(self.log_dict, f, indent=1)
+
+    def write_config(self, config, config_name="config"):
+        """Dump config dict to file"""
+        config_path = os.path.join(self.log_subdir, f"{config_name}.json")
+        if self.verbose:
+            print(f"Writing config to {config_path}")
+        with open(config_path, "w") as f:
+            config = self._sanitize_config(config)
+            json.dump(config, f, indent=1)
+
+    def write_metrics(self, metrics):
+        metrics_path = os.path.join(self.log_subdir, "metrics.json")
+        if self.verbose:
+            print(f"Writing metrics to {metrics_path}")
+        with open(metrics_path, "w") as f:
+            json.dump(metrics, f, indent=1)
+
+    def close(self):
+        pass
+
+    def _sanitize_config(self, config):
         config = copy.deepcopy(config)
         # Replace individual functions
         is_func = lambda x: callable(x)
@@ -75,20 +111,4 @@ class LogWriter(object):
         is_func_list = lambda x: isinstance(x, list) and all(is_func(f) for f in x)
         replace_with_names = lambda x: [replace_with_name(f) for f in x]
         config = recursive_transform(config, is_func_list, replace_with_names)
-        self.log_dict["config"] = config
-
-    def add_scalar(self, name, val, i):
-        # Note: Does not handle deduplication of (name, val) entries w same i
-        if not self.writer_metrics or name in self.write_metrics:
-            self.log_dict["run_log"][name].append((i, val))
-            return True
-        else:
-            return False
-
-    def write(self):
-        """Dump JSON to file"""
-        with open(self.log_path, "w") as f:
-            json.dump(self.log_dict, f, indent=1)
-
-    def close(self):
-        self.write()
+        return config

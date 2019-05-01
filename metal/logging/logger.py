@@ -140,16 +140,28 @@ class Logger(object):
 
     @staticmethod
     def add_split_prefix(metric, split):
-        """Prepend "{split}/" to the metric name if it is not already present"""
-        if not metric.startswith(f"{split}/"):
-            metric = f"{split}/{metric}"
-        return metric
+        """Add split name to metric name if it is not already present
+
+        The order of metric name components should either be:
+        - task/split/metric in the multitask setting (expand to this from task/metric)
+        - split/metric in the singletask setting (expand to this from metric)
+        """
+        if f"{split}/" in metric:
+            full_metric = metric
+        else:
+            if "/" in metric:
+                # It has two parts but not split, so must be task/metric
+                task, metric = metric.split("/")
+                full_metric = f"{task}/{split}/{metric}"
+            else:
+                # It has one part but not split, so must be metric
+                full_metric = f"{split}/{metric}"
+        return full_metric
 
     @staticmethod
     def remove_split_prefix(metric):
-        """Remove "{split}/" from begininng of metric name if it is present"""
-        split, metric = metric.split("/", 1)
-        return metric
+        """Remove prefixes from begininng of metric name (e.g., task/split/metric)"""
+        return metric.split("/")[-1]
 
     def _calculate_valid_frequency(self):
         assert isinstance(self.config["log_train_every"], int)
@@ -180,13 +192,24 @@ class Logger(object):
     def print_to_screen(self, metrics_dict):
         """Print all metrics in metrics_dict to screen"""
         score_strings = defaultdict(list)
-        for split_metric, value in metrics_dict.items():
-            split, metric = split_metric.split("/", 1)
-
-            if isinstance(value, float):
-                score_strings[split].append(f"{metric}={value:0.3f}")
+        for full_name, value in metrics_dict.items():
+            if full_name.count("/") == 2:
+                task, split, metric = full_name.split("/")
+            elif full_name.count("/") == 1:
+                task = None
+                split, metric = full_name.split("/")
             else:
-                score_strings[split].append(f"{metric}={value}")
+                msg = f"Metric should have form task/split/metric or split/metric, not: {full_name}"
+                raise Exception(msg)
+
+            if task:
+                metric_name = f"{task}/{metric}"
+            else:
+                metric_name = metric
+            if isinstance(value, float):
+                score_strings[split].append(f"{metric_name}={value:0.3f}")
+            else:
+                score_strings[split].append(f"{metric_name}={value}")
 
         header = f"{self.unit_total} {self.log_unit[:3]}"
         if self.log_unit != "epochs":
