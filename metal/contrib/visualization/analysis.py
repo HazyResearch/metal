@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sparse
 
+from metal.utils import convert_labels
+
 ############################################################
 # Label Matrix Plotting
 ############################################################
@@ -76,19 +78,16 @@ def _get_conflicts_matrix(L, normalize=True):
 ############################################################
 
 
-def plot_probabilities_histogram(Y_p, title=None):
+def plot_probabilities_histogram(Y_probs, title=None):
     """Plot a histogram from a numpy array of probabilities
 
     Args:
-        Y_p: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
+        Y_probs: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
     """
-    if Y_p.ndim > 1:
-        msg = (
-            f"Arg Y_p should be a 1-dimensional np.ndarray, not of shape "
-            f"{Y_p.shape}."
-        )
-        raise ValueError(msg)
-    plt.hist(Y_p, bins=20)
+    if Y_probs.ndim > 1:
+        print("Plotting probabilities from the first column of Y_probs")
+        Y_probs = Y_probs[:, 0]
+    plt.hist(Y_probs, bins=20)
     plt.xlim((0, 1.025))
     plt.xlabel("Probability")
     plt.ylabel("# Predictions")
@@ -97,17 +96,17 @@ def plot_probabilities_histogram(Y_p, title=None):
     plt.show()
 
 
-def plot_predictions_histogram(Y_ph, Y, title=None):
+def plot_predictions_histogram(Y_preds, Y_gold, title=None):
     """Plot a histogram comparing int predictions vs true labels by class
 
     Args:
-        Y_ph: An [n] or [n, 1] np.ndarray of predicted int labels
-        Y: An [n] or [n, 1] np.ndarray of gold labels
+        Y_gold: An [n] or [n, 1] np.ndarray of gold labels
+        Y_preds: An [n] or [n, 1] np.ndarray of predicted int labels
     """
-    labels = list(set(Y).union(set(Y_ph)))
+    labels = list(set(Y_gold).union(set(Y_preds)))
     edges = [x - 0.5 for x in range(min(labels), max(labels) + 2)]
 
-    plt.hist([Y_ph, Y], bins=edges, label=["Predicted", "Gold"])
+    plt.hist([Y_preds, Y_gold], bins=edges, label=["Predicted", "Gold"])
     ax = plt.gca()
     ax.set_xticks(labels)
     plt.xlabel("Label")
@@ -116,3 +115,44 @@ def plot_predictions_histogram(Y_ph, Y, title=None):
     if isinstance(title, str):
         plt.title(title)
     plt.show()
+
+
+def plot_calibration_plot(Y_probs, Y_gold, bins=20, title=None):
+    """Plot a histogram of the accuracy for predictions with varying confidences
+
+    Args:
+        Y_probs: An [n] or [n, 1] np.ndarray of probabilities (floats in [0,1])
+        Y_gold: An [n] or [n, 1] np.ndarray of gold labels
+
+    For a well-behaved classifier, the plot should be a U-shape.
+    """
+    # For now, we only tackle binary classification with categorical labels
+    assert all(Y_gold > 0)
+    assert all(Y_gold <= 2)
+
+    if Y_probs.ndim > 1:
+        print("Plotting probabilities from the first column of Y_probs")
+        Y_probs = Y_probs[:, 0]
+    Y_preds = convert_labels((Y_probs > 0.5).astype(np.int64), "onezero", "categorical")
+
+    correct_idxs = Y_preds == Y_gold
+    centers = []
+    accuracies = []
+    interval = 1 / bins
+    for i in range(bins + 1):
+        if i == bins:
+            bin_idxs = (interval * i <= Y_probs) * (Y_probs <= 1)
+        else:
+            bin_idxs = (interval * i <= Y_probs) * (Y_probs < interval * (i + 1))
+        bin_accuracy = sum(bin_idxs * correct_idxs) / sum(bin_idxs)
+        centers.append(interval * (i + 0.5))
+        accuracies.append(bin_accuracy)
+
+    # print("Accuracy: ", len(correct_idx) / (1.0 * len(Y_probs)))
+    # Y_p_correct = Y_probs[correct_idx]
+    plt.plot(centers, accuracies)
+    plt.xlim((0, 1.025))
+    plt.xlabel("Probability")
+    plt.ylabel("Accuracy")
+    if isinstance(title, str):
+        plt.title(title)
