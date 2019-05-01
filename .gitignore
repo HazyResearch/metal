@@ -22,9 +22,14 @@ build/
 # Local data and notebooks
 data/*
 notebooks/local/*
+*cache/
 
 # Logs
 checkpoints/
 tensorboard/
 logs/
 events.out.tfevents*
+output/
+
+# Virtual environments
+venv/
