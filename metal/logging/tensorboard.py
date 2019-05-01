@@ -2,7 +2,7 @@ import json
 import warnings
 
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 from metal.logging.writer import LogWriter
 
