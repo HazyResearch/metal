@@ -7,11 +7,9 @@ dependencies:  # New core deps should also be added to setup.py for pip
   - networkx>=2.2
   - numpy
   - pandas
-  - pytorch=1.0
+  - pytorch=1.1
   - scipy
   - tornado<6  # tornado v6 introduced a breaking depedency
-  - pip:
-    - tensorboardX==1.4
   - tqdm  # Packages below this line are optional (testing, notebooks, etc.)
   - matplotlib=3
   - nose
