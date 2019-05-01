@@ -30,8 +30,8 @@ before_install:
 install:
   # Create conda environment
   - conda env create -f environment.yml
-  - source activate metal
   - conda list
+  - source activate metal
 
   # Add metal/ to PYTHONPATH
   - source add_to_path.sh
@@ -39,6 +39,9 @@ install:
   # Run linter/style checks
   - make dev
   - make check
+
+  # Report final environment
+  - conda list
 
 script:
   - nosetests
