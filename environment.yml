@@ -18,3 +18,4 @@ dependencies:  # New core deps should also be added to setup.py for pip
   - runipy
   - scikit-learn
   - torchvision
+  - tensorboard
