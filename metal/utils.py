@@ -1,5 +1,7 @@
+import argparse
 import copy
 import random
+import warnings
 from collections import defaultdict
 
 import numpy as np
@@ -98,13 +100,15 @@ def arraylike_to_numpy(array_like):
     return array_like
 
 
-def convert_labels(Y, source, dest):
+def convert_labels(Y, source, target):
     """Convert a matrix from one label type to another
 
     Args:
-        Y: A np.ndarray or torch.Tensor of labels (ints)
+        Y: A np.ndarray or torch.Tensor of labels (ints) using source convention
         source: The convention the labels are currently expressed in
-        dest: The convention to convert the labels to
+        target: The convention to convert the labels to
+    Returns:
+        Y: an np.ndarray or torch.Tensor of labels (ints) using the target convention
 
     Conventions:
         'categorical': [0: abstain, 1: positive, 2: negative]
@@ -117,14 +121,14 @@ def convert_labels(Y, source, dest):
         return Y
     if isinstance(Y, np.ndarray):
         Y = Y.copy()
-        assert isinstance(Y, int)
+        assert Y.dtype == np.int64
     elif isinstance(Y, torch.Tensor):
         Y = Y.clone()
-        assert np.sum(Y.numpy() - Y.numpy().astype(int)) == 0.0
+        assert isinstance(Y, torch.LongTensor)
     else:
         raise ValueError("Unrecognized label data type.")
     negative_map = {"categorical": 2, "plusminus": -1, "onezero": 0}
-    Y[Y == negative_map[source]] = negative_map[dest]
+    Y[Y == negative_map[source]] = negative_map[target]
     return Y
 
 
@@ -168,6 +172,7 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
         'exception' -> raise an exception
         'report'    -> report the name of the missing key
         'ignore'    -> do nothing
+    verbose: If verbose is None, look for a value for verbose in y first, then x
 
     TODO: give example here (pull from tests)
     """
@@ -182,7 +187,12 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
                     if not isinstance(v, dict):
                         msg = f"Attempted to overwrite dict {k} with " f"non-dict: {v}"
                         raise ValueError(msg)
-                    recurse(x[k], v, misses, verbose)
+                    # If v is {}, set x[k] = {} instead of recursing on empty dict
+                    # Otherwise, recurse on the items in v
+                    if v:
+                        recurse(x[k], v, misses, verbose)
+                    else:
+                        x[k] = v
                 else:
                     if x[k] == v:
                         msg = f"Reaffirming {k}={x[k]}"
@@ -222,12 +232,76 @@ def recursive_merge_dicts(x, y, misses="report", verbose=None):
 
 
 def recursive_transform(x, test_func, transform):
+    """Applies a transformation recursively to each member of a dictionary
+
+    Args:
+        x: a (possibly nested) dictionary
+        test_func: a function that returns whether this element should be transformed
+        transform: a function that transforms a value
+    """
     for k, v in x.items():
         if test_func(v):
             x[k] = transform(v)
         if isinstance(v, dict):
             recursive_transform(v, test_func, transform)
     return x
+
+
+def add_flags_from_config(parser, config_dict):
+    """
+    Adds a flag (and default value) to an ArgumentParser for each parameter in a config
+    """
+
+    def OrNone(default):
+        def func(x):
+            # Convert "none" to proper None object
+            if x.lower() == "none":
+                return None
+            # If default is None (and x is not None), return x without conversion as str
+            elif default is None:
+                return str(x)
+            # Otherwise, default has non-None type; convert x to that type
+            else:
+                return type(default)(x)
+
+        return func
+
+    def str2bool(string):
+        if string == "0" or string.lower() == "false":
+            return False
+        elif string == "1" or string.lower() == "true":
+            return True
+        else:
+            raise Exception(f"Invalid value {string} for boolean flag")
+
+    for param in config_dict:
+        # Blacklist certain config parameters from being added as flags
+        if param in ["verbose"]:
+            continue
+        default = config_dict[param]
+        try:
+            if isinstance(default, dict):
+                parser = add_flags_from_config(parser, default)
+            elif isinstance(default, bool):
+                parser.add_argument(f"--{param}", type=str2bool, default=default)
+            elif isinstance(default, list):
+                if len(default) > 0:
+                    # pass a list as argument
+                    parser.add_argument(
+                        f"--{param}",
+                        action="append",
+                        type=type(default[0]),
+                        default=default,
+                    )
+                else:
+                    parser.add_argument(f"--{param}", action="append", default=default)
+            else:
+                parser.add_argument(f"--{param}", type=OrNone(default), default=default)
+        except argparse.ArgumentError:
+            print(
+                f"Could not add flag for param {param} because it was already present."
+            )
+    return parser
 
 
 def split_data(
@@ -345,6 +419,59 @@ def split_data(
             return outputs
 
 
+def padded_tensor(items, pad_idx=0, left_padded=False, max_len=None):
+    """Create a padded [n, ?] Tensor from a potentially uneven iterable of Tensors.
+    Modified from github.com/facebookresearch/ParlAI
+
+    Args:
+        items: (list) the items to merge and pad
+        pad_idx: (int) the value to use for padding
+        left_padded: (bool) if True, pad on the left instead of the right
+        max_len: (int) if not None, the maximum allowable item length
+
+    Returns:
+        padded_tensor: (Tensor) the merged and padded tensor of items
+    """
+    # number of items
+    n = len(items)
+    # length of each item
+    lens = [len(item) for item in items]
+    # max seq_len dimension
+    max_seq_len = max(lens) if max_len is None else max_len
+
+    output = items[0].new_full((n, max_seq_len), pad_idx)
+
+    for i, (item, length) in enumerate(zip(items, lens)):
+        if left_padded:
+            # place at end
+            output[i, max_seq_len - length :] = item
+        else:
+            # place at beginning
+            output[i, :length] = item
+
+    return output
+
+
+global warnings_given
+warnings_given = set([])
+
+
+def warn_once(self, msg, msg_name=None):
+    """Prints a warning statement just once
+
+    Args:
+        msg: The warning message
+        msg_name: [optional] The name of the warning. If None, the msg_name
+            will be the msg itself.
+    """
+    assert isinstance(msg, str)
+    msg_name = msg_name if msg_name else msg
+    if msg_name not in warnings_given:
+        warnings.warn(msg)
+    warnings_given.add(msg_name)
+
+
+# DEPRECATION: This is replaced by move_to_device
 def place_on_gpu(data):
     """Utility to place data on GPU, where data could be a torch.Tensor, a tuple
     or list of Tensors, or a tuple or list of tuple or lists of Tensors"""
@@ -357,3 +484,36 @@ def place_on_gpu(data):
         return data.cuda()
     else:
         return ValueError(f"Data type {type(data)} not recognized.")
+
+
+def move_to_device(obj, device=-1):
+    """
+    Given a structure (possibly) containing Tensors on the CPU,
+    move all the Tensors to the specified GPU (or do nothing, if they should be on the CPU).
+
+    device = -1 -> "cpu"
+    device =  0 -> "cuda:0"
+
+    """
+    if device < 0 or not torch.cuda.is_available():
+        return obj
+    elif isinstance(obj, torch.Tensor):
+        return obj.cuda(device)
+    elif isinstance(obj, dict):
+        return {key: move_to_device(value, device) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [move_to_device(item, device) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple([move_to_device(item, device) for item in obj])
+    else:
+        return obj
+
+
+def set_seed(seed):
+    seed = int(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.enabled = True  # Is this necessary?
+        torch.cuda.manual_seed(seed)
