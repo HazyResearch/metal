@@ -9,7 +9,7 @@
 **ANNOUNCEMENT** (3/20): We are excited to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL. 
 Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
 The code we used to accomplish this was part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
-That [mmtl package](https://github.com/HazyResearch/metal/blob/master/metal/mmtl) has been released as a part of Snorkel MeTaL v0.5, along with a basic [tutorial](https://github.com/HazyResearch/metal/blob/mmtl_staging/tutorials/MMTL_Basics.ipynb). 
+That [mmtl package](https://github.com/HazyResearch/metal/blob/master/metal/mmtl) has been released as a part of Snorkel MeTaL v0.5, along with a basic [tutorial](https://github.com/HazyResearch/metal/blob/master/tutorials/MMTL_Basics.ipynb). 
 Additional tutorials showing more advanced usage (e.g., using a pre-trained BERT network as a shared input module, using multiple label sets, supervising at the token and sentence level simultaneously, etc.) will be released in future minor version updates, though such functionality is already supported.
 
 Stay tuned on other developments in the Snorkel ecosystem at our project landing page: [snorkel.stanford.edu](http://snorkel.stanford.edu).
@@ -86,7 +86,7 @@ score = end_model.score(data=(X_test, Y_test), metric="accuracy")
 
 ## Release Notes
 ### Major changes in v0.5:
-* Introduction of Massive Multi-Task Learning (MMTL) package in `metal/mmtl/` with [tutorial](https://github.com/HazyResearch/metal/blob/mmtl_staging/tutorials/MMTL_Basics.ipynb).
+* Introduction of Massive Multi-Task Learning (MMTL) package in `metal/mmtl/` with [tutorial](https://github.com/HazyResearch/metal/blob/master/tutorials/MMTL_Basics.ipynb).
 * Additional logging improvements from v0.4
 
 ### Major changes in v0.4:

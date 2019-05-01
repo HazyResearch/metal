@@ -9,5 +9,5 @@ For more discussion around the motivation for MMTL, check out our blog posts:
 
 ## Tutorials
 For hands-on experience using the MMTL package, check out our tutorials:
-* The [MMTL_Basics](https://github.com/HazyResearch/metal/blob/mmtl_staging/tutorials/MMTL_Basics.ipynb) tutorial is the best place to start for an overview of the basic classes in the MMTL package.
+* The [MMTL_Basics](https://github.com/HazyResearch/metal/blob/master/tutorials/MMTL_Basics.ipynb) tutorial is the best place to start for an overview of the basic classes in the MMTL package.
 * Additional tutorials are planned for future minor version updates to Snorkel MeTaL.
