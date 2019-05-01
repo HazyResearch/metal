@@ -4,6 +4,7 @@ channels:
   - conda-forge
 dependencies:  # New core deps should also be added to setup.py for pip
   - python=3.6
+  - dill
   - networkx>=2.2
   - numpy
   - pandas
