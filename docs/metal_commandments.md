@@ -1,6 +1,8 @@
 Author: Braden Hancock (github: bhancock8)  
 Last Updated: 11/20/18  
-MeTaL Version: 0.4.1 
+MeTaL Version: 0.4.1
+
+NOTE: This document does not yet include discussion about the new MMTL package introduced in v0.5.0.
 
 # The MeTaL Commandments
 - [The MeTaL Commandments](#the-metal-commandments)

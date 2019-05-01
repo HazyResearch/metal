@@ -4,13 +4,15 @@
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
-**_v0.4.1_**
+**_v0.4.1**
 
-**ANNOUNCEMENT** (3/20): We are thrilled to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL. 
+**ANNOUNCEMENT** (3/20): We are excited to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL. 
 Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
-The code we used to accomplish this is part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
-That code is being prepared for release and will be a part of Snorkel MeTaL v0.5, coming out in April!
-Stay tuned on this and other Snorkel developments at our project landing page: [snorkel.stanford.edu](http://snorkel.stanford.edu).
+The code we used to accomplish this was part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
+That [mmtl package](https://github.com/HazyResearch/metal/blob/master/metal/mmtl) has been released as a part of Snorkel MeTaL v0.5, along with a basic [tutorial](https://github.com/HazyResearch/metal/blob/mmtl_staging/tutorials/MMTL_Basics.ipynb). 
+Additional tutorials showing more advanced usage (e.g., using a pre-trained BERT network as a shared input module, using multiple label sets, supervising at the token and sentence level simultaneously, etc.) will be released in future minor version updates, though such functionality is already supported.
+
+Stay tuned on other developments in the Snorkel ecosystem at our project landing page: [snorkel.stanford.edu](http://snorkel.stanford.edu).
 
 ## Getting Started
 * Quickly [set up](#setup) your environment
@@ -83,6 +85,11 @@ score = end_model.score(data=(X_test, Y_test), metric="accuracy")
 **_Note for Snorkel users: Snorkel MeTaL, even in the single-task case, learns a slightly different label model than Snorkel does (e.g. here we learn class-conditional accuracies for each LF, etc.)---so expect slightly different (hopefully better!) results._**
 
 ## Release Notes
+### Major changes in v0.5:
+* Introduction of Massive Multi-Task Learning (mmtl) package in `metal/mmtl`
+* Upgrade to pytorch v1.1
+* Adding logging improvements from v0.4
+
 ### Major changes in v0.4:
 * Upgrade to pytorch v1.0
 * Improved control over logging/checkpointing/validation

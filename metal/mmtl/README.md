@@ -1,20 +1,13 @@
-# Overview
-This directory is the home of tools specific to the MMTL SOTA Quest.
+# Massive Multi-Task Learning (MMTL)
+The primary purpose of the MMTL package is to enable flexible prototyping and experimentation in what we call the massive multi-task learning setting, where we have large numbers of tasks and labels of varying types, granularities, and label accuracies. 
+A major requirement of this regime is the ability to easily add or remove new datasets, new label sets, new tasks, and new metrics. Thus, in the MMTL package, each of these concepts have been decoupled.
 
-# Setup 
+## Blog Posts
+For more discussion around the motivation for MMTL, check out our blog posts:
+* [Massive Multi-Task Learning with Snorkel MeTaL: Bringing More Supervision to Bear](https://dawn.cs.stanford.edu/2019/03/22/glue/)
+* [Emerging Topics in Multi-Task Learning Systems](https://hazyresearch.github.io/snorkel/blog/mtl_systems.html)
 
-## DFS
-If you're working on dfs, run the following command from `metal/mmtl` to ensure that 
-we're working in the same environment:
-`source activate_mmtl.sh`
-
- - Sets `METALHOME` directory as environment variable and adds to $PYTHONPATH.
- - Sets `GLUEDATA` directory as environment variable.
- - Activates shared virtual environment on DFS.
- - (To deactivate, type `deactivate`)
-
-## Virtual Environment
-To initialize a virtual environment from scratch: 
-`pip install -r requirements-mmtl.txt`
-
-Please update `requirements-mmtl.txt` if you add a package.
+## Tutorials
+For hands-on experience using the MMTL package, check out our tutorials:
+* The [MMTL_Basics](https://github.com/HazyResearch/metal/blob/mmtl_staging/tutorials/MMTL_Basics.ipynb) tutorial is the best place to start for an overview of the basic classes in the MMTL package.
+* Additional tutorials are planned for future minor version updates to Snorkel MeTaL.
