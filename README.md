@@ -4,7 +4,7 @@
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
-**_v0.4.1**
+**_v0.5.0-alpha**
 
 **ANNOUNCEMENT** (3/20): We are excited to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL. 
 Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
@@ -86,9 +86,8 @@ score = end_model.score(data=(X_test, Y_test), metric="accuracy")
 
 ## Release Notes
 ### Major changes in v0.5:
-* Introduction of Massive Multi-Task Learning (mmtl) package in `metal/mmtl`
-* Upgrade to pytorch v1.1
-* Adding logging improvements from v0.4
+* Introduction of Massive Multi-Task Learning (MMTL) package in `metal/mmtl/` with [tutorial](https://github.com/HazyResearch/metal/blob/mmtl_staging/tutorials/MMTL_Basics.ipynb).
+* Additional logging improvements from v0.4
 
 ### Major changes in v0.4:
 * Upgrade to pytorch v1.0
