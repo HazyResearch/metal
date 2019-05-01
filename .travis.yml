@@ -49,6 +49,7 @@ script:
   - runipy tutorials/Class_Balance.ipynb
   - runipy tutorials/Multitask.ipynb
   - runipy tutorials/Visualization.ipynb
+  - runipy tutorials/MMTL_Basics.ipynb
 
 notifications:
   email:
