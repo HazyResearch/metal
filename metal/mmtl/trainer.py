@@ -108,7 +108,7 @@ trainer_defaults = {
     # LogWriter/Tensorboard (see metal/logging/writer.py for descriptions)
     "writer": None,  # [None, "json", "tensorboard"]
     "writer_config": {  # Log (or event) file stored at log_dir/run_dir/run_name
-        "log_dir": f"{os.environ['METALHOME']}/logs",
+        "log_dir": "logs",
         "run_dir": None,
         "run_name": None,
         # May specify a subset of metrics in metrics_dict to be written.

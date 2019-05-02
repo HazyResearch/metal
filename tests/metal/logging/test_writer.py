@@ -26,7 +26,7 @@ class LogWriterTest(unittest.TestCase):
         Xs = [X[:1000], X[1000:1500], X[1500:]]
         Ys = [Y[:1000], Y[1000:1500], Y[1500:]]
         cls.single_problem = (Xs, Ys)
-        cls.log_dir = os.path.join(os.environ["METALHOME"], "tests/logs/")
+        cls.log_dir = "tests/logs/"
 
     @classmethod
     def tearDownClass(cls):
