@@ -36,7 +36,9 @@ def load_data_and_model(model_path, task_names, split, bert_model="bert-base-unc
     )
 
     #  Load and EVAL model
-    model_path = os.path.join(model_path, "best_model.pth")
+    if not model_path.endswith("best_model.pth"):
+        model_path = os.path.join(model_path, "best_model.pth")
+    print(f"Loading model from path: {model_path}")
     model = MetalModel(tasks, verbose=False, device=0)
     model.load_weights(model_path)
     model.eval()
@@ -85,9 +87,7 @@ def create_dataframe(
     for (x, y), uid in tqdm(zip(list(dl), all_uids)):
         if target_uids and uid not in target_uids:
             continue
-
-        tokens_idx = x[0][0]
-        tokens = tokenizer.convert_ids_to_tokens(tokens_idx.numpy())
+        tokens = tokenizer.convert_ids_to_tokens(x["data"].squeeze().numpy())
         phrases = (
             " ".join(tokens).replace("[PAD]", "").replace("[CLS]", "").split("[SEP]")
         )
@@ -100,8 +100,8 @@ def create_dataframe(
         scores = np.array(model.calculate_probs(x, [task_name])[task_name])[:, 0]
 
         # Score is the predicted probabilistic label, label is the ground truth
-        data["score"] += list(scores)
-        data["label"] += list(y[task_name].numpy())
+        data["score"].append(scores[0])
+        data["label"].append(y[task_name + "_gold"].item())
         data["uid"].append(uid)
         count += 1
         if max_batches and count > max_batches:
