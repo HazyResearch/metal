@@ -118,7 +118,8 @@ class Logger(object):
         for task, score_strings in score_strings_by_task.items():
             concatenated_scores = f"{', '.join(score_strings)}"
             string += f" {task}:[{concatenated_scores}]"
-        print(string)
+            string += "\n"  # Print each task on a new line
+        print(string[:-1])  # Don't include final newline
 
     def write_to_file(self, metrics_dict):
         for metric, value in metrics_dict.items():

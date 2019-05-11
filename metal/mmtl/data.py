@@ -10,15 +10,26 @@ class MmtlDataset(Dataset):
     """A pairing of data with one or more fields to one or more label sets
 
     Args:
-        X_dict: a dict of the form {field_name: values} where field_name is a string and
-            values is an [n]-length iterable.
-        Y_dict: a dict of the form {label_name: values} where label_name is a string and
-            values is an [n]-length iterable.
+        X: Instances. If X is a dict, it should be in the form {field_name: values}
+            where field_name is a string and values is an [n]-length iterable.
+            Otherwise, X will be thinly wrapped into a dict of the form {"data": X}
+        Y: Labels. If Y is a dict, it should be in the form {label_name: values}
+            where label_name is a string and values is an [n]-length iterable.
+            Otherwise, Y will be thinly wrapped into a dict of the form {"labels": Y}
     """
 
-    def __init__(self, X_dict, Y_dict):
-        self.X_dict = X_dict
-        self.Y_dict = Y_dict
+    def __init__(self, X, Y):
+        if not isinstance(X, dict):
+            X = {"data": X}
+        if not isinstance(Y, dict):
+            Y = {"labels": Y}
+
+        for labels in Y.values():
+            if not isinstance(labels, torch.Tensor):
+                raise Exception("All label sets must be of type torch.Tensor.")
+
+        self.X_dict = X
+        self.Y_dict = Y
 
     def __getitem__(self, index):
         x_dict = {key: field[index] for key, field in self.X_dict.items()}
