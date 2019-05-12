@@ -9,67 +9,57 @@ from metal.mmtl.glue.glue_preprocess import (
     load_tsv,
     tsv_path_for_dataset,
 )
+from metal.mmtl.glue.word_categories import (
+    comparatives,
+    negations,
+    possessive,
+    qwords,
+    temporal,
+    wh_words,
+)
 
+##### USER SETTINGS ###########
+source_dataset_name = "MRPC"
+slice_type = "wh"
+augmentation_type = "del"
+save = False
 MAX_LEN = 15
-temporal = ["before", "after", "past"]
-spatial = ["inside", "within", "with"]
-comparatives = [
-    "more",
-    "less",
-    "bigger",
-    "smaller",
-    "better",
-    "worse",
-    "shorter",
-    "taller",
-    "most",
-    "least",
-]
-negations = [
-    "no",
-    "not",
-    "none",
-    "nobody",
-    "nothing",
-    "neither",
-    "nowhere",
-    "never",
-    "hardly",
-    "scarcely",
-    "barely",
-    "doesn’t",
-    "isn’t",
-    "wasn’t",
-    "shouldn’t",
-    "wouldn’t",
-    "couldn’t",
-    "won’t",
-    "can’t",
-    "don’t",
-]
-qwords = [
-    "who",
-    "what",
-    "where",
-    "when",
-    "why",
-    "how",
-    "will",
-    "do",
-    "does",
-    "if",
-    "which",
-    "should",
-    "could",
-    "can",
-]
-wh_words = ["who", "what", "where", "when", "why", "which", "how"]
+max_datapoints = 8000
+split = "train"
+###############################
+
+if save:
+    max_datapoints = 6000
+else:
+    max_datapoints = 1000
+
+slice_mappings = {
+    "wh": wh_words,
+    "q": qwords,
+    "neg": negations,
+    "but": ["but"],
+    "temp": temporal,
+    "poss": possessive,
+    "comp": comparatives,
+}
+
+
+def select_sentences(text):
+    if slice_type == "questions":
+        return get_questions(text)
+    else:
+        return get_sentences_with(text, slice_mappings[slice_type])
+
+
+def augment_negative(example):
+    if augmentation_type == "del":
+        return remove_random_words(example)
+    elif augmentation_type == "swap":
+        return swap_random_words(example)
 
 
 def get_questions(text):
-    text = text.replace('"', "")
-    text = text.replace(".'", ".")
-    twopart = text.split(". |.\t|.\n")
+    twopart = preprocess_text(text)
     for part in twopart:
         part = fix_capitalization(part)
         words = part.split(" ")
@@ -80,9 +70,7 @@ def get_questions(text):
 
 
 def get_sentences_with(text, searchwords):
-    text = text.replace('"', "")
-    text = text.replace(".'", ".")
-    twopart = text.split(". |.\t|.\n")
+    twopart = preprocess_text(text)
     for part in twopart:
         part = fix_capitalization(part)
         words = part.split(" ")
@@ -95,10 +83,33 @@ def get_sentences_with(text, searchwords):
                     return part + "."
 
 
+def get_comparative_sentences(text):
+    twopart = preprocess_text(text)
+    for part in twopart:
+        part = fix_capitalization(part)
+        words = part.split(" ")
+        num_words = len(words)
+        if num_words > 1 and num_words < MAX_LEN:
+            for word in words:
+                if word in comparatives:
+                    return part
+                elif len(word) >= 3 and (word[-3:] in ["est", "ier"]):
+                    # many false positives!
+                    return part
+
+
+def preprocess_text(text):
+    text = text.replace('"', "")
+    text = text.replace(".'", ".")
+    twopart = text.split(". |.\t|.\n")
+    return twopart
+
+
 def fix_capitalization(sentence):
     sentence = sentence.strip()
     sentence = sentence[0].upper() + sentence[1:]
     sentence = sentence.replace(" i ", " I ")
+    sentence = sentence.replace(" i'", " I'")
     return sentence
 
 
@@ -107,12 +118,13 @@ def remove_random_words(example):
     words = example.split(" ")
     num_words = len(words)
     idx1 = random.randint(0, num_words - 1)
-    idx2 = random.randint(0, num_words - 2)
     del words[idx1]
-    del words[idx2]
-    if 0 in [idx1, idx2]:
+    if num_words > 3:
+        idx2 = random.randint(0, num_words - 2)
+        del words[idx2]
+    if (0 == idx1) or (num_words > 3 and 0 == idx2):
         words[0] = words[0].capitalize()
-    if ((num_words - 1) == idx1) or ((num_words - 2) == idx2):
+    if (num_words - 1 == idx1) or (num_words > 3 and (num_words - 2) == idx2):
         return " ".join(words) + "."
     else:
         return " ".join(words)
@@ -132,9 +144,21 @@ def swap_random_words(example):
     return " ".join(words)
 
 
+def save_to_cola(positive_examples, negative_examples):
+    dest_dataset_name = "CoLA"
+    dest_split = "_".join(
+        split, "from" + source_dataset_name, slice_type, augmentation_type
+    )
+    dest_filename = tsv_path_for_dataset(dest_dataset_name, dest_split)
+    with open(dest_filename, "w") as tsvfile:
+        writer = csv.writer(tsvfile, delimiter="\t", lineterminator="\n")
+        for example in positive_examples:
+            writer.writerow([source_dataset_name, 1, "?", example])
+        for example in negative_examples:
+            writer.writerow([source_dataset_name, 0, "?", example])
+
+
 def main():
-    save = False
-    source_dataset_name = "MNLI"
     split = "train"
     filename = tsv_path_for_dataset(source_dataset_name, split)
     config = get_task_tsv_config(source_dataset_name.upper(), split)
@@ -144,33 +168,23 @@ def main():
         config["sent2_idx"],
         config["label_idx"],
         True,
-        max_datapoints=5000,
+        max_datapoints=max_datapoints,
     )
     positive_examples = []
     negative_examples = []
     for i in range(len(labels)):
         for text in text_blocks[i]:
-            positive_example = get_sentences_with(text, negations)
+            positive_example = select_sentences(text)
             if positive_example is not None:
                 positive_examples.append(positive_example)
     for example in positive_examples:
-        negative_example = remove_random_words(example)
+        negative_example = augment_negative(example)
         if not save:
             print(example + " 1")
             print(negative_example + " 0")
         negative_examples.append(negative_example)
-
-    dest_dataset_name = "CoLA"
-    dest_split = split + "_" + dest_dataset_name + "from" + source_dataset_name
-    dest_filename = tsv_path_for_dataset(dest_dataset_name, dest_split)
-    config = get_task_tsv_config(dest_dataset_name.upper(), split)
     if save:
-        with open(dest_filename, "w") as tsvfile:
-            writer = csv.writer(tsvfile, delimiter="\t", lineterminator="\n")
-            for example in positive_examples:
-                writer.writerow([source_dataset_name, 1, "?", example])
-            for example in negative_examples:
-                writer.writerow([source_dataset_name, 0, "?", example])
+        save_to_cola(positive_examples, negative_examples)
 
 
 if __name__ == "__main__":
