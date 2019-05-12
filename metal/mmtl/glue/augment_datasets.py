@@ -1,3 +1,4 @@
+import argparse
 import csv
 import os
 import random
@@ -18,20 +19,8 @@ from metal.mmtl.glue.word_categories import (
     wh_words,
 )
 
-##### USER SETTINGS ###########
-source_dataset_name = "MRPC"
 slice_type = "wh"
-augmentation_type = "del"
-save = False
 MAX_LEN = 15
-max_datapoints = 8000
-split = "train"
-###############################
-
-if save:
-    max_datapoints = 6000
-else:
-    max_datapoints = 1000
 
 slice_mappings = {
     "wh": wh_words,
@@ -44,7 +33,7 @@ slice_mappings = {
 }
 
 
-def select_sentences(text):
+def select_sentences(text, slice_type):
     if slice_type == "questions":
         return get_questions(text)
     else:
@@ -52,9 +41,10 @@ def select_sentences(text):
 
 
 def augment_negative(example):
-    if augmentation_type == "del":
+    coin = random.randint(0, 1)
+    if coin == 0:
         return remove_random_words(example)
-    elif augmentation_type == "swap":
+    else:
         return swap_random_words(example)
 
 
@@ -144,47 +134,66 @@ def swap_random_words(example):
     return " ".join(words)
 
 
-def save_to_cola(positive_examples, negative_examples):
+def save_to_cola(positive_examples, negative_examples, args):
     dest_dataset_name = "CoLA"
-    dest_split = "_".join(
-        split, "from" + source_dataset_name, slice_type, augmentation_type
-    )
+    dest_split = "_".join([args.datasplit, "from" + args.sourcetask, args.slicetype])
     dest_filename = tsv_path_for_dataset(dest_dataset_name, dest_split)
     with open(dest_filename, "w") as tsvfile:
         writer = csv.writer(tsvfile, delimiter="\t", lineterminator="\n")
         for example in positive_examples:
-            writer.writerow([source_dataset_name, 1, "?", example])
+            writer.writerow([args.sourcetask, 1, "?", example])
         for example in negative_examples:
-            writer.writerow([source_dataset_name, 0, "?", example])
+            writer.writerow([args.sourcetask, 0, "?", example])
+
+
+def get_commandline_args():
+    parser = argparse.ArgumentParser(
+        description="Augment data from one task for use with another (default CoLA).",
+        add_help=False,
+    )
+    parser.add_argument(
+        "--slicetype",
+        type=str,
+        default="wh",
+        help="slice of data you want. Choose between: wh, q, neg, but, temp, poss, comp",
+    )
+    parser.add_argument("--datasplit", type=str, default="train", help="train/dev/test")
+    parser.add_argument("--sourcetask", type=str, default="MNLI", help="Source Task")
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="If flag is used, behavior is to save output, otherwise to print to stdout",
+    )
+    return parser.parse_args()
 
 
 def main():
-    split = "train"
-    filename = tsv_path_for_dataset(source_dataset_name, split)
-    config = get_task_tsv_config(source_dataset_name.upper(), split)
+    args = get_commandline_args()
+    filename = tsv_path_for_dataset(args.sourcetask, args.datasplit)
+    config = get_task_tsv_config(args.sourcetask.upper(), args.datasplit)
     text_blocks, labels = load_tsv(
         filename,
         config["sent1_idx"],
         config["sent2_idx"],
         config["label_idx"],
         True,
-        max_datapoints=max_datapoints,
+        max_datapoints=10000 if args.save else 1000,
     )
     positive_examples = []
     negative_examples = []
     for i in range(len(labels)):
         for text in text_blocks[i]:
-            positive_example = select_sentences(text)
+            positive_example = select_sentences(text, args.slicetype)
             if positive_example is not None:
                 positive_examples.append(positive_example)
     for example in positive_examples:
         negative_example = augment_negative(example)
-        if not save:
+        if not args.save:
             print(example + " 1")
             print(negative_example + " 0")
         negative_examples.append(negative_example)
-    if save:
-        save_to_cola(positive_examples, negative_examples)
+    if args.save:
+        save_to_cola(positive_examples, negative_examples, args)
 
 
 if __name__ == "__main__":
