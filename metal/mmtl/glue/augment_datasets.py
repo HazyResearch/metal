@@ -10,47 +10,109 @@ from metal.mmtl.glue.glue_preprocess import (
     tsv_path_for_dataset,
 )
 
+MAX_LEN = 15
+temporal = ["before", "after", "past"]
+spatial = ["inside", "within", "with"]
+comparatives = [
+    "more",
+    "less",
+    "bigger",
+    "smaller",
+    "better",
+    "worse",
+    "shorter",
+    "taller",
+    "most",
+    "least",
+]
+negations = [
+    "no",
+    "not",
+    "none",
+    "nobody",
+    "nothing",
+    "neither",
+    "nowhere",
+    "never",
+    "hardly",
+    "scarcely",
+    "barely",
+    "doesn’t",
+    "isn’t",
+    "wasn’t",
+    "shouldn’t",
+    "wouldn’t",
+    "couldn’t",
+    "won’t",
+    "can’t",
+    "don’t",
+]
+qwords = [
+    "who",
+    "what",
+    "where",
+    "when",
+    "why",
+    "how",
+    "will",
+    "do",
+    "does",
+    "if",
+    "which",
+    "should",
+    "could",
+    "can",
+]
+wh_words = ["who", "what", "where", "when", "why", "which", "how"]
+
 
 def get_questions(text):
-    qwords = [
-        "who",
-        "what",
-        "where",
-        "when",
-        "why",
-        "how",
-        "will",
-        "do",
-        "does",
-        "if",
-        "which",
-        "should",
-        "could",
-        "can",
-    ]
-    twopart = text.split("[. ]")
+    text = text.replace('"', "")
+    text = text.replace(".'", ".")
+    twopart = text.split(". |.\t|.\n")
     for part in twopart:
+        part = fix_capitalization(part)
         words = part.split(" ")
         num_words = len(words)
-        if part[-1] == "?" and words[0].lower() in qwords and num_words < 15:
-            return part
+        if num_words > 0 and num_words < MAX_LEN:
+            if part[-1] == "?" and words[0].lower() in qwords:
+                return part
 
 
-def get_sentences_with(text, searchword):
-    twopart = text.split('. |."')
+def get_sentences_with(text, searchwords):
+    text = text.replace('"', "")
+    text = text.replace(".'", ".")
+    twopart = text.split(". |.\t|.\n")
     for part in twopart:
+        part = fix_capitalization(part)
         words = part.split(" ")
         num_words = len(words)
-        if part[-1] == "." and searchword in words and num_words < 15:
-            return part
+        if num_words > 1 and num_words < MAX_LEN:
+            for searchword in searchwords:
+                if part[-1] == "." and searchword in words:
+                    return part
+                elif part[-1] != "?" and searchword in words:
+                    return part + "."
 
 
-def remove_random_word(example):
+def fix_capitalization(sentence):
+    sentence = sentence.strip()
+    sentence = sentence[0].upper() + sentence[1:]
+    sentence = sentence.replace(" i ", " I ")
+    return sentence
+
+
+def remove_random_words(example):
+    # TODO: detect adjectives and check against removing those
     words = example.split(" ")
     num_words = len(words)
-    idx = random.randint(0, num_words - 1)
-    del words[idx]
-    if idx == num_words - 1:
+    idx1 = random.randint(0, num_words - 1)
+    idx2 = random.randint(0, num_words - 2)
+    del words[idx1]
+    del words[idx2]
+    if 0 in [idx1, idx2]:
+        words[0] = words[0].capitalize()
+    if ((num_words - 1) == idx1) or ((num_words - 2) == idx2):
         return " ".join(words) + "."
     else:
         return " ".join(words)
@@ -88,11 +150,11 @@ def main():
     negative_examples = []
     for i in range(len(labels)):
         for text in text_blocks[i]:
-            positive_example = get_sentences_with(text, "but")
+            positive_example = get_sentences_with(text, negations)
             if positive_example is not None:
                 positive_examples.append(positive_example)
     for example in positive_examples:
-        negative_example = remove_random_word(example)
+        negative_example = remove_random_words(example)
         if not save:
             print(example + " 1")
             print(negative_example + " 0")
