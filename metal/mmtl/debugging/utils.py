@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 import pandas as pd
+import torch
 from pytorch_pretrained_bert import BertTokenizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -36,11 +37,11 @@ def load_data_and_model(model_path, task_names, split, bert_model="bert-base-unc
     )
 
     #  Load and EVAL model
-    if not model_path.endswith("best_model.pth"):
-        model_path = os.path.join(model_path, "best_model.pth")
+    if not model_path.endswith("model.pkl"):
+        model_path = os.path.join(model_path, "model.pkl")
     print(f"Loading model from path: {model_path}")
-    model = MetalModel(tasks, verbose=False, device=0)
-    model.load_weights(model_path)
+    model = torch.load(model_path)
+    # model.load_weights(model_path)
     model.eval()
 
     for payload in payloads:
