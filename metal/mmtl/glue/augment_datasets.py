@@ -143,15 +143,16 @@ def swap_random_words(example):
     return " ".join(words)
 
 
-def save_to_cola(positive_examples, negative_examples, args):
+def save_to_cola(all_examples, all_labels, args):
+    # shuffler = [i for i in range(len(all_labels))]
+    # random.shuffle(shuffler)
     dest_dataset_name = "CoLA"
     dest_split = "_".join([args.datasplit, "from" + args.sourcetask, args.slicetype])
     dest_filename = tsv_path_for_dataset(dest_dataset_name, dest_split)
     with open(dest_filename, "w") as tsvfile:
         writer = csv.writer(tsvfile, delimiter="\t", lineterminator="\n")
-        for i in range(min(len(positive_examples), len(negative_examples))):
-            writer.writerow([args.sourcetask, 1, "?", positive_examples[i]])
-            writer.writerow([args.sourcetask, 0, "?", negative_examples[i]])
+        for i in range(len(all_examples)):
+            writer.writerow([args.sourcetask, all_labels[i], "?", all_examples[i]])
 
 
 def get_commandline_args():
@@ -192,7 +193,7 @@ def main():
     args = get_commandline_args()
     filename = tsv_path_for_dataset(args.sourcetask, args.datasplit)
     config = get_task_tsv_config(fix[args.sourcetask], args.datasplit)
-    text_blocks, labels = load_tsv(
+    text_blocks, og_labels = load_tsv(
         filename,
         config["sent1_idx"],
         config["sent2_idx"],
@@ -200,31 +201,34 @@ def main():
         True,
         max_datapoints=10000 if args.save else 1000,
     )
-    positive_examples = []
-    negative_examples = []
-    for i in range(len(labels)):
+    examples = []
+    labels = []
+    for i in range(len(text_blocks)):
         for text in text_blocks[i]:
             prob_neg = random.randint(1, 5)
             if args.sourcetask == "CoLA":  # can't assume well-formed
-                if labels[i] == "1":
-                    positive_examples.append(text)
+                if og_labels[i] == "1":
+                    examples.append(text)
+                    labels.append(1)
                 else:
-                    negative_examples.append(text)
+                    examples.append(text)
+                    labels.append(0)
             else:  # assume well-formed until we augment if from another task
                 positive_example = select_sentences(text, args.slicetype)
                 if positive_example is not None:
-                    positive_examples.append(positive_example)
-                    if prob_neg < 6:  # TODO: match split of original dataset
+                    examples.append(positive_example)
+                    labels.append(1)
+                    if prob_neg < 4:  # match split of original dataset
                         negative_example = augment_negative(positive_example)
-                        negative_examples.append(negative_example)
-        if (len(positive_examples) + len(negative_examples)) > 5000:
+                        examples.append(negative_example)
+                        labels.append(0)
+        if len(examples) > 30000:
             break
     if args.save:
-        save_to_cola(positive_examples, negative_examples, args)
+        save_to_cola(examples, labels, args)
     else:
-        for i in range(min(len(positive_examples), len(negative_examples))):
-            print("{} 1".format(positive_examples[i]))
-            print("{} 0".format(negative_examples[i]))
+        for i in range(len(examples)):
+            print("{} {}".format(examples[i], labels[i]))
 
 
 if __name__ == "__main__":
