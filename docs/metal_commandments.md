@@ -63,9 +63,9 @@ Each model (LabelModel and EndModel) has its own config dict with default values
 
 All models in MeTaL (both LabelModels and EndModels) are descended from the Classifier class, which implements a number of important in-common methods, including all evaluation methods. There are few things quite so pernicious as evaluation bugs; do yourself a favor and use the corrected provided method rather than rounding probabilistic predictions or calculating metrics on your own! We follow the convention of scikit-learn classifiers (for familiarity as well as  cross-compatibility for analysis tools):
 
-predict_proba() - returns probs (probabilistic predictions)
-predict() - returns preds (integer predictions)
-score() - calculates and scores predictions
+predict_proba() - returns probs (probabilistic predictions)  
+predict() - returns preds (integer predictions)  
+score() - calculates and scores predictions  
 
 Most of the magic happens in predict_proba(). The predict() method calls predict_proba() and then intelligently rounds them to integer predictions. The score() method calls predict and then evaluates the desired metrics (and reduces across tasks in the multi-task setting). Children classes should never overwrite predict() or score().
 
@@ -99,54 +99,54 @@ MeTaL comes with a ModelTuner that converts a user-provided search space into se
 ---
 ## MeTaL Types and Terminology
 
-Basic terms:
-items: the individual candidates/examples/elements being classified
-preds: standard (integer) labels
-probs: probabilistic (float) labels
-arraylike: a list, tuple, 1D np.ndarray, or 1D torch.Tensor
+Basic terms:  
+items: the individual candidates/examples/elements being classified  
+preds: standard (integer) labels  
+probs: probabilistic (float) labels  
+arraylike: a list, tuple, 1D np.ndarray, or 1D torch.Tensor  
 
 In general, we recommend self-explanatory variable names. There are, however, a number of unique or frequently used constants for a each problem that we give shortened names and use consistently in the code as described below. All terms with a ‘_t’ suffix only apply to the multi-task setting. As is common, lowercase variables refer to scalars and uppercase refer to tensors.
 
-n: (int) the total number of candidates
-n: (int) the number of candidates in some local context (e.g., a mini-batch)
+n: (int) the total number of candidates  
+n: (int) the number of candidates in some local context (e.g., a mini-batch)  
 
-m: (int) the total number of labeling sources
-m: (int) the number of labeling sources in some local context (e.g., a mini-batch)
+m: (int) the total number of labeling sources  
+m: (int) the number of labeling sources in some local context (e.g., a mini-batch)  
 
-t: (int) the number of a tasks
+t: (int) the number of a tasks  
 
-k: (int) the cardinality of the single task
-K: (list) the cardinalities of the T tasks
-k_t: (int) the cardinality of task t (e.g., for k_t in K_t: …)
+k: (int) the cardinality of the single task  
+K: (list) the cardinalities of the T tasks  
+k_t: (int) the cardinality of task t (e.g., for k_t in K_t: …)  
 
-L: (scipy.sparse) an [n, m] label matrix
-L_t: (scipy.sparse) an [n, m] label matrix for task t
+L: (scipy.sparse) an [n, m] label matrix  
+L_t: (scipy.sparse) an [n, m] label matrix for task t  
 
 These are the matrices of labels applied by labeling sources to items. MeTaL never handles the user’s labeling sources.
 
-Y: an n-length arraylike of target labels (Y \in [1,k]^n)
-Y_t: an n-length arraylike of target labels for task t
-Y_p: predicted labels (as opposed to target labels)
-Y_s: an [n, k] np.ndarray of prob labels, one per class
+Y: an n-length arraylike of target labels (Y \in [1,k]^n)  
+Y_t: an n-length arraylike of target labels for task t  
+Y_p: predicted labels (as opposed to target labels)  
+Y_s: an [n, k] np.ndarray of prob labels, one per class  
 
 These subscripts may be combined as necessary, and should be combined in this order. 
 (e.g., Y_tps is prob labels for task t)
 
-X: an n-length iterable of inputs to the EndModel (inputs are often features) 
-OR a t-length list of such n-length iterables (if each task requires a different input type)
-x: an element of X (e.g., for x in X: …)
+X: an n-length iterable of inputs to the EndModel (inputs are often features)  
+OR a t-length list of such n-length iterables (if each task requires a different input type)  
+x: an element of X (e.g., for x in X: …)  
 
 A few common featurizers are provided in contrib for convenience, but featurization happens before using MeTaL. Rather than requiring all features to be of a certain type or shape, we only require that if the features are not torch.Tensors, the user provides an input module (inheriting from our base input module) that accepts their feature type as input and outputs a torch.Tensor to the rest of the network.
 
-D: an n-length iterable of items
-	d: an element of d (e.g., for d in D: …)
+D: an n-length iterable of items  
+	d: an element of d (e.g., for d in D: …)  
 
 D differs from X in that it may be a more user-friendly representation of your data. For example, in a text task, an x may be the list of encoded indices of the tokens in a sentence, whereas d may be the unencoded sentence as a single string for convenient viewing and debugging. Note that we will never do anything with the elements of D other than print them or run user-defined functions on them.
 
 Notes:
-The LabelModel requires only Ls and Ys.
-The EndModel requires only Xs and Ys.
-The analysis tools may use Xs, Ys, Ls, or Ds.
+- The LabelModel requires only Ls and Ys.
+- The EndModel requires only Xs and Ys.
+- The analysis tools may use Xs, Ys, Ls, or Ds.
 
 ---
 ## MeTaL Style
