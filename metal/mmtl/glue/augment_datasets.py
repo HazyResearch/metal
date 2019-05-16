@@ -3,7 +3,9 @@ import csv
 import os
 import random
 
+import nltk
 import pandas as pd
+from nltk.corpus import wordnet as wn
 
 from metal.mmtl.glue.glue_preprocess import (
     get_task_tsv_config,
@@ -11,6 +13,7 @@ from metal.mmtl.glue.glue_preprocess import (
     tsv_path_for_dataset,
 )
 from metal.mmtl.glue.word_categories import (
+    common,
     comparatives,
     negations,
     possessive,
@@ -18,6 +21,9 @@ from metal.mmtl.glue.word_categories import (
     temporal,
     wh_words,
 )
+
+nltk.download("wordnet")
+
 
 slice_type = "wh"
 MAX_LEN = 15
@@ -44,6 +50,25 @@ def select_sentences(text, slice_type):
             return None
     else:
         return get_sentences_with(text, slice_mappings[slice_type])
+
+
+def replace_synonyms(example):
+    words = example.split(" ")
+    num_words = len(words)
+    idx1 = random.randint(0, num_words - 1)
+    synonyms = []
+    max_tries = 5
+    while (words[idx1] in common or len(synonyms) < 2) and (max_tries > 0):
+        idx1 = random.randint(0, num_words - 1)
+        synonyms = []
+        for syn in wn.synsets(words[idx1]):
+            for l in syn.lemmas():
+                synonyms.append(l.name())
+        max_tries -= 1
+    print(example)
+    print(words[idx1])
+    print(set(synonyms))
+    print()
 
 
 def augment_negative(example):
@@ -168,6 +193,7 @@ def get_commandline_args():
     )
     parser.add_argument("--datasplit", type=str, default="train", help="train/dev/test")
     parser.add_argument("--sourcetask", type=str, default="MNLI", help="Source Task")
+    parser.add_argument("--desttask", type=str, default="MNLI", help="Source Task")
     parser.add_argument(
         "--save",
         action="store_true",
@@ -206,10 +232,11 @@ def main():
     for i in range(len(text_blocks)):
         for text in text_blocks[i]:
             prob_neg = random.randint(1, 5)
-            if args.sourcetask == "CoLA":  # can't assume well-formed
+            if args.sourcetask == args.desttask:  # can't assume well-formed
                 if og_labels[i] == "1":
                     examples.append(text)
                     labels.append(1)
+                    replace_synonyms(text)
                 else:
                     examples.append(text)
                     labels.append(0)
