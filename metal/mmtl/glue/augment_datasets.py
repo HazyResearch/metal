@@ -12,6 +12,7 @@ from metal.mmtl.glue.glue_preprocess import (
     load_tsv,
     tsv_path_for_dataset,
 )
+from metal.mmtl.glue.interchangeables import all_interchangeables
 from metal.mmtl.glue.word_categories import (
     common,
     comparatives,
@@ -22,8 +23,10 @@ from metal.mmtl.glue.word_categories import (
     wh_words,
 )
 
-nltk.download("wordnet")
-
+synonyms = {}
+for key, values in all_interchangeables.items():
+    for value in values:
+        synonyms[value.lower()] = values
 
 slice_type = "wh"
 MAX_LEN = 15
@@ -52,23 +55,44 @@ def select_sentences(text, slice_type):
         return get_sentences_with(text, slice_mappings[slice_type])
 
 
-def replace_synonyms(example):
-    words = example.split(" ")
+def replace_all(text, og_word, new_word):
+
+    for p in [".", ",", ":", "-", "!", "?", " ", "s "]:
+        text = text.replace(" " + og_word.lower() + p, " " + new_word.lower() + p)
+        text = text.replace(
+            " " + og_word.capitalize() + p, " " + new_word.capitalize() + p
+        )
+    return text
+
+
+def replace_synonyms(example, task):
+    premise, hypothesis = example
+    words = premise.split(" ") + hypothesis.split(" ")
     num_words = len(words)
-    idx1 = random.randint(0, num_words - 1)
-    synonyms = []
-    max_tries = 5
-    while (words[idx1] in common or len(synonyms) < 2) and (max_tries > 0):
-        idx1 = random.randint(0, num_words - 1)
-        synonyms = []
-        for syn in wn.synsets(words[idx1]):
-            for l in syn.lemmas():
-                synonyms.append(l.name())
-        max_tries -= 1
-    print(example)
-    print(words[idx1])
-    print(set(synonyms))
-    print()
+    for i in range(num_words):
+        og_word = words[i].lower()
+        if og_word == "":
+            continue
+        if og_word[-1] in [".", "!", "?"]:
+            og_word = og_word[:-1]
+        if og_word == "":
+            continue
+
+        if og_word.lower() in synonyms:
+            og_word = og_word.lower()
+        elif (
+            og_word[-1] == "s" and len(og_word) > 3 and og_word.lower()[:-1] in synonyms
+        ):
+            og_word = og_word.lower()[:-1]
+        else:
+            continue
+        options = synonyms[og_word]
+        num_synonyms = len(options)
+        substitute_idx = random.randint(0, num_synonyms - 1)
+        new_word = options[substitute_idx].lower()
+        premise = replace_all(premise, og_word, new_word)
+        hypothesis = replace_all(hypothesis, og_word, new_word)
+    return [premise, hypothesis]
 
 
 def augment_negative(example):
@@ -230,25 +254,25 @@ def main():
     examples = []
     labels = []
     for i in range(len(text_blocks)):
-        for text in text_blocks[i]:
+        text = text_blocks[i]
+        if args.sourcetask == args.desttask:  # can't assume well-formed
+            augmented = replace_synonyms(text, args.desttask)
+            examples.append(text)
+            labels.append(og_labels[i])
+            examples.append(augmented)
+            labels.append(og_labels[i])
+        elif (
+            args.desttask.upper() == "COLA"
+        ):  # assume well-formed until we augment if from another task
             prob_neg = random.randint(1, 5)
-            if args.sourcetask == args.desttask:  # can't assume well-formed
-                if og_labels[i] == "1":
-                    examples.append(text)
-                    labels.append(1)
-                    replace_synonyms(text)
-                else:
-                    examples.append(text)
+            positive_example = select_sentences(text[0], args.slicetype)
+            if positive_example is not None:
+                examples.append(positive_example)
+                labels.append(1)
+                if prob_neg < 4:  # match split of original dataset
+                    negative_example = augment_negative(positive_example)
+                    examples.append(negative_example)
                     labels.append(0)
-            else:  # assume well-formed until we augment if from another task
-                positive_example = select_sentences(text, args.slicetype)
-                if positive_example is not None:
-                    examples.append(positive_example)
-                    labels.append(1)
-                    if prob_neg < 4:  # match split of original dataset
-                        negative_example = augment_negative(positive_example)
-                        examples.append(negative_example)
-                        labels.append(0)
         if len(examples) > 30000:
             break
     if args.save:
