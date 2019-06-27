@@ -6,7 +6,9 @@
 
 **v0.5.0**
 
-**ANNOUNCEMENT** (3/20): We are excited to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL. 
+**MIGRATION NOTICE**: We are excited to announce that the Snorkel MeTaL codebase is being merged back into the main [Snorkel repository](https://github.com/HazyResearch/snorkel) as part of a major overhaul and aggregation of multiple projects in the Snorkel ecosystem. That release is expected to land at the end of July. We'll post again here when v0.9 goes live!
+
+**News** (3/20): We are excited to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL. 
 Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
 The code we used to accomplish this was part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
 That [mmtl package](https://github.com/HazyResearch/metal/blob/master/metal/mmtl) has been released as a part of Snorkel MeTaL v0.5, along with a basic [tutorial](https://github.com/HazyResearch/metal/blob/master/tutorials/MMTL_Basics.ipynb). 
