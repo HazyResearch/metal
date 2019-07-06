@@ -26,7 +26,13 @@ class LogWriter(object):
     """
 
     def __init__(
-        self, log_dir=None, run_dir=None, run_name=None, writer_metrics=[], verbose=True
+        self,
+        log_dir=None,
+        run_dir=None,
+        run_name=None,
+        writer_metrics=[],
+        verbose=True,
+        **kwargs,
     ):
         start_date = strftime("%Y_%m_%d")
         start_time = strftime("%H_%M_%S")
