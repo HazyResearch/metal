@@ -6,20 +6,36 @@
 
 **v0.5.0**
 
-**MIGRATION NOTICE**: We are excited to announce that the Snorkel MeTaL codebase is being merged back into the main [Snorkel repository](https://github.com/HazyResearch/snorkel) as part of a major overhaul and aggregation of multiple projects in the Snorkel ecosystem. That release is expected to land at the end of July. We'll post again here when v0.9 goes live!
+## ANNOUNCEMENT
+**Snorkel MeTaL is being merged into [Snorkel](https://github.com/HazyResearch/snorkel) v0.9 this summer!**
 
-**News** (3/20): We are excited to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL. 
-Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
-The code we used to accomplish this was part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
-That [mmtl package](https://github.com/HazyResearch/metal/blob/master/metal/mmtl) has been released as a part of Snorkel MeTaL v0.5, along with a basic [tutorial](https://github.com/HazyResearch/metal/blob/master/tutorials/MMTL_Basics.ipynb). 
-Additional tutorials showing more advanced usage (e.g., using a pre-trained BERT network as a shared input module, using multiple label sets, supervising at the token and sentence level simultaneously, etc.) will be released in future minor version updates, though such functionality is already supported.
+The core Snorkel repo is currently undergoing a major redesign that includes bringing under one roof a number of projects in the Snorkel ecosystem that have previously been posted in separate repositories—[Snorkel](https://github.com/HazyResearch/snorkel), [Snorkel MeTaL](https://github.com/HazyResearch/metal), [TANDA](https://github.com/HazyResearch/tanda), etc. This new version will include:
+* Support for new training data operators: labeling functions (LFs), transformation functions (TFs), and slicing functions (SFs)
+* The matrix-completion-based approach for learning LF accuracies and correlation structure first introduced as part of Snorkel MeTaL
+* Native support for multi-task learning (MTL), transfer learning (TL), and complex model flows (an improved version of the `mmtl` package in MeTaL)
+* A Snorkel 101 guide that provides a gentle introduction to the technology and API for first-time users
+* A fresh batch of tutorials demonstrating different use cases and integrations
+* A more modular form factor that makes it easier to integrate with other libraries
+* A commitment to stability, with full coverage unit tests, type checking, and doc strings
 
-Stay tuned on other developments in the Snorkel ecosystem at our project landing page: [snorkel.stanford.edu](http://snorkel.stanford.edu).
+The new version will be available via `pip` and `conda`. The current Snorkel MeTaL repository will remain available, but most development effort will be focused on the primary Snorkel repository, which should also support any workflows currently supported by Snorkel MeTaL.
+
+If you'd like to stay in the loop on the latest news in the Snorkel ecosystem, join the [Snorkel Google Group](https://groups.google.com/forum/#!forum/snorkel-ml). We'll let you know when the new version is released!
 
 ## Getting Started
 * Quickly [set up](#setup) your environment
 * Try out the [tutorials](tutorials/)
 * View the [developer guide](#developer-guidelines)
+
+## News
+**3/20**
+We are excited to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL.
+Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
+The code we used to accomplish this was part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
+That [mmtl package](https://github.com/HazyResearch/metal/blob/master/metal/mmtl) has been released as a part of Snorkel MeTaL v0.5, along with a basic [tutorial](https://github.com/HazyResearch/metal/blob/master/tutorials/MMTL_Basics.ipynb).
+Additional tutorials showing more advanced usage (e.g., using a pre-trained BERT network as a shared input module, using multiple label sets, supervising at the token and sentence level simultaneously, etc.) will be released in future minor version updates, though such functionality is already supported.
+
+Stay tuned on other developments in the Snorkel ecosystem at our project landing page: [snorkel.stanford.edu](http://snorkel.stanford.edu).
 
 ## Motivation
 This project builds on [Snorkel](snorkel.stanford.edu) in an attempt to understand how _massively multi-task supervision and learning_ changes the way people program.
@@ -54,7 +70,7 @@ If you are looking for help regarding how to use a particular class or method, t
 *  The Issues page (We tag issues that might be particularly helpful with the "[reference question](https://github.com/HazyResearch/metal/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22reference+question%22)" label)
 
 ## Sample Usage
-This sample is for a single-task problem. 
+This sample is for a single-task problem.
 For a multi-task example, see tutorials/Multitask.ipynb.
 
 ```
@@ -63,7 +79,7 @@ n = # data points
 m = # labeling functions
 k = cardinality of the classification task
 
-Load for each split: 
+Load for each split:
 L: an [n,m] scipy.sparse label matrix of noisy labels
 Y: an n-dim numpy.ndarray of target labels
 X: an n-dim iterable (e.g., a list) of end model inputs
@@ -101,7 +117,7 @@ score = end_model.score(data=(X_test, Y_test), metric="accuracy")
 
 
 ## Setup
-[1] Install anaconda:  
+[1] Install anaconda:
 Instructions here: https://www.anaconda.com/download/
 
 [2] Clone the repository:
@@ -120,7 +136,7 @@ source activate metal
 ```
 nosetests
 ```
-If the tests run successfully, you should see 50+ dots followed by "OK".  
+If the tests run successfully, you should see 50+ dots followed by "OK".
 Check out the [tutorials](tutorials/) to get familiar with the Snorkel MeTaL codebase!
 
 Or, to use Snorkel Metal in another project, install it with pip:
