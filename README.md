@@ -6,6 +6,9 @@
 
 **v0.5.0**
 
+Snorkel MeTaL is the multi-task learning (MTL) extension of [Snorkel](http://snorkel.org) prior to Snorkel v0.9, at which point the projects were merged.
+
+
 ## Contents
 - [Snorkel MeTaL](#snorkel-metal)
   - [Contents](#contents)
