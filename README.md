@@ -1,44 +1,43 @@
-# Snorkel MeTaL
+### This repository is in maintenance mode as of 15 Aug. 2019. See [Project Status](#project-status) for details.
 
-<img src="assets/logo_01.png" width="150"/>
+# Snorkel MeTaL
 
 [![Build Status](https://travis-ci.com/HazyResearch/metal.svg?branch=master)](https://travis-ci.com/HazyResearch/metal)
 
 **v0.5.0**
 
-## ANNOUNCEMENT
-**Snorkel MeTaL is being merged into [Snorkel](https://github.com/HazyResearch/snorkel) v0.9 this summer!**
+## Contents
+- [Snorkel MeTaL](#snorkel-metal)
+  - [Contents](#contents)
+  - [Project Status](#project-status)
+  - [Motivation](#motivation)
+  - [Installation](#installation)
+  - [References](#references)
+    - [Blog Posts](#blog-posts)
+    - [Q&A](#qa)
+    - [Sample Usage](#sample-usage)
+  - [Release Notes](#release-notes)
+    - [Major changes in v0.5:](#major-changes-in-v05)
+    - [Major changes in v0.4:](#major-changes-in-v04)
+  - [Developer Guidelines](#developer-guidelines)
+    - [GPU Usage](#gpu-usage)
 
-The core Snorkel repo is currently undergoing a major redesign that includes bringing under one roof a number of projects in the Snorkel ecosystem that have previously been posted in separate repositories—[Snorkel](https://github.com/HazyResearch/snorkel), [Snorkel MeTaL](https://github.com/HazyResearch/metal), [TANDA](https://github.com/HazyResearch/tanda), etc. This new version will include:
-* Support for new training data operators: labeling functions (LFs), transformation functions (TFs), and slicing functions (SFs)
-* The matrix-completion-based approach for learning LF accuracies and correlation structure first introduced as part of Snorkel MeTaL
-* Native support for multi-task learning (MTL), transfer learning (TL), and complex model flows (an improved version of the `mmtl` package in MeTaL)
-* A Snorkel 101 guide that provides a gentle introduction to the technology and API for first-time users
-* A fresh batch of tutorials demonstrating different use cases and integrations
-* A more modular form factor that makes it easier to integrate with other libraries
-* A commitment to stability, with full coverage unit tests, type checking, and doc strings
+## Project Status
+The [Snorkel project](http://snorkel.org) is more active than ever!
+With the release of Snorkel v0.9 in Aug. 2019, we added support for new training data operators (transformation functions and slicing functions, in addition to labeling functions), ported the label model algorithm first introduced in Snorkel MeTaL, added a Snorkel webpage with additional resources and fresh batch of tutorials, simplified installation options, etc.
 
-The new version will be available via `pip` and `conda`. The current Snorkel MeTaL repository will remain available, but most development effort will be focused on the primary Snorkel repository, which should also support any workflows currently supported by Snorkel MeTaL.
+As part of that major release, we integrated the best parts of Snorkel MeTaL back into the main [Snorkel repository](https://github.com/snorkel-team/snorkel) (including flexible MTL modeling), and improved upon many of them.
+For those starting new projects in Snorkel, **we strongly recommend building on top of the main Snorkel repository.**
 
-If you'd like to stay in the loop on the latest news in the Snorkel ecosystem, join the [Snorkel Google Group](https://groups.google.com/forum/#!forum/snorkel-ml). We'll let you know when the new version is released!
+At the same time, we recognize that many users built successful applications and extensions on Snorkel MeTaL.
+For that reason, we will continue to make that code available in this repository. 
+However, this repository is officially in maintenance mode as of 15 Aug. 2019.
+We intend to keep the repository functioning with its current feature set to support existing applications built on it but will not be adding any new features or functionality.
 
-## Getting Started
-* Quickly [set up](#setup) your environment
-* Try out the [tutorials](tutorials/)
-* View the [developer guide](#developer-guidelines)
-
-## News
-**3/20**
-We are excited to have achieved a new state-of-the-art score on the [GLUE Benchmark](https://gluebenchmark.com/leaderboard) and four of its component tasks using Snorkel MeTaL.
-Check out the corresponding [blog post](https://dawn.cs.stanford.edu/2019/03/22/glue/) for an overview of how we did it.
-The code we used to accomplish this was part of a significant restructuring of multi-task end models in Snorkel MeTaL to make it as easy as possible to perform Massive Multi-Task Learning (MMTL) with supervision at varying levels of granularity and over an arbitrarily large number of tasks.
-That [mmtl package](https://github.com/HazyResearch/metal/blob/master/metal/mmtl) has been released as a part of Snorkel MeTaL v0.5, along with a basic [tutorial](https://github.com/HazyResearch/metal/blob/master/tutorials/MMTL_Basics.ipynb).
-Additional tutorials showing more advanced usage (e.g., using a pre-trained BERT network as a shared input module, using multiple label sets, supervising at the token and sentence level simultaneously, etc.) will be released in future minor version updates, though such functionality is already supported.
-
-Stay tuned on other developments in the Snorkel ecosystem at our project landing page: [snorkel.stanford.edu](http://snorkel.stanford.edu).
+If you would like to stay informed of progress in the Snorkel open source project, join the [Snorkel email list](https://groups.google.com/forum/#!forum/snorkel-ml) for relatively rare announcements (e.g., major releases, new tutorials, etc.) or the [Snorkel community forum](https://spectrum.chat/snorkel?tab=posts) on Spectrum for more regular discussion.
 
 ## Motivation
-This project builds on [Snorkel](snorkel.stanford.edu) in an attempt to understand how _massively multi-task supervision and learning_ changes the way people program.
+This project builds on [Snorkel](http://snorkel.org) in an attempt to understand how _massively multi-task supervision and learning_ changes the way people program.
 _Multitask learning (MTL)_ is an established technique that effectively pools samples by sharing representations across related _tasks_, leading to better performance with less training data (for a great primer of recent advances, see [this survey](https://arxiv.org/abs/1706.05098)).
 However, most existing multi-task systems rely on two or three fixed, hand-labeled training sets.
 Instead, weak supervision opens the floodgates, allowing users to add arbitrarily many _weakly-supervised_ tasks.
@@ -46,10 +45,38 @@ We call this setting _massively multitask learning_, and envision models with te
 Our goal with the Snorkel MeTaL project is to understand this new regime, and the programming model it entails.
 
 More concretely, Snorkel MeTaL is a framework for using multi-task weak supervision (MTS), provided by users in the form of _labeling functions_ applied over unlabeled data, to train multi-task models.
-Snorkel MeTaL can use the output of labeling functions developed and executed in [Snorkel](snorkel.stanford.edu), or take in arbitrary _label matrices_ representing weak supervision from multiple sources of unknown quality, and then use this to train auto-compiled MTL networks.
+Snorkel MeTaL can use the output of labeling functions developed and executed in [Snorkel](http://snorkel.org), or take in arbitrary _label matrices_ representing weak supervision from multiple sources of unknown quality, and then use this to train auto-compiled MTL networks.
 
 Snorkel MeTaL uses a new matrix approximation approach to learn the accuracies of diverse sources with unknown accuracies, arbitrary dependency structures, and structured multi-task outputs.
 This makes it significantly more scalable than our previous approaches.
+
+## Installation
+[1] Install anaconda:
+Instructions here: https://www.anaconda.com/download/
+
+[2] Clone the repository:
+```
+git clone https://github.com/HazyResearch/metal.git
+cd metal
+```
+
+[3] Create virtual environment:
+```
+conda env create -f environment.yml
+source activate metal
+```
+
+[4] Run unit tests:
+```
+nosetests
+```
+If the tests run successfully, you should see 50+ dots followed by "OK".
+Check out the [tutorials](tutorials/) to get familiar with the Snorkel MeTaL codebase!
+
+Or, to use Snorkel Metal in another project, install it with pip:
+```
+pip install snorkel-metal
+```
 
 ## References
 * **Best Reference: [Training Complex Models with Multi-Task Weak Supervision](https://arxiv.org/abs/1810.02840) [AAAI 2019]**
@@ -57,11 +84,11 @@ This makes it significantly more scalable than our previous approaches.
 * _[Snorkel: Rapid Training Data Creation with Weak Supervision](https://arxiv.org/abs/1711.10160) [VLDB 2018]_
 * _[Data Programming: Creating Large Training Sets, Quickly](https://arxiv.org/abs/1605.07723) [NeurIPS 2016]_
 
-## Blog Posts
+### Blog Posts
 * [3/22/2019] [Massive Multi-Task Learning with Snorkel MeTaL: Bringing More Supervision to Bear](https://dawn.cs.stanford.edu/2019/03/22/glue/)
 * [2/4/2019] [Emerging Topics in Multi-Task Learning Systems](https://hazyresearch.github.io/snorkel/blog/mtl_systems.html)
 
-## Q&A
+### Q&A
 If you are looking for help regarding how to use a particular class or method, the best references are (in order):
 
 *  The docstrings for that class
@@ -69,7 +96,7 @@ If you are looking for help regarding how to use a particular class or method, t
 *  The corresponding unit tests in `tests/`
 *  The Issues page (We tag issues that might be particularly helpful with the "[reference question](https://github.com/HazyResearch/metal/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22reference+question%22)" label)
 
-## Sample Usage
+### Sample Usage
 This sample is for a single-task problem.
 For a multi-task example, see tutorials/Multitask.ipynb.
 
@@ -115,34 +142,6 @@ score = end_model.score(data=(X_test, Y_test), metric="accuracy")
     * Logging frequency can now be based on seconds, examples, batches, or epochs
 * Naming convention change: hard (int) labels -> preds, soft (float) labels -> probs
 
-
-## Setup
-[1] Install anaconda:
-Instructions here: https://www.anaconda.com/download/
-
-[2] Clone the repository:
-```
-git clone https://github.com/HazyResearch/metal.git
-cd metal
-```
-
-[3] Create virtual environment:
-```
-conda env create -f environment.yml
-source activate metal
-```
-
-[4] Run unit tests:
-```
-nosetests
-```
-If the tests run successfully, you should see 50+ dots followed by "OK".
-Check out the [tutorials](tutorials/) to get familiar with the Snorkel MeTaL codebase!
-
-Or, to use Snorkel Metal in another project, install it with pip:
-```
-pip install snorkel-metal
-```
 
 ## Developer Guidelines
 First, read the [MeTaL Commandments](https://github.com/HazyResearch/metal/blob/master/docs/metal_commandments.md), which describe the major design principles, terminology, and style guidelines for Snorkel MeTaL.
