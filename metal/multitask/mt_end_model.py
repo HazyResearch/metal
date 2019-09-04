@@ -98,7 +98,6 @@ class MTEndModel(MTClassifier, EndModel):
 
     def _build_input_layer(self, input_modules):
         if input_modules is None:
-            output_dim = self.config["layer_out_dims"][0]
             input_modules = IdentityModule()
 
         if isinstance(input_modules, list):
@@ -107,6 +106,7 @@ class MTEndModel(MTClassifier, EndModel):
                 for mod in input_modules
             ]
         else:
+            output_dim = self.config["layer_out_dims"][0]
             input_layer = self._make_layer(
                 input_modules,
                 "input",
